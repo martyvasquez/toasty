@@ -51,6 +51,8 @@ final class WorkspaceMenu: NSObject, NSMenuDelegate {
 
         _ = add("New Workspace for Folder…", #selector(newWorkspace), "n")
         _ = add("New Claude Tab", #selector(newClaudeTab), "t", [.command, .shift])
+        _ = add("New Terminal", #selector(newTerminal), "")
+        _ = add("Show / Focus Terminal", #selector(toggleClaudeTerminal), "t")
         _ = add("Set Project Folder…", #selector(setFolder), "")
         _ = add("Rename Workspace…", #selector(renameWorkspace), "r")
         _ = add("Close Workspace", #selector(closeWorkspace), "")
@@ -85,7 +87,15 @@ final class WorkspaceMenu: NSObject, NSMenuDelegate {
 
     @objc private func jumpToLatest() { WorkspaceNotifier.shared.jumpToLatestUnread() }
     @objc private func newWorkspace() { WorkspaceManager.shared.createWithFolderPicker() }
-    @objc private func newClaudeTab() { WorkspaceManager.shared.newClaudeTab() }
+    @objc private func newClaudeTab() { WorkspaceManager.shared.newNativeClaudeTab() }
+    @objc private func newTerminal() {
+        guard let w = WorkspaceManager.shared.activeWorkspace else { NSSound.beep(); return }
+        w.newTerminal()
+    }
+    @objc private func toggleClaudeTerminal() {
+        guard let w = WorkspaceManager.shared.activeWorkspace else { NSSound.beep(); return }
+        w.toggleTerminal()
+    }
     @objc private func setFolder() {
         let manager = WorkspaceManager.shared
         guard let active = manager.items.first(where: \.isActive) else { return }

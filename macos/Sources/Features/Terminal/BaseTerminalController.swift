@@ -900,8 +900,18 @@ class BaseTerminalController: NSWindowController,
         }
     }
 
+    /// mostty: replaces the focused surface's title (workspace windows).
+    var mosttyTitleOverride: String? { nil }
+
+    /// mostty: whether closing this window needs confirmation (running
+    /// processes, or Claude working in a workspace window).
+    var mosttyNeedsConfirm: Bool { surfaceTree.contains(where: { $0.needsConfirmQuit }) }
+
+    /// mostty: what Claude may be running in, for close/quit warnings.
+    var mosttyAgentSources: [AnyObject] { Array(surfaceTree) }
+
     private func computeTitle(title: String, bell: Bool) -> String {
-        var result = title
+        var result = mosttyTitleOverride ?? title
         if bell && ghostty.config.bellFeatures.contains(.title) {
             result = "🔔 \(result)"
         }
@@ -1223,7 +1233,7 @@ class BaseTerminalController: NSWindowController,
         guard alert == nil else { return false }
 
         // If our surfaces don't require confirmation, close.
-        if !surfaceTree.contains(where: { $0.needsConfirmQuit }) { return true }
+        if !mosttyNeedsConfirm { return true }
 
         return false
     }
@@ -1238,7 +1248,7 @@ class BaseTerminalController: NSWindowController,
         // We require confirmation, so show an alert as long as we aren't already.
         confirmClose(
             messageText: "Close Terminal?",
-            informativeText: WorkspaceNotifier.shared.closeWarning(for: Array(surfaceTree), action: "close it")
+            informativeText: WorkspaceNotifier.shared.closeWarning(for: mosttyAgentSources, action: "close it")
                 ?? "The terminal still has a running process. If you close the terminal the process will be killed."
         ) { [weak self] in
             self?.window?.close()

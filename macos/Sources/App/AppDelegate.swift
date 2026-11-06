@@ -241,6 +241,9 @@ class AppDelegate: NSObject,
         // mostty: workspaces + notifications
         WorkspaceMenu.shared.install()
         WorkspaceNotifier.shared.start()
+        #if DEBUG
+        ClaudeDebugControl.install()
+        #endif
 
         // Start our update checker. mostty: the feed is mostty's own GitHub
         // releases (see UpdateDelegate), never Ghostty's.
@@ -430,7 +433,11 @@ class AppDelegate: NSObject,
         }
 
         // If our app says we don't need to confirm, we can exit now.
-        if !ghostty.needsConfirmQuit { return .terminateNow }
+        // mostty: native Claude tabs that are working count too.
+        let claudeBusy = MainActor.assumeIsolated {
+            TerminalController.all.contains { $0.workspace?.isBusy == true }
+        }
+        if !ghostty.needsConfirmQuit && !claudeBusy { return .terminateNow }
 
         return terminate()
     }
@@ -663,6 +670,23 @@ class AppDelegate: NSObject,
             return nil
         }
 
+        // mostty: ⌘1–9 and ⌘⇧[ / ⌘⇧] switch Claude conversation tabs while
+        // the conversation has focus (a focused terminal handles them
+        // through its keybindings, which mostty routes the same way).
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if let window = NSApp.keyWindow,
+           let workspace = (window.windowController as? TerminalController)?.workspace,
+           !(window.firstResponder is Ghostty.SurfaceView) {
+            if mods == .command, let index = Self.mosttyDigitKeyCodes.firstIndex(of: event.keyCode) {
+                MainActor.assumeIsolated { workspace.select(index: index) }
+                return nil
+            }
+            if mods == [.command, .shift], event.keyCode == 33 || event.keyCode == 30 {
+                MainActor.assumeIsolated { workspace.selectRelative(event.keyCode == 33 ? -1 : 1) }
+                return nil
+            }
+        }
+
         // If the tab overview is visible and escape is pressed, close it.
         // This can't POSSIBLY be right and is probably a FirstResponder problem
         // that we should handle elsewhere in our program. But this works and it
@@ -850,6 +874,13 @@ class AppDelegate: NSObject,
             return NSApp.windows
                 .compactMap { $0.windowController as? BaseTerminalController }
                 .reduce(0) { count, c in
+                    // A workspace window: each conversation (tab) and terminal
+                    // that needs the user counts.
+                    if let w = (c as? TerminalController)?.workspace {
+                        let tabs = w.conversations.filter { $0.attention || notifier.agentState($0) == .waiting }.count
+                        let terms = w.allSurfaces.filter { $0.bell || notifier.agentState($0) == .waiting }.count
+                        return count + tabs + terms
+                    }
                     let waiting = c.surfaceTree.contains { notifier.agentState($0) == .waiting }
                     return count + ((c.bell || waiting) ? 1 : 0)
                 }
@@ -1444,7 +1475,7 @@ extension AppDelegate {
             Task {
                 let response = await controllersNeedConfirmation[0].confirmCloseAsync(
                     messageText: "Quit mostty?",
-                    informativeText: WorkspaceNotifier.shared.quitWarning(for: Array(controllersNeedConfirmation[0].surfaceTree))
+                    informativeText: WorkspaceNotifier.shared.quitWarning(for: controllersNeedConfirmation[0].mosttyAgentSources)
                         ?? "The terminal still has a running process. If you quit, the process will be killed.",
                     confirmButtonTitle: "Terminate",
                 )
@@ -1479,7 +1510,7 @@ extension AppDelegate {
             for controller in controllers {
                 let response = await controller.confirmCloseAsync(
                     messageText: "Quit mostty?",
-                    informativeText: WorkspaceNotifier.shared.quitWarning(for: Array(controller.surfaceTree))
+                    informativeText: WorkspaceNotifier.shared.quitWarning(for: controller.mosttyAgentSources)
                         ?? "The terminal still has a running process. If you quit, the process will be killed.",
                     confirmButtonTitle: "Terminate",
                 )

@@ -84,10 +84,9 @@ struct WorkspaceSidebarView: View {
             Color.clear.frame(height: topInset)
 
             HStack {
-                Text("WORKSPACES")
-                    .font(.system(size: 10, weight: .semibold))
+                Text("Workspaces")
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.secondary)
-                    .tracking(0.6)
                 Spacer()
                 Button {
                     manager.createWithFolderPicker()
@@ -140,11 +139,9 @@ struct WorkspaceSidebarView: View {
         .background(sidebarBackground)
     }
 
+    /// The standard macOS sidebar material (translucent, follows light/dark).
     private var sidebarBackground: some View {
-        ZStack {
-            ghostty.config.backgroundColor
-            Color.primary.opacity(0.04)
-        }
+        SidebarMaterial()
     }
 }
 
@@ -161,10 +158,8 @@ private struct WorkspaceRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            Text(item.index < 9 ? "\(item.index + 1)" : "·")
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundStyle(.tertiary)
-                .frame(width: 10, height: 16)
+            leadingIcon
+                .frame(width: 16, height: 18)
 
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
@@ -187,38 +182,41 @@ private struct WorkspaceRow: View {
                             }
                     } else {
                         Text(item.name)
-                            .font(.system(size: 12.5, weight: item.isActive ? .semibold : .regular))
-                            .foregroundStyle(item.isActive ? .primary : .secondary)
+                            .font(.system(size: 13, weight: item.isActive ? .medium : .regular))
+                            .foregroundStyle(.primary)
                             .lineLimit(1)
                             .truncationMode(.tail)
                     }
 
                     Spacer(minLength: 0)
 
-                    statusIndicator
-
-                    if item.tabCount > 1 {
-                        Text("\(item.tabCount)")
-                            .font(.system(size: 10, weight: .medium))
+                    if hovering && item.index < 9 {
+                        Text("⌥\(item.index + 1)")
+                            .font(.system(size: 10.5, weight: .medium))
                             .foregroundStyle(.tertiary)
+                    } else if item.tabCount > 1 {
+                        Text("\(item.tabCount)")
+                            .font(.system(size: 10.5, weight: .medium))
+                            .foregroundStyle(.tertiary)
+                            .help("\(item.tabCount) tabs")
                     }
                 }
-                .frame(height: 16)
+                .frame(height: 18)
 
                 if let subtitle {
                     Text(subtitle)
-                        .font(.system(size: 10.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(item.waiting ? AnyShapeStyle(Color.orange) : AnyShapeStyle(.tertiary))
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
             }
         }
-        .padding(.vertical, 5)
+        .padding(.vertical, 6)
         .padding(.horizontal, 8)
         .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.primary.opacity(item.isActive ? 0.12 : (hovering ? 0.06 : 0)))
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.primary.opacity(item.isActive ? 0.10 : (hovering ? 0.05 : 0)))
         )
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
@@ -231,9 +229,9 @@ private struct WorkspaceRow: View {
             Button(item.folder == nil ? "Set Project Folder…" : "Change Project Folder…") {
                 manager.chooseFolder(for: item.id)
             }
-            if let folder = item.folder {
-                Button("Show Folder in Finder") {
-                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: folder)])
+            if let folder = manager.directory(for: item.id) {
+                Button("Open in Finder") {
+                    NSWorkspace.shared.open(URL(fileURLWithPath: folder))
                 }
             }
             Divider()
@@ -259,6 +257,17 @@ private struct WorkspaceRow: View {
         minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h \(minutes % 60)m"
     }
 
+    /// The row's icon: Claude's status when there is one, else the folder.
+    @ViewBuilder private var leadingIcon: some View {
+        if item.waiting || item.working || item.attention {
+            statusIndicator
+        } else {
+            Image(systemName: item.folder == nil ? "terminal" : "folder")
+                .font(.system(size: 12.5))
+                .foregroundStyle(item.isActive ? Color.accentColor : Color.secondary)
+        }
+    }
+
     /// Claude working: spinner. Claude waiting on you: pulsing orange dot.
     /// Finished but not yet seen: solid blue dot.
     @ViewBuilder private var statusIndicator: some View {
@@ -267,6 +276,7 @@ private struct WorkspaceRow: View {
                 .fill(Color.orange)
                 .frame(width: 7, height: 7)
                 .scaleEffect(pulse ? 1.25 : 0.85)
+                .frame(width: 16, height: 18)
                 .opacity(pulse ? 1 : 0.6)
                 .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: pulse)
                 .onAppear { pulse = true }
@@ -275,13 +285,14 @@ private struct WorkspaceRow: View {
         } else if item.working {
             ProgressView()
                 .controlSize(.mini)
-                .scaleEffect(0.7)
-                .frame(width: 10, height: 10)
+                .scaleEffect(0.8)
+                .frame(width: 16, height: 18)
                 .help("Claude is working")
         } else if item.attention {
             Circle()
                 .fill(Color.accentColor)
                 .frame(width: 7, height: 7)
+                .frame(width: 16, height: 18)
                 .help("Something finished in this workspace")
         }
     }
@@ -326,4 +337,17 @@ private struct WorkspaceDropDelegate: DropDelegate {
         manager.draggingID = nil
         return true
     }
+}
+
+/// mostty: NSVisualEffectView with the sidebar material.
+struct SidebarMaterial: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let v = NSVisualEffectView()
+        v.material = .sidebar
+        v.blendingMode = .behindWindow
+        v.state = .followsWindowActiveState
+        return v
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
 }

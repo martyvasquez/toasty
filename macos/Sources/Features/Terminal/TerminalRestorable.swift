@@ -82,6 +82,9 @@ final class TerminalRestorableState: TerminalRestorable {
     var claudeSessions: [String: WorkspaceNotifier.ClaudeSession] {
         internalState.claudeSessions ?? [:]
     }
+    var workspace: ClaudeWorkspace.Saved? {
+        internalState.workspace
+    }
 
     /// Internal State we use to perform unit tests
     ///
@@ -182,8 +185,15 @@ class TerminalWindowRestoration: NSObject, NSWindowRestoration {
             c.workspaceID = workspaceID
         }
 
-        // mostty: Resume Claude Code sessions that were open at quit
-        WorkspaceNotifier.shared.resume(state.claudeSessions, in: c.surfaceTree)
+        // mostty: Restore the workspace: its Claude conversations (resuming
+        // their sessions) and terminal tabs. A window saved by an older
+        // mostty (terminal tabs, Claude Code running in terminals) becomes a
+        // workspace whose Claude sessions continue as conversation tabs.
+        if let saved = state.workspace {
+            c.enableWorkspace(ClaudeWorkspace.restore(saved, in: c))
+        } else {
+            ClaudeWorkspace.migrate(c, sessions: state.claudeSessions)
+        }
 
         // Setup our restored state on the controller
         // Find the focused surface in surfaceTree

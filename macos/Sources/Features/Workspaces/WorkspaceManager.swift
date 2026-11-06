@@ -146,6 +146,15 @@ final class WorkspaceManager: ObservableObject {
     /// that every tab in a tab group shares the same ID and no two tab groups
     /// share an ID (e.g. after a tab is dragged out into its own window).
     private func groups() -> [Group] {
+        // Windows of one workspace saved by an older mostty (as native tabs)
+        // come back as several windows: fold them into one.
+        let byID = Dictionary(grouping: TerminalController.all.filter { !$0.mosttyClosing && $0.workspace != nil },
+                              by: \.workspaceID)
+        for (_, windows) in byID where windows.count > 1 {
+            let host = windows.first { $0.window?.isVisible == true } ?? windows[0]
+            for other in windows where other !== host { host.workspace?.absorb(other) }
+        }
+
         var seen = Set<ObjectIdentifier>()
         var usedIDs = Set<UUID>()
         var result: [Group] = []
@@ -161,13 +170,12 @@ final class WorkspaceManager: ObservableObject {
             controllers.forEach { seen.insert(ObjectIdentifier($0)) }
             guard let first = controllers.first else { continue }
 
-            var id = first.workspaceID
+            let id = first.workspaceID
             if usedIDs.contains(id) {
-                // A tab was dragged out into its own window: it becomes a new
-                // workspace named after the one it came from.
-                let newID = UUID()
-                names[newID.uuidString] = "\(name(for: id)) 2"
-                id = newID
+                // Another window of a workspace we already have: a window an
+                // older mostty saved as a tab of it. It's folded in once it's
+                // fully restored (above); until then leave it out.
+                continue
             }
             usedIDs.insert(id)
             if names[id.uuidString] == nil {
@@ -200,9 +208,12 @@ final class WorkspaceManager: ObservableObject {
 
         let notifier = WorkspaceNotifier.shared
         let newItems = groups.enumerated().map { (i, g) in
-            let surfaces = g.controllers.flatMap { Array($0.surfaceTree) }
-            let states = surfaces.compactMap { notifier.agentState($0) }
-            let attention = surfaces.contains { $0.bell }
+            // Claude runs in conversations (workspace tabs) or in terminals.
+            let surfaces = g.controllers.flatMap { c in c.workspace?.allSurfaces ?? Array(c.surfaceTree) }
+            let conversations = g.controllers.flatMap { $0.workspace?.conversations ?? [] }
+            let sources: [AnyObject] = conversations + surfaces
+            let states = sources.compactMap { notifier.agentState($0) }
+            let attention = surfaces.contains { $0.bell } || conversations.contains { $0.attention }
             return Item(
                 id: g.id,
                 name: name(for: g.id),
@@ -210,8 +221,8 @@ final class WorkspaceManager: ObservableObject {
                 attention: attention,
                 working: states.contains(.working),
                 waiting: states.contains(.waiting),
-                message: notifier.latestMessage(surfaces),
-                workingSince: notifier.workingSince(surfaces),
+                message: notifier.latestMessage(sources),
+                workingSince: notifier.workingSince(sources),
                 folder: folders[g.id.uuidString],
                 isActive: g.id == activeID,
                 index: i)
@@ -456,6 +467,12 @@ final class WorkspaceManager: ObservableObject {
         folders[id.uuidString]
     }
 
+    /// Where a workspace works: its project folder, else its Claude
+    /// conversations' directory.
+    func directory(for id: UUID) -> String? {
+        folder(for: id) ?? TerminalController.all.first { $0.workspaceID == id }?.workspace?.cwd
+    }
+
     func setFolder(_ path: String?, for id: UUID) {
         folders[id.uuidString] = path
         defaults.set(folders, forKey: Keys.folders)
@@ -533,7 +550,12 @@ final class WorkspaceManager: ObservableObject {
         if let match, let anyWindow = match.group.controllers.first?.window {
             let parent = anyWindow.tabGroup?.selectedWindow ?? anyWindow
             activate(match.group.id)
-            _ = TerminalController.newTab(ghostty, from: parent, withBaseConfig: config)
+            if let workspace = match.group.controllers.first?.workspace {
+                // A subfolder of the project: a terminal there.
+                if Self.normalize(path) != match.folder { workspace.newTerminal(cwd: path) }
+            } else {
+                _ = TerminalController.newTab(ghostty, from: parent, withBaseConfig: config)
+            }
         } else {
             create(name: Self.projectName(for: URL(fileURLWithPath: path)), folder: path)
         }
@@ -582,6 +604,14 @@ final class WorkspaceManager: ObservableObject {
     func newTab(typing command: String, pressReturn: Bool, from source: Ghostty.SurfaceView? = nil) {
         guard let ghostty = (NSApp.delegate as? AppDelegate)?.ghostty,
               let parent = source?.window ?? activeWindow else { return }
+        // A workspace window: a new terminal tab in its panel.
+        if let workspace = (parent.windowController as? TerminalController)?.workspace {
+            workspace.newTerminal(cwd: source?.pwd)
+            if let surface = workspace.controller?.surfaceTree.first {
+                WorkspaceNotifier.shared.run(command, in: surface, pressReturn: pressReturn)
+            }
+            return
+        }
         var config = Ghostty.SurfaceConfiguration()
         let sourceSurface = source ?? (parent.windowController as? TerminalController)?.focusedSurface
         if let pwd = sourceSurface?.pwd {

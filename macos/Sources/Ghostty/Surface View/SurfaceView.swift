@@ -133,7 +133,9 @@ extension Ghostty {
 
                 // Show bell border. mostty: always on, so a pane that needs
                 // attention (e.g. Claude finished) gets a ring.
-                BellBorderOverlay(bell: surfaceView.bell)
+                // (Not in a Claude tab's terminal: there the attention is
+                // for the conversation, shown by the tab and sidebar.)
+                BellBorderOverlay(bell: surfaceView.bell && !surfaceView.mosttyInClaudeTab)
 
                 // Show a highlight effect when this surface needs attention
                 HighlightOverlay(highlighted: surfaceView.highlighted)

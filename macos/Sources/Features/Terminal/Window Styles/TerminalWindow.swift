@@ -573,6 +573,15 @@ class TerminalWindow: NSWindow {
     /// This background color will include alpha transparency if set. If the caller doesn't want that,
     /// change the alpha channel again manually.
     var preferredBackgroundColor: NSColor? {
+        // mostty: a native Claude tab uses the system background (and so the
+        // system light/dark appearance), not the terminal's.
+        if terminalController?.workspace != nil {
+            var color = ClaudeStyle.background
+            NSApp.effectiveAppearance.performAsCurrentDrawingAppearance {
+                color = ClaudeStyle.background.usingColorSpace(.sRGB) ?? color
+            }
+            return color
+        }
         if let terminalController, !terminalController.surfaceTree.isEmpty {
             let surface: Ghostty.SurfaceView?
 

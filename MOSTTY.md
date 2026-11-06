@@ -21,7 +21,8 @@ tab of a workspace shows another one.
 | --- | --- |
 | ⌘N | New workspace in the current tab's directory (File > New Workspace; name it right away) |
 | ⌃⌘N | New workspace for a folder (named after the git repo) |
-| ⌘⇧T | New tab that starts Claude Code (undo / reopen closed tab stays on ⌘Z) |
+| ⌘T / ⌘⇧T | New Claude Code tab (undo / reopen closed window stays on ⌘Z) |
+| ⌃⌘T | Show / focus / hide the workspace's terminal sidebar |
 | ⌃⌘R | Rename workspace (or double-click it) |
 | ⌥1–9 | Go to workspace N |
 | ⌃⌘J / ⌃⌘K | Next / previous workspace |
@@ -101,9 +102,48 @@ Change the sound (any name from /System/Library/Sounds, or `none`):
 
     defaults write com.mostty.app MosttyNotificationSound Ping
 
+## Workspaces with native Claude Code
+
+Each workspace is one window with three columns:
+
+- **Workspaces** sidebar on the left (unchanged).
+- **Claude Code conversations** as tabs along the top (⌘T / ⌘⇧T / + for a
+  new one, ⌘1–9 and ⌘⇧[ ] to switch, ⌘W to close, right-click to rename).
+  Each tab is its own Claude Code session, shown as native Mac text:
+  Markdown with Marker's typography, tables, highlighted code blocks (Copy
+  and Run in Terminal on hover), clickable links and file paths, grouped
+  tool calls with diffs. The composer is an `NSTextView` (⏎ sends, ⇧⏎/⌥⏎
+  new line, undo, paste images); Esc interrupts, ⇧⇥ cycles permission modes.
+- **Terminal** sidebar on the right, shared by the workspace's conversations,
+  with its own tabs (+ for another terminal; ⌘D etc. split as usual).
+  ⌃⌘T shows/focuses/hides it. It uses the macOS Terminal palette on black
+  (`macos/Sources/Features/Claude/mostty-terminal-*.theme`), loaded before
+  your Ghostty config, so your own theme/background still wins.
+
+It's still Claude Code: each conversation runs the official Claude Agent
+SDK (vendored `sdk.mjs`, see `extras/update-claude-agent-sdk.sh`) through a
+tiny Node bridge (`macos/Sources/Features/Claude/Bridge/mostty-agent.mjs`)
+that uses your installed `claude` executable, the `claude_code` system
+prompt and tools presets, and user/project/local settings. CLAUDE.md, hooks,
+MCP servers, skills, plugins, permission rules and your default permission
+mode apply as in the terminal; sessions live in `~/.claude/projects` and
+interoperate with `claude --resume`. Permission prompts, questions
+(AskUserQuestion) and plan approval come from Claude Code's `canUseTool`
+callback and are answered in the tab.
+
+Workspace status, tab dots, toasts, sounds, the dock badge, keep-awake,
+close/quit warnings and resume-after-restart all work for conversations.
+Windows saved by an older mostty (terminal tabs, Claude running in them)
+open as workspaces: their terminals become terminal tabs and their Claude
+sessions continue as conversation tabs. Needs Node.js (found via your login
+shell's PATH or nvm) and Claude Code.
+
+Debug builds accept test commands over a distributed notification
+(`ClaudeDebugControl.swift`); release builds don't include it.
+
 ## Changes to Ghostty
 
-- `macos/Sources/Features/Workspaces/` — all new mostty code.
+- `macos/Sources/Features/Workspaces/` and `macos/Sources/Features/Claude/` — all new mostty code.
 - Small hooks into: `AppDelegate.swift`, `TerminalController.swift`,
   `TerminalRestorable*.swift`, `Ghostty.App.swift`, `SurfaceView*.swift`.
 - Window restoration defaults to on (`window-save-state = default` is

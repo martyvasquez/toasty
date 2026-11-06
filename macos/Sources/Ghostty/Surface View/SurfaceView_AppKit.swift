@@ -158,6 +158,13 @@ extension Ghostty {
             return ghostty_surface_needs_confirm_quit(surface)
         }
 
+        /// mostty: the user is looking at the native Claude tab.
+        func mosttyClearBell() { bell = false }
+
+        /// mostty: whether this terminal is in a workspace's panel (no bell ring
+        /// border there; it's a small side panel).
+        var mosttyInClaudeTab: Bool { false }
+
         // Returns true if the process in this surface has exited.
         var processExited: Bool {
             guard let surface = self.surface else { return true }

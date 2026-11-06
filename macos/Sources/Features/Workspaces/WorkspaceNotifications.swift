@@ -21,7 +21,9 @@ final class WorkspaceNotifier: ObservableObject {
         let title: String
         let body: String
         let location: String
-        weak var surface: Ghostty.SurfaceView?
+        /// What the toast is about: a terminal (Ghostty.SurfaceView) or a
+        /// native Claude conversation.
+        weak var source: AnyObject?
 
         static func == (a: Toast, b: Toast) -> Bool { a.id == b.id }
     }
@@ -36,8 +38,10 @@ final class WorkspaceNotifier: ObservableObject {
         case waiting
     }
 
+    /// Keyed by the object Claude runs in: a terminal (CLI sessions) or a
+    /// native Claude conversation.
     private struct AgentEntry {
-        weak var surface: Ghostty.SurfaceView?
+        weak var source: AnyObject?
         var state: AgentState
         /// Last time a hook refreshed this state.
         var updated: Date
@@ -46,7 +50,7 @@ final class WorkspaceNotifier: ObservableObject {
     }
 
     private struct MessageEntry {
-        weak var surface: Ghostty.SurfaceView?
+        weak var source: AnyObject?
         var text: String
         var date: Date
     }
@@ -95,7 +99,7 @@ final class WorkspaceNotifier: ObservableObject {
             let title = notification.userInfo?["title"] as? String ?? ""
             let body = notification.userInfo?["body"] as? String ?? ""
             MainActor.assumeIsolated {
-                WorkspaceNotifier.shared.handle(surface: surface, title: title, body: body)
+                WorkspaceNotifier.shared.present(source: surface, title: title, body: body)
             }
         }
     }
@@ -108,26 +112,31 @@ final class WorkspaceNotifier: ObservableObject {
     /// Handles a `mostty` control message from the hook script. These are
     /// never shown as notifications.
     func handleControl(surface: Ghostty.SurfaceView, body: String) {
-        let key = ObjectIdentifier(surface)
-        let now = Date()
-
         if body.hasPrefix("session=") {
             setSession(String(body.dropFirst("session=".count)), for: surface)
             return
         }
+        guard body.hasPrefix("state=") else { return }
+        setAgentState(surface, String(body.dropFirst("state=".count)))
+    }
 
-        switch body {
-        case "state=working":
+    /// Claude's state for a terminal or a native conversation:
+    /// "working", "waiting" or "idle".
+    func setAgentState(_ source: AnyObject, _ state: String) {
+        let key = ObjectIdentifier(source)
+        let now = Date()
+        switch state {
+        case "working":
             let since = agents[key].flatMap { $0.state == .working ? $0.since : nil } ?? now
-            agents[key] = .init(surface: surface, state: .working, updated: now, since: since)
-        case "state=waiting":
-            agents[key] = .init(surface: surface, state: .waiting, updated: now, since: now)
-        case "state=idle":
+            agents[key] = .init(source: source, state: .working, updated: now, since: since)
+        case "waiting":
+            agents[key] = .init(source: source, state: .waiting, updated: now, since: now)
+        case "idle":
             agents[key] = nil
         default:
             return
         }
-        agentStateDidChange(surface)
+        agentStateDidChange(source)
     }
 
     /// The user pressed Esc or ⌃C in a terminal: that interrupts Claude Code,
@@ -139,19 +148,22 @@ final class WorkspaceNotifier: ObservableObject {
         agentStateDidChange(surface)
     }
 
-    func agentState(_ surface: Ghostty.SurfaceView) -> AgentState? {
-        let key = ObjectIdentifier(surface)
-        guard let entry = agents[key], entry.surface != nil else { return nil }
-        if entry.state == .working, Date().timeIntervalSince(entry.updated) > workingTimeout {
+    func agentState(_ source: AnyObject) -> AgentState? {
+        let key = ObjectIdentifier(source)
+        guard let entry = agents[key], entry.source != nil else { return nil }
+        // Native conversations report every state change themselves; the
+        // timeout is only for terminals (interrupts there fire no hook).
+        if entry.state == .working, source is Ghostty.SurfaceView,
+           Date().timeIntervalSince(entry.updated) > workingTimeout {
             agents[key] = nil
-            DispatchQueue.main.async { self.agentStateDidChange(surface) }
+            DispatchQueue.main.async { self.agentStateDidChange(source) }
             return nil
         }
         return entry.state
     }
 
-    /// When the earliest of these surfaces started working, if any are.
-    func workingSince(_ surfaces: [Ghostty.SurfaceView]) -> Date? {
+    /// When the earliest of these started working, if any are.
+    func workingSince(_ surfaces: [AnyObject]) -> Date? {
         surfaces
             .compactMap { s -> Date? in
                 guard agentState(s) == .working else { return nil }
@@ -162,11 +174,11 @@ final class WorkspaceNotifier: ObservableObject {
 
     /// Number of terminals where Claude is waiting on the user.
     var waitingCount: Int {
-        agents.values.filter { $0.surface != nil && $0.state == .waiting }.count
+        agents.values.filter { $0.source != nil && $0.state == .waiting }.count
     }
 
-    private func agentStateDidChange(_ surface: Ghostty.SurfaceView) {
-        (surface.window?.windowController as? BaseTerminalController)?.mosttyRefreshTitle()
+    private func agentStateDidChange(_ source: AnyObject) {
+        Self.controller(for: source)?.mosttyRefreshTitle()
         (NSApp.delegate as? AppDelegate)?.syncDockBadge()
         syncPowerAssertion()
         WorkspaceManager.shared.refresh()
@@ -180,7 +192,7 @@ final class WorkspaceNotifier: ObservableObject {
     /// work (and Remote Control) isn't interrupted. The display may still sleep.
     func syncPowerAssertion() {
         let anyWorking = agents.values.contains {
-            $0.surface != nil && $0.state == .working &&
+            $0.source != nil && $0.state == .working &&
                 Date().timeIntervalSince($0.updated) <= workingTimeout
         }
 
@@ -298,8 +310,8 @@ final class WorkspaceNotifier: ObservableObject {
     }
 
     /// Text for the quit confirmation when Claude is active in `surfaces`.
-    func quitWarning(for surfaces: [Ghostty.SurfaceView]) -> String? {
-        let active = surfaces.filter { agentState($0) != nil || sessions[$0.id] != nil }
+    func quitWarning(for surfaces: [AnyObject]) -> String? {
+        let active = surfaces.filter { agentState($0) != nil || hasSession($0) }
         guard !active.isEmpty else { return nil }
         if resumeEnabled {
             return "Claude Code is running here. It will be stopped now and resumed automatically when you reopen mostty."
@@ -308,13 +320,14 @@ final class WorkspaceNotifier: ObservableObject {
     }
 
     /// Text for close confirmations when Claude is active in `surfaces`.
-    func closeWarning(for surfaces: [Ghostty.SurfaceView], action: String) -> String? {
-        let active = surfaces.filter { agentState($0) != nil || sessions[$0.id] != nil }
+    func closeWarning(for surfaces: [AnyObject], action: String) -> String? {
+        let active = surfaces.filter { agentState($0) != nil || hasSession($0) }
         guard !active.isEmpty else { return nil }
         let working = surfaces.filter { agentState($0) == .working }.count
         let waiting = surfaces.filter { agentState($0) == .waiting }.count
 
-        func terminals(_ n: Int) -> String { "\(n) terminal\(n == 1 ? "" : "s")" }
+        let noun = surfaces.contains { $0 is ClaudeConversation } ? "tab" : "terminal"
+        func terminals(_ n: Int) -> String { "\(n) \(noun)\(n == 1 ? "" : "s")" }
         var parts: [String] = []
         if working > 0 { parts.append("working in \(terminals(working))") }
         if waiting > 0 { parts.append("waiting for you in \(terminals(waiting))") }
@@ -324,11 +337,16 @@ final class WorkspaceNotifier: ObservableObject {
         return "\(lead). If you \(action), it will be stopped. You can pick it back up later with claude --resume."
     }
 
-    /// The latest notification text from any of these surfaces.
-    func latestMessage(_ surfaces: [Ghostty.SurfaceView]) -> String? {
+    private func hasSession(_ source: AnyObject) -> Bool {
+        if let s = source as? Ghostty.SurfaceView { return sessions[s.id] != nil }
+        return false
+    }
+
+    /// The latest notification text from any of these.
+    func latestMessage(_ surfaces: [AnyObject]) -> String? {
         surfaces
             .compactMap { messages[ObjectIdentifier($0)] }
-            .filter { $0.surface != nil }
+            .filter { $0.source != nil }
             .max { $0.date < $1.date }?
             .text
     }
@@ -336,49 +354,75 @@ final class WorkspaceNotifier: ObservableObject {
     /// Jump to the most recent terminal that is asking for attention.
     func jumpToLatestUnread() {
         let latest = messages.values
-            .filter { $0.surface?.bell == true }
+            .filter { $0.source.map(Self.needsAttention) ?? false }
             .max { $0.date < $1.date }
-        guard let surface = latest?.surface else { NSSound.beep(); return }
-        focus(surface)
+        guard let source = latest?.source else { NSSound.beep(); return }
+        focus(source)
     }
 
-    private func focus(_ surface: Ghostty.SurfaceView) {
-        WorkspaceManager.shared.show(surface)
+    private static func needsAttention(_ source: AnyObject) -> Bool {
+        if let s = source as? Ghostty.SurfaceView { return s.bell }
+        if let c = source as? ClaudeConversation { return c.attention }
+        return false
+    }
+
+    /// The window controller showing a terminal or conversation.
+    static func controller(for source: AnyObject) -> TerminalController? {
+        if let s = source as? Ghostty.SurfaceView { return s.window?.windowController as? TerminalController }
+        if let c = source as? ClaudeConversation { return c.workspace?.controller }
+        return nil
+    }
+
+    private func focus(_ source: AnyObject) {
+        if let s = source as? Ghostty.SurfaceView { WorkspaceManager.shared.show(s) }
+        if let c = source as? ClaudeConversation { WorkspaceManager.shared.show(c) }
     }
 
     // MARK: Notifications
 
-    private func handle(surface: Ghostty.SurfaceView, title: String, body: String) {
-        let key = ObjectIdentifier(surface)
-        messages[key] = .init(surface: surface, text: body.isEmpty ? title : body, date: Date())
-        messages = messages.filter { $0.value.surface != nil }
+    /// A notification from Claude (or another program) in a terminal or a
+    /// native conversation: sound, attention, toast.
+    func present(source: AnyObject, title: String, body: String) {
+        let key = ObjectIdentifier(source)
+        messages[key] = .init(source: source, text: body.isEmpty ? title : body, date: Date())
+        messages = messages.filter { $0.value.source != nil }
         // 1. Sound
         if soundName.lowercased() != "none", let sound = NSSound(named: soundName) {
             sound.stop()
             sound.play()
         }
 
-        // 2. Attention: if the user isn't looking at this exact terminal, ring
-        //    Ghostty's bell for it. That drives the 🔔 in the tab title, the
-        //    dock bounce, and the orange dot on the workspace in the sidebar.
-        //    It clears automatically when the surface is focused.
-        let lookingAtIt = NSApp.isActive && surface.focused && (surface.window?.isKeyWindow ?? false)
-        if !lookingAtIt {
-            NotificationCenter.default.post(name: .ghosttyBellDidRing, object: surface)
+        // 2. Attention, unless the user is looking right at it: a terminal
+        //    rings Ghostty's bell (🔔 on the tab, dock bounce); a
+        //    conversation gets a dot on its tab. Either way the workspace
+        //    gets its dot in the sidebar. Cleared when looked at.
+        let controller = Self.controller(for: source)
+        let windowKey = NSApp.isActive && (controller?.window?.isKeyWindow ?? false)
+        if let surface = source as? Ghostty.SurfaceView {
+            if !(windowKey && surface.focused) {
+                NotificationCenter.default.post(name: .ghosttyBellDidRing, object: surface)
+            }
+        } else if let conversation = source as? ClaudeConversation {
+            if !(windowKey && conversation.isSelected) {
+                conversation.attention = true
+                if !NSApp.isActive { NSApp.requestUserAttention(.informationalRequest) }
+            }
         }
         WorkspaceManager.shared.refresh()
+        (NSApp.delegate as? AppDelegate)?.syncDockBadge()
 
         // 3. Toast
-        let controller = surface.window?.windowController as? TerminalController
         let workspace = controller.map { WorkspaceManager.shared.name(for: $0.workspaceID) } ?? ""
-        let tab = controller?.window?.title ?? surface.title
+        let tab = (source as? ClaudeConversation)?.title
+            ?? controller?.window?.title
+            ?? (source as? Ghostty.SurfaceView)?.title ?? ""
         let location = [workspace, tab].filter { !$0.isEmpty }.joined(separator: " › ")
 
         let toast = Toast(
             title: title.isEmpty ? "Notification" : title,
             body: body,
             location: location,
-            surface: surface)
+            source: source)
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { self.toast = toast }
 
         dismissWork?.cancel()
@@ -397,8 +441,8 @@ final class WorkspaceNotifier: ObservableObject {
     /// Jump to the terminal that sent the toast.
     func open(_ toast: Toast) {
         dismiss()
-        guard let surface = toast.surface else { return }
-        focus(surface)
+        guard let source = toast.source else { return }
+        focus(source)
     }
 }
 

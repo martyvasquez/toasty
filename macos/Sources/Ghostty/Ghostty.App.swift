@@ -1633,7 +1633,8 @@ extension Ghostty {
             }
         }
 
-        private static func showDesktopNotification(
+        // mostty: internal (not private) so native Claude tabs can notify too.
+        static func showDesktopNotification(
             _ surfaceView: SurfaceView,
             title: String,
             body: String,

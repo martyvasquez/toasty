@@ -19,6 +19,8 @@ extension TerminalRestorableState {
         // MARK: - mostty
         let workspaceID: UUID?
         let claudeSessions: [String: WorkspaceNotifier.ClaudeSession]?
+        /// The workspace: Claude conversations and the panel's terminal tabs.
+        let workspace: ClaudeWorkspace.Saved?
     }
 }
 
@@ -34,6 +36,7 @@ extension TerminalRestorableState.InternalState where ViewType == Ghostty.Surfac
             claudeSessions: MainActor.assumeIsolated {
                 WorkspaceNotifier.shared.sessions(for: controller.surfaceTree)
             },
+            workspace: MainActor.assumeIsolated { controller.workspace?.saved },
         )
     }
 }

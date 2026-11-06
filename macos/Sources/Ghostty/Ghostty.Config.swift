@@ -53,6 +53,24 @@ extension Ghostty {
             self.config = nil
         }
 
+        /// mostty: defaults for the workspace terminals, loaded before the
+        /// user's Ghostty config so anything set there wins. The terminal is
+        /// the workspace's sidebar: the macOS Terminal palette on a sidebar
+        /// tone a step off the page, following light/dark mode.
+        private static func mosttyTerminalDefaults() -> String? {
+            guard let dark = Bundle.main.path(forResource: "mostty-terminal-dark", ofType: "theme"),
+                  let light = Bundle.main.path(forResource: "mostty-terminal-light", ofType: "theme") else { return nil }
+            let text = """
+            theme = light:\(light),dark:\(dark)
+            window-padding-x = 12
+            window-padding-y = 8
+            window-padding-balance = true
+            """
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("mostty-terminal-defaults.conf")
+            guard (try? text.write(to: url, atomically: true, encoding: .utf8)) != nil else { return nil }
+            return url.path
+        }
+
         /// Initializes a new configuration and loads all the values.
         /// - Parameters:
         ///   - path: An optional preferred config file path. Pass `nil` to load the default configuration files.
@@ -68,6 +86,10 @@ extension Ghostty {
             if let path {
                 ghostty_config_load_file(cfg, path)
             } else {
+                // mostty: our defaults first, so the user's config overrides them.
+                if let defaults = Self.mosttyTerminalDefaults() {
+                    ghostty_config_load_file(cfg, defaults)
+                }
                 ghostty_config_load_default_files(cfg)
             }
 

@@ -23,6 +23,11 @@ class TransparentTitlebarTerminalWindow: TerminalWindow {
     override func awakeFromNib() {
         super.awakeFromNib()
 
+        // mostty: content runs under the titlebar (the workspace sidebar and
+        // the conversation tabs live there); no title text.
+        styleMask.insert(.fullSizeContentView)
+        titleVisibility = .hidden
+
         // Setup all the KVO we will use, see the docs for the respective functions
         // to learn why we need KVO.
         setupKVO()
@@ -99,7 +104,7 @@ class TransparentTitlebarTerminalWindow: TerminalWindow {
             // mostty: the titlebar-tabs window has full-size content (the
             // workspace sidebar runs underneath the titlebar), so keep the
             // titlebar clear outside of fullscreen and let the content show.
-            let mosttyFullSize = self is TitlebarTabsTahoeTerminalWindow && !styleMask.contains(.fullScreen)
+            let mosttyFullSize = !styleMask.contains(.fullScreen)
 
             titlebarView.layer?.backgroundColor = ((isGlassStyle && isTransparentTitlebar) || mosttyFullSize)
                 ? NSColor.clear.cgColor
