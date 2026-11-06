@@ -129,6 +129,70 @@ enum DebugControl {
             return nil
         }
 
+        // A real drag: mouse down at (x1,y1), dragged in steps to (x2,y2), up.
+        register("drag") { cmd in
+            guard let window else { throw DebugError("no window") }
+            let x1 = cmd["x1"] as? Double ?? 0, y1 = cmd["y1"] as? Double ?? 0
+            let x2 = cmd["x2"] as? Double ?? 0, y2 = cmd["y2"] as? Double ?? 0
+            let mods = modifiers(cmd["mods"] as? String)
+            let steps = 8
+            // Synthesized drags aren't routed by AppKit without a physical
+            // button down, so call the view under the start point directly.
+            let start = NSPoint(x: x1, y: window.frame.height - y1)
+            guard let view = window.contentView?.hitTest(start) else { throw DebugError("no view") }
+            func event(_ type: NSEvent.EventType, _ x: Double, _ y: Double) -> NSEvent {
+                NSEvent.mouseEvent(with: type, location: NSPoint(x: x, y: window.frame.height - y), modifierFlags: mods,
+                                   timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                                   context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+            }
+            view.mouseDown(with: event(.leftMouseDown, x1, y1))
+            for i in 1...steps {
+                let t = Double(i) / Double(steps)
+                view.mouseDragged(with: event(.leftMouseDragged, x1 + (x2 - x1) * t, y1 + (y2 - y1) * t))
+            }
+            view.mouseUp(with: event(.leftMouseUp, x2, y2))
+            return String(describing: type(of: view))
+        }
+
+        // A real scroll-wheel event at (x, y): {"cmd":"wheel","x":..,"y":..,"dy":-5}
+        // (dy in lines; negative scrolls toward older content like a trackpad
+        // swipe down).
+        register("wheel") { cmd in
+            guard let window else { throw DebugError("no window") }
+            let dy = Int32(cmd["dy"] as? Int ?? 0)
+            let x = cmd["x"] as? Double ?? 200, y = cmd["y"] as? Double ?? 200
+            guard let cg = CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: dy, wheel2: 0, wheel3: 0) else {
+                throw DebugError("no event")
+            }
+            let screen = window.convertPoint(toScreen: NSPoint(x: x, y: window.frame.height - y))
+            let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+            cg.location = CGPoint(x: screen.x, y: primaryHeight - screen.y)
+            guard let e = NSEvent(cgEvent: cg),
+                  let view = window.contentView?.hitTest(NSPoint(x: x, y: window.frame.height - y)) else { throw DebugError("no event") }
+            view.scrollWheel(with: e)
+            return String(describing: type(of: view))
+        }
+
+        // Debug builds copy/paste through a private pasteboard.
+        TerminalView.pasteboard = NSPasteboard(name: NSPasteboard.Name("com.martyvasquez.toasty.debug"))
+        register("pasteboard") { cmd in
+            let pb = TerminalView.pasteboard
+            if let s = cmd["set"] as? String {
+                pb.clearContents()
+                pb.setString(s, forType: .string)
+            }
+            return pb.string(forType: .string) ?? ""
+        }
+
+        // Send an action up the responder chain (copy:, paste:, clearTerminal:…).
+        register("action") { cmd in
+            guard let name = cmd["name"] as? String else { throw DebugError("name required") }
+            // To the window's first responder chain even while Toasty is in
+            // the background (a nil target would need a key window).
+            guard let responder = window?.firstResponder else { throw DebugError("no first responder") }
+            return responder.tryToPerform(Selector(name), with: nil)
+        }
+
         // A real key press through the window: {"chars":"a","mods":"cmd,shift","keyCode":0}
         register("key") { cmd in
             guard let window else { throw DebugError("no window") }

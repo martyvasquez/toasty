@@ -7,27 +7,43 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		021E23FC56ACD71AC24B461D /* TerminalDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDA9BD4515BD6FE72B5BCEAF /* TerminalDebug.swift */; };
+		0953ACD5224F7B6605CF1233 /* TerminalSprites.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9311817626D412A87AA47552 /* TerminalSprites.swift */; };
+		1061436DAC744C0B4D030005 /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04ABDE15409AACAEF4B2BF66 /* TerminalView.swift */; };
+		339EEDB6041B8A87C4C92758 /* VT.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64C449C667888064F9F12A10 /* VT.swift */; };
 		346191052BC0573C556FAE23 /* MainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FBCBE999788997C12380B2D /* MainWindowController.swift */; };
+		500B9ECC5A22E8386FBB831D /* TerminalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27278907AA55A2FF70B1DB4 /* TerminalRenderer.swift */; };
+		5A5408F16D2B6E4460483FCB /* TerminalTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9021DD3EFB91CB5031D36A21 /* TerminalTheme.swift */; };
+		6131DD0CF970A46E4FE1AC30 /* KeyCodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64C4D1DA3C7A21F286EE8D53 /* KeyCodes.swift */; };
 		AC9DFC4D667B3EF0DACDCE40 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FDD4FA67F476B51448A8EB66 /* Assets.xcassets */; };
 		B8A7E2BEF7397740BED13E40 /* Bridge in Resources */ = {isa = PBXBuildFile; fileRef = 326FC85C18EB90E86334C2F6 /* Bridge */; };
 		C43DE4B1B520DE08BA08379B /* DebugControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C279FCF3F11C0D07DF1B5B /* DebugControl.swift */; };
 		C4C4D6FECA7C3F59FBB1EBD6 /* MainMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C51FB87F905EF29B4ECF92F /* MainMenu.swift */; };
 		C83DB61BBC4E1B55D26FE8AB /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB24559E15BED10BF20F7121 /* AppDelegate.swift */; };
 		C9A592B6AC87794BFE62158E /* GhosttyVt.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 59A391E422005AC05F0585B6 /* GhosttyVt.xcframework */; };
+		E418801CB5AD25148EC64A13 /* PTY.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64890A3F04ACB6E7BF086D88 /* PTY.swift */; };
 		FC6ACCB01BF189ECD781B4B7 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A392D7CD9154E4ADC8244C28 /* main.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		04ABDE15409AACAEF4B2BF66 /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
 		2FBCBE999788997C12380B2D /* MainWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowController.swift; sourceTree = "<group>"; };
 		326FC85C18EB90E86334C2F6 /* Bridge */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Bridge; path = Toasty/Resources/Bridge; sourceTree = SOURCE_ROOT; };
 		51858B1B05CCCBC863B4BC45 /* Toasty.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Toasty.entitlements; sourceTree = "<group>"; };
 		59A391E422005AC05F0585B6 /* GhosttyVt.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = GhosttyVt.xcframework; path = Vendor/GhosttyVt.xcframework; sourceTree = "<group>"; };
 		5C51FB87F905EF29B4ECF92F /* MainMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenu.swift; sourceTree = "<group>"; };
+		64890A3F04ACB6E7BF086D88 /* PTY.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTY.swift; sourceTree = "<group>"; };
+		64C449C667888064F9F12A10 /* VT.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VT.swift; sourceTree = "<group>"; };
+		64C4D1DA3C7A21F286EE8D53 /* KeyCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyCodes.swift; sourceTree = "<group>"; };
 		8267153271BF3718002C2343 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		9021DD3EFB91CB5031D36A21 /* TerminalTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalTheme.swift; sourceTree = "<group>"; };
+		9311817626D412A87AA47552 /* TerminalSprites.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSprites.swift; sourceTree = "<group>"; };
 		A392D7CD9154E4ADC8244C28 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		BDA9BD4515BD6FE72B5BCEAF /* TerminalDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalDebug.swift; sourceTree = "<group>"; };
 		C7C279FCF3F11C0D07DF1B5B /* DebugControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugControl.swift; sourceTree = "<group>"; };
 		DB24559E15BED10BF20F7121 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		E6DF957BA5BE2D33ABAAE422 /* Toasty.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Toasty.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F27278907AA55A2FF70B1DB4 /* TerminalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalRenderer.swift; sourceTree = "<group>"; };
 		FCD6058B2549DF11F5B70E09 /* .keep */ = {isa = PBXFileReference; path = .keep; sourceTree = "<group>"; };
 		FDD4FA67F476B51448A8EB66 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -57,6 +73,7 @@
 			isa = PBXGroup;
 			children = (
 				C7C279FCF3F11C0D07DF1B5B /* DebugControl.swift */,
+				BDA9BD4515BD6FE72B5BCEAF /* TerminalDebug.swift */,
 			);
 			path = Debug;
 			sourceTree = "<group>";
@@ -77,6 +94,20 @@
 				FD5208B6D881C79977926E54 /* Bridge */,
 			);
 			path = Resources;
+			sourceTree = "<group>";
+		};
+		A18C1811396D36145BA3042B /* Terminal */ = {
+			isa = PBXGroup;
+			children = (
+				64C4D1DA3C7A21F286EE8D53 /* KeyCodes.swift */,
+				64890A3F04ACB6E7BF086D88 /* PTY.swift */,
+				F27278907AA55A2FF70B1DB4 /* TerminalRenderer.swift */,
+				9311817626D412A87AA47552 /* TerminalSprites.swift */,
+				9021DD3EFB91CB5031D36A21 /* TerminalTheme.swift */,
+				04ABDE15409AACAEF4B2BF66 /* TerminalView.swift */,
+				64C449C667888064F9F12A10 /* VT.swift */,
+			);
+			path = Terminal;
 			sourceTree = "<group>";
 		};
 		D036D61EA093857ED019A572 /* Products */ = {
@@ -106,6 +137,7 @@
 				E5996C4FF896C534B47DFE04 /* App */,
 				0CF45AAD513D3B402F26F6F8 /* Debug */,
 				28E5D759548A89D7AFC70550 /* Resources */,
+				A18C1811396D36145BA3042B /* Terminal */,
 			);
 			path = Toasty;
 			sourceTree = "<group>";
@@ -193,8 +225,16 @@
 			files = (
 				C83DB61BBC4E1B55D26FE8AB /* AppDelegate.swift in Sources */,
 				C43DE4B1B520DE08BA08379B /* DebugControl.swift in Sources */,
+				6131DD0CF970A46E4FE1AC30 /* KeyCodes.swift in Sources */,
 				C4C4D6FECA7C3F59FBB1EBD6 /* MainMenu.swift in Sources */,
 				346191052BC0573C556FAE23 /* MainWindowController.swift in Sources */,
+				E418801CB5AD25148EC64A13 /* PTY.swift in Sources */,
+				021E23FC56ACD71AC24B461D /* TerminalDebug.swift in Sources */,
+				500B9ECC5A22E8386FBB831D /* TerminalRenderer.swift in Sources */,
+				0953ACD5224F7B6605CF1233 /* TerminalSprites.swift in Sources */,
+				5A5408F16D2B6E4460483FCB /* TerminalTheme.swift in Sources */,
+				1061436DAC744C0B4D030005 /* TerminalView.swift in Sources */,
+				339EEDB6041B8A87C4C92758 /* VT.swift in Sources */,
 				FC6ACCB01BF189ECD781B4B7 /* main.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

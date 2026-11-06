@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
         DebugControl.install()
+        TerminalDebug.install()
         #endif
         let controller = MainWindowController()
         windowController = controller
