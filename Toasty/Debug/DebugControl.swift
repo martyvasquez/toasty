@@ -103,6 +103,10 @@ enum DebugControl {
                 var f = window.frame
                 f.origin.y += f.height - h
                 f.size = NSSize(width: w, height: h)
+                // Optional top-left position in screen points from the top.
+                if let x = cmd["x"] as? Double, let top = cmd["top"] as? Double, let screen = NSScreen.screens.first {
+                    f.origin = NSPoint(x: x, y: screen.frame.height - top - h)
+                }
                 window.setFrame(f, display: true)
             }
             return ["width": window.frame.width, "height": window.frame.height]
