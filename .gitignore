@@ -1,0 +1,6 @@
+.DS_Store
+xcuserdata/
+build/
+DerivedData/
+# Built by scripts/build-ghostty-vt.sh (commit pinned in Vendor/GHOSTTY_VT_VERSION)
+Vendor/GhosttyVt.xcframework/
