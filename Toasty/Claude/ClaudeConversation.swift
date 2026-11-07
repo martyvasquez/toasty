@@ -186,6 +186,33 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     @Published private(set) var permissionMode: String = "default"
     @Published private(set) var status: String?
     @Published private(set) var slashCommands: [String] = []
+
+    /// A slash command Claude Code offers in this session.
+    struct SlashCommand: Identifiable, Equatable {
+        let name: String
+        let description: String
+        let argumentHint: String
+        var id: String { name }
+    }
+
+    /// Claude Code's commands with descriptions; until they arrive, the
+    /// bare names from the session's init message.
+    @Published private(set) var commands: [SlashCommand] = []
+
+    var availableCommands: [SlashCommand] {
+        if !commands.isEmpty { return commands }
+        return slashCommands.map { SlashCommand(name: $0, description: "", argumentHint: "") }
+    }
+
+    private func setCommands(_ list: Any?) {
+        let parsed = (list as? [[String: Any]] ?? []).compactMap { c -> SlashCommand? in
+            guard let name = c["name"] as? String, !name.isEmpty else { return nil }
+            return SlashCommand(name: name.hasPrefix("/") ? String(name.dropFirst()) : name,
+                                description: c["description"] as? String ?? "",
+                                argumentHint: c["argumentHint"] as? String ?? "")
+        }
+        if !parsed.isEmpty, parsed != commands { commands = parsed }
+    }
     @Published private(set) var turnStarted: Date?
     /// Live step and token count of the running turn.
     let activity = ClaudeTurnActivity()
@@ -618,6 +645,8 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                                    name: m["displayName"] as? String ?? Self.prettyModel(value),
                                    detail: m["description"] as? String ?? "")
             }
+        case "commands":
+            setCommands(message["commands"])
         case "permission_cancel":
             // Answered elsewhere too (e.g. from Remote Control).
             requests.removeAll { $0.id == message["id"] as? String }
@@ -767,6 +796,8 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                     if mode == "auto" { autoModeAvailable = true }
                 }
                 slashCommands = m["slash_commands"] as? [String] ?? []
+            case "commands_changed":
+                setCommands(m["commands"])
             case "compact_boundary":
                 append(.notice, "Conversation compacted")
             case "status":
@@ -788,7 +819,10 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             guard let message = m["message"] as? [String: Any] else { return }
             // Claude Code's own placeholder replies (e.g. "No response
             // requested." after an interrupt); the CLI doesn't show them.
-            if message["model"] as? String == "<synthetic>" { return }
+            // A slash command's output (/context, /cost…) also comes as a
+            // synthetic reply; show it like the CLI does.
+            if message["model"] as? String == "<synthetic>",
+               items.last(where: { $0.kind == .user })?.text.hasPrefix("/") != true { return }
             let messageID = message["id"] as? String
             let content = message["content"] as? [[String: Any]] ?? []
             if let parent {
@@ -1067,7 +1101,22 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                     for item in items[before...] { item.date = date }
                 }
             case "system":
-                if entry["subtype"] as? String == "compact_boundary" { append(.notice, "Conversation compacted") }
+                switch entry["subtype"] as? String {
+                case "compact_boundary":
+                    append(.notice, "Conversation compacted")
+                case "local_command":
+                    // A slash command's output, as the CLI shows it.
+                    let text = (entry["content"] as? String ?? "")
+                        .replacingOccurrences(of: #"</?local-command-std(out|err)>"#, with: "", options: .regularExpression)
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !text.isEmpty {
+                        let item = ClaudeItem(kind: .assistant, text: text)
+                        if let ts = entry["timestamp"] as? String { item.date = Self.isoDate.date(from: ts) }
+                        items.append(item)
+                    }
+                default:
+                    break
+                }
             default:
                 break
             }

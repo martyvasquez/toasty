@@ -555,6 +555,57 @@ struct ClaudeComposerBox: View {
     /// Left edge shared by the text and the first control's glyph.
     static let inset: CGFloat = 16
     @State private var height: CGFloat = ClaudeComposer.minHeight
+    /// The slash command menu's highlighted row.
+    @State private var commandIndex = 0
+    /// The draft the menu was dismissed for (Esc); it reopens once the
+    /// draft changes.
+    @State private var commandsDismissedFor: String?
+
+    /// Commands matching a draft that is just "/word" (no arguments yet).
+    private var commandMatches: [ClaudeConversation.SlashCommand] {
+        let d = conversation.draft
+        guard d.hasPrefix("/"), !d.contains(where: \.isWhitespace), d != commandsDismissedFor else { return [] }
+        let q = d.dropFirst().lowercased()
+        let all = conversation.availableCommands
+        if q.isEmpty { return all }
+        let prefix = all.filter { $0.name.lowercased().hasPrefix(q) }
+        let inside = all.filter { !$0.name.lowercased().hasPrefix(q) && $0.name.lowercased().contains(q) }
+        return prefix + inside
+    }
+
+    /// Up/down/Tab/Return/Esc while the menu shows.
+    private func commandKey(_ selector: Selector) -> Bool {
+        let matches = commandMatches
+        guard !matches.isEmpty else { return false }
+        let i = min(commandIndex, matches.count - 1)
+        switch selector {
+        case #selector(NSResponder.moveUp(_:)):
+            commandIndex = (i - 1 + matches.count) % matches.count
+        case #selector(NSResponder.moveDown(_:)):
+            commandIndex = (i + 1) % matches.count
+        case #selector(NSResponder.insertTab(_:)):
+            complete(matches[i], run: false)
+        case #selector(NSResponder.insertNewline(_:)):
+            complete(matches[i], run: true)
+        case #selector(NSResponder.cancelOperation(_:)):
+            commandsDismissedFor = conversation.draft
+        default:
+            return false
+        }
+        return true
+    }
+
+    /// Put the command in the draft; run it now if it takes no arguments.
+    private func complete(_ command: ClaudeConversation.SlashCommand, run: Bool) {
+        commandIndex = 0
+        if run && command.argumentHint.isEmpty {
+            conversation.draft = "/" + command.name
+            conversation.submit()
+        } else {
+            conversation.draft = "/" + command.name + " "
+        }
+        conversation.focusComposer()
+    }
 
     private var isEmpty: Bool {
         conversation.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && conversation.attachments.isEmpty
@@ -583,7 +634,8 @@ struct ClaudeComposerBox: View {
                     return false
                 },
                 onShiftTab: { conversation.cyclePermissionMode() },
-                onPasteImage: { conversation.attachments.append($0) })
+                onPasteImage: { conversation.attachments.append($0) },
+                onKeyCommand: commandKey)
                 .frame(height: height)
                 .padding(.horizontal, Self.inset)
                 .padding(.top, 13)
@@ -612,6 +664,22 @@ struct ClaudeComposerBox: View {
         .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
         .contentShape(Rectangle())
         .onTapGesture { conversation.focusComposer() }
+        // The slash command menu floats just above the box.
+        .overlay(alignment: .top) {
+            let matches = commandMatches
+            if !matches.isEmpty {
+                ClaudeCommandMenu(commands: matches, selected: min(commandIndex, matches.count - 1)) { i in
+                    complete(matches[i], run: true)
+                }
+                .offset(y: -(ClaudeCommandMenu.height(for: matches.count) + 8))
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.12), value: commandMatches.isEmpty)
+        .onChange(of: conversation.draft) { _, d in
+            commandIndex = 0
+            if d != commandsDismissedFor { commandsDismissedFor = nil }
+        }
     }
 
     private var placeholder: String {
@@ -754,6 +822,84 @@ struct ClaudeModeMenu: View {
                        hovering: hovering)
         }
         .help("Permission mode (⇧⇥ to cycle)")
+    }
+}
+
+/// Claude Code's slash commands matching what's typed after "/", above the
+/// composer: ↑↓ to choose, Tab to complete, Return to run, Esc to close.
+struct ClaudeCommandMenu: View {
+    let commands: [ClaudeConversation.SlashCommand]
+    let selected: Int
+    let choose: (Int) -> Void
+
+    static let rowHeight: CGFloat = 32
+    static let visibleRows = 8
+
+    static func height(for count: Int) -> CGFloat {
+        CGFloat(min(count, visibleRows)) * rowHeight + 10
+    }
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(Array(commands.enumerated()), id: \.element.id) { i, c in
+                        CommandRow(command: c, selected: i == selected)
+                            .id(c.id)
+                            .contentShape(Rectangle())
+                            .onTapGesture { choose(i) }
+                    }
+                }
+                .padding(5)
+            }
+            .scrollIndicators(commands.count > Self.visibleRows ? .automatic : .never)
+            .frame(height: Self.height(for: commands.count))
+            .onChange(of: selected) { _, i in
+                if commands.indices.contains(i) { proxy.scrollTo(commands[i].id) }
+            }
+        }
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.claudeField))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Commands")
+    }
+
+    private struct CommandRow: View {
+        let command: ClaudeConversation.SlashCommand
+        let selected: Bool
+
+        var body: some View {
+            HStack(spacing: 10) {
+                HStack(spacing: 5) {
+                    Text("/" + command.name)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.primary)
+                    // Short hints only ("<file>"); long option lists would
+                    // crowd out the description.
+                    if !command.argumentHint.isEmpty, command.argumentHint.count <= 24 {
+                        Text(command.argumentHint)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .lineLimit(1)
+                .frame(maxWidth: 260, alignment: .leading)
+                .fixedSize(horizontal: true, vertical: false)
+                Text(command.description)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: ClaudeCommandMenu.rowHeight)
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(selected ? Color.accentColor.opacity(0.18) : .clear))
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+        }
     }
 }
 

@@ -161,6 +161,8 @@ struct ClaudeComposer: NSViewRepresentable {
     var onEscape: () -> Bool
     var onShiftTab: () -> Void
     var onPasteImage: ((NSImage) -> Void)?
+    /// Gets keys first (e.g. the slash command menu): return true if handled.
+    var onKeyCommand: ((Selector) -> Bool)?
 
     /// One line of text at rest; the box grows as you type.
     static var minHeight: CGFloat {
@@ -279,6 +281,7 @@ struct ClaudeComposer: NSViewRepresentable {
         }
 
         func textView(_ textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+            if parent.onKeyCommand?(selector) == true { return true }
             switch selector {
             case #selector(NSResponder.insertNewline(_:)):
                 let mods = NSApp.currentEvent?.modifierFlags.intersection(.deviceIndependentFlagsMask) ?? []

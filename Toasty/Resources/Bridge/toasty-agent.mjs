@@ -7,7 +7,7 @@
 //
 // stdin  (from Toasty): start | user | interrupt | permission_response | set_permission_mode | set_model
 //                       | remote_control | context_usage
-// stdout (to Toasty):   ready | sdk | models | permission_request | permission_cancel | error | end
+// stdout (to Toasty):   ready | sdk | models | commands | permission_request | permission_cancel | error | end
 //                       | remote_control_init | remote_control | context_usage
 import { createInterface } from "node:readline";
 import { query } from "./claude-agent-sdk.mjs";
@@ -71,6 +71,8 @@ async function start(msg) {
   out({ type: "ready" });
   // Claude Code's own model list (what /model offers), for the picker.
   q.supportedModels().then((models) => out({ type: "models", models }), () => {});
+  // Claude Code's slash commands in this session (what typing / offers).
+  q.supportedCommands().then((commands) => out({ type: "commands", commands }), () => {});
   // Whether Claude Code says Remote Control should start with the session
   // (the user's remoteControlAtStartup setting, as the CLI resolves it), so
   // Toasty can do what the interactive CLI does.
