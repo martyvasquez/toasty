@@ -24,10 +24,18 @@ enum DebugControl {
 
     static func install() {
         registerBuiltins()
-        DistributedNotificationCenter.default().addObserver(forName: name, object: nil, queue: .main) { n in
-            guard let s = n.object as? String else { return }
-            MainActor.assumeIsolated { receive(s) }
+        // Listen on a thread of our own and hop to the main queue: AppKit
+        // keeps servicing the main queue during modal sheets and the quit
+        // confirmation, when the main run loop doesn't deliver notifications.
+        let listener = Thread {
+            DistributedNotificationCenter.default().addObserver(forName: name, object: nil, queue: nil) { n in
+                guard let s = n.object as? String else { return }
+                DispatchQueue.main.async { MainActor.assumeIsolated { receive(s) } }
+            }
+            RunLoop.current.run()
         }
+        listener.name = "Toasty debug control"
+        listener.start()
     }
 
     private static func receive(_ json: String) {
@@ -69,8 +77,13 @@ enum DebugControl {
     private static func registerBuiltins() {
         register("ping") { _ in "pong" }
 
-        register("quit") { _ in
-            DispatchQueue.main.async { NSApp.terminate(nil) }
+        // Quits without the confirmation unless {"confirm":true}.
+        register("quit") { cmd in
+            AppDelegate.shared.skipQuitConfirmation = !(cmd["confirm"] as? Bool ?? false)
+            // From the run loop, not a main-queue block: the confirmation's
+            // nested loop would otherwise block the main queue (and this
+            // channel) until it's answered.
+            NSApp.perform(#selector(NSApplication.terminate(_:)), with: nil, afterDelay: 0)
             return nil
         }
 

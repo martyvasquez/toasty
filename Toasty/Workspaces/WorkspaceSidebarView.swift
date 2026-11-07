@@ -59,6 +59,7 @@ private struct WorkspaceRow: View {
     @ObservedObject var workspace: Workspace
     let index: Int
     @ObservedObject var store: WorkspaceStore
+    @ObservedObject private var activity: Activity = .shared
 
     @State private var hovering = false
     @State private var draft = ""
@@ -110,11 +111,13 @@ private struct WorkspaceRow: View {
                 }
                 .frame(height: 18)
 
-                Text(subtitle)
-                    .font(.system(size: 11))
-                    .foregroundStyle(waiting ? AnyShapeStyle(Color.orange) : AnyShapeStyle(.tertiary))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    Text(subtitle(now: context.date))
+                        .font(.system(size: 11))
+                        .foregroundStyle(waiting ? AnyShapeStyle(Color.orange) : AnyShapeStyle(.tertiary))
+                        .lineLimit(1)
+                        .truncationMode(working || waiting || attention ? .tail : .middle)
+                }
             }
         }
         .padding(.vertical, 6)
@@ -139,18 +142,34 @@ private struct WorkspaceRow: View {
             Button("Move Down") { store.move(workspace.id, by: 1) }
                 .disabled(index == store.workspaces.count - 1)
             Divider()
-            Button("Close Workspace") { store.close(workspace.id) }
+            Button("Close Workspace") { store.requestClose(workspace.id) }
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
     }
 
-    private var subtitle: String {
-        // Phase 5 adds "Working · 4m", the waiting message and the finished
-        // summary here (§7).
-        if waiting { return "Waiting for you" }
-        if working { return "Working…" }
+    /// What Claude is doing here: working (and for how long), what it's
+    /// waiting on, or what finished while you weren't looking; else the
+    /// folder.
+    private func subtitle(now: Date) -> String {
+        let conversations = workspace.conversations
+        if waiting {
+            let asking = conversations.filter { !$0.requests.isEmpty }
+            return activity.latestMessage(asking) ?? "Waiting for you"
+        }
+        if working {
+            guard let since = activity.workingSince(conversations) else { return "Working…" }
+            let minutes = Int(now.timeIntervalSince(since) / 60)
+            return minutes < 1 ? "Working…" : "Working · \(Self.duration(minutes))"
+        }
+        if attention, let message = activity.latestMessage(conversations.filter(\.attention)) {
+            return message
+        }
         return (workspace.folder as NSString).abbreviatingWithTildeInPath
+    }
+
+    private static func duration(_ minutes: Int) -> String {
+        minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h \(minutes % 60)m"
     }
 
     /// Claude's status when there is one, else the folder.

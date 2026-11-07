@@ -71,9 +71,35 @@ final class Workspace: ObservableObject, Identifiable {
         select(conversations[(i + delta + conversations.count) % conversations.count])
     }
 
+    /// Close a tab, asking first if Claude is working or waiting in it.
+    func requestClose(_ conversation: ClaudeConversation) {
+        Activity.shared.confirm(Activity.shared.closeWarning(conversations: [conversation], terminals: [], action: "close it"),
+                                title: "Close “\(conversation.title)”?", button: "Close Tab") { [weak self] in
+            self?.close(conversation)
+        }
+    }
+
+    func requestCloseOthers(than conversation: ClaudeConversation) {
+        let others = conversations.filter { $0.id != conversation.id }
+        Activity.shared.confirm(Activity.shared.closeWarning(conversations: others, terminals: [], action: "close them"),
+                                title: "Close Other Tabs?", button: "Close Tabs") { [weak self] in
+            others.forEach { self?.close($0) }
+        }
+    }
+
+    /// Close a terminal, asking first if a program is running in it.
+    func requestCloseTerminal(_ id: UUID) {
+        guard let t = terminals.first(where: { $0.id == id }) else { return }
+        Activity.shared.confirm(Activity.shared.closeWarning(conversations: [], terminals: [t], action: "close it"),
+                                title: "Close this terminal?", button: "Close Terminal") { [weak self] in
+            self?.closeTerminal(id)
+        }
+    }
+
     func close(_ conversation: ClaudeConversation) {
         guard let i = conversations.firstIndex(where: { $0.id == conversation.id }) else { return }
         conversation.stop()
+        Activity.shared.forget(conversation)
         statusObservers[conversation.id] = nil
         var list = conversations
         list.remove(at: i)

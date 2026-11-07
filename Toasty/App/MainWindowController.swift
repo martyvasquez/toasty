@@ -46,6 +46,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         }
 
         installTitlebar()
+        installToast()
         store.selectionChanged
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.updateTitle() }
@@ -76,6 +77,22 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         titlebarHost = host
         titlebarLeading = leading
         updateTitlebar()
+    }
+
+    /// The activity toast, floating at the window's top-right below the tab
+    /// row. Clicks pass through when there's no toast.
+    private func installToast() {
+        guard let content = window?.contentView else { return }
+        let host = PassthroughHostingView(rootView: ActivityToastView())
+        host.sizingOptions = []
+        host.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(host, positioned: .above, relativeTo: nil)
+        NSLayoutConstraint.activate([
+            host.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            host.topAnchor.constraint(equalTo: content.safeAreaLayoutGuide.topAnchor),
+            host.widthAnchor.constraint(equalToConstant: 324),
+            host.heightAnchor.constraint(equalToConstant: 130),
+        ])
     }
 
     private func updateTitlebar() {
@@ -138,10 +155,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     @objc func closeTab(_ sender: Any?) {
         guard let w = store.active else { return }
         if terminalFocused, let t = w.selectedTerminal {
-            w.closeTerminal(t.id)
-            if w.terminalVisible { focusTerminal() }
+            Activity.shared.confirm(Activity.shared.closeWarning(conversations: [], terminals: [t], action: "close it"),
+                                    title: "Close this terminal?", button: "Close Terminal") { [weak self] in
+                w.closeTerminal(t.id)
+                if w.terminalVisible { self?.focusTerminal() }
+            }
         } else if let c = w.selected {
-            w.close(c)
+            w.requestClose(c)
         }
     }
 
@@ -199,7 +219,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     }
 
     @objc func closeWorkspace(_ sender: Any?) {
-        if let id = store.activeID { store.close(id) }
+        if let id = store.activeID { store.requestClose(id) }
     }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
@@ -226,4 +246,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             return true
         }
     }
+}
+
+/// The toast's host: takes clicks only while a toast is showing (SwiftUI
+/// handles them in the host view itself), so the terminal or conversation
+/// below gets them otherwise.
+final class PassthroughHostingView<Content: View>: NSHostingView<Content> {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard Activity.shared.toast != nil else { return nil }
+        return super.hitTest(point)
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }

@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ClaudeDebug.install()
         #endif
         store.load()
+        Activity.shared.start()
         let controller = MainWindowController(store: store)
         windowController = controller
         controller.showWindow(nil)
@@ -43,6 +44,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         NSApp.activate()
     }
+
+    /// Quitting stops Claude and terminal programs: ask first if any are busy.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let conversations = store.workspaces.flatMap(\.conversations)
+        let terminals = store.workspaces.flatMap(\.terminals)
+        guard let warning = Activity.shared.closeWarning(conversations: conversations, terminals: terminals, action: "quit"),
+              !skipQuitConfirmation else { return .terminateNow }
+        Activity.shared.confirm(warning, title: "Quit Toasty?", button: "Quit",
+                                cancel: { NSApp.reply(toApplicationShouldTerminate: false) },
+                                proceed: { NSApp.reply(toApplicationShouldTerminate: true) })
+        return .terminateLater
+    }
+
+    /// Set by the debug `quit` command so tests can quit without a prompt.
+    var skipQuitConfirmation = false
 
     func applicationWillTerminate(_ notification: Notification) {
         store.save()

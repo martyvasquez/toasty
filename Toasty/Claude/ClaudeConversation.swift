@@ -80,7 +80,9 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
     /// Something finished or needs the user while they weren't looking at
     /// this tab (a dot on the tab; cleared when it's shown).
-    @Published var attention = false
+    @Published var attention = false {
+        didSet { if attention != oldValue { Activity.shared.attentionChanged() } }
+    }
 
     var isSelected: Bool { workspace?.selected === self }
 

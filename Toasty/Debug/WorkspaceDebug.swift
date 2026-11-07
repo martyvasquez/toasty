@@ -120,6 +120,38 @@ enum WorkspaceDebug {
             return state()
         }
 
+        DebugControl.register("toastAlwaysShow") { cmd in
+            ActivityToastView.alwaysShow = cmd["on"] as? Bool ?? true
+            return nil
+        }
+        // Show a toast about tab `index` of workspace `workspace`.
+        DebugControl.register("toast") { cmd in
+            let wi = cmd["workspace"] as? Int ?? 0, ti = cmd["index"] as? Int ?? 0
+            guard store.workspaces.indices.contains(wi), store.workspaces[wi].conversations.indices.contains(ti) else { throw E("no such tab") }
+            Activity.shared.present(source: store.workspaces[wi].conversations[ti], title: cmd["title"] as? String ?? "Test", body: cmd["body"] as? String ?? "")
+            return state()
+        }
+        // The window's sheet (alert): {"cmd":"sheet"} describes it,
+        // {"cmd":"sheet","press":"Cancel"} presses a button.
+        DebugControl.register("sheet") { cmd in
+            guard let sheet = DebugControl.window?.attachedSheet else { return "none" }
+            @MainActor func buttons(_ v: NSView) -> [NSButton] { ((v as? NSButton).map { [$0] } ?? []) + v.subviews.flatMap(buttons) }
+            @MainActor func texts(_ v: NSView) -> [String] {
+                ((v as? NSTextField).map { [$0.stringValue] } ?? []) + v.subviews.flatMap(texts)
+            }
+            let all = sheet.contentView.map(buttons) ?? []
+            if let title = cmd["press"] as? String {
+                guard let b = all.first(where: { $0.title == title }) else { throw E("no button \(title)") }
+                b.performClick(nil)
+                return "pressed \(title)"
+            }
+            return ["buttons": all.map(\.title), "text": sheet.contentView.map(texts) ?? []]
+        }
+        DebugControl.register("jump") { _ in
+            Activity.shared.jumpToLatest()
+            return state()
+        }
+
         DebugControl.register("save") { _ in
             store.save()
             return WorkspaceStore.stateURL.path
@@ -136,6 +168,9 @@ enum WorkspaceDebug {
             "windowFrame": wc?.window.map { NSStringFromRect($0.frame) } ?? "",
             "firstResponder": wc?.window?.firstResponder.map { String(describing: type(of: $0)) } ?? "",
             "terminalColumnWidth": wc?.layout.terminalWidth ?? 0,
+            "dockBadge": NSApp.dockTile.badgeLabel ?? "",
+            "keepingAwake": Activity.shared.keepingAwake,
+            "toast": Activity.shared.toast.map { "\($0.title) | \($0.body) | \($0.location)" } ?? "",
             "workspaces": store.workspaces.map { w -> [String: Any] in
                 [
                     "name": w.name,

@@ -186,14 +186,14 @@ private struct ConversationTabItem: View {
         .contentShape(Rectangle())
         .onTapGesture { if !renaming { workspace.select(conversation) } }
         .overlay(alignment: .trailing) {
-            TabCloseButton(visible: hovering && !renaming, help: "Close Tab (⌘W)") { workspace.close(conversation) }
+            TabCloseButton(visible: hovering && !renaming, help: "Close Tab (⌘W)") { workspace.requestClose(conversation) }
         }
         .onHover { hovering = $0 }
         .help(index < 9 ? "\(conversation.title)  ⌘\(index + 1)" : conversation.title)
         .contextMenu {
             Button("Rename…") { renaming = true }
-            Button("Close Tab") { workspace.close(conversation) }
-            Button("Close Other Tabs") { workspace.closeOthers(than: conversation) }
+            Button("Close Tab") { workspace.requestClose(conversation) }
+            Button("Close Other Tabs") { workspace.requestCloseOthers(than: conversation) }
                 .disabled(workspace.conversations.count < 2)
         }
         .accessibilityElement(children: .combine)
@@ -274,14 +274,14 @@ private struct TerminalTabItem: View {
             AppDelegate.shared.windowController?.focusTerminal()
         }
         .overlay(alignment: .trailing) {
-            TabCloseButton(visible: hovering, help: "Close Terminal") { workspace.closeTerminal(session.id) }
+            TabCloseButton(visible: hovering, help: "Close Terminal") { workspace.requestCloseTerminal(session.id) }
         }
         .onHover { hovering = $0 }
         .help(session.directory)
         .contextMenu {
-            Button("Close Terminal") { workspace.closeTerminal(session.id) }
+            Button("Close Terminal") { workspace.requestCloseTerminal(session.id) }
             Button("Close Other Terminals") {
-                workspace.terminals.filter { $0.id != session.id }.forEach { workspace.closeTerminal($0.id) }
+                workspace.terminals.filter { $0.id != session.id }.forEach { workspace.requestCloseTerminal($0.id) }
             }
             .disabled(workspace.terminals.count < 2)
         }

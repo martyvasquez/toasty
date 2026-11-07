@@ -166,8 +166,18 @@ final class WorkspaceStore: ObservableObject {
         }
     }
 
+    /// Close a workspace, asking first if anything is running in it.
+    func requestClose(_ id: UUID) {
+        guard let w = workspaces.first(where: { $0.id == id }) else { return }
+        Activity.shared.confirm(Activity.shared.closeWarning(conversations: w.conversations, terminals: w.terminals, action: "close it"),
+                                title: "Close “\(w.name)”?", button: "Close Workspace") { [weak self] in
+            self?.close(id)
+        }
+    }
+
     func close(_ id: UUID) {
         guard let i = workspaces.firstIndex(where: { $0.id == id }) else { return }
+        workspaces[i].conversations.forEach { Activity.shared.forget($0) }
         let w = workspaces[i]
         var list = workspaces
         list.remove(at: i)
@@ -215,13 +225,7 @@ final class WorkspaceStore: ObservableObject {
     /// The latest conversation needing the user (waiting first, then
     /// finished unseen), anywhere.
     func jumpToAttention() {
-        let all = workspaces.flatMap { w in w.conversations.map { (w, $0) } }
-        guard let (w, c) = all.first(where: { !$0.1.requests.isEmpty }) ?? all.first(where: { $0.1.attention }) else {
-            NSSound.beep()
-            return
-        }
-        activate(w.id)
-        w.select(c)
+        Activity.shared.jumpToLatest()
     }
 
     // MARK: Opening folders (`open -a Toasty <dir>`, Finder, Dock)
