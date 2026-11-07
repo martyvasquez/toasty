@@ -133,7 +133,7 @@ enum ClaudeDebug {
                 "session": c.sessionID ?? "",
                 "model": c.model ?? "",
                 "modelName": c.modelName ?? "",
-                "models": c.models.map(\.value),
+                "models": c.models.map { "\($0.value) | \($0.name) | \($0.detail)" },
                 "mode": c.permissionMode,
                 "status": c.status ?? "",
                 "title": c.title,

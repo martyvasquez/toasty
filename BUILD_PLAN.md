@@ -201,14 +201,19 @@ the user; check light mode and ask.
   pill). "Open in Finder" lives on the workspace's context menu.
 
 **Conversation column**
-- The transcript and the composer share **exactly one width: 900pt**
-  (`composerWidth`), centered, same left/right edges; both shrink together
-  in narrow windows (16pt side padding).
-- Composer: corner radius 16, fill `field` = dark white 0.19 / light white,
-  0.75pt border `primary @ 16%`, shadow black 22% radius 12 y 4. Text view
-  min height 62, max 300, 14pt text, line height 1.2. Bottom bar: model
-  chip, permission-mode chip, paperclip, circular send button (accent when
-  enabled; becomes a stop button while working).
+- The transcript and the composer share **exactly one width: 720pt**
+  (`composerWidth`, a reading measure like Claude/Codex/Conductor; was 900),
+  centered, same left/right edges; both shrink together in narrow windows.
+- Composer (Codex-style, refined 2026-11-06): corner radius 18, fill
+  `field` = dark white 0.19 / light white, 0.5pt border `primary @ 9%`,
+  shadow black 8% radius 6 y 2. Text view one line at rest (grows to 300),
+  14pt text, line height 1.2, 16pt left inset shared with the controls.
+  One control row inside: `+` (attach), permission mode as quiet text
+  (tinted text, no fill; hover fill only) on the left; model name as quiet
+  text and a 28pt circular send button (accent when enabled; stop while
+  working) on the right. The transcript scrolls under the composer and
+  fades out above it (28pt gradient); a round "jump to latest" button
+  appears when scrolled up.
 - Placeholder: "Ask Claude to make changes, or type / for commands"; while
   working "Send a follow-up…"; while a prompt is pending "Claude is waiting
   for your answer above".
@@ -219,11 +224,16 @@ the user; check light mode and ask.
 - Spacing: 34 before a user message, 18 after one, 16 between other rows.
 - Turn footer under the last reply: "12s · 4:41 PM" + copy button,
   tertiary 11.5pt.
-- Tool calls: consecutive calls grouped in one rounded box (radius 10, fill
-  `primary @ 4.5%`, hairline dividers); row = status icon, tool name
-  (semibold 12.5), one-line summary (secondary; monospaced for Bash),
-  chevron on hover; click expands input/output. Edits show their diff once
-  the edit is done (not while the permission card shows it).
+- Tool calls: consecutive calls collapse into one quiet line (12.5pt,
+  secondary, chevron): a sentence of what happened ("Read 2 files, ran
+  `npm test`, wrote README.md"), or the live step with a spinner while
+  working ("Running npm test 12s"). Click expands the rounded box (radius
+  10, fill `primary @ 4.5%`, hairline dividers, one row per call: status
+  icon, tool name semibold 12.5, summary). Below the line stay what matters:
+  diffs of edits to existing files (once done, not while the permission
+  card shows them), todo lists, and errors; failed calls aren't counted in
+  the sentence. File links look like the code/text they're in (hand cursor
+  only); web links are blue with a soft underline.
 - Empty-thinking blocks are hidden. Notices are centered tertiary 11.5pt.
 
 **Typography of Claude's replies** (from Marker, tuned denser — port

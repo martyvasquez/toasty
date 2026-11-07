@@ -26,7 +26,9 @@ nonisolated enum ClaudeTypography {
     static let headingSpacingBefore: CGFloat = 0.45
 
     /// The column: replies and the composer share this width and edges.
-    static let composerWidth: CGFloat = 900
+    /// The transcript and the composer share this width (a comfortable
+    /// reading measure, like Claude, Codex and Conductor).
+    static let composerWidth: CGFloat = 720
     static var measure: CGFloat { composerWidth }
 
     static let codeBlockPadding: CGFloat = 14

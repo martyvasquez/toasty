@@ -26,7 +26,9 @@ struct ClaudeRichText: NSViewRepresentable {
         view.textContainer?.widthTracksTextView = true
         view.isVerticallyResizable = false
         view.isHorizontallyResizable = false
-        view.linkTextAttributes = ClaudeTypography.linkAttributes
+        // Links style themselves (web links blue, file links look like the
+        // text or code they're in); the view only adds the hand cursor.
+        view.linkTextAttributes = [.cursor: NSCursor.pointingHand]
         view.delegate = context.coordinator
         view.textStorage?.setAttributedString(text)
         view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -160,7 +162,10 @@ struct ClaudeComposer: NSViewRepresentable {
     var onShiftTab: () -> Void
     var onPasteImage: ((NSImage) -> Void)?
 
-    static let minHeight: CGFloat = 62
+    /// One line of text at rest; the box grows as you type.
+    static var minHeight: CGFloat {
+        ceil(NSFont.systemFont(ofSize: ClaudeStyle.bodySize).boundingRectForFont.height * 1.2) + 6
+    }
     static let maxHeight: CGFloat = 300
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -306,13 +311,19 @@ final class ComposerTextView: NSTextView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         guard string.isEmpty, !placeholder.isEmpty else { return }
+        // Same font and line height as typed text, so the placeholder sits
+        // exactly where the first line will.
+        let style = NSMutableParagraphStyle()
+        style.lineHeightMultiple = 1.2
+        style.lineBreakMode = .byTruncatingTail
         let attrs: [NSAttributedString.Key: Any] = [
             .font: font ?? NSFont.systemFont(ofSize: ClaudeStyle.bodySize),
             .foregroundColor: NSColor.placeholderTextColor,
+            .paragraphStyle: style,
         ]
-        let origin = NSPoint(x: textContainerInset.width + (textContainer?.lineFragmentPadding ?? 0),
-                             y: textContainerInset.height)
-        (placeholder as NSString).draw(at: origin, withAttributes: attrs)
+        let x = textContainerInset.width + (textContainer?.lineFragmentPadding ?? 0)
+        let rect = NSRect(x: x, y: textContainerInset.height, width: bounds.width - x * 2, height: bounds.height)
+        (placeholder as NSString).draw(with: rect, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine], attributes: attrs)
     }
 
     override func becomeFirstResponder() -> Bool {

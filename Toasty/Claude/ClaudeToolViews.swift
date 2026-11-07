@@ -69,6 +69,81 @@ enum ClaudeToolInfo {
         }
     }
 
+    static func isEdit(_ tool: String) -> Bool { ["Edit", "MultiEdit", "Write", "NotebookEdit"].contains(tool) }
+
+    /// "Running", "Reading"… for the live step.
+    static func activeVerb(_ tool: String) -> String {
+        switch tool {
+        case "Bash": "Running"
+        case "Read": "Reading"
+        case "Edit", "MultiEdit", "NotebookEdit": "Editing"
+        case "Write": "Writing"
+        case "Glob", "Grep", "LS": "Searching"
+        case "WebFetch": "Fetching"
+        case "WebSearch": "Searching the web for"
+        case "Task", "Agent": "Running agent:"
+        case "TodoWrite": "Updating todos"
+        case "Skill": "Using skill"
+        default: displayName(tool)
+        }
+    }
+
+    /// One sentence for a run of finished tool calls: "Read 2 files, ran
+    /// `npm test`, edited hello.py".
+    static func headline(_ items: [ClaudeItem], cwd: String) -> String {
+        var order: [String] = []
+        var groups: [String: [ClaudeItem]] = [:]
+        for item in items {
+            let key: String
+            switch item.toolName {
+            case "Read": key = "read"
+            case "Edit", "MultiEdit", "NotebookEdit": key = "edit"
+            case "Write": key = "write"
+            case "Bash", "BashOutput": key = "bash"
+            case "Glob", "Grep", "LS": key = "search"
+            case "WebFetch", "WebSearch": key = "web"
+            case "Task", "Agent": key = "agent"
+            case "TodoWrite": key = "todo"
+            default: key = "other:" + item.toolName
+            }
+            if groups[key] == nil { order.append(key) }
+            groups[key, default: []].append(item)
+        }
+        func files(_ list: [ClaudeItem]) -> [String] {
+            Array(Set(list.map { (summary($0.toolName, $0.input, cwd: cwd) as NSString).lastPathComponent })).sorted()
+        }
+        func plural(_ n: Int, _ one: String, _ many: String) -> String { n == 1 ? "1 \(one)" : "\(n) \(many)" }
+        let parts: [String] = order.map { key in
+            let list = groups[key]!
+            switch key {
+            case "read":
+                let f = files(list)
+                return f.count == 1 ? "read \(f[0])" : "read \(plural(f.count, "file", "files"))"
+            case "edit":
+                let f = files(list)
+                return f.count == 1 ? "edited \(f[0])" : "edited \(plural(f.count, "file", "files"))"
+            case "write":
+                let f = files(list)
+                return f.count == 1 ? "wrote \(f[0])" : "wrote \(plural(f.count, "file", "files"))"
+            case "bash":
+                if list.count == 1 {
+                    let cmd = summary("Bash", list[0].input, cwd: cwd)
+                    return "ran " + (cmd.count > 48 ? String(cmd.prefix(47)) + "…" : cmd)
+                }
+                return "ran \(plural(list.count, "command", "commands"))"
+            case "search": return list.count == 1 ? "searched for \(summary(list[0].toolName, list[0].input, cwd: cwd))" : "searched \(list.count) times"
+            case "web": return list.count == 1 ? "looked up \(summary(list[0].toolName, list[0].input, cwd: cwd))" : "looked up \(list.count) pages"
+            case "agent": return list.count == 1 ? "ran an agent" : "ran \(list.count) agents"
+            case "todo": return "updated todos"
+            default:
+                let name = displayName(String(key.dropFirst(6)))
+                return list.count == 1 ? "used \(name)" : "used \(name) \(list.count) times"
+            }
+        }
+        let s = parts.joined(separator: ", ")
+        return s.prefix(1).uppercased() + s.dropFirst()
+    }
+
     static func pretty(_ value: Any) -> String {
         guard JSONSerialization.isValidJSONObject(value),
               let data = try? JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]),
@@ -134,9 +209,131 @@ enum ClaudeToolInfo {
 
 // MARK: - Tool activity
 
-/// Consecutive tool calls in one rounded container, one row each,
-/// like a list in Xcode's navigator. Edits show their diff right away.
+/// Consecutive tool calls as one quiet line, like a sentence of what Claude
+/// did ("Read 2 files, ran `npm test`"); click for the full list. While
+/// working, the line follows the live step. Edit diffs and errors stay in
+/// view below it: they're the substance.
 struct ClaudeToolGroup: View {
+    let items: [ClaudeItem]
+    let cwd: String
+    @State private var expanded = false
+    @State private var hovering = false
+
+    /// Every call failed or was rejected: the error lines say it all.
+    private var allFailed: Bool { running == nil && items.allSatisfy { $0.resultIsError } }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !allFailed { headlineButton }
+            if expanded {
+                ClaudeToolList(items: items, cwd: cwd)
+                    .transition(.opacity)
+            } else {
+                // What matters without opening it: diffs of edits made, errors.
+                ForEach(items.filter(showsInline)) { item in
+                    ClaudeToolInlineResult(item: item, cwd: cwd)
+                }
+            }
+        }
+    }
+
+    private var headlineButton: some View {
+            Button {
+                withAnimation(.easeOut(duration: 0.18)) { expanded.toggle() }
+            } label: {
+                HStack(spacing: 7) {
+                    ZStack {
+                        if running != nil {
+                            ProgressView().controlSize(.small).scaleEffect(0.55)
+                        } else {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 9, weight: .semibold))
+                                .rotationEffect(.degrees(expanded ? 90 : 0))
+                        }
+                    }
+                    .frame(width: 12, height: 12)
+                    Text(headline)
+                        .font(.system(size: 12.5))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    if let r = running, let elapsed = r.elapsed {
+                        Text(ClaudeToolInfo.duration(Int(elapsed)))
+                            .font(.system(size: 11.5).monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                .padding(.horizontal, 6)
+                .frame(height: 24)
+                .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.primary.opacity(hovering ? 0.05 : 0)))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .onHover { hovering = $0 }
+            .padding(.leading, -6)
+            .accessibilityLabel(headline)
+            .accessibilityHint(expanded ? "Hide details" : "Show details")
+    }
+
+    /// The tool still running, if any.
+    private var running: ClaudeItem? { items.last { $0.result == nil && !$0.finalized } ?? items.last { $0.result == nil } }
+
+    private func showsInline(_ item: ClaudeItem) -> Bool {
+        guard item.result != nil else { return false }
+        // Changes to existing files, not whole new files (those are one click away).
+        return item.resultIsError || ["Edit", "MultiEdit"].contains(item.toolName) || item.toolName == "TodoWrite"
+    }
+
+    /// "Read 2 files, ran `npm test`", or the live step while working.
+    private var headline: String {
+        if let r = running {
+            let s = ClaudeToolInfo.summary(r.toolName, r.input, cwd: cwd)
+            return ClaudeToolInfo.activeVerb(r.toolName) + (s.isEmpty ? "…" : " " + s)
+        }
+        // Failed calls are listed below with their error, not counted here.
+        return ClaudeToolInfo.headline(items.filter { !$0.resultIsError }, cwd: cwd)
+    }
+}
+
+/// A finished tool's result shown under the group's line: an edit's diff,
+/// the todo list, or an error.
+struct ClaudeToolInlineResult: View {
+    @ObservedObject var item: ClaudeItem
+    let cwd: String
+
+    var body: some View {
+        if item.resultIsError, let r = item.result {
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Color(nsColor: .systemRed))
+                    .frame(width: 12)
+                Text("\(ClaudeToolInfo.displayName(item.toolName)) \(ClaudeToolInfo.summary(item.toolName, item.input, cwd: cwd)): ")
+                    .foregroundStyle(.secondary)
+                + Text(r.trimmingCharacters(in: .whitespacesAndNewlines))
+                    .foregroundStyle(Color(nsColor: .systemRed))
+            }
+            .font(.system(size: 12))
+            .lineLimit(3)
+            .textSelection(.enabled)
+        } else if ClaudeToolInfo.isEdit(item.toolName) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(ClaudeToolInfo.summary(item.toolName, item.input, cwd: cwd))
+                    .font(.system(size: 11.5, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+                ClaudeDiffView(lines: ClaudeToolInfo.patchLines(item.toolUseResult)
+                    ?? ClaudeToolInfo.diffLines(item.toolName, item.input), maxLines: 12)
+            }
+        } else if item.toolName == "TodoWrite" {
+            ClaudeTodoList(todos: item.input["todos"] as? [[String: Any]] ?? [])
+        }
+    }
+}
+
+/// Consecutive tool calls in one rounded container, one row each,
+/// like a list in Xcode's navigator (the expanded tool group).
+struct ClaudeToolList: View {
     let items: [ClaudeItem]
     let cwd: String
 

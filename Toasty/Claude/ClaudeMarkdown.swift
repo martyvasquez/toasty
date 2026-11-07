@@ -504,6 +504,7 @@ enum ClaudeMarkdown {
             if intent.contains(.code) { attrs[.claudeInlineCode] = true }
             if let link = run.link {
                 attrs[.link] = link
+                if !link.isFileURL { ClaudeFileLinks.styleWebLink(&attrs) }
             } else if intent.contains(.code), let file = ClaudeFileLinks.url(for: piece, cwd: style.cwd) {
                 attrs[.link] = file
             }
@@ -553,7 +554,20 @@ enum ClaudeFileLinks {
         }
         for (range, url) in ranges where s.attribute(.link, at: range.location, effectiveRange: nil) == nil {
             s.addAttribute(.link, value: url, range: range)
+            if !url.isFileURL {
+                var attrs: [NSAttributedString.Key: Any] = [:]
+                styleWebLink(&attrs)
+                s.addAttributes(attrs, range: range)
+            }
         }
+    }
+
+    /// Web links read as links (link color, soft underline). File links keep
+    /// the look of the text or code they're in: a hand cursor is enough.
+    static func styleWebLink(_ attrs: inout [NSAttributedString.Key: Any]) {
+        attrs[.foregroundColor] = ClaudeTypography.link
+        attrs[.underlineStyle] = NSUnderlineStyle.single.rawValue
+        attrs[.underlineColor] = ClaudeTypography.linkUnderline
     }
 
     /// A `file://` URL (with an optional `#L<line>` fragment) for a reference

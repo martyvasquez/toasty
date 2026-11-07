@@ -9,11 +9,13 @@ struct ClaudeConversationView: View {
     var onRunInTerminal: (String) -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            ClaudeTranscript(conversation: conversation, onRunInTerminal: onRunInTerminal)
-            ClaudeBottomArea(conversation: conversation)
-        }
-        .background(Color.claudeBackground)
+        // The transcript scrolls under the composer and fades out above it.
+        ClaudeTranscript(conversation: conversation, onRunInTerminal: onRunInTerminal)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                ClaudeBottomArea(conversation: conversation)
+                    .background(alignment: .top) { ComposerFade() }
+            }
+            .background(Color.claudeBackground)
         .onAppear { conversation.focusComposer() }
         // Esc anywhere in the conversation: deny a pending prompt or
         // interrupt, like the CLI.
@@ -55,6 +57,8 @@ struct ClaudeTranscript: View {
 
     /// Only the most recent rows are laid out; earlier ones on request.
     @State private var limit = 160
+    /// The view is scrolled to (near) the end.
+    @State private var atBottom = true
 
     var body: some View {
         let all = rows
@@ -84,10 +88,25 @@ struct ClaudeTranscript: View {
                 .frame(maxWidth: ClaudeTypography.composerWidth, alignment: .leading)
                 .padding(.horizontal, ClaudeStyle.horizontalPadding - 12)
                 .padding(.top, 26)
-                .padding(.bottom, 18)
+                // Clear of the fade behind the composer.
+                .padding(.bottom, 40)
                 .frame(maxWidth: .infinity)
             }
             .modifier(PinToBottom())
+            .onScrollGeometryChange(for: Bool.self) { g in
+                g.contentOffset.y + g.containerSize.height >= g.contentSize.height - 60
+            } action: { _, bottom in
+                if bottom != atBottom { withAnimation(.easeOut(duration: 0.15)) { atBottom = bottom } }
+            }
+            .overlay(alignment: .bottom) {
+                if !atBottom {
+                    JumpToLatestButton {
+                        withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo("bottom", anchor: .bottom) }
+                    }
+                    .padding(.bottom, 10)
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                }
+            }
             .onChange(of: conversation.items.count) { _, _ in
                 withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("bottom", anchor: .bottom) }
             }
@@ -341,6 +360,23 @@ struct ClaudeEmptyState: View {
 
 // MARK: - Bottom: prompts and composer
 
+/// The page fading in behind the composer: transparent at the top, then
+/// solid, so text scrolling under the composer softly disappears.
+private struct ComposerFade: View {
+    static let height: CGFloat = 28
+
+    var body: some View {
+        VStack(spacing: 0) {
+            LinearGradient(colors: [Color.claudeBackground.opacity(0), Color.claudeBackground],
+                           startPoint: .top, endPoint: .bottom)
+                .frame(height: Self.height)
+            Color.claudeBackground
+        }
+        .padding(.top, -Self.height)
+        .allowsHitTesting(false)
+    }
+}
+
 struct ClaudeBottomArea: View {
     @ObservedObject var conversation: ClaudeConversation
 
@@ -364,6 +400,9 @@ struct ClaudeBottomArea: View {
 
 struct ClaudeComposerBox: View {
     @ObservedObject var conversation: ClaudeConversation
+    static let radius: CGFloat = 18
+    /// Left edge shared by the text and the first control's glyph.
+    static let inset: CGFloat = 16
     @State private var height: CGFloat = ClaudeComposer.minHeight
 
     private var isEmpty: Bool {
@@ -395,34 +434,28 @@ struct ClaudeComposerBox: View {
                 onShiftTab: { conversation.cyclePermissionMode() },
                 onPasteImage: { conversation.attachments.append($0) })
                 .frame(height: height)
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
+                .padding(.horizontal, Self.inset)
+                .padding(.top, 13)
 
-            HStack(spacing: 4) {
-                ClaudeModelMenu(conversation: conversation)
+            // One quiet row: attach and mode on the left, model and send on
+            // the right. Text-only controls; only send carries color.
+            HStack(spacing: 2) {
+                ComposerIconButton(symbol: "plus", help: "Attach Images…", label: "Attach Images", action: attach)
                 ClaudeModeMenu(conversation: conversation)
-                Spacer()
-                Button(action: attach) {
-                    Image(systemName: "paperclip")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 28, height: 28)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("Attach Images…")
-                .accessibilityLabel("Attach Images")
-                sendButton
+                Spacer(minLength: 8)
+                ClaudeModelMenu(conversation: conversation)
+                sendButton.padding(.leading, 4)
             }
-            .padding(.horizontal, 10)
+            .padding(.leading, Self.inset - 7)
+            .padding(.trailing, 9)
+            .padding(.top, 4)
             .padding(.bottom, 9)
-            .padding(.top, 2)
         }
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
+        .background(RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
             .fill(Color.claudeField))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .strokeBorder(Color.primary.opacity(0.16), lineWidth: 0.75))
-        .shadow(color: .black.opacity(0.22), radius: 12, y: 4)
+        .overlay(RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
+            .strokeBorder(Color.primary.opacity(0.09), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
         .contentShape(Rectangle())
         .onTapGesture { conversation.focusComposer() }
     }
@@ -438,9 +471,10 @@ struct ClaudeComposerBox: View {
             Button { conversation.interrupt() } label: {
                 ZStack {
                     Circle().fill(Color.primary.opacity(0.85))
-                    RoundedRectangle(cornerRadius: 2).fill(Color.claudeField).frame(width: 9, height: 9)
+                    RoundedRectangle(cornerRadius: 2.5, style: .continuous).fill(Color.claudeField).frame(width: 9, height: 9)
                 }
-                .frame(width: 26, height: 26)
+                .frame(width: 28, height: 28)
+                .contentShape(Circle())
             }
             .buttonStyle(.plain)
             .help("Stop (esc)")
@@ -448,12 +482,14 @@ struct ClaudeComposerBox: View {
         } else {
             Button { conversation.submit() } label: {
                 ZStack {
-                    Circle().fill(isEmpty ? Color.primary.opacity(0.12) : Color.accentColor)
+                    Circle().fill(isEmpty ? Color.primary.opacity(0.10) : Color.accentColor)
                     Image(systemName: "arrow.up")
-                        .font(.system(size: 12.5, weight: .bold))
-                        .foregroundStyle(isEmpty ? Color.secondary : Color.white)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(isEmpty ? AnyShapeStyle(.tertiary) : AnyShapeStyle(Color.white))
                 }
-                .frame(width: 26, height: 26)
+                .frame(width: 28, height: 28)
+                .contentShape(Circle())
+                .animation(.easeOut(duration: 0.15), value: isEmpty)
             }
             .buttonStyle(.plain)
             .disabled(isEmpty)
@@ -534,6 +570,18 @@ struct ClaudeModeMenu: View {
         modes.first { $0.id == mode }?.title ?? mode
     }
 
+    /// The chip's short name for a mode (the menu shows the full name).
+    static func shortLabel(_ mode: String) -> String {
+        switch mode {
+        case "default": "Ask Before Edits"
+        case "acceptEdits": "Accept Edits"
+        case "plan": "Plan"
+        case "auto": "Auto"
+        case "bypassPermissions": "Bypass Permissions"
+        default: mode
+        }
+    }
+
     var body: some View {
         let current = Self.modes.first { $0.id == conversation.permissionMode }
         let available = Self.modes.filter {
@@ -545,7 +593,7 @@ struct ClaudeModeMenu: View {
             }
         }) { hovering in
             ClaudeChip(icon: current?.icon ?? "hand.raised",
-                       title: current?.title ?? conversation.permissionMode,
+                       title: Self.shortLabel(conversation.permissionMode),
                        tint: conversation.permissionMode == "default" ? nil
                            : conversation.permissionMode == "bypassPermissions" ? .red
                            : conversation.permissionMode == "plan" ? .teal : .accentColor,
@@ -620,17 +668,66 @@ struct ClaudeChip: View {
     var hovering = false
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 5) {
             if let icon {
-                Image(systemName: icon).font(.system(size: 10.5, weight: .medium))
+                Image(systemName: icon).font(.system(size: 11, weight: .medium))
             }
-            Text(title).font(.system(size: 12, weight: .medium))
-            Image(systemName: "chevron.down").font(.system(size: 7.5, weight: .bold)).opacity(0.7)
+            Text(title).font(.system(size: 12.5, weight: .medium))
+            Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold)).opacity(0.6)
         }
         .foregroundStyle(tint.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.secondary))
         .padding(.horizontal, 8)
-        .frame(height: 24)
-        .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
-            .fill(tint.map { $0.opacity(hovering ? 0.18 : 0.12) } ?? Color.primary.opacity(hovering ? 0.07 : 0)))
+        .frame(height: 28)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(Color.primary.opacity(hovering ? 0.06 : 0)))
+        .animation(.easeOut(duration: 0.12), value: hovering)
+    }
+}
+
+/// A borderless icon button for the composer's control row (hover fill only).
+struct ComposerIconButton: View {
+    let symbol: String
+    let help: String
+    let label: String
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 14, weight: .regular))
+                .foregroundStyle(.secondary)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(Color.primary.opacity(hovering ? 0.07 : 0)))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .help(help)
+        .accessibilityLabel(label)
+    }
+}
+
+/// Back to the latest message, shown while scrolled up.
+private struct JumpToLatestButton: View {
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "arrow.down")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(hovering ? .primary : .secondary)
+                .frame(width: 30, height: 30)
+                .background(Circle().fill(Color.claudeField))
+                .overlay(Circle().strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help("Jump to Latest")
+        .accessibilityLabel("Jump to Latest")
     }
 }

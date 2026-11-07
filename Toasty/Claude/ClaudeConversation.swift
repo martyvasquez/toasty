@@ -190,7 +190,11 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     var modelName: String? {
         guard let model else {
             // Before the first turn: Claude Code's default, as /model shows it.
-            return models.first { $0.value == "default" }.map { _ in "Default Model" }
+            // Claude Code's default entry names its model first
+            // ("Opus 5.5 · Best for everyday, complex tasks").
+            return models.first { $0.value == "default" }.map { m in
+                m.detail.components(separatedBy: " · ").first.flatMap { $0.isEmpty ? nil : $0 } ?? "Default Model"
+            }
         }
         if let m = models.first(where: { $0.value == model }) { return m.name }
         return Self.prettyModel(model)
