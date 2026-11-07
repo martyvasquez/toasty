@@ -2,7 +2,8 @@ import AppKit
 import GhosttyVt
 
 /// The terminal's look: macOS Terminal's "Apple System Colors" palette on
-/// true black (dark) or #EEEEEE (light), SF Mono 13.
+/// the conversation's page color (#1E1E1E dark, white light), so the
+/// terminal reads as part of the window, SF Mono 13.
 nonisolated struct TerminalTheme: Sendable {
     var background: RGB
     var foreground: RGB
@@ -29,7 +30,7 @@ nonisolated struct TerminalTheme: Sendable {
     ]
 
     static let dark = TerminalTheme(
-        background: RGB(0x000000), foreground: RGB(0xFFFFFF),
+        background: RGB(0x1E1E1E), foreground: RGB(0xFFFFFF),
         cursor: RGB(0x98989D), cursorText: RGB(0xFFFFFF),
         selectionBackground: RGB(0x3F638B), selectionForeground: RGB(0xFFFFFF),
         palette: basePalette.map(RGB.init))
@@ -39,14 +40,24 @@ nonisolated struct TerminalTheme: Sendable {
         p[11] = 0xE5BC00
         p[14] = 0x69C9F2
         return TerminalTheme(
-            background: RGB(0xEEEEEE), foreground: RGB(0x000000),
+            background: RGB(0xFFFFFF), foreground: RGB(0x000000),
             cursor: RGB(0x98989D), cursorText: RGB(0xFFFFFF),
             selectionBackground: RGB(0xABD8FF), selectionForeground: RGB(0x000000),
             palette: p.map(RGB.init))
     }()
 
     static func current(for appearance: NSAppearance) -> TerminalTheme {
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        #if DEBUG
+        // Try other backgrounds: defaults write … ToastyTerminalBackgroundDark 1E1E1E
+        if let hex = UserDefaults.standard.string(forKey: isDark ? "ToastyTerminalBackgroundDark" : "ToastyTerminalBackgroundLight"),
+           let v = UInt32(hex, radix: 16) {
+            var t = isDark ? dark : light
+            t.background = RGB(v)
+            return t
+        }
+        #endif
+        return isDark ? dark : light
     }
 
     /// Padding inside the terminal, around the cell grid.

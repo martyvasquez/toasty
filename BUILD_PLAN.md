@@ -84,7 +84,7 @@ terminal**; don't build the rest of the app on it until it passes.
 │ ● ● ●        │ [✦ Fix login][✦ New Chat][+]        │ [▣ zsh][▣ npm dev][+] ◨ │  ← titlebar row (toolbar tone)
 │ Workspaces + ├─────────────────────────────────────┼─────────────────────────┤
 │ ▸ toasty     │                                     │                         │
-│ ▸ lsc-astro  │   conversation transcript           │   terminal (black)      │
+│ ▸ lsc-astro  │   conversation transcript           │   terminal (page color) │
 │   Working…   │   (900pt column, centered)          │                         │
 │              │                                     │                         │
 │              │   ╭ composer (900pt) ──────────╮    │                         │
@@ -174,8 +174,9 @@ the user; check light mode and ask.
 - Conversation page background = `NSColor.textBackgroundColor`
   (dark `#1E1E1E`).
 - Workspaces sidebar: native sidebar material.
-- Terminal sidebar: **true black** in dark mode (`#000000`), light gray
-  `#EEEEEE` in light mode; macOS Terminal palette ("Apple System Colors"
+- Terminal: the conversation's page color, `#1E1E1E` in dark mode and
+  white in light mode (changed from true black / `#EEEEEE` so the
+  terminal reads as part of the window); macOS Terminal palette ("Apple System Colors"
   ANSI colors — copy from `mostty/macos/Sources/Features/Claude/mostty-terminal-dark.theme`).
   12pt horizontal / 8pt vertical padding inside the terminal.
 - Full-height 0.5pt divider between conversation and terminal columns;
