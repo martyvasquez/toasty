@@ -120,10 +120,15 @@ enum ClaudeDebug {
             let candidates = scrollViews(root).filter { !($0.superview is TerminalScrollView) && !($0.documentView is FlippedView) }
             guard let sv = candidates.max(by: { ($0.documentView?.frame.height ?? 0) < ($1.documentView?.frame.height ?? 0) }),
                   let doc = sv.documentView else { throw E("no transcript") }
-            let f = cmd["to"] as? Double ?? Double(cmd["to"] as? Int ?? 1)
             // Respect the content insets (the transcript runs under the titlebar).
             let top = -sv.contentInsets.top
             let bottom = doc.frame.height - sv.contentSize.height + sv.contentInsets.bottom
+            // No "to": report how far from the bottom the view is (points).
+            guard cmd["to"] != nil else {
+                let y = sv.contentView.bounds.origin.y
+                return ["fromBottom": doc.isFlipped ? bottom - y : y - top, "height": doc.frame.height]
+            }
+            let f = cmd["to"] as? Double ?? Double(cmd["to"] as? Int ?? 1)
             let y = top + (bottom - top) * CGFloat(doc.isFlipped ? f : 1 - f)
             sv.contentView.scroll(to: NSPoint(x: 0, y: y))
             sv.reflectScrolledClipView(sv.contentView)

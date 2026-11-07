@@ -59,6 +59,15 @@ struct ClaudeTranscript: View {
     @State private var limit = 160
     /// The view is scrolled to (near) the end.
     @State private var atBottom = true
+    /// Follow new output, like a terminal: on while at the bottom, off once
+    /// the user scrolls up, back on when they return to the bottom.
+    @State private var following = true
+
+    private struct ScrollState: Equatable {
+        var offset: CGFloat
+        var contentHeight: CGFloat
+        var atBottom: Bool
+    }
 
     var body: some View {
         let all = rows
@@ -93,16 +102,26 @@ struct ClaudeTranscript: View {
                 .frame(maxWidth: .infinity)
             }
             .modifier(PinToBottom())
-            .onScrollGeometryChange(for: Bool.self) { g in
+            .onScrollGeometryChange(for: ScrollState.self) { g in
                 // The bottom of what's visible above the composer (the
                 // bottom inset) against the end of the content.
-                g.visibleRect.maxY - g.contentInsets.bottom >= g.contentSize.height - 60
-            } action: { _, bottom in
-                if bottom != atBottom { withAnimation(.easeOut(duration: 0.15)) { atBottom = bottom } }
+                ScrollState(offset: g.contentOffset.y, contentHeight: g.contentSize.height,
+                            atBottom: g.visibleRect.maxY - g.contentInsets.bottom >= g.contentSize.height - 60)
+            } action: { old, new in
+                if new.offset != old.offset {
+                    // The user (or a jump) scrolled: follow only from the bottom.
+                    following = new.atBottom
+                } else if new.contentHeight > old.contentHeight, following {
+                    // Output grew while following: stay with it.
+                    proxy.scrollTo("bottom", anchor: .bottom)
+                    return
+                }
+                if new.atBottom != atBottom { withAnimation(.easeOut(duration: 0.15)) { atBottom = new.atBottom } }
             }
             .overlay(alignment: .bottom) {
                 if !atBottom {
                     JumpToLatestButton {
+                        following = true
                         withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo("bottom", anchor: .bottom) }
                     }
                     .padding(.bottom, 10)
@@ -110,6 +129,10 @@ struct ClaudeTranscript: View {
                 }
             }
             .onChange(of: conversation.items.count) { _, _ in
+                // A new message: follow it, unless the user is reading
+                // further up (a prompt they just sent always shows).
+                guard following || conversation.items.last?.kind == .user else { return }
+                following = true
                 withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("bottom", anchor: .bottom) }
             }
             // A request card above the composer shortens the transcript:
