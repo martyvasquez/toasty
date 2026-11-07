@@ -39,7 +39,11 @@ final class WorkspaceStore: ObservableObject {
     private var saveScheduled = false
     private var loading = false
 
+    /// No state.json yet: Toasty's first launch.
+    private(set) var isFirstLaunch = false
+
     func load() {
+        isFirstLaunch = !FileManager.default.fileExists(atPath: Self.stateURL.path)
         loading = true
         defer { loading = false }
         if let data = try? Data(contentsOf: Self.stateURL),
@@ -97,12 +101,13 @@ final class WorkspaceStore: ObservableObject {
     // MARK: Workspaces
 
     @discardableResult
-    func create(folder: String, name: String? = nil, activate: Bool = true) -> Workspace {
+    func create(folder: String, name: String? = nil, activate: Bool = true, withConversation: Bool = true,
+                append: Bool = false) -> Workspace {
         let w = Workspace(name: name ?? Self.projectName(for: URL(fileURLWithPath: folder)), folder: folder)
         w.store = self
-        w.newConversation()
+        if withConversation { w.newConversation() }
         var list = workspaces
-        if let i = list.firstIndex(where: { $0.id == activeID }) {
+        if !append, let i = list.firstIndex(where: { $0.id == activeID }) {
             list.insert(w, at: i + 1)
         } else {
             list.append(w)
@@ -248,7 +253,7 @@ final class WorkspaceStore: ObservableObject {
         }
     }
 
-    static func normalize(_ path: String) -> String {
+    nonisolated static func normalize(_ path: String) -> String {
         let p = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
             .standardizedFileURL.resolvingSymlinksInPath().path
         return p.count > 1 && p.hasSuffix("/") ? String(p.dropLast()) : p

@@ -25,6 +25,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.startShownConversation()
         pendingFolders.forEach(store.openFolder)
         pendingFolders = []
+        // First launch: offer to bring over mostty's workspaces.
+        if store.isFirstLaunch, MosttyImport.isAvailable,
+           !UserDefaults.standard.bool(forKey: "ToastyImportedFromMostty") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [store] in MosttyImport.present(store: store) }
+        }
         NSApp.activate()
     }
 
@@ -47,6 +52,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Quitting stops Claude and terminal programs: ask first if any are busy.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // An open import sheet would block quitting.
+        MosttyImport.finishSheet(perform: false, store: store)
         let conversations = store.workspaces.flatMap(\.conversations)
         let terminals = store.workspaces.flatMap(\.terminals)
         guard let warning = Activity.shared.closeWarning(conversations: conversations, terminals: terminals, action: "quit"),

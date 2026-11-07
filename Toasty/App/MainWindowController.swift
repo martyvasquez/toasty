@@ -218,6 +218,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         if let w = store.active { NSWorkspace.shared.open(URL(fileURLWithPath: w.folder)) }
     }
 
+    @objc func importFromMostty(_ sender: Any?) { MosttyImport.present(store: store) }
+
     @objc func closeWorkspace(_ sender: Any?) {
         if let id = store.activeID { store.requestClose(id) }
     }
@@ -240,6 +242,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         case #selector(newTerminal(_:)), #selector(renameWorkspace(_:)), #selector(changeWorkspaceFolder(_:)),
              #selector(openWorkspaceInFinder(_:)), #selector(closeWorkspace(_:)):
             return w != nil
+        case #selector(importFromMostty(_:)):
+            return MosttyImport.isAvailable
         case #selector(selectNextWorkspace(_:)), #selector(selectPreviousWorkspace(_:)):
             return store.workspaces.count > 1
         default:

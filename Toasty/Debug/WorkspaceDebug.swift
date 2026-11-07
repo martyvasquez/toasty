@@ -147,6 +147,30 @@ enum WorkspaceDebug {
             }
             return ["buttons": all.map(\.title), "text": sheet.contentView.map(texts) ?? []]
         }
+        // {"cmd":"mostty"} lists what would be imported; {"cmd":"mostty","show":true}
+        // opens the sheet; {"cmd":"mostty","perform":true} imports the defaults.
+        DebugControl.register("mostty") { cmd in
+            if cmd["show"] as? Bool == true { MosttyImport.present(store: store); return nil }
+            if let press = cmd["press"] as? String {
+                MosttyImport.finishSheet(perform: press == "Import", store: store)
+                return state()
+            }
+            let model = MosttyImport()
+            model.load(store: store)
+            if cmd["perform"] as? Bool == true {
+                // Loading is asynchronous: import once it's done.
+                Task { @MainActor in
+                    while model.loading { try? await Task.sleep(for: .milliseconds(100)) }
+                    model.perform(store: store)
+                }
+                return "importing"
+            }
+            return MosttyImport.mosttyWorkspaces().map { w in
+                ["name": w.name, "folder": w.folder,
+                 "sessions": MosttyImport.recentSessions(in: w.folder, limit: 8).map { "\($0.title) · \($0.date)" }]
+            }
+        }
+
         DebugControl.register("jump") { _ in
             Activity.shared.jumpToLatest()
             return state()

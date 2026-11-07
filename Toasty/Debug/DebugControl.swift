@@ -90,7 +90,9 @@ enum DebugControl {
         // Real pixels of our own window: an app may capture its own windows
         // without Screen Recording permission. `appearance`: light|dark.
         register("screenshot") { cmd in
-            guard let window else { throw DebugError("no window") }
+            guard let main = window else { throw DebugError("no window") }
+            // {"sheet":true}: the attached sheet (a window of its own).
+            let window = cmd["sheet"] as? Bool == true ? (main.attachedSheet ?? main) : main
             let path = cmd["path"] as? String ?? NSTemporaryDirectory() + "toasty-\(Int(Date().timeIntervalSince1970)).png"
             window.displayIfNeeded()
             guard let image = captureWindow(window.windowNumber) else { throw DebugError("capture failed") }

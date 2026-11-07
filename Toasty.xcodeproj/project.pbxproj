@@ -30,6 +30,7 @@
 		8905A680FA47042672972DFD /* ClaudeConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEF18C42EDAF14F5AFAD03EE /* ClaudeConversationView.swift */; };
 		8AE462A6E941126BC4202A81 /* ClaudeTextViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DB1DB6F9D1A2A6132740C20 /* ClaudeTextViews.swift */; };
 		97DE64296BB25F566553E931 /* TerminalSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D608974EF68852F5E90292F3 /* TerminalSession.swift */; };
+		A2EC71DB7AA8F9C82C143E0E /* MosttyImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCAA19127C213E06D0E3269E /* MosttyImport.swift */; };
 		AC9DFC4D667B3EF0DACDCE40 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FDD4FA67F476B51448A8EB66 /* Assets.xcassets */; };
 		B614E0D5DFBFC6A1EC6A58EB /* ClaudeConversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A3D72521ECFC5F5DC717828 /* ClaudeConversation.swift */; };
 		B7EC6B42A1BE5F57121E7511 /* ConversationColumn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A1AC4F2009B67034788F88E /* ConversationColumn.swift */; };
@@ -82,6 +83,7 @@
 		ECA042843FEF43774DB0414C /* TitlebarTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitlebarTabs.swift; sourceTree = "<group>"; };
 		F27278907AA55A2FF70B1DB4 /* TerminalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalRenderer.swift; sourceTree = "<group>"; };
 		FA6ECF9E267AAEB50DBBCB05 /* ClaudeToolViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeToolViews.swift; sourceTree = "<group>"; };
+		FCAA19127C213E06D0E3269E /* MosttyImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MosttyImport.swift; sourceTree = "<group>"; };
 		FCD6058B2549DF11F5B70E09 /* .keep */ = {isa = PBXFileReference; path = .keep; sourceTree = "<group>"; };
 		FDD4FA67F476B51448A8EB66 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -178,6 +180,7 @@
 		C02E06E6B0BB99FC94E442D8 /* Workspaces */ = {
 			isa = PBXGroup;
 			children = (
+				FCAA19127C213E06D0E3269E /* MosttyImport.swift */,
 				92F0C051C134C0C9C597BCFD /* Workspace.swift */,
 				6927A423E7E99E5F0D72EB08 /* WorkspaceSidebarView.swift */,
 				A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */,
@@ -322,6 +325,7 @@
 				C4C4D6FECA7C3F59FBB1EBD6 /* MainMenu.swift in Sources */,
 				53B908DF422B0A0DA826C6F1 /* MainSplitViewController.swift in Sources */,
 				346191052BC0573C556FAE23 /* MainWindowController.swift in Sources */,
+				A2EC71DB7AA8F9C82C143E0E /* MosttyImport.swift in Sources */,
 				E418801CB5AD25148EC64A13 /* PTY.swift in Sources */,
 				021E23FC56ACD71AC24B461D /* TerminalDebug.swift in Sources */,
 				500B9ECC5A22E8386FBB831D /* TerminalRenderer.swift in Sources */,

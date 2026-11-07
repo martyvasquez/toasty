@@ -26,6 +26,7 @@ enum MainMenu {
         file.addItem(item("New Tab", #selector(W.newTab(_:)), "t"))
         file.addItem(item("New Terminal", #selector(W.newTerminal(_:)), "t", [.command, .option]))
         file.addItem(item("New Workspace…", #selector(W.newWorkspace(_:)), "n"))
+        file.addItem(item("Import from mostty…", #selector(W.importFromMostty(_:)), ""))
         file.addItem(.separator())
         file.addItem(item("Close Tab", #selector(W.closeTab(_:)), "w"))
         file.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "W")
