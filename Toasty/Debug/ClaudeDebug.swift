@@ -151,6 +151,8 @@ enum ClaudeDebug {
                 "draft": c.draft,
                 "attention": c.attention,
                 "remoteControl": "\(c.remoteControl)",
+                "turn": ["step": "\(c.activity.step)", "outputTokens": c.activity.outputTokens,
+                             "elapsed": c.turnStarted.map { Date().timeIntervalSince($0) } ?? -1] as [String: Any],
                 "remoteControlAvailable": c.remoteControlAvailable,
                 "activity": Activity.shared.state(of: c).rawValue,
                 "requests": c.requests.map { ["tool": $0.toolName, "title": $0.title ?? "", "suggestions": $0.suggestions.count] },

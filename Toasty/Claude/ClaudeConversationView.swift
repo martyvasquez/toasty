@@ -163,8 +163,9 @@ struct ClaudeTranscript: View {
             switch item.kind {
             case .tool:
                 run.append(item)
-            case .thinking where item.finalized && item.text.isEmpty:
-                // Nothing to show when the model returned no visible thinking.
+            case .thinking where item.text.isEmpty:
+                // Nothing to show without visible thinking (while it runs,
+                // the working line says "Thinking…").
                 continue
             default:
                 flush()
@@ -189,6 +190,61 @@ struct ClaudeTranscript: View {
             ClaudeItemView(item: item, cwd: conversation.cwd, onRun: onRunInTerminal,
                            latest: item.id == latestReplyID)
         }
+    }
+}
+
+/// While Claude works, the CLI's spinner line: what it's doing, for how
+/// long, and how many tokens it has written ("✻ Thinking… · 23s · ↓ 1.4k
+/// tokens · esc to interrupt").
+struct ClaudeWorkingLine: View {
+    @ObservedObject var conversation: ClaudeConversation
+    @ObservedObject var activity: ClaudeTurnActivity
+
+    /// The CLI's spinner glyphs, out and back.
+    private static let frames = Array("·✢✳✶✻✽✻✶✳✢")
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.12)) { context in
+            let tick = Int(context.date.timeIntervalSinceReferenceDate / 0.12)
+            HStack(spacing: 7) {
+                Text(String(Self.frames[tick % Self.frames.count]))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color(nsColor: .systemOrange))
+                    .frame(width: 14)
+                Text(verb)
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Text(details(now: context.date))
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(.tertiary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Claude is working")
+    }
+
+    private var verb: String {
+        if let status = conversation.status { return status }
+        switch activity.step {
+        case .thinking: return "Thinking…"
+        case .writing: return "Writing…"
+        case .working: return "Working…"
+        }
+    }
+
+    private func details(now: Date) -> String {
+        var parts: [String] = []
+        if let started = conversation.turnStarted {
+            parts.append(ClaudeToolInfo.duration(max(0, Int(now.timeIntervalSince(started)))))
+        }
+        if activity.outputTokens > 0 {
+            let n = activity.outputTokens
+            parts.append("↓ \(n >= 1000 ? String(format: "%.1fk", Double(n) / 1000) : "\(n)") tokens")
+        }
+        parts.append("esc to interrupt")
+        return parts.joined(separator: " · ")
     }
 }
 
@@ -388,7 +444,7 @@ struct ClaudeThinking: View {
                 withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() }
             } label: {
                 HStack(spacing: 6) {
-                    Text(item.finalized ? "Thought" : "Thinking…")
+                    Text(item.finalized ? "Thought" : "Thinking")
                         .font(.system(size: 12.5, weight: .medium))
                     Image(systemName: "chevron.right")
                         .font(.system(size: 8.5, weight: .bold))
@@ -473,6 +529,13 @@ struct ClaudeBottomArea: View {
                 ClaudeRequestCard(conversation: conversation, request: request)
                     .id(request.id)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else if conversation.phase == .working {
+                // Right above the input, like the CLI's spinner line.
+                ClaudeWorkingLine(conversation: conversation, activity: conversation.activity)
+                    .padding(.leading, ClaudeComposerBox.inset - 2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, -2)
+                    .transition(.opacity)
             }
             ClaudeComposerBox(conversation: conversation)
         }
@@ -482,6 +545,7 @@ struct ClaudeBottomArea: View {
         .padding(.top, 4)
         .frame(maxWidth: .infinity)
         .animation(.spring(response: 0.3, dampingFraction: 0.9), value: conversation.requests.first?.id)
+        .animation(.easeOut(duration: 0.2), value: conversation.phase)
     }
 }
 

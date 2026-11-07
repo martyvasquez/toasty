@@ -62,6 +62,67 @@ final class ClaudeItem: ObservableObject, Identifiable {
     }
 }
 
+/// The running turn's live numbers for the status line (like the CLI's
+/// "✻ Thinking… (23s · ↓ 1.4k tokens)"). Its own object, so a token
+/// update redraws the status line, not the transcript.
+@MainActor
+final class ClaudeTurnActivity: ObservableObject {
+    enum Step: Equatable { case working, thinking, writing }
+
+    @Published private(set) var step: Step = .working
+    /// Output tokens this turn: the API's counts for finished messages,
+    /// plus an estimate (characters / 4) for the one streaming now.
+    @Published private(set) var outputTokens = 0
+
+    private var finishedTokens = 0
+    private var streamedChars = 0
+    private var messageTokens: Int?
+
+    func reset() {
+        finishedTokens = 0
+        streamedChars = 0
+        messageTokens = nil
+        step = .working
+        publish()
+    }
+
+    func messageStarted() {
+        finishedTokens += messageTokens ?? streamedChars / 4
+        streamedChars = 0
+        messageTokens = nil
+        step = .working
+        publish()
+    }
+
+    func blockStarted(_ type: String) {
+        let s: Step = type == "thinking" ? .thinking : type == "text" ? .writing : .working
+        if step != s { step = s }
+    }
+
+    func streamed(_ count: Int) {
+        streamedChars += count
+        // Publish in steps of a few tokens, not on every delta.
+        let estimate = finishedTokens + (messageTokens ?? streamedChars / 4)
+        if estimate - outputTokens >= 8 { outputTokens = estimate }
+    }
+
+    /// The API's own count for the streaming message (message_delta).
+    func messageUsage(_ tokens: Int) {
+        messageTokens = tokens
+        publish()
+    }
+
+    /// The message's blocks are done; a tool may run next.
+    func messageStopped() {
+        if step != .working { step = .working }
+    }
+
+    private func publish() {
+        let total = finishedTokens + (messageTokens ?? streamedChars / 4)
+        if total != outputTokens { outputTokens = total }
+    }
+}
+
 /// A permission prompt (or question) Claude Code is waiting on. It
 /// came through the SDK's `canUseTool` callback, exactly where the CLI would
 /// have shown its own prompt.
@@ -126,6 +187,8 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     @Published private(set) var status: String?
     @Published private(set) var slashCommands: [String] = []
     @Published private(set) var turnStarted: Date?
+    /// Live step and token count of the running turn.
+    let activity = ClaudeTurnActivity()
     @Published var draft: String = ""
 
     struct ModelOption: Identifiable, Equatable {
@@ -406,6 +469,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         if turnsInFlight == 0 {
             interrupted = false
             turnStarted = Date()
+            activity.reset()
         }
         // A message sent while Claude works is queued by Claude Code and
         // runs as its own turn, with its own result.
@@ -684,6 +748,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
            (m["message"] as? [String: Any])?["model"] as? String != "<synthetic>" {
             interrupted = false
             turnStarted = Date()
+            activity.reset()
             turnsInFlight = 1
             setPhase(.working)
         }
@@ -793,6 +858,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             if turnsInFlight > 0 {
                 // The next queued message is starting.
                 turnStarted = Date()
+                activity.reset()
                 return
             }
             markTurnEnd(at: Date(), duration: turnStarted.map { max(1, Int(Date().timeIntervalSince($0))) })
@@ -823,8 +889,10 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         case "message_start":
             finishStreaming()
             streamingMessageID = (e["message"] as? [String: Any])?["id"] as? String
+            activity.messageStarted()
         case "content_block_start":
             guard let index = e["index"] as? Int, let block = e["content_block"] as? [String: Any] else { return }
+            activity.blockStarted(block["type"] as? String ?? "")
             switch block["type"] as? String {
             case "text":
                 let item = ClaudeItem(kind: .assistant, finalized: false)
@@ -851,14 +919,24 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             guard let index = e["index"] as? Int, let delta = e["delta"] as? [String: Any],
                   let item = streaming[index] else { return }
             switch delta["type"] as? String {
-            case "text_delta": item.text += delta["text"] as? String ?? ""
-            case "thinking_delta": item.text += delta["thinking"] as? String ?? ""
+            case "text_delta":
+                let t = delta["text"] as? String ?? ""
+                item.text += t
+                activity.streamed(t.count)
+            case "thinking_delta":
+                let t = delta["thinking"] as? String ?? ""
+                item.text += t
+                activity.streamed(t.count)
             case "input_json_delta":
-                toolInputJSON[index, default: ""] += delta["partial_json"] as? String ?? ""
+                let t = delta["partial_json"] as? String ?? ""
+                toolInputJSON[index, default: ""] += t
+                activity.streamed(t.count)
             default: break
             }
+        case "message_delta":
+            if let tokens = (e["usage"] as? [String: Any])?["output_tokens"] as? Int { activity.messageUsage(tokens) }
         case "message_stop":
-            break
+            activity.messageStopped()
         default:
             break
         }
