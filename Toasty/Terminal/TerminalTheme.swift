@@ -2,8 +2,9 @@ import AppKit
 import GhosttyVt
 
 /// The terminal's look: macOS Terminal's "Apple System Colors" palette on
-/// the conversation's page color (#1E1E1E dark, white light), so the
-/// terminal reads as part of the window, SF Mono 13.
+/// the panel color of the sidebar and inspector (`ClaudeStyle.chrome`:
+/// #2A2A2A dark, #EEEEEE light), so the right column reads as one panel,
+/// SF Mono 13.
 nonisolated struct TerminalTheme: Sendable {
     var background: RGB
     var foreground: RGB
@@ -30,7 +31,7 @@ nonisolated struct TerminalTheme: Sendable {
     ]
 
     static let dark = TerminalTheme(
-        background: RGB(0x1E1E1E), foreground: RGB(0xFFFFFF),
+        background: RGB(0x2A2A2A), foreground: RGB(0xFFFFFF),
         cursor: RGB(0x98989D), cursorText: RGB(0xFFFFFF),
         selectionBackground: RGB(0x3F638B), selectionForeground: RGB(0xFFFFFF),
         palette: basePalette.map(RGB.init))
@@ -40,7 +41,7 @@ nonisolated struct TerminalTheme: Sendable {
         p[11] = 0xE5BC00
         p[14] = 0x69C9F2
         return TerminalTheme(
-            background: RGB(0xFFFFFF), foreground: RGB(0x000000),
+            background: RGB(0xEEEEEE), foreground: RGB(0x000000),
             cursor: RGB(0x98989D), cursorText: RGB(0xFFFFFF),
             selectionBackground: RGB(0xABD8FF), selectionForeground: RGB(0x000000),
             palette: p.map(RGB.init))
