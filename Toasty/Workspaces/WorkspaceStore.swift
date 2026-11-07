@@ -11,6 +11,10 @@ final class WorkspaceStore: ObservableObject {
     @Published var sidebarVisible = true
     /// Width of the workspaces sidebar (kept when the user drags it).
     var sidebarWidth: CGFloat = 250
+    /// Width of the right column and the inspector's share of its height:
+    /// the same for every workspace, so switching never resizes anything.
+    var rightColumnWidth: CGFloat = 400
+    var inspectorFraction: CGFloat = 0.55
     /// The workspace whose name is being edited in the sidebar.
     @Published var renamingID: UUID?
     /// The workspace being dragged in the sidebar.
@@ -29,6 +33,8 @@ final class WorkspaceStore: ObservableObject {
         var activeWorkspace: UUID?
         var sidebarVisible: Bool
         var sidebarWidth: Double?
+        var rightColumnWidth: Double?
+        var inspectorFraction: Double?
         var windowFrame: String?
     }
 
@@ -57,6 +63,10 @@ final class WorkspaceStore: ObservableObject {
                 ?? workspaces.first?.id
             sidebarVisible = s.sidebarVisible
             sidebarWidth = s.sidebarWidth.map { CGFloat($0) } ?? sidebarWidth
+            // Older state kept these per workspace: start from the active one's.
+            let activeSaved = s.workspaces.first { $0.id == activeID } ?? s.workspaces.first
+            rightColumnWidth = CGFloat(s.rightColumnWidth ?? activeSaved?.terminalWidth ?? Double(rightColumnWidth))
+            inspectorFraction = CGFloat(s.inspectorFraction ?? activeSaved?.inspectorFraction ?? Double(inspectorFraction))
             windowFrame = s.windowFrame.map(NSRectFromString)
         }
         if workspaces.isEmpty {
@@ -78,6 +88,8 @@ final class WorkspaceStore: ObservableObject {
         let s = Saved(workspaces: workspaces.map(\.saved), activeWorkspace: activeID,
                       sidebarVisible: sidebarVisible,
                       sidebarWidth: Double(sidebarWidth),
+                      rightColumnWidth: Double(rightColumnWidth),
+                      inspectorFraction: Double(inspectorFraction),
                       windowFrame: windowFrame.map(NSStringFromRect))
         do {
             let url = Self.stateURL

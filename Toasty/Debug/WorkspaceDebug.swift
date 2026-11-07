@@ -53,13 +53,15 @@ enum WorkspaceDebug {
             if let t = cmd["tab"] as? String, let tab = InspectorTab(rawValue: t) { w.showInspector(tab) }
             if let v = cmd["visible"] as? Bool { v ? w.showInspector() : w.hideInspector() }
             if let v = cmd["terminal"] as? Bool { v ? w.showTerminal() : w.hideTerminal() }
-            if let f = cmd["fraction"] as? Double { w.inspectorFraction = f }
+            if let f = cmd["fraction"] as? Double { store.inspectorFraction = f }
             if let i = cmd["diff"] as? Int {
                 w.diffFile = w.changes.files.indices.contains(i) ? w.changes.files[i] : nil
             }
             return [
                 "inspector": w.inspectorVisible, "tab": w.inspectorTab.rawValue, "terminal": w.terminalVisible,
-                "fraction": w.inspectorFraction,
+                "fraction": store.inspectorFraction,
+                "columnWidth": AppDelegate.shared.windowController.map { $0.split.terminalItem.isCollapsed ? 0 : $0.split.rightColumn.view.frame.width } ?? -1,
+                "inspectorHeight": AppDelegate.shared.windowController?.split.rightColumn.inspectorItem.viewController.view.frame.height ?? -1,
                 "git": "\(w.changes.state)", "branch": w.changes.branch ?? "", "ahead": w.changes.ahead, "behind": w.changes.behind,
                 "files": w.changes.files.map { "\($0.status.rawValue) \($0.path) +\($0.added.map(String.init) ?? "-") -\($0.removed.map(String.init) ?? "-")" },
                 "diff": w.diffFile?.path ?? "",
@@ -122,7 +124,7 @@ enum WorkspaceDebug {
                 let width = CGFloat(cmd["width"] as? Int ?? 400)
                 split.splitView.setPosition(split.splitView.bounds.width - width, ofDividerAt: 1)
             case "width":
-                w.terminalWidth = CGFloat(cmd["width"] as? Double ?? Double(cmd["width"] as? Int ?? 520))
+                store.rightColumnWidth = CGFloat(cmd["width"] as? Double ?? Double(cmd["width"] as? Int ?? 400))
             default: throw E("unknown action \(action)")
             }
             return state()
@@ -223,7 +225,7 @@ enum WorkspaceDebug {
                     "terminals": w.terminals.map { "\($0.displayTitle)\($0.isStarted ? "" : " (not started)")" },
                     "selectedTerminal": w.terminals.firstIndex { $0.id == w.selectedTerminalID } ?? -1,
                     "terminalVisible": w.terminalVisible,
-                    "terminalWidth": w.terminalWidth,
+                    "rightColumnWidth": store.rightColumnWidth,
                 ]
             },
         ]

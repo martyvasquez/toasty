@@ -13,14 +13,9 @@ final class Workspace: ObservableObject, Identifiable {
     @Published private(set) var terminals: [TerminalSession] = []
     @Published private(set) var selectedTerminalID: UUID?
     @Published var terminalVisible = false
-    /// Width of the right column (inspector over terminals).
-    @Published var terminalWidth: CGFloat = 400
     /// The inspector: the top of the right column.
     @Published var inspectorVisible = false
     @Published var inspectorTab: InspectorTab = .changes
-    /// The inspector's share of the right column's height when the
-    /// terminal shows below it.
-    @Published var inspectorFraction: CGFloat = 0.55
     /// A changed file whose diff fills the conversation column.
     @Published var diffFile: GitChanges.File?
 
@@ -266,7 +261,8 @@ final class Workspace: ObservableObject, Identifiable {
         var terminals: [SavedTerminal]
         var selectedTerminal: UUID?
         var terminalVisible: Bool
-        var terminalWidth: Double
+        /// Older state kept sizes per workspace (now window-wide).
+        var terminalWidth: Double?
         var inspectorVisible: Bool?
         var inspectorTab: String?
         var inspectorFraction: Double?
@@ -293,10 +289,10 @@ final class Workspace: ObservableObject, Identifiable {
               terminals: terminals.map { SavedTerminal(id: $0.id, cwd: $0.directory) },
               selectedTerminal: selectedTerminalID,
               terminalVisible: terminalVisible,
-              terminalWidth: Double(terminalWidth),
+              terminalWidth: nil,
               inspectorVisible: inspectorVisible,
               inspectorTab: inspectorTab.rawValue,
-              inspectorFraction: Double(inspectorFraction))
+              inspectorFraction: nil)
     }
 
     convenience init(saved s: Saved) {
@@ -315,10 +311,8 @@ final class Workspace: ObservableObject, Identifiable {
         }
         selectedTerminalID = s.selectedTerminal.flatMap { id in terminals.contains { $0.id == id } ? id : nil } ?? terminals.first?.id
         terminalVisible = s.terminalVisible && !terminals.isEmpty
-        terminalWidth = CGFloat(s.terminalWidth)
         inspectorVisible = s.inspectorVisible ?? false
         inspectorTab = s.inspectorTab.flatMap(InspectorTab.init(rawValue:)) ?? .changes
-        inspectorFraction = CGFloat(s.inspectorFraction ?? 0.55)
     }
 }
 

@@ -117,7 +117,7 @@ final class MainSplitViewController: NSSplitViewController {
             return
         }
         rightColumn.apply(w, animated: false)
-        setTerminal(visible: w.rightColumnVisible, animated: false, width: w.terminalWidth)
+        setTerminal(visible: w.rightColumnVisible, animated: false, width: store.rightColumnWidth)
         terminalColumn.show(w.terminalVisible ? w.selectedTerminal : nil)
 
         // Either half of the right column showing or hiding.
@@ -132,7 +132,7 @@ final class MainSplitViewController: NSSplitViewController {
                 // Within a shown column, the halves animate; a column that
                 // opens or closes takes its new halves with it.
                 self.rightColumn.apply(w, animated: !columnChanges)
-                self.setTerminal(visible: w.rightColumnVisible, animated: true, width: w.terminalWidth)
+                self.setTerminal(visible: w.rightColumnVisible, animated: true, width: self.store.rightColumnWidth)
             }
             .store(in: &workspaceCancellables)
         w.$selectedTerminalID
@@ -187,8 +187,8 @@ final class MainSplitViewController: NSSplitViewController {
         // The user dragged the column's divider: remember the width.
         if !terminalAnimating, !terminalItem.isCollapsed, w.rightColumnVisible {
             let width = rightColumn.view.frame.width
-            if abs(width - w.terminalWidth) > 0.5, width >= Self.minTerminal {
-                w.terminalWidth = width
+            if abs(width - store.rightColumnWidth) > 0.5, width >= Self.minTerminal {
+                store.rightColumnWidth = width
                 store.setNeedsSave()
             }
         }
@@ -313,7 +313,7 @@ final class RightColumnController: NSSplitViewController {
         guard total > 0 else { return }
         applying = true
         defer { applying = false }
-        let y = min(max(Self.minInspector, total * w.inspectorFraction), total - Self.minTerminal)
+        let y = min(max(Self.minInspector, total * store.inspectorFraction), total - Self.minTerminal)
         splitView.setPosition(y, ofDividerAt: 0)
     }
 
@@ -335,8 +335,8 @@ final class RightColumnController: NSSplitViewController {
         let total = splitView.bounds.height
         guard total > 0 else { return }
         let f = inspectorItem.viewController.view.frame.height / total
-        if abs(f - w.inspectorFraction) > 0.002 {
-            w.inspectorFraction = f
+        if abs(f - store.inspectorFraction) > 0.002 {
+            store.inspectorFraction = f
             store.setNeedsSave()
         }
     }
