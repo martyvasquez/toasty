@@ -14,7 +14,7 @@ final class Workspace: ObservableObject, Identifiable {
     @Published private(set) var selectedTerminalID: UUID?
     @Published var terminalVisible = false
     /// Width of the right column (inspector over terminals).
-    @Published var terminalWidth: CGFloat = 520
+    @Published var terminalWidth: CGFloat = 400
     /// The inspector: the top of the right column.
     @Published var inspectorVisible = false
     @Published var inspectorTab: InspectorTab = .changes

@@ -40,6 +40,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
         if let frame = store.windowFrame, NSScreen.screens.contains(where: { $0.visibleFrame.intersects(frame) }) {
             window.setFrame(frame, display: false)
+        } else if let screen = NSScreen.main {
+            // First launch: nearly the whole screen, so the conversation gets
+            // room next to both side columns.
+            let visible = screen.visibleFrame
+            let size = NSSize(width: min(visible.width - 40, 1800), height: min(visible.height - 30, 1150))
+            window.setFrame(NSRect(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2,
+                                   width: size.width, height: size.height), display: false)
         } else {
             window.setContentSize(NSSize(width: 1280, height: 820))
             window.center()

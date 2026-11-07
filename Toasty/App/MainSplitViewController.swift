@@ -90,7 +90,16 @@ final class MainSplitViewController: NSSplitViewController {
 
     override func viewDidAppear() {
         super.viewDidAppear()
+        applySidebarWidth()
         showActiveWorkspace()
+    }
+
+    private func applySidebarWidth() {
+        guard !sidebarItem.isCollapsed else { return }
+        applying = true
+        defer { applying = false }
+        let w = min(max(store.sidebarWidth, sidebarItem.minimumThickness), sidebarItem.maximumThickness)
+        splitView.setPosition(w, ofDividerAt: 0)
     }
 
     /// Show the active workspace's terminal column (its width, visibility
@@ -180,6 +189,14 @@ final class MainSplitViewController: NSSplitViewController {
             let width = rightColumn.view.frame.width
             if abs(width - w.terminalWidth) > 0.5, width >= Self.minTerminal {
                 w.terminalWidth = width
+                store.setNeedsSave()
+            }
+        }
+        // The user dragged the sidebar's edge: remember its width.
+        if !sidebarAnimating, !sidebarItem.isCollapsed, NSApp.currentEvent?.type == .leftMouseDragged {
+            let width = sidebarItem.viewController.view.frame.width
+            if abs(width - store.sidebarWidth) > 0.5 {
+                store.sidebarWidth = width
                 store.setNeedsSave()
             }
         }
