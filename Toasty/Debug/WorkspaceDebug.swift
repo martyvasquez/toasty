@@ -47,6 +47,25 @@ enum WorkspaceDebug {
             return state()
         }
 
+        // {"cmd":"inspector","tab":"changes","visible":true,"terminal":false,"diff":0}
+        DebugControl.register("inspector") { cmd in
+            guard let w = store.active else { throw E("no active workspace") }
+            if let t = cmd["tab"] as? String, let tab = InspectorTab(rawValue: t) { w.showInspector(tab) }
+            if let v = cmd["visible"] as? Bool { v ? w.showInspector() : w.hideInspector() }
+            if let v = cmd["terminal"] as? Bool { v ? w.showTerminal() : w.hideTerminal() }
+            if let f = cmd["fraction"] as? Double { w.inspectorFraction = f }
+            if let i = cmd["diff"] as? Int {
+                w.diffFile = w.changes.files.indices.contains(i) ? w.changes.files[i] : nil
+            }
+            return [
+                "inspector": w.inspectorVisible, "tab": w.inspectorTab.rawValue, "terminal": w.terminalVisible,
+                "fraction": w.inspectorFraction,
+                "git": "\(w.changes.state)", "branch": w.changes.branch ?? "", "ahead": w.changes.ahead, "behind": w.changes.behind,
+                "files": w.changes.files.map { "\($0.status.rawValue) \($0.path) +\($0.added.map(String.init) ?? "-") -\($0.removed.map(String.init) ?? "-")" },
+                "diff": w.diffFile?.path ?? "",
+            ] as [String: Any]
+        }
+
         // {"cmd":"tab","action":"new"} · select|close|rename|status with "index".
         DebugControl.register("tab") { cmd in
             guard let w = store.active else { throw E("no active workspace") }

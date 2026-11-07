@@ -21,7 +21,10 @@ private struct WorkspaceConversation: View {
     @ObservedObject var workspace: Workspace
 
     var body: some View {
-        if let conversation = workspace.selected {
+        if let file = workspace.diffFile {
+            DiffPage(file: file) { workspace.diffFile = nil }
+                .id(file.id)
+        } else if let conversation = workspace.selected {
             ClaudeConversationView(conversation: conversation,
                                    onRunInTerminal: { [weak workspace] in workspace?.runInTerminal($0) })
                 .id(conversation.id)

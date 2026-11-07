@@ -198,6 +198,26 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         }
     }
 
+    /// ⌃⌘I: show or hide the inspector (the top of the right column).
+    @objc func toggleInspector(_ sender: Any?) {
+        guard let w = store.active else { return }
+        if w.inspectorVisible { w.hideInspector() } else { w.showInspector() }
+    }
+
+    /// ⌃⌘1…3: show an inspector tab.
+    @objc func showInspectorTab(_ sender: NSMenuItem) {
+        guard let w = store.active, InspectorTab.allCases.indices.contains(sender.tag) else { return }
+        w.showInspector(InspectorTab.allCases[sender.tag])
+    }
+
+    /// ⌥⌘0 and the titlebar button: the whole right column.
+    @objc func toggleRightColumn(_ sender: Any?) {
+        guard let w = store.active else { return }
+        let hadTerminalFocus = terminalFocused
+        w.toggleRightColumn()
+        if hadTerminalFocus, !w.terminalVisible { window?.makeFirstResponder(nil) }
+    }
+
     @objc func toggleWorkspaces(_ sender: Any?) {
         store.sidebarVisible.toggle()
         store.setNeedsSave()
@@ -229,6 +249,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         switch item.action {
         case #selector(toggleTerminal(_:)):
             item.title = w?.terminalVisible == true ? "Hide Terminal" : "Show Terminal"
+            return w != nil
+        case #selector(toggleInspector(_:)):
+            item.title = w?.inspectorVisible == true ? "Hide Inspector" : "Show Inspector"
+            return w != nil
+        case #selector(showInspectorTab(_:)):
+            item.state = w?.inspectorVisible == true && InspectorTab.allCases.indices.contains(item.tag)
+                && w?.inspectorTab == InspectorTab.allCases[item.tag] ? .on : .off
+            return w != nil
+        case #selector(toggleRightColumn(_:)):
+            item.title = w?.rightColumnVisible == true ? "Hide Inspector and Terminal" : "Show Inspector and Terminal"
             return w != nil
         case #selector(toggleWorkspaces(_:)):
             item.title = store.sidebarVisible ? "Hide Workspaces" : "Show Workspaces"

@@ -159,6 +159,128 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     /// (otherwise the user's remoteControlAtStartup setting decides).
     private var remoteControlUserChoice: Bool?
 
+    // MARK: Inspector data
+
+    /// One item of Claude's task list (TodoWrite, or TaskCreate/TaskUpdate).
+    struct Todo: Identifiable, Equatable {
+        enum Status: String { case pending, inProgress = "in_progress", completed }
+        let id: String
+        var title: String
+        /// "Running tests" while in progress.
+        var activeTitle: String?
+        var status: Status
+    }
+
+    @Published private(set) var todos: [Todo] = []
+    /// The latest plan Claude presented (ExitPlanMode), if any.
+    @Published private(set) var plan: String?
+
+    /// Session totals, as /cost reports them (cumulative across turns).
+    struct Usage: Equatable {
+        var costUSD: Double = 0
+        var inputTokens = 0
+        var outputTokens = 0
+        var cacheReadTokens = 0
+        var cacheWriteTokens = 0
+        var turns = 0
+        var apiDuration: Double = 0
+    }
+
+    @Published private(set) var usage: Usage?
+
+    /// How full the context window is, as /context shows it.
+    struct ContextUsage: Equatable {
+        struct Category: Equatable, Identifiable {
+            let name: String
+            let tokens: Int
+            let kind: String
+            var id: String { name }
+        }
+        let totalTokens: Int
+        let maxTokens: Int
+        let percentage: Double
+        let categories: [Category]
+    }
+
+    @Published private(set) var context: ContextUsage?
+
+    /// Plan usage limits Claude Code reported (rate_limit_event), by window.
+    struct RateLimit: Equatable, Identifiable {
+        let type: String
+        let status: String
+        let utilization: Double?
+        let resetsAt: Date?
+        var id: String { type }
+
+        var title: String {
+            switch type {
+            case "five_hour": "Current session (5 hours)"
+            case "seven_day": "This week"
+            case "seven_day_opus": "This week · Opus"
+            case "seven_day_sonnet": "This week · Sonnet"
+            case "overage": "Extra usage"
+            default: type.replacingOccurrences(of: "_", with: " ").capitalized
+            }
+        }
+    }
+
+    @Published private(set) var rateLimits: [RateLimit] = []
+
+    /// Ask Claude Code how full the context window is (only while idle,
+    /// so it never competes with a turn).
+    func refreshContextUsage() {
+        guard let agent, agent.isRunning, !launching, phase == .idle else { return }
+        agent.send(["type": "context_usage"])
+    }
+
+    private static let todoTools: Set<String> = ["TodoWrite", "TaskCreate", "TaskUpdate", "ExitPlanMode"]
+
+    /// Rebuild the task list and plan from the transcript's tool calls.
+    private func recomputeTodos() {
+        var list: [Todo] = []
+        var plan: String?
+        var nextTaskID = 1
+        func scan(_ items: [ClaudeItem]) {
+            for item in items where item.kind == .tool {
+                switch item.toolName {
+                case "TodoWrite":
+                    // Each call replaces the whole list.
+                    list = (item.input["todos"] as? [[String: Any]] ?? []).enumerated().map { i, t in
+                        Todo(id: "todo-\(i)", title: t["content"] as? String ?? t["subject"] as? String ?? "",
+                             activeTitle: t["activeForm"] as? String,
+                             status: Todo.Status(rawValue: t["status"] as? String ?? "") ?? .pending)
+                    }
+                case "TaskCreate":
+                    guard !item.resultIsError else { continue }
+                    // "Task #3 created successfully: …"
+                    var id = String(nextTaskID)
+                    if let r = item.result, let range = r.range(of: #"#(\d+)"#, options: .regularExpression) {
+                        id = String(r[range].dropFirst())
+                    }
+                    nextTaskID = (Int(id) ?? nextTaskID) + 1
+                    list.append(Todo(id: id, title: item.input["subject"] as? String ?? item.input["description"] as? String ?? "",
+                                     activeTitle: item.input["activeForm"] as? String, status: .pending))
+                case "TaskUpdate":
+                    guard !item.resultIsError, let id = (item.input["taskId"] as? String) ?? (item.input["taskId"] as? Int).map(String.init),
+                          let i = list.firstIndex(where: { $0.id == id }) else { continue }
+                    if let status = item.input["status"] as? String {
+                        if status == "deleted" { list.remove(at: i); continue }
+                        list[i].status = Todo.Status(rawValue: status) ?? list[i].status
+                    }
+                    if let subject = item.input["subject"] as? String { list[i].title = subject }
+                    if let active = item.input["activeForm"] as? String { list[i].activeTitle = active }
+                case "ExitPlanMode":
+                    if let p = item.input["plan"] as? String, !p.isEmpty { plan = p }
+                default:
+                    break
+                }
+            }
+        }
+        scan(items)
+        if todos != list { todos = list }
+        if self.plan != plan { self.plan = plan }
+    }
+
     /// Models Claude Code offers (its own list, as in /model).
     @Published private(set) var models: [ModelOption] = []
     /// The project's current git branch, if it's a repository.
@@ -407,6 +529,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             queued.removeAll()
             setPhase(pending.contains { $0["type"] as? String == "user" } ? .working : .idle)
             pending.forEach { agent?.send($0) }
+            refreshContextUsage()
         case "sdk":
             if let m = message["message"] as? [String: Any] {
                 #if DEBUG
@@ -427,6 +550,16 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             // Answered elsewhere too (e.g. from Remote Control).
             requests.removeAll { $0.id == message["id"] as? String }
             reportState()
+        case "context_usage":
+            guard let u = message["usage"] as? [String: Any] else { return }
+            context = ContextUsage(
+                totalTokens: u["totalTokens"] as? Int ?? 0,
+                maxTokens: u["maxTokens"] as? Int ?? 0,
+                percentage: u["percentage"] as? Double ?? Double(u["percentage"] as? Int ?? 0),
+                categories: (u["categories"] as? [[String: Any]] ?? []).compactMap { c in
+                    guard let name = c["name"] as? String else { return nil }
+                    return .init(name: name, tokens: c["tokens"] as? Int ?? 0, kind: c["kind"] as? String ?? "used")
+                })
         case "remote_control_init":
             remoteControlAvailable = message["available"] as? Bool ?? true
             // Like the CLI: start Remote Control with the session when the
@@ -453,6 +586,21 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         default:
             break
         }
+    }
+
+    private func readUsage(_ m: [String: Any]) {
+        var u = Usage()
+        u.costUSD = m["total_cost_usd"] as? Double ?? 0
+        for (_, value) in m["modelUsage"] as? [String: Any] ?? [:] {
+            guard let mu = value as? [String: Any] else { continue }
+            u.inputTokens += mu["inputTokens"] as? Int ?? 0
+            u.outputTokens += mu["outputTokens"] as? Int ?? 0
+            u.cacheReadTokens += mu["cacheReadInputTokens"] as? Int ?? 0
+            u.cacheWriteTokens += mu["cacheCreationInputTokens"] as? Int ?? 0
+        }
+        u.turns = (usage?.turns ?? 0) + 1
+        u.apiDuration = (usage?.apiDuration ?? 0) + (m["duration_api_ms"] as? Double ?? 0) / 1000
+        if u.costUSD > 0 || u.inputTokens > 0 { usage = u }
     }
 
     #if DEBUG
@@ -484,6 +632,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             description: m["description"] as? String)
         requests.append(request)
         reportState()
+        if tool == "ExitPlanMode", let p = request.input["plan"] as? String, !p.isEmpty { plan = p }
 
         let what: String
         switch tool {
@@ -575,6 +724,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                     item.resultIsError = block["is_error"] as? Bool ?? false
                     if parent == nil { item.toolUseResult = toolUseResult }
                     item.finalized = true
+                    if live, parent == nil, Self.todoTools.contains(item.toolName) { recomputeTodos() }
                 case "text":
                     if parent == nil, !live || m["isReplay"] as? Bool == true, let t = block["text"] as? String {
                         userText(t)
@@ -584,11 +734,22 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 }
             }
 
+        case "rate_limit_event":
+            guard live, let info = m["rate_limit_info"] as? [String: Any] else { return }
+            let limit = RateLimit(type: info["rateLimitType"] as? String ?? "five_hour",
+                                  status: info["status"] as? String ?? "allowed",
+                                  utilization: info["utilization"] as? Double,
+                                  resetsAt: (info["resetsAt"] as? Double).map { Date(timeIntervalSince1970: $0) })
+            var list = rateLimits.filter { $0.type != limit.type }
+            list.append(limit)
+            rateLimits = list.sorted { $0.type < $1.type }
+
         case "tool_progress":
             if let id = m["tool_use_id"] as? String { tools[id]?.elapsed = m["elapsed_time_seconds"] as? Double }
 
         case "result":
             guard live else { return }
+            readUsage(m)
             finishStreaming()
             status = nil
             let subtype = m["subtype"] as? String ?? ""
@@ -612,10 +773,12 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 last.footer = "\(ClaudeToolInfo.duration(secs)) · \(time)"
             }
             refreshBranch()
+            workspace?.changes.refresh()
             turnStarted = nil
             interrupted = false
             requests.removeAll()
             setPhase(.idle)
+            refreshContextUsage()
             if wasInterrupted {
                 append(.notice, "Interrupted · What should Claude do instead?")
             } else if subtype == "success" && !isError {
@@ -806,6 +969,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         // Anything left unfinished (e.g. a tool call interrupted by quitting).
         for item in items where !item.finalized { item.finalized = true }
         if !items.isEmpty { append(.notice, "Resumed session") }
+        recomputeTodos()
     }
 
     // MARK: State reporting (sidebar, tab, dock, sounds, keep awake)

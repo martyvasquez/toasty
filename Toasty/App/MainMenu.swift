@@ -49,6 +49,14 @@ enum MainMenu {
         let view = NSMenu(title: "View")
         view.addItem(item("Hide Workspaces", #selector(W.toggleWorkspaces(_:)), "s", [.command, .control]))
         view.addItem(item("Show Terminal", #selector(W.toggleTerminal(_:)), "t", [.command, .control]))
+        view.addItem(item("Show Inspector", #selector(W.toggleInspector(_:)), "i", [.command, .control]))
+        view.addItem(item("Hide Inspector and Terminal", #selector(W.toggleRightColumn(_:)), "0", [.command, .option]))
+        view.addItem(.separator())
+        for (i, tab) in InspectorTab.allCases.enumerated() {
+            let t = item(tab.title, #selector(W.showInspectorTab(_:)), tab.shortcut, [.command, .control])
+            t.tag = i
+            view.addItem(t)
+        }
         view.addItem(.separator())
         view.addItem(item("Enter Full Screen", #selector(NSWindow.toggleFullScreen(_:)), "f", [.command, .control]))
         add(view, to: main)

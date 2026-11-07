@@ -6,9 +6,9 @@
 // JSON lines over stdio. It makes no decisions of its own.
 //
 // stdin  (from Toasty): start | user | interrupt | permission_response | set_permission_mode | set_model
-//                       | remote_control
+//                       | remote_control | context_usage
 // stdout (to Toasty):   ready | sdk | models | permission_request | permission_cancel | error | end
-//                       | remote_control_init | remote_control
+//                       | remote_control_init | remote_control | context_usage
 import { createInterface } from "node:readline";
 import { query } from "./claude-agent-sdk.mjs";
 
@@ -124,6 +124,18 @@ rl.on("line", async (line) => {
       case "set_permission_mode":
         await q?.setPermissionMode(msg.mode);
         break;
+      case "context_usage": {
+        // What /context shows: how full the context window is.
+        const usage = await q?.getContextUsage({ detail: "summary" });
+        if (usage) {
+          out({ type: "context_usage", usage: {
+            totalTokens: usage.totalTokens, maxTokens: usage.maxTokens, percentage: usage.percentage,
+            model: usage.model,
+            categories: (usage.categories ?? []).map((c) => ({ name: c.name, tokens: c.tokens, kind: c.kind })),
+          } });
+        }
+        break;
+      }
       case "remote_control": {
         // Same request as /remote-control in the CLI.
         try {

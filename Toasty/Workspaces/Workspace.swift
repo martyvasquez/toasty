@@ -5,13 +5,27 @@ import Combine
 final class Workspace: ObservableObject, Identifiable {
     let id: UUID
     @Published var name: String
-    @Published var folder: String
+    @Published var folder: String {
+        didSet { if folder != oldValue { changes.folder = folder; changes.refresh() } }
+    }
     @Published private(set) var conversations: [ClaudeConversation] = []
     @Published private(set) var selectedID: UUID?
     @Published private(set) var terminals: [TerminalSession] = []
     @Published private(set) var selectedTerminalID: UUID?
     @Published var terminalVisible = false
+    /// Width of the right column (inspector over terminals).
     @Published var terminalWidth: CGFloat = 520
+    /// The inspector: the top of the right column.
+    @Published var inspectorVisible = false
+    @Published var inspectorTab: InspectorTab = .changes
+    /// The inspector's share of the right column's height when the
+    /// terminal shows below it.
+    @Published var inspectorFraction: CGFloat = 0.55
+    /// A changed file whose diff fills the conversation column.
+    @Published var diffFile: GitChanges.File?
+
+    /// Git status of the workspace folder (the inspector's Changes tab).
+    lazy var changes = GitChanges(folder: folder)
 
     weak var store: WorkspaceStore?
     /// Conversation status changes, forwarded to this workspace's observers
@@ -55,6 +69,7 @@ final class Workspace: ObservableObject, Identifiable {
     func select(_ conversation: ClaudeConversation) {
         guard conversations.contains(where: { $0.id == conversation.id }) else { return }
         selectedID = conversation.id
+        diffFile = nil
         conversation.attention = false
         store?.workspaceSelectionChanged(self)
         changed()
@@ -197,8 +212,37 @@ final class Workspace: ObservableObject, Identifiable {
         }
     }
 
-        func hideTerminal() {
+    func hideTerminal() {
         terminalVisible = false
+        changed()
+    }
+
+    // MARK: Inspector
+
+    /// Show the inspector, on `tab` if given.
+    func showInspector(_ tab: InspectorTab? = nil) {
+        if let tab { inspectorTab = tab }
+        inspectorVisible = true
+        changed()
+    }
+
+    func hideInspector() {
+        inspectorVisible = false
+        changed()
+    }
+
+    /// The right column (inspector and/or terminal) is showing.
+    var rightColumnVisible: Bool { inspectorVisible || terminalVisible }
+
+    /// The titlebar's column toggle: hide both halves, or bring the
+    /// inspector back.
+    func toggleRightColumn() {
+        if rightColumnVisible {
+            inspectorVisible = false
+            terminalVisible = false
+        } else {
+            inspectorVisible = true
+        }
         changed()
     }
 
@@ -223,6 +267,9 @@ final class Workspace: ObservableObject, Identifiable {
         var selectedTerminal: UUID?
         var terminalVisible: Bool
         var terminalWidth: Double
+        var inspectorVisible: Bool?
+        var inspectorTab: String?
+        var inspectorFraction: Double?
     }
 
     struct SavedConversation: Codable {
@@ -246,7 +293,10 @@ final class Workspace: ObservableObject, Identifiable {
               terminals: terminals.map { SavedTerminal(id: $0.id, cwd: $0.directory) },
               selectedTerminal: selectedTerminalID,
               terminalVisible: terminalVisible,
-              terminalWidth: Double(terminalWidth))
+              terminalWidth: Double(terminalWidth),
+              inspectorVisible: inspectorVisible,
+              inspectorTab: inspectorTab.rawValue,
+              inspectorFraction: Double(inspectorFraction))
     }
 
     convenience init(saved s: Saved) {
@@ -266,5 +316,40 @@ final class Workspace: ObservableObject, Identifiable {
         selectedTerminalID = s.selectedTerminal.flatMap { id in terminals.contains { $0.id == id } ? id : nil } ?? terminals.first?.id
         terminalVisible = s.terminalVisible && !terminals.isEmpty
         terminalWidth = CGFloat(s.terminalWidth)
+        inspectorVisible = s.inspectorVisible ?? false
+        inspectorTab = s.inspectorTab.flatMap(InspectorTab.init(rawValue:)) ?? .changes
+        inspectorFraction = CGFloat(s.inspectorFraction ?? 0.55)
+    }
+}
+
+/// The inspector's tabs.
+enum InspectorTab: String, CaseIterable, Identifiable {
+    case changes, todos, usage
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .changes: "Changes"
+        case .todos: "Plan"
+        case .usage: "Usage"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .changes: "arrow.triangle.branch"
+        case .todos: "list.bullet.clipboard"
+        case .usage: "gauge.with.dots.needle.50percent"
+        }
+    }
+
+    /// ⌃⌘1, ⌃⌘2, ⌃⌘3
+    var shortcut: String {
+        switch self {
+        case .changes: "1"
+        case .todos: "2"
+        case .usage: "3"
+        }
     }
 }

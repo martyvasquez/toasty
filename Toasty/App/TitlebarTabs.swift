@@ -4,16 +4,17 @@ import SwiftUI
 /// Column widths of the split view, mirrored by the titlebar row so each
 /// column's tabs sit over it.
 final class WindowLayout: ObservableObject {
-    /// Width of the terminal column (0 when hidden).
+    /// Width of the right column (0 when hidden).
     @Published var terminalWidth: CGFloat = 0
     /// Room for the window buttons when the workspaces sidebar is hidden.
     @Published var leadingInset: CGFloat = 0
 }
 
 /// The titlebar row right of the workspaces sidebar: the conversation tabs
-/// over the conversation, the terminal tabs over the terminal, and the
-/// terminal toggle in the window's top-right corner. Hosted in the window's
-/// titlebar view (views under a transparent titlebar don't get clicks).
+/// over the conversation, the inspector's tabs over the right column, and
+/// the column toggle in the window's top-right corner. Hosted in the
+/// window's titlebar view (views under a transparent titlebar don't get
+/// clicks).
 struct TitlebarRow: View {
     @ObservedObject var store: WorkspaceStore
     @ObservedObject var layout: WindowLayout
@@ -28,10 +29,10 @@ struct TitlebarRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if layout.terminalWidth > 0 {
                     Rectangle().fill(Color.claudeSeparator).frame(width: 0.5)
-                    TerminalTabBar(workspace: workspace)
+                    InspectorTabBar(workspace: workspace)
                         .frame(width: max(0, layout.terminalWidth - 0.5 - Self.toggleWidth))
                 }
-                TerminalToggle(workspace: workspace)
+                ColumnToggle(workspace: workspace)
             } else {
                 Spacer()
             }
@@ -42,21 +43,78 @@ struct TitlebarRow: View {
     }
 }
 
-private struct TerminalToggle: View {
+/// Shows or hides the whole right column.
+private struct ColumnToggle: View {
     @ObservedObject var workspace: Workspace
 
     var body: some View {
-        Button { AppDelegate.shared.windowController?.toggleTerminal(nil) } label: {
+        Button { AppDelegate.shared.windowController?.toggleRightColumn(nil) } label: {
             Image(systemName: "sidebar.right")
                 .font(.system(size: 14))
-                .foregroundStyle(workspace.terminalVisible ? Color.accentColor : Color.secondary)
+                .foregroundStyle(workspace.rightColumnVisible ? Color.accentColor : Color.secondary)
                 .frame(width: 30, height: 26)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .frame(width: TitlebarRow.toggleWidth)
-        .help(workspace.terminalVisible ? "Hide Terminal (⌃⌘T)" : "Show Terminal (⌃⌘T)")
-        .accessibilityLabel(workspace.terminalVisible ? "Hide Terminal" : "Show Terminal")
+        .help(workspace.rightColumnVisible ? "Hide Inspector and Terminal (⌥⌘0)" : "Show Inspector (⌥⌘0)")
+        .accessibilityLabel(workspace.rightColumnVisible ? "Hide Inspector and Terminal" : "Show Inspector")
+    }
+}
+
+// MARK: - Inspector tabs
+
+/// The inspector's tabs, icon-only like Xcode's inspector selector; the
+/// selected one is tinted while the inspector shows. Clicking a tab while
+/// the inspector is hidden shows it.
+private struct InspectorTabBar: View {
+    @ObservedObject var workspace: Workspace
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(InspectorTab.allCases) { tab in
+                InspectorTabButton(tab: tab,
+                                   selected: workspace.inspectorVisible && workspace.inspectorTab == tab) {
+                    if workspace.inspectorVisible && workspace.inspectorTab == tab {
+                        workspace.hideInspector()
+                    } else {
+                        workspace.showInspector(tab)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.leading, 8)
+    }
+}
+
+private struct InspectorTabButton: View {
+    let tab: InspectorTab
+    let selected: Bool
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: tab.symbol)
+                    .font(.system(size: 12.5, weight: selected ? .semibold : .regular))
+                if selected {
+                    Text(tab.title)
+                        .font(.system(size: TabStyle.fontSize, weight: .medium))
+                }
+            }
+            .foregroundStyle(selected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+            .padding(.horizontal, selected ? 10 : 8)
+            .frame(height: TabStyle.height)
+            .background(TabBackground(selected: selected, hovering: hovering))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help("\(tab.title)  ⌃⌘\(tab.shortcut)")
+        .accessibilityLabel(tab.title)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 }
 
@@ -71,7 +129,7 @@ enum TabStyle {
 
 /// The selected tab is the page itself, raised out of the bar; others are
 /// bare until hovered.
-private struct TabBackground: View {
+struct TabBackground: View {
     let selected: Bool
     let hovering: Bool
 
@@ -87,7 +145,7 @@ private struct TabBackground: View {
     }
 }
 
-private struct TabCloseButton: View {
+struct TabCloseButton: View {
     let visible: Bool
     let help: String
     let action: () -> Void
@@ -110,7 +168,7 @@ private struct TabCloseButton: View {
     }
 }
 
-private struct NewTabButton: View {
+struct NewTabButton: View {
     let help: String
     let action: () -> Void
 
@@ -227,7 +285,7 @@ private struct ConversationTabItem: View {
 
 // MARK: - Terminal tabs
 
-private struct TerminalTabBar: View {
+struct TerminalTabBar: View {
     @ObservedObject var workspace: Workspace
 
     var body: some View {

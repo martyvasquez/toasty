@@ -2,16 +2,17 @@ import AppKit
 import Combine
 import SwiftUI
 
-/// Workspaces sidebar · conversation · terminal, as a real split view: the
-/// sidebar collapses (⌃⌘S), the terminal column collapses (⌃⌘T) and keeps a
-/// width per workspace.
+/// Workspaces sidebar · conversation · right column, as a real split view:
+/// the sidebar collapses (⌃⌘S); the right column (inspector over terminals)
+/// shows when either half does and keeps a width per workspace.
 final class MainSplitViewController: NSSplitViewController {
     let store: WorkspaceStore
     let layout: WindowLayout
     private(set) var sidebarItem: NSSplitViewItem!
     private(set) var contentItem: NSSplitViewItem!
     private(set) var terminalItem: NSSplitViewItem!
-    let terminalColumn = TerminalColumnController()
+    let rightColumn: RightColumnController
+    var terminalColumn: TerminalColumnController { rightColumn.terminalColumn }
 
     /// Column frames changed (the titlebar row follows them).
     var onLayout: (() -> Void)?
@@ -30,6 +31,7 @@ final class MainSplitViewController: NSSplitViewController {
     init(store: WorkspaceStore, layout: WindowLayout) {
         self.store = store
         self.layout = layout
+        rightColumn = RightColumnController(store: store)
         super.init(nibName: nil, bundle: nil)
         splitView = HairlineSplitView()
     }
@@ -55,7 +57,7 @@ final class MainSplitViewController: NSSplitViewController {
         contentItem.minimumThickness = Self.minConversation
         contentItem.holdingPriority = .init(249)
 
-        terminalItem = NSSplitViewItem(viewController: terminalColumn)
+        terminalItem = NSSplitViewItem(viewController: rightColumn)
         terminalItem.minimumThickness = Self.minTerminal
         terminalItem.canCollapse = true
         terminalItem.holdingPriority = .init(255)
@@ -101,19 +103,27 @@ final class MainSplitViewController: NSSplitViewController {
         workspaceCancellables = []
         guard let w else {
             terminalColumn.show(nil)
+            rightColumn.apply(nil, animated: false)
             setTerminal(visible: false, animated: false)
             return
         }
-        setTerminal(visible: w.terminalVisible, animated: false, width: w.terminalWidth)
+        rightColumn.apply(w, animated: false)
+        setTerminal(visible: w.rightColumnVisible, animated: false, width: w.terminalWidth)
         terminalColumn.show(w.terminalVisible ? w.selectedTerminal : nil)
 
-        w.$terminalVisible
+        // Either half of the right column showing or hiding.
+        w.$terminalVisible.combineLatest(w.$inspectorVisible)
             .dropFirst()
-            .removeDuplicates()
-            .sink { [weak self, weak w] visible in
+            .removeDuplicates { $0 == $1 }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self, weak w] _ in
                 guard let self, let w else { return }
-                if visible { self.terminalColumn.show(w.selectedTerminal ?? w.terminals.first) }
-                self.setTerminal(visible: visible, animated: true, width: w.terminalWidth)
+                if w.terminalVisible { self.terminalColumn.show(w.selectedTerminal ?? w.terminals.first) }
+                let columnChanges = self.terminalItem.isCollapsed == w.rightColumnVisible
+                // Within a shown column, the halves animate; a column that
+                // opens or closes takes its new halves with it.
+                self.rightColumn.apply(w, animated: !columnChanges)
+                self.setTerminal(visible: w.rightColumnVisible, animated: true, width: w.terminalWidth)
             }
             .store(in: &workspaceCancellables)
         w.$selectedTerminalID
@@ -136,7 +146,7 @@ final class MainSplitViewController: NSSplitViewController {
             let w = min(max(Self.minTerminal, width), max(Self.minTerminal, total - Self.minConversation))
             if terminalItem.isCollapsed {
                 // Expand at the workspace's width.
-                terminalColumn.view.setFrameSize(NSSize(width: w, height: terminalColumn.view.frame.height))
+                rightColumn.view.setFrameSize(NSSize(width: w, height: rightColumn.view.frame.height))
             } else {
                 splitView.setPosition(splitView.bounds.width - w - splitView.dividerThickness, ofDividerAt: 1)
             }
@@ -165,9 +175,9 @@ final class MainSplitViewController: NSSplitViewController {
         super.splitViewDidResizeSubviews(notification)
         layoutChanged()
         guard !applying, let w = store.active else { return }
-        // The user dragged the terminal divider: remember the width.
-        if !terminalAnimating, !terminalItem.isCollapsed, w.terminalVisible {
-            let width = terminalColumn.view.frame.width
+        // The user dragged the column's divider: remember the width.
+        if !terminalAnimating, !terminalItem.isCollapsed, w.rightColumnVisible {
+            let width = rightColumn.view.frame.width
             if abs(width - w.terminalWidth) > 0.5, width >= Self.minTerminal {
                 w.terminalWidth = width
                 store.setNeedsSave()
@@ -182,7 +192,7 @@ final class MainSplitViewController: NSSplitViewController {
     }
 
     private func layoutChanged() {
-        let width = terminalItem.isCollapsed ? 0 : terminalColumn.view.frame.width
+        let width = terminalItem.isCollapsed ? 0 : rightColumn.view.frame.width
         if abs(layout.terminalWidth - width) > 0.25 { layout.terminalWidth = width }
         onLayout?()
     }
@@ -208,16 +218,152 @@ extension MainSplitViewController {
     }
 }
 
-/// The terminal column: the selected terminal of the shown workspace, below
-/// the titlebar, on the terminal's own background.
+/// The right column: the inspector over the terminals, each half
+/// collapsible, their divider kept per workspace.
+final class RightColumnController: NSSplitViewController {
+    let store: WorkspaceStore
+    let terminalColumn: TerminalColumnController
+    private(set) var inspectorItem: NSSplitViewItem!
+    private(set) var terminalItem: NSSplitViewItem!
+    private var applying = false
+    private weak var shown: Workspace?
+
+    static let minInspector: CGFloat = 150
+    static let minTerminal: CGFloat = 120
+
+    init(store: WorkspaceStore) {
+        self.store = store
+        terminalColumn = TerminalColumnController(store: store)
+        super.init(nibName: nil, bundle: nil)
+        splitView = HairlineSplitView()
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func viewDidLoad() {
+        splitView.isVertical = false
+        splitView.dividerStyle = .thin
+        super.viewDidLoad()
+
+        let inspector = NSHostingController(rootView: InspectorPane(store: store))
+        inspector.sizingOptions = []
+        inspectorItem = NSSplitViewItem(viewController: inspector)
+        inspectorItem.minimumThickness = Self.minInspector
+        inspectorItem.canCollapse = true
+        inspectorItem.holdingPriority = .init(250)
+
+        terminalItem = NSSplitViewItem(viewController: terminalColumn)
+        terminalItem.minimumThickness = Self.minTerminal
+        terminalItem.canCollapse = true
+        terminalItem.holdingPriority = .init(251)
+
+        addSplitViewItem(inspectorItem)
+        addSplitViewItem(terminalItem)
+    }
+
+    /// Show the workspace's halves (and its divider position).
+    func apply(_ w: Workspace?, animated: Bool) {
+        loadViewIfNeeded()
+        shown = w
+        let inspector = w?.inspectorVisible ?? false
+        // A column with neither half keeps its last look while it closes.
+        let terminal = w?.terminalVisible ?? false
+        guard inspector || terminal else { return }
+        applying = true
+        defer { applying = false }
+        let change = {
+            self.inspectorItem.isCollapsed = !inspector
+            self.terminalItem.isCollapsed = !terminal
+        }
+        if animated {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.2
+                ctx.allowsImplicitAnimation = true
+                self.inspectorItem.animator().isCollapsed = !inspector
+                self.terminalItem.animator().isCollapsed = !terminal
+            } completionHandler: { [weak self] in
+                MainActor.assumeIsolated { self?.applyFraction() }
+            }
+        } else {
+            change()
+            applyFraction()
+        }
+    }
+
+    private func applyFraction() {
+        guard let w = shown, w.inspectorVisible, w.terminalVisible else { return }
+        let total = splitView.bounds.height
+        guard total > 0 else { return }
+        applying = true
+        defer { applying = false }
+        let y = min(max(Self.minInspector, total * w.inspectorFraction), total - Self.minTerminal)
+        splitView.setPosition(y, ofDividerAt: 0)
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        if splitView.bounds.height > 0, !didApplyFirstLayout {
+            didApplyFirstLayout = true
+            applyFraction()
+        }
+    }
+    private var didApplyFirstLayout = false
+
+    override func splitViewDidResizeSubviews(_ notification: Notification) {
+        super.splitViewDidResizeSubviews(notification)
+        // The user dragged the divider: remember where.
+        guard !applying, let w = shown, w.inspectorVisible, w.terminalVisible,
+              !inspectorItem.isCollapsed, !terminalItem.isCollapsed,
+              NSApp.currentEvent?.type == .leftMouseDragged else { return }
+        let total = splitView.bounds.height
+        guard total > 0 else { return }
+        let f = inspectorItem.viewController.view.frame.height / total
+        if abs(f - w.inspectorFraction) > 0.002 {
+            w.inspectorFraction = f
+            store.setNeedsSave()
+        }
+    }
+
+    override func splitView(_ splitView: NSSplitView, effectiveRect proposedEffectiveRect: NSRect,
+                            forDrawnRect drawnRect: NSRect, ofDividerAt dividerIndex: Int) -> NSRect {
+        let r = super.splitView(splitView, effectiveRect: proposedEffectiveRect, forDrawnRect: drawnRect, ofDividerAt: dividerIndex)
+        return r.insetBy(dx: 0, dy: -4)
+    }
+}
+
+/// The terminal half: the workspace's terminal tabs, then the selected
+/// terminal, on the terminal's own background.
 final class TerminalColumnController: NSViewController {
     private(set) var current: TerminalSession?
+    let store: WorkspaceStore
+    private var strip: NSView!
+
+    static let stripHeight: CGFloat = 34
+
+    init(store: WorkspaceStore) {
+        self.store = store
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
 
     override func loadView() {
         view = TerminalColumnView()
+        let host = NSHostingView(rootView: TerminalStrip(store: store))
+        host.sizingOptions = []
+        host.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(host)
+        NSLayoutConstraint.activate([
+            host.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            host.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            host.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            host.heightAnchor.constraint(equalToConstant: Self.stripHeight),
+        ])
+        strip = host
     }
 
     func show(_ session: TerminalSession?) {
+        loadViewIfNeeded()
         guard session?.id != current?.id || (session != nil && session!.view.superview !== view) else { return }
         current?.view.removeFromSuperview()
         current = session
@@ -228,7 +374,7 @@ final class TerminalColumnController: NSViewController {
         NSLayoutConstraint.activate([
             v.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             v.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            v.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            v.topAnchor.constraint(equalTo: strip.bottomAnchor),
             v.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
     }
