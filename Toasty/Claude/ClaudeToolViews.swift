@@ -11,7 +11,6 @@ enum ClaudeToolInfo {
         }
         switch tool {
         case "Task", "Agent": return "Agent"
-        case "TodoWrite": return "Update Todos"
         case "MultiEdit": return "Edit"
         case "NotebookEdit": return "Edit Notebook"
         case "BashOutput": return "Shell Output"
@@ -29,7 +28,6 @@ enum ClaudeToolInfo {
         case "Glob", "Grep", "LS": "magnifyingglass"
         case "WebFetch", "WebSearch": "globe"
         case "Task", "Agent": "person.2"
-        case "TodoWrite": "checklist"
         case "Skill": "wand.and.stars"
         case "ExitPlanMode": "list.bullet.clipboard"
         case "AskUserQuestion": "questionmark.bubble"
@@ -57,10 +55,6 @@ enum ClaudeToolInfo {
         case "WebSearch": return str("query") ?? ""
         case "Task", "Agent": return str("description") ?? str("subagent_type") ?? ""
         case "Skill": return str("skill") ?? str("command") ?? ""
-        case "TodoWrite":
-            let todos = input["todos"] as? [[String: Any]] ?? []
-            let done = todos.filter { $0["status"] as? String == "completed" }.count
-            return todos.isEmpty ? "" : "\(done)/\(todos.count) done"
         default:
             if let first = input.sorted(by: { $0.key < $1.key }).first(where: { $0.value is String }) {
                 return "\(first.key): \(first.value)"
@@ -82,7 +76,6 @@ enum ClaudeToolInfo {
         case "WebFetch": "Fetching"
         case "WebSearch": "Searching the web for"
         case "Task", "Agent": "Running agent:"
-        case "TodoWrite": "Updating todos"
         case "Skill": "Using skill"
         default: displayName(tool)
         }
@@ -103,7 +96,6 @@ enum ClaudeToolInfo {
             case "Glob", "Grep", "LS": key = "search"
             case "WebFetch", "WebSearch": key = "web"
             case "Task", "Agent": key = "agent"
-            case "TodoWrite", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet": key = "todo"
             // Loading a deferred tool is plumbing, not something Claude did.
             case "ToolSearch": continue
             default: key = "other:" + item.toolName
@@ -136,7 +128,6 @@ enum ClaudeToolInfo {
             case "search": return list.count == 1 ? "searched for \(summary(list[0].toolName, list[0].input, cwd: cwd))" : "searched \(list.count) times"
             case "web": return list.count == 1 ? "looked up \(summary(list[0].toolName, list[0].input, cwd: cwd))" : "looked up \(list.count) pages"
             case "agent": return list.count == 1 ? "ran an agent" : "ran \(list.count) agents"
-            case "todo": return "updated the task list"
             default:
                 let name = displayName(String(key.dropFirst(6)))
                 return list.count == 1 ? "used \(name)" : "used \(name) \(list.count) times"
@@ -284,7 +275,7 @@ struct ClaudeToolGroup: View {
     private func showsInline(_ item: ClaudeItem) -> Bool {
         guard item.result != nil else { return false }
         // Changes to existing files, not whole new files (those are one click away).
-        return item.resultIsError || ["Edit", "MultiEdit"].contains(item.toolName) || item.toolName == "TodoWrite"
+        return item.resultIsError || ["Edit", "MultiEdit"].contains(item.toolName)
     }
 
     /// "Read 2 files, ran `npm test`", or the live step while working.
@@ -327,8 +318,6 @@ struct ClaudeToolInlineResult: View {
                 ClaudeDiffView(lines: ClaudeToolInfo.patchLines(item.toolUseResult)
                     ?? ClaudeToolInfo.diffLines(item.toolName, item.input), maxLines: 12)
             }
-        } else if item.toolName == "TodoWrite" {
-            ClaudeTodoList(todos: item.input["todos"] as? [[String: Any]] ?? [])
         }
     }
 }
@@ -406,9 +395,6 @@ struct ClaudeToolRow: View {
                     ClaudeDiffView(lines: ClaudeToolInfo.patchLines(item.toolUseResult)
                         ?? ClaudeToolInfo.diffLines(item.toolName, item.input), maxLines: 12)
                 }
-                if item.toolName == "TodoWrite", !expanded {
-                    ClaudeTodoList(todos: item.input["todos"] as? [[String: Any]] ?? [])
-                }
                 if !item.children.isEmpty {
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(expanded ? item.children : Array(item.children.suffix(3))) { child in
@@ -438,7 +424,7 @@ struct ClaudeToolRow: View {
     }
 
     private var hasBody: Bool {
-        (isEdit && !expanded && item.result != nil) || (item.toolName == "TodoWrite" && !expanded) || !item.children.isEmpty
+        (isEdit && !expanded && item.result != nil) || !item.children.isEmpty
             || expanded || (item.resultIsError && item.result != nil)
     }
 
@@ -474,28 +460,6 @@ struct ClaudeToolRow: View {
                     language: "text",
                     code: String(result.prefix(40_000)) + (result.count > 40_000 ? "\n… (truncated)" : ""),
                     compact: true, title: item.resultIsError ? "Error" : "Output")
-            }
-        }
-    }
-}
-
-struct ClaudeTodoList: View {
-    let todos: [[String: Any]]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(Array(todos.enumerated()), id: \.offset) { _, todo in
-                let status = todo["status"] as? String ?? "pending"
-                HStack(alignment: .firstTextBaseline, spacing: 7) {
-                    Image(systemName: status == "completed" ? "checkmark.circle.fill"
-                          : status == "in_progress" ? "circle.dotted.circle" : "circle")
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(status == "completed" ? Color.secondary : status == "in_progress" ? Color.accentColor : Color.secondary)
-                    Text((status == "in_progress" ? todo["activeForm"] as? String : nil) ?? todo["content"] as? String ?? "")
-                        .font(.system(size: 12.5, weight: status == "in_progress" ? .medium : .regular))
-                        .strikethrough(status == "completed")
-                        .foregroundStyle(status == "completed" ? .secondary : .primary)
-                }
             }
         }
     }

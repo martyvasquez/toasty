@@ -263,51 +263,6 @@ struct ClaudePlanRow: View {
     }
 }
 
-/// Claude's task list while it works (TodoWrite / TaskCreate), above the
-/// working line: the current item and its neighbours, ticked off live.
-struct ClaudeTaskList: View {
-    let todos: [ClaudeConversation.Todo]
-    private static let shown = 5
-
-    var body: some View {
-        let done = todos.filter { $0.status == .completed }.count
-        // A window around the first unfinished item.
-        let focus = todos.firstIndex { $0.status != .completed } ?? 0
-        let start = max(0, min(focus - 1, todos.count - Self.shown))
-        let slice = todos[start..<min(todos.count, start + Self.shown)]
-        VStack(alignment: .leading, spacing: 5) {
-            Text("Tasks · \(done) of \(todos.count) done")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.tertiary)
-            ForEach(slice) { todo in
-                HStack(alignment: .firstTextBaseline, spacing: 7) {
-                    Group {
-                        switch todo.status {
-                        case .completed:
-                            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color(nsColor: .systemGreen))
-                        case .inProgress:
-                            Image(systemName: "circle.inset.filled").foregroundStyle(Color.accentColor)
-                        case .pending:
-                            Image(systemName: "circle").foregroundStyle(.tertiary)
-                        }
-                    }
-                    .font(.system(size: 11))
-                    .frame(width: 14)
-                    Text(todo.status == .inProgress ? (todo.activeTitle ?? todo.title) : todo.title)
-                        .font(.system(size: 12.5, weight: todo.status == .inProgress ? .medium : .regular))
-                        .foregroundStyle(todo.status == .completed ? .tertiary : todo.status == .inProgress ? .primary : .secondary)
-                        .strikethrough(todo.status == .completed, color: .secondary)
-                        .lineLimit(1)
-                }
-            }
-        }
-        .padding(.leading, ClaudeComposerBox.inset - 2)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Tasks, \(done) of \(todos.count) done")
-    }
-}
-
 /// While Claude works, the CLI's spinner line: what it's doing, for how
 /// long, and how many tokens it has written ("✻ Thinking… · 23s · ↓ 1.4k
 /// tokens · esc to interrupt").
@@ -646,12 +601,6 @@ struct ClaudeBottomArea: View {
                     .id(request.id)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             } else if conversation.phase == .working {
-                // Claude's task list, when Claude Code gives it one (the CLI
-                // shows it under its spinner).
-                if conversation.todos.contains(where: { $0.status != .completed }) {
-                    ClaudeTaskList(todos: conversation.todos)
-                        .transition(.opacity)
-                }
                 // Right above the input, like the CLI's spinner line.
                 ClaudeWorkingLine(conversation: conversation, activity: conversation.activity)
                     .padding(.leading, ClaudeComposerBox.inset - 2)
@@ -668,7 +617,6 @@ struct ClaudeBottomArea: View {
         .frame(maxWidth: .infinity)
         .animation(.spring(response: 0.3, dampingFraction: 0.9), value: conversation.requests.first?.id)
         .animation(.easeOut(duration: 0.2), value: conversation.phase)
-        .animation(.easeOut(duration: 0.2), value: conversation.todos)
     }
 }
 

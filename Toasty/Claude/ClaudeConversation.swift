@@ -259,18 +259,6 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
     // MARK: Inspector data
 
-    /// One item of Claude's task list (TodoWrite, or TaskCreate/TaskUpdate).
-    struct Todo: Identifiable, Equatable {
-        enum Status: String { case pending, inProgress = "in_progress", completed }
-        let id: String
-        var title: String
-        /// "Running tests" while in progress.
-        var activeTitle: String?
-        var status: Status
-    }
-
-    @Published private(set) var todos: [Todo] = []
-
     /// Session totals, as /cost reports them (cumulative across turns).
     struct Usage: Equatable {
         var costUSD: Double = 0
@@ -327,50 +315,6 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     func refreshContextUsage() {
         guard let agent, agent.isRunning, !launching, phase == .idle else { return }
         agent.send(["type": "context_usage"])
-    }
-
-    private static let todoTools: Set<String> = ["TodoWrite", "TaskCreate", "TaskUpdate"]
-
-    /// Rebuild Claude's task list from the transcript's tool calls.
-    private func recomputeTodos() {
-        var list: [Todo] = []
-        var nextTaskID = 1
-        func scan(_ items: [ClaudeItem]) {
-            for item in items where item.kind == .tool {
-                switch item.toolName {
-                case "TodoWrite":
-                    // Each call replaces the whole list.
-                    list = (item.input["todos"] as? [[String: Any]] ?? []).enumerated().map { i, t in
-                        Todo(id: "todo-\(i)", title: t["content"] as? String ?? t["subject"] as? String ?? "",
-                             activeTitle: t["activeForm"] as? String,
-                             status: Todo.Status(rawValue: t["status"] as? String ?? "") ?? .pending)
-                    }
-                case "TaskCreate":
-                    guard !item.resultIsError else { continue }
-                    // "Task #3 created successfully: …"
-                    var id = String(nextTaskID)
-                    if let r = item.result, let range = r.range(of: #"#(\d+)"#, options: .regularExpression) {
-                        id = String(r[range].dropFirst())
-                    }
-                    nextTaskID = (Int(id) ?? nextTaskID) + 1
-                    list.append(Todo(id: id, title: item.input["subject"] as? String ?? item.input["description"] as? String ?? "",
-                                     activeTitle: item.input["activeForm"] as? String, status: .pending))
-                case "TaskUpdate":
-                    guard !item.resultIsError, let id = (item.input["taskId"] as? String) ?? (item.input["taskId"] as? Int).map(String.init),
-                          let i = list.firstIndex(where: { $0.id == id }) else { continue }
-                    if let status = item.input["status"] as? String {
-                        if status == "deleted" { list.remove(at: i); continue }
-                        list[i].status = Todo.Status(rawValue: status) ?? list[i].status
-                    }
-                    if let subject = item.input["subject"] as? String { list[i].title = subject }
-                    if let active = item.input["activeForm"] as? String { list[i].activeTitle = active }
-                default:
-                    break
-                }
-            }
-        }
-        scan(items)
-        if todos != list { todos = list }
     }
 
     /// Models Claude Code offers (its own list, as in /model).
@@ -845,7 +789,6 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                     item.resultIsError = block["is_error"] as? Bool ?? false
                     if parent == nil { item.toolUseResult = toolUseResult }
                     item.finalized = true
-                    if live, parent == nil, Self.todoTools.contains(item.toolName) { recomputeTodos() }
                 case "text":
                     if parent == nil, !live || m["isReplay"] as? Bool == true, let t = block["text"] as? String {
                         userText(t)
@@ -1124,7 +1067,6 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         }
         if start < items.count { markTurnEnd(in: items[start...], at: nil, duration: nil) }
         if !items.isEmpty { append(.notice, "Resumed session") }
-        recomputeTodos()
     }
 
     // MARK: State reporting (sidebar, tab, dock, sounds, keep awake)
