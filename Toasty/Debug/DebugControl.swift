@@ -207,7 +207,13 @@ enum DebugControl {
             cg.location = CGPoint(x: screen.x, y: primaryHeight - screen.y)
             guard let e = NSEvent(cgEvent: cg),
                   let view = window.contentView?.hitTest(NSPoint(x: x, y: window.frame.height - y)) else { throw DebugError("no event") }
-            view.scrollWheel(with: e)
+            // {"via":"window"}: through the window's event dispatch, like a
+            // real wheel event (SwiftUI scroll views listen there).
+            switch cmd["via"] as? String {
+            case "app": NSApp.sendEvent(e)
+            case "window": window.sendEvent(e)
+            default: view.scrollWheel(with: e)
+            }
             return String(describing: type(of: view))
         }
 

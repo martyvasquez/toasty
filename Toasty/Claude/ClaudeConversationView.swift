@@ -62,6 +62,13 @@ struct ClaudeTranscript: View {
     /// Follow new output, like a terminal: on while at the bottom, off once
     /// the user scrolls up, back on when they return to the bottom.
     @State private var following = true
+    /// The user is scrolling (trackpad, wheel, scroller): only that turns
+    /// following off. Layout changes (the working line going away, the
+    /// reply's actions appearing) never do.
+    @State private var userScrolling = false
+    /// Any wheel/trackpad scroll in the window, phase or not (a plain mouse
+    /// wheel reports no scroll phase).
+    private var isUserScrolling: Bool { userScrolling || WheelWatcher.shared.recentlyScrolled }
 
     private struct ScrollState: Equatable {
         var offset: CGFloat
@@ -91,14 +98,14 @@ struct ClaudeTranscript: View {
                         rowView(row)
                             .padding(.top, i == 0 ? 0 : spacing(before: row, after: shown[i - 1]))
                     }
-                    Color.clear.frame(height: 1).id("bottom")
+                    // The end marker carries the space below the last message,
+                    // so scrolling to it lands on the very end.
+                    Color.clear.frame(height: 40).id("bottom")
                 }
                 // Exactly the composer's width and edges.
                 .frame(maxWidth: ClaudeTypography.composerWidth, alignment: .leading)
                 .padding(.horizontal, ClaudeStyle.horizontalPadding - 12)
                 .padding(.top, 26)
-                // Clear of the fade behind the composer.
-                .padding(.bottom, 40)
                 .frame(maxWidth: .infinity)
             }
             .modifier(PinToBottom())
@@ -108,15 +115,31 @@ struct ClaudeTranscript: View {
                 ScrollState(offset: g.contentOffset.y, contentHeight: g.contentSize.height,
                             atBottom: g.visibleRect.maxY - g.contentInsets.bottom >= g.contentSize.height - 60)
             } action: { old, new in
-                if new.offset != old.offset {
-                    // The user (or a jump) scrolled: follow only from the bottom.
+                if isUserScrolling, new.offset != old.offset {
+                    // The user scrolled: follow only from the bottom.
                     following = new.atBottom
-                } else if new.contentHeight > old.contentHeight, following {
-                    // Output grew while following: stay with it.
+                } else if following, !new.atBottom, !isUserScrolling {
+                    // Output grew or the layout changed while following:
+                    // stay at the end.
                     proxy.scrollTo("bottom", anchor: .bottom)
                     return
                 }
                 if new.atBottom != atBottom { withAnimation(.easeOut(duration: 0.15)) { atBottom = new.atBottom } }
+            }
+            .onScrollPhaseChange { _, phase in
+                switch phase {
+                case .tracking, .interacting, .decelerating: userScrolling = true
+                default: userScrolling = false
+                }
+            }
+            // A turn finishing changes the layout below the transcript
+            // after the last output: land on the very end.
+            .onChange(of: conversation.phase) { _, _ in
+                guard following else { return }
+                DispatchQueue.main.async { proxy.scrollTo("bottom", anchor: .bottom) }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    if following { proxy.scrollTo("bottom", anchor: .bottom) }
+                }
             }
             .overlay(alignment: .bottom) {
                 if !atBottom {
@@ -316,6 +339,36 @@ struct ClaudeWorkingLine: View {
         parts.append("esc to interrupt")
         return parts.joined(separator: " · ")
     }
+}
+
+/// Notes when the user last scrolled by hand (wheel or trackpad, dragging
+/// a scroller, Page Up/Down, Home/End), so the transcript knows the user,
+/// not a layout change, moved it.
+@MainActor
+final class WheelWatcher {
+    static let shared = WheelWatcher()
+    private var monitor: Any?
+    private var last = Date.distantPast
+
+    private init() {
+        monitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .leftMouseDragged, .keyDown]) { [weak self] event in
+            switch event.type {
+            case .scrollWheel, .leftMouseDragged:
+                self?.last = Date()
+            case .keyDown where [116, 121, 115, 119].contains(event.keyCode): // page up/down, home, end
+                self?.last = Date()
+            default:
+                break
+            }
+            return event
+        }
+    }
+
+    var recentlyScrolled: Bool { Date().timeIntervalSince(last) < 0.5 }
+    var lastScroll: Date { last }
+
+    /// Debug: treat the next moment as a user scroll.
+    func markUserScroll() { last = Date() }
 }
 
 /// Keeps the transcript scrolled to the bottom while it grows (streaming),

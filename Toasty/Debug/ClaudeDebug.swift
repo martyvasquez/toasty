@@ -126,8 +126,11 @@ enum ClaudeDebug {
             // No "to": report how far from the bottom the view is (points).
             guard cmd["to"] != nil else {
                 let y = sv.contentView.bounds.origin.y
-                return ["fromBottom": doc.isFlipped ? bottom - y : y - top, "height": doc.frame.height]
+                return ["fromBottom": doc.isFlipped ? bottom - y : y - top, "height": doc.frame.height,
+                        "lastUserScroll": -WheelWatcher.shared.lastScroll.timeIntervalSinceNow]
             }
+            // {"user":true}: as if the user scrolled there by hand.
+            if cmd["user"] as? Bool == true { WheelWatcher.shared.markUserScroll() }
             let f = cmd["to"] as? Double ?? Double(cmd["to"] as? Int ?? 1)
             let y = top + (bottom - top) * CGFloat(doc.isFlipped ? f : 1 - f)
             sv.contentView.scroll(to: NSPoint(x: 0, y: y))
