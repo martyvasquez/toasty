@@ -309,6 +309,9 @@ struct ClaudeComposer: NSViewRepresentable {
 
 final class ComposerTextView: NSTextView {
     weak var coordinator: ClaudeComposer.Coordinator?
+
+    /// No system badge beside the cursor (Siri, dictation, input source).
+    override func preferredTextAccessoryPlacement() -> NSTextCursorAccessoryPlacement { .invisible }
     var placeholder: String = "" {
         didSet { if placeholder != oldValue { needsDisplay = true } }
     }

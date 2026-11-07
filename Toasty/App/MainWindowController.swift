@@ -121,6 +121,18 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     // MARK: Window delegate
 
+    /// Text fields (prompt answers, renaming) edit in this field editor:
+    /// the standard one, minus the system badge beside the cursor.
+    private let fieldEditor: NoAccessoryFieldEditor = {
+        let e = NoAccessoryFieldEditor()
+        e.isFieldEditor = true
+        return e
+    }()
+
+    func windowWillReturnFieldEditor(_ sender: NSWindow, to client: Any?) -> Any? {
+        client is NSTextField ? fieldEditor : nil
+    }
+
     func windowDidResize(_ notification: Notification) { frameChanged() }
     func windowDidMove(_ notification: Notification) { frameChanged() }
 
@@ -299,4 +311,10 @@ final class PassthroughHostingView<Content: View>: NSHostingView<Content> {
     }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+
+/// The window's field editor without the cursor accessory (Siri,
+/// dictation, input source badge).
+final class NoAccessoryFieldEditor: NSTextView {
+    override func preferredTextAccessoryPlacement() -> NSTextCursorAccessoryPlacement { .invisible }
 }

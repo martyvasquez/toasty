@@ -332,6 +332,9 @@ final class TerminalView: NSView, NSTextInputClient, NSMenuItemValidation, Obser
 
     // MARK: NSTextInputClient
 
+    /// No system badge beside the cursor (Siri, dictation, input source).
+    @objc func preferredTextAccessoryPlacement() -> NSTextCursorAccessoryPlacement { .invisible }
+
     func insertText(_ string: Any, replacementRange: NSRange) {
         let text = (string as? NSAttributedString)?.string ?? (string as? String) ?? ""
         let hadMarked = !markedText.isEmpty
