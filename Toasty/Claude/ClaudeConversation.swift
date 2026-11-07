@@ -20,8 +20,16 @@ final class ClaudeItem: ObservableObject, Identifiable {
     @Published var text: String
     /// Images attached to a user prompt.
     var images: [NSImage] = []
-    /// "37s · 4:41 PM" under the last reply of a turn.
-    @Published var footer: String?
+    /// When the item was written (from the transcript for resumed sessions).
+    var date: Date?
+    /// The last reply of a turn: it shows the turn's actions (copy, time).
+    @Published var endsTurn = false
+    /// When the turn finished, if known.
+    var finishedAt: Date?
+    /// How long the turn took, when it ran in this app.
+    var turnDuration: Int?
+    /// The turn's whole response (its replies' text), for Copy.
+    var turnText = ""
 
     /// The API message this came from, while it is streaming.
     var messageID: String?
@@ -588,6 +596,27 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         }
     }
 
+    /// Mark the reply ending the turn that started after the last prompt.
+    private func markTurnEnd(at date: Date, duration: Int?) {
+        let start = (items.lastIndex { $0.kind == .user } ?? -1) + 1
+        markTurnEnd(in: items[start...], at: date, duration: duration)
+    }
+
+    private func markTurnEnd(in turn: ArraySlice<ClaudeItem>, at date: Date?, duration: Int?) {
+        let replies = turn.filter { $0.kind == .assistant && !$0.text.isEmpty }
+        guard let last = replies.last else { return }
+        last.turnText = replies.map(\.text).joined(separator: "\n\n")
+        last.turnDuration = duration
+        last.finishedAt = date ?? last.date
+        last.endsTurn = true
+    }
+
+    private static let isoDate: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
     private func readUsage(_ m: [String: Any]) {
         var u = Usage()
         u.costUSD = m["total_cost_usd"] as? Double ?? 0
@@ -766,12 +795,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 turnStarted = Date()
                 return
             }
-            if let started = turnStarted, !wasInterrupted,
-               let last = items.last(where: { $0.kind == .assistant }) {
-                let secs = max(1, Int(Date().timeIntervalSince(started)))
-                let time = Date().formatted(date: .omitted, time: .shortened)
-                last.footer = "\(ClaudeToolInfo.duration(secs)) · \(time)"
-            }
+            markTurnEnd(at: Date(), duration: turnStarted.map { max(1, Int(Date().timeIntervalSince($0))) })
             refreshBranch()
             workspace?.changes.refresh()
             turnStarted = nil
@@ -959,7 +983,11 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             if entry["isCompactSummary"] as? Bool == true { continue }
             switch entry["type"] as? String {
             case "user", "assistant":
+                let before = items.count
                 handleSDK(entry, live: false)
+                if items.count > before, let ts = entry["timestamp"] as? String, let date = Self.isoDate.date(from: ts) {
+                    for item in items[before...] { item.date = date }
+                }
             case "system":
                 if entry["subtype"] as? String == "compact_boundary" { append(.notice, "Conversation compacted") }
             default:
@@ -968,6 +996,13 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         }
         // Anything left unfinished (e.g. a tool call interrupted by quitting).
         for item in items where !item.finalized { item.finalized = true }
+        // Each earlier turn's last reply gets its actions and time.
+        var start = 0
+        for (i, item) in items.enumerated() where item.kind == .user {
+            if i > start { markTurnEnd(in: items[start..<i], at: nil, duration: nil) }
+            start = i + 1
+        }
+        if start < items.count { markTurnEnd(in: items[start...], at: nil, duration: nil) }
         if !items.isEmpty { append(.notice, "Resumed session") }
         recomputeTodos()
     }

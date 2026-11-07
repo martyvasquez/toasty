@@ -153,7 +153,7 @@ enum ClaudeDebug {
                 "items": c.items.suffix(limit).map { item -> [String: Any] in
                     ["kind": "\(item.kind)", "text": String(item.text.prefix(240)), "tool": item.toolName,
                      "result": String((item.result ?? "").prefix(160)), "finalized": item.finalized,
-                     "footer": item.footer ?? ""]
+                     "finishedAt": item.finishedAt.map { "\($0)" } ?? ""]
                 },
             ] as [String: Any]
         }

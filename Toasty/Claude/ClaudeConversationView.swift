@@ -94,7 +94,9 @@ struct ClaudeTranscript: View {
             }
             .modifier(PinToBottom())
             .onScrollGeometryChange(for: Bool.self) { g in
-                g.contentOffset.y + g.containerSize.height >= g.contentSize.height - 60
+                // The bottom of what's visible above the composer (the
+                // bottom inset) against the end of the content.
+                g.visibleRect.maxY - g.contentInsets.bottom >= g.contentSize.height - 60
             } action: { _, bottom in
                 if bottom != atBottom { withAnimation(.easeOut(duration: 0.15)) { atBottom = bottom } }
             }
@@ -121,6 +123,11 @@ struct ClaudeTranscript: View {
                 DispatchQueue.main.async { proxy.scrollTo("bottom", anchor: .bottom) }
             }
         }
+    }
+
+    /// The latest turn's reply keeps its actions visible (others on hover).
+    private var latestReplyID: String? {
+        conversation.phase == .idle ? conversation.items.last { $0.endsTurn }?.id : nil
     }
 
     private var rows: [TranscriptRow] {
@@ -156,7 +163,8 @@ struct ClaudeTranscript: View {
         case .tools(let items):
             ClaudeToolGroup(items: items, cwd: conversation.cwd)
         case .item(let item):
-            ClaudeItemView(item: item, cwd: conversation.cwd, onRun: onRunInTerminal)
+            ClaudeItemView(item: item, cwd: conversation.cwd, onRun: onRunInTerminal,
+                           latest: item.id == latestReplyID)
         }
     }
 }
@@ -175,11 +183,12 @@ struct ClaudeItemView: View {
     @ObservedObject var item: ClaudeItem
     let cwd: String
     var onRun: (String) -> Void
+    var latest = false
 
     var body: some View {
         switch item.kind {
         case .user: ClaudeUserMessage(item: item)
-        case .assistant: ClaudeAssistantMessage(item: item, cwd: cwd, onRun: onRun)
+        case .assistant: ClaudeAssistantMessage(item: item, cwd: cwd, onRun: onRun, latest: latest)
         case .thinking: ClaudeThinking(item: item)
         case .tool: ClaudeToolGroup(items: [item], cwd: cwd)
         case .notice:
@@ -247,7 +256,8 @@ struct ClaudeAssistantMessage: View {
     @ObservedObject var item: ClaudeItem
     let cwd: String
     var onRun: (String) -> Void
-    @State private var copied = false
+    var latest = false
+    @State private var hovering = false
 
     var body: some View {
         let blocks = ClaudeMarkdown.blocks(item.text, style: .init(cwd: cwd))
@@ -262,32 +272,86 @@ struct ClaudeAssistantMessage: View {
                 case .rule: Rectangle().fill(Color(nsColor: ClaudeTypography.rule)).frame(height: 1).padding(.vertical, 6)
                 }
             }
-            if let footer = item.footer {
-                HStack(spacing: 10) {
-                    Text(footer)
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(.tertiary)
-                        .monospacedDigit()
-                    Button {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(item.text, forType: .string)
-                        copied = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
-                    } label: {
-                        Image(systemName: copied ? "checkmark" : "square.on.square")
-                            .font(.system(size: 11))
-                            .frame(width: 18, height: 18)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.tertiary)
-                    .help("Copy Response")
-                    .accessibilityLabel("Copy Response")
-                }
-                .padding(.top, -4)
+            if item.endsTurn {
+                ClaudeReplyActions(item: item)
+                    .padding(.top, -4)
+                    // Always there, so hovering never shifts the transcript.
+                    .opacity(latest || hovering ? 1 : 0)
+                    .allowsHitTesting(latest || hovering)
+                    .animation(.easeOut(duration: 0.12), value: hovering)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onHover { hovering = $0 }
+    }
+}
+
+/// Under a turn's last reply, like Claude: Copy (the whole response) and
+/// when it was written ("2 minutes ago"; the exact time and how long the
+/// turn took on hover).
+struct ClaudeReplyActions: View {
+    @ObservedObject var item: ClaudeItem
+    @State private var copied = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ReplyActionButton(symbol: copied ? "checkmark" : "square.on.square",
+                              help: copied ? "Copied" : "Copy Response") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(item.turnText.isEmpty ? item.text : item.turnText, forType: .string)
+                copied = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
+            }
+            if let date = item.finishedAt {
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    Text(Self.relative(date, now: context.date))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tertiary)
+                        .monospacedDigit()
+                }
+                .padding(.leading, 4)
+                .help(detail(date))
+            }
+        }
+    }
+
+    static func relative(_ date: Date, now: Date) -> String {
+        if now.timeIntervalSince(date) < 60 { return "Just now" }
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .full
+        f.dateTimeStyle = .named
+        return f.localizedString(for: date, relativeTo: now)
+    }
+
+    private func detail(_ date: Date) -> String {
+        let time = date.formatted(Calendar.current.isDateInToday(date)
+            ? .dateTime.hour().minute() : .dateTime.month(.abbreviated).day().hour().minute())
+        guard let secs = item.turnDuration else { return time }
+        return "\(time) · worked for \(ClaudeToolInfo.duration(secs))"
+    }
+}
+
+private struct ReplyActionButton: View {
+    let symbol: String
+    let help: String
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 12.5))
+                .foregroundStyle(hovering ? .secondary : .tertiary)
+                .frame(width: 26, height: 26)
+                .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.primary.opacity(hovering ? 0.06 : 0)))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help(help)
+        .accessibilityLabel(help)
+        .padding(.leading, -6)
     }
 }
 
