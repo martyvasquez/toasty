@@ -7,7 +7,9 @@ enum MainMenu {
         let name = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Toasty"
 
         let app = NSMenu(title: name)
-        app.addItem(withTitle: "About \(name)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        let about = NSMenuItem(title: "About \(name)", action: #selector(AboutPanel.show(_:)), keyEquivalent: "")
+        about.target = AboutPanel.shared
+        app.addItem(about)
         app.addItem(.separator())
         let services = NSMenuItem(title: "Services", action: nil, keyEquivalent: "")
         services.submenu = NSMenu(title: "Services")
@@ -33,8 +35,8 @@ enum MainMenu {
         add(file, to: main)
 
         let edit = NSMenu(title: "Edit")
-        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
-        edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        edit.addItem(withTitle: "Undo", action: NSSelectorFromString("undo:"), keyEquivalent: "z")
+        edit.addItem(withTitle: "Redo", action: NSSelectorFromString("redo:"), keyEquivalent: "Z")
         edit.addItem(.separator())
         edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
         edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
@@ -125,5 +127,19 @@ final class WorkspaceMenuDelegate: NSObject, NSMenuDelegate {
                 item.state = store.workspaces[i].id == store.activeID ? .on : .off
             }
         }
+    }
+}
+
+/// The standard About panel, with a line on what Toasty is built on.
+final class AboutPanel: NSObject {
+    static let shared = AboutPanel()
+
+    @objc func show(_ sender: Any?) {
+        let credits = NSAttributedString(
+            string: "Claude Code through the official Claude Agent SDK.\nTerminal emulation by libghostty-vt.",
+            attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor,
+                         .paragraphStyle: { let p = NSMutableParagraphStyle(); p.alignment = .center; return p }()])
+        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
+        NSApp.activate()
     }
 }

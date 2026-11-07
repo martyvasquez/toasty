@@ -790,5 +790,28 @@ extension ClaudeConversation {
     func debugAppendReply(_ markdown: String) {
         items.append(ClaudeItem(kind: .assistant, text: markdown))
     }
+
+    /// Debug: a long session (`turns` × prompt, tool call, reply) in one go.
+    func debugAppendLongSession(turns: Int) {
+        var new: [ClaudeItem] = []
+        for i in 1...turns {
+            new.append(ClaudeItem(kind: .user, text: "Question \(i): how does part \(i) of the pipeline work?"))
+            let tool = ClaudeItem.tool(id: "debug-\(UUID().uuidString)", name: "Read",
+                                       input: ["file_path": "\(cwd)/src/part\(i).swift"], finalized: true)
+            tool.result = "// part \(i)"
+            new.append(tool)
+            new.append(ClaudeItem(kind: .assistant, text: """
+            Part **\(i)** reads the input, validates it with `validate()`, and passes it on:
+
+            - It checks the schema first.
+            - Then it normalizes dates.
+
+            ```swift
+            func part\(i)(_ input: Input) throws -> Output { try validate(input).normalized() }
+            ```
+            """))
+        }
+        items.append(contentsOf: new)
+    }
 }
 #endif

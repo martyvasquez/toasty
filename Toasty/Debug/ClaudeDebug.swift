@@ -92,6 +92,14 @@ enum ClaudeDebug {
             return nil
         }
 
+        // A long synthetic session: {"cmd":"longSession","turns":600} (3 rows per turn).
+        DebugControl.register("longSession") { cmd in
+            let c = try conv()
+            let start = Date()
+            c.debugAppendLongSession(turns: cmd["turns"] as? Int ?? 600)
+            return ["items": c.items.count, "appendSeconds": Date().timeIntervalSince(start)]
+        }
+
         DebugControl.register("runInTerminal") { cmd in
             WorkspaceStore.shared.active?.runInTerminal(cmd["text"] as? String ?? "")
             return nil
@@ -107,8 +115,11 @@ enum ClaudeDebug {
             guard let sv = candidates.max(by: { ($0.documentView?.frame.height ?? 0) < ($1.documentView?.frame.height ?? 0) }),
                   let doc = sv.documentView else { throw E("no transcript") }
             let f = cmd["to"] as? Double ?? Double(cmd["to"] as? Int ?? 1)
-            let y = (doc.frame.height - sv.contentSize.height) * CGFloat(doc.isFlipped ? f : 1 - f)
-            sv.contentView.scroll(to: NSPoint(x: 0, y: max(0, y)))
+            // Respect the content insets (the transcript runs under the titlebar).
+            let top = -sv.contentInsets.top
+            let bottom = doc.frame.height - sv.contentSize.height + sv.contentInsets.bottom
+            let y = top + (bottom - top) * CGFloat(doc.isFlipped ? f : 1 - f)
+            sv.contentView.scroll(to: NSPoint(x: 0, y: y))
             sv.reflectScrolledClipView(sv.contentView)
             return NSStringFromRect(doc.frame)
         }

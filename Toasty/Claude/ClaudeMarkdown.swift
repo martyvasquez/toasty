@@ -335,7 +335,7 @@ enum ClaudeMarkdown {
             out.append(s)
             out.append(newline(T.body))
 
-        case .list(let ordered, let start, let items):
+        case .list(let ordered, _, let items):
             var counters: [Int: Int] = [:]
             let font = T.body
             let numberFont = NSFont.monospacedDigitSystemFont(ofSize: font.pointSize, weight: .regular)

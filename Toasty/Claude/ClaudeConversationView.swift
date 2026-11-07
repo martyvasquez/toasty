@@ -146,13 +146,7 @@ struct ClaudeTranscript: View {
 /// unless the user scrolled up.
 private struct PinToBottom: ViewModifier {
     func body(content: Content) -> some View {
-        if #available(macOS 15.0, *) {
-            content.defaultScrollAnchor(.bottom, for: .sizeChanges)
-        } else if #available(macOS 14.0, *) {
-            content.defaultScrollAnchor(.bottom)
-        } else {
-            content
-        }
+        content.defaultScrollAnchor(.bottom, for: .sizeChanges)
     }
 }
 
@@ -269,6 +263,7 @@ struct ClaudeAssistantMessage: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(.tertiary)
                     .help("Copy Response")
+                    .accessibilityLabel("Copy Response")
                 }
                 .padding(.top, -4)
             }
@@ -416,6 +411,7 @@ struct ClaudeComposerBox: View {
                 }
                 .buttonStyle(.plain)
                 .help("Attach Images…")
+                .accessibilityLabel("Attach Images")
                 sendButton
             }
             .padding(.horizontal, 10)
@@ -448,6 +444,7 @@ struct ClaudeComposerBox: View {
             }
             .buttonStyle(.plain)
             .help("Stop (esc)")
+            .accessibilityLabel("Stop")
         } else {
             Button { conversation.submit() } label: {
                 ZStack {
@@ -461,6 +458,7 @@ struct ClaudeComposerBox: View {
             .buttonStyle(.plain)
             .disabled(isEmpty)
             .help("Send (⏎)")
+            .accessibilityLabel("Send")
         }
     }
 
@@ -482,6 +480,7 @@ struct ClaudeComposerBox: View {
                         }
                         .buttonStyle(.plain)
                         .offset(x: 5, y: -5)
+                        .accessibilityLabel("Remove Image")
                     }
             }
         }

@@ -201,13 +201,16 @@ nonisolated enum ClaudeEnvironment {
             try p.run()
             let deadline = DispatchTime.now() + 8
             let group = DispatchGroup()
-            var data = Data()
+            final class Box: @unchecked Sendable { var data = Data() }
+            let box = Box()
             group.enter()
             DispatchQueue.global().async {
-                data = out.fileHandleForReading.readDataToEndOfFile()
+                box.data = out.fileHandleForReading.readDataToEndOfFile()
                 group.leave()
             }
-            if group.wait(timeout: deadline) == .timedOut {
+            let timedOut = group.wait(timeout: deadline) == .timedOut
+            let data = box.data
+            if timedOut {
                 p.terminate()
             } else if let s = String(data: data, encoding: .utf8),
                       let r = s.range(of: marker) {

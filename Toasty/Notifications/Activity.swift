@@ -1,7 +1,7 @@
 import AppKit
 import IOKit.pwr_mgt
 import SwiftUI
-import UserNotifications
+@preconcurrency import UserNotifications
 
 /// What Claude is doing in each conversation, for everything outside the
 /// conversation itself: the sidebar, the dock badge, the sound, the toast,
@@ -199,9 +199,9 @@ final class Activity: NSObject, ObservableObject {
     }
 
     private func postSystemNotification(_ c: ClaudeConversation, title: String, body: String, location: String) {
-        let center = UNUserNotificationCenter.current()
-        center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
             guard granted else { return }
+            let center = UNUserNotificationCenter.current()
             let content = UNMutableNotificationContent()
             content.title = title
             content.subtitle = location
