@@ -202,6 +202,8 @@ struct ClaudeComposer: NSViewRepresentable {
         view.isAutomaticSpellingCorrectionEnabled = false
         view.isAutomaticLinkDetectionEnabled = false
         view.isContinuousSpellCheckingEnabled = true
+        // No Writing Tools / Apple Intelligence button beside the text.
+        view.writingToolsBehavior = .none
         view.typingAttributes = [
             .font: NSFont.systemFont(ofSize: ClaudeStyle.bodySize),
             .foregroundColor: NSColor.labelColor,

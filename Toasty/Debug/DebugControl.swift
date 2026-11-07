@@ -77,6 +77,25 @@ enum DebugControl {
     private static func registerBuiltins() {
         register("ping") { _ in "pong" }
 
+        // Every window and any system view that isn't Toasty's own, to find
+        // what macOS adds around text (affordances, accessories).
+        register("probe") { _ in
+            var out: [String] = []
+            for w in NSApp.windows {
+                out.append("window \(type(of: w)) level=\(w.level.rawValue) visible=\(w.isVisible) \(NSStringFromRect(w.frame)) parent=\(w.parent.map { "\(type(of: $0))" } ?? "-")")
+                @MainActor func walk(_ v: NSView, _ depth: Int) {
+                    let name = String(describing: type(of: v))
+                    if !name.hasPrefix("Toasty") && !name.contains("Claude") && !name.contains("Hosting") && !v.isHidden
+                        && ["Writing", "Affordance", "Siri", "Intelligence", "Accessory", "Indicator", "Assist", "Button"].contains(where: name.contains) {
+                        out.append("  view \(name) \(NSStringFromRect(v.convert(v.bounds, to: nil)))")
+                    }
+                    v.subviews.forEach { walk($0, depth + 1) }
+                }
+                if let root = w.contentView?.superview ?? w.contentView { walk(root, 0) }
+            }
+            return out
+        }
+
         // Quits without the confirmation unless {"confirm":true}.
         register("quit") { cmd in
             AppDelegate.shared.skipQuitConfirmation = !(cmd["confirm"] as? Bool ?? false)

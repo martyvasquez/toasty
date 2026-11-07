@@ -126,6 +126,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     private let fieldEditor: NoAccessoryFieldEditor = {
         let e = NoAccessoryFieldEditor()
         e.isFieldEditor = true
+        e.writingToolsBehavior = .none
         return e
     }()
 
