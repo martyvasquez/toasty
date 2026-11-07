@@ -306,11 +306,43 @@ struct ClaudeComposer: NSViewRepresentable {
 
 final class ComposerTextView: NSTextView {
     weak var coordinator: ClaudeComposer.Coordinator?
-    var placeholder: String = ""
+    var placeholder: String = "" {
+        didSet { if placeholder != oldValue { needsDisplay = true } }
+    }
+
+    /// Whether the placeholder was last drawn; typing only invalidates the
+    /// typed glyph's rect, so the whole view must redraw when this flips.
+    private var showedPlaceholder = true
+    private func updatePlaceholder() {
+        let show = string.isEmpty && !hasMarkedText()
+        if show != showedPlaceholder {
+            showedPlaceholder = show
+            setNeedsDisplay(bounds)
+        }
+    }
+
+    override var string: String {
+        didSet { updatePlaceholder() }
+    }
+
+    override func didChangeText() {
+        super.didChangeText()
+        updatePlaceholder()
+    }
+
+    override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
+        super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
+        updatePlaceholder()
+    }
+
+    override func unmarkText() {
+        super.unmarkText()
+        updatePlaceholder()
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        guard string.isEmpty, !placeholder.isEmpty else { return }
+        guard string.isEmpty, !hasMarkedText(), !placeholder.isEmpty else { return }
         // Same font and line height as typed text, so the placeholder sits
         // exactly where the first line will.
         let style = NSMutableParagraphStyle()
