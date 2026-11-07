@@ -100,6 +100,51 @@ final class ClaudeAgentProcess {
         }
     }
 
+    /// Forks a saved session with the SDK's `forkSession`: Claude Code
+    /// writes a new session holding the conversation up to and including
+    /// `upToMessageID`. Calls back with the new session's id.
+    static func fork(sessionID: String, upToMessageID: String, title: String, cwd: String,
+                     completion: @escaping @MainActor (Result<String, Error>) -> Void) {
+        ClaudeEnvironment.resolve { result in
+            let env: ClaudeEnvironment.Resolved
+            switch result {
+            case .failure(let error): completion(.failure(error)); return
+            case .success(let e): env = e
+            }
+            guard let script = Bundle.main.url(forResource: "toasty-agent", withExtension: "mjs", subdirectory: "Bridge") else {
+                completion(.failure(ClaudeAgentError.missingBridge)); return
+            }
+            let args: [String: Any] = ["sessionId": sessionID, "upToMessageId": upToMessageID, "title": title, "dir": cwd]
+            guard let json = try? JSONSerialization.data(withJSONObject: args) else { return }
+            DispatchQueue.global(qos: .userInitiated).async {
+                let p = Process()
+                p.executableURL = URL(fileURLWithPath: env.node)
+                p.arguments = [script.path, "fork", String(decoding: json, as: UTF8.self)]
+                p.environment = env.variables
+                p.currentDirectoryURL = URL(fileURLWithPath: cwd)
+                let out = Pipe()
+                p.standardOutput = out
+                p.standardError = FileHandle.nullDevice
+                p.standardInput = FileHandle.nullDevice
+                let outcome: Result<String, Error>
+                do {
+                    try p.run()
+                    let data = out.fileHandleForReading.readDataToEndOfFile()
+                    p.waitUntilExit()
+                    let reply = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+                    if let id = reply?["sessionId"] as? String {
+                        outcome = .success(id)
+                    } else {
+                        outcome = .failure(ClaudeAgentError.fork(reply?["error"] as? String ?? "No response from Claude Code."))
+                    }
+                } catch {
+                    outcome = .failure(error)
+                }
+                DispatchQueue.main.async { MainActor.assumeIsolated { completion(outcome) } }
+            }
+        }
+    }
+
     private func receiveStderr(_ text: String) {
         Self.logger.debug("agent stderr: \(text, privacy: .public)")
         stderrTail.append(contentsOf: text.split(separator: "\n").map(String.init))
@@ -119,9 +164,11 @@ enum ClaudeAgentError: LocalizedError {
     case missingBridge
     case noNode
     case noClaude
+    case fork(String)
 
     var errorDescription: String? {
         switch self {
+        case .fork(let detail): "Couldn't fork the conversation: \(detail)"
         case .missingBridge: "Toasty's Claude bridge is missing from the app bundle."
         case .noNode: "Couldn't find Node.js (needed by the Claude Agent SDK). Install it, or make sure `node` is on the PATH of your login shell."
         case .noClaude: "Couldn't find the `claude` command. Install Claude Code, or make sure `claude` is on the PATH of your login shell."

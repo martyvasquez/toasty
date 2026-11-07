@@ -69,6 +69,8 @@ struct ClaudeTranscript: View {
     /// Any wheel/trackpad scroll in the window, phase or not (a plain mouse
     /// wheel reports no scroll phase).
     private var isUserScrolling: Bool { userScrolling || WheelWatcher.shared.recentlyScrolled }
+    /// A reply briefly highlighted after it was brought into view.
+    @State private var highlighted: String?
 
     private struct ScrollState: Equatable {
         var offset: CGFloat
@@ -84,6 +86,10 @@ struct ClaudeTranscript: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    if let origin = conversation.forkOrigin {
+                        ForkedFromLine(origin: origin)
+                            .padding(.bottom, 28)
+                    }
                     if conversation.items.isEmpty {
                         ClaudeEmptyState(conversation: conversation)
                     }
@@ -166,8 +172,41 @@ struct ClaudeTranscript: View {
                 }
             }
             .onAppear {
-                DispatchQueue.main.async { proxy.scrollTo("bottom", anchor: .bottom) }
+                DispatchQueue.main.async {
+                    if conversation.revealItemID != nil { reveal(proxy) } else { proxy.scrollTo("bottom", anchor: .bottom) }
+                }
             }
+            .onChange(of: conversation.revealItemID) { _, id in
+                if id != nil { DispatchQueue.main.async { reveal(proxy) } }
+            }
+        }
+    }
+
+    /// Scroll to the reply the conversation asks to show, and highlight it.
+    private func reveal(_ proxy: ScrollViewProxy) {
+        guard let id = conversation.revealItemID else { return }
+        conversation.revealItemID = nil
+        let all = rows
+        guard let index = all.firstIndex(where: { $0.id == id }) else { return }
+        // Lay out far enough back to include it.
+        limit = max(limit, all.count - index)
+        following = false
+        DispatchQueue.main.async {
+            withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(id, anchor: .center) }
+            highlighted = id
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+                if highlighted == id { highlighted = nil }
+            }
+        }
+    }
+
+    /// Forking needs Claude Code's id for the reply and a saved session.
+    private func forkAction(_ item: ClaudeItem) -> ((Bool) -> Void)? {
+        guard item.endsTurn, item.entryUUID != nil, conversation.sessionID != nil,
+              let workspace = conversation.workspace else { return nil }
+        return { [weak conversation] background in
+            guard let conversation else { return }
+            workspace.fork(conversation, at: item, select: !background)
         }
     }
 
@@ -215,8 +254,54 @@ struct ClaudeTranscript: View {
             ClaudeToolGroup(items: items, cwd: conversation.cwd)
         case .item(let item):
             ClaudeItemView(item: item, cwd: conversation.cwd, onRun: onRunInTerminal,
-                           latest: item.id == latestReplyID)
+                           latest: item.id == latestReplyID, onFork: forkAction(item))
+                .background {
+                    RoundedRectangle(cornerRadius: ClaudeStyle.cornerRadius, style: .continuous)
+                        .fill(Color.accentColor.opacity(highlighted == item.id ? 0.1 : 0))
+                        .padding(.horizontal, -12)
+                        .padding(.vertical, -8)
+                        .animation(.easeOut(duration: 0.6), value: highlighted)
+                }
         }
+    }
+}
+
+/// At the top of a forked conversation: where it came from. Click to go
+/// to the reply it was forked from (when that conversation is open).
+struct ForkedFromLine: View {
+    let origin: ClaudeConversation.ForkOrigin
+    @ObservedObject private var store = WorkspaceStore.shared
+    @State private var hovering = false
+
+    private var source: ClaudeConversation? { Workspace.conversation(withSession: origin.sessionID) }
+
+    var body: some View {
+        let source = source
+        let name = source?.title ?? origin.savedTitle ?? "another conversation"
+        Button {
+            guard let source, let workspace = source.workspace else { return }
+            // The fork point, or the latest earlier message that is shown.
+            let target = origin.messageUUIDs.reversed().lazy.compactMap { source.item(forEntry: $0) }.first
+            source.revealItemID = target?.id
+            WorkspaceStore.shared.activate(workspace.id)
+            workspace.select(source)
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "arrow.triangle.branch")
+                    .font(.system(size: 10.5, weight: .medium))
+                (Text("Forked from ") + Text(name).fontWeight(.medium).foregroundStyle(hovering && source != nil ? .primary : .secondary))
+                    .font(.system(size: 12))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .foregroundStyle(.tertiary)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .allowsHitTesting(source != nil)
+        .onHover { hovering = $0 }
+        .help("Go to the reply this was forked from")
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -386,11 +471,13 @@ struct ClaudeItemView: View {
     let cwd: String
     var onRun: (String) -> Void
     var latest = false
+    /// Fork the conversation at this reply (true: in a background tab).
+    var onFork: ((Bool) -> Void)?
 
     var body: some View {
         switch item.kind {
         case .user: ClaudeUserMessage(item: item)
-        case .assistant: ClaudeAssistantMessage(item: item, cwd: cwd, onRun: onRun, latest: latest)
+        case .assistant: ClaudeAssistantMessage(item: item, cwd: cwd, onRun: onRun, latest: latest, onFork: onFork)
         case .thinking: ClaudeThinking(item: item)
         case .tool where item.toolName == "ExitPlanMode": ClaudePlanRow(item: item, cwd: cwd)
         case .tool: ClaudeToolGroup(items: [item], cwd: cwd)
@@ -460,6 +547,7 @@ struct ClaudeAssistantMessage: View {
     let cwd: String
     var onRun: (String) -> Void
     var latest = false
+    var onFork: ((Bool) -> Void)?
     @State private var hovering = false
 
     var body: some View {
@@ -476,7 +564,7 @@ struct ClaudeAssistantMessage: View {
                 }
             }
             if item.endsTurn {
-                ClaudeReplyActions(item: item)
+                ClaudeReplyActions(item: item, onFork: onFork)
                     .padding(.top, -4)
                     // Always there, so hovering never shifts the transcript.
                     .opacity(latest || hovering ? 1 : 0)
@@ -494,6 +582,7 @@ struct ClaudeAssistantMessage: View {
 /// turn took on hover).
 struct ClaudeReplyActions: View {
     @ObservedObject var item: ClaudeItem
+    var onFork: ((Bool) -> Void)?
     @State private var copied = false
 
     var body: some View {
@@ -504,6 +593,12 @@ struct ClaudeReplyActions: View {
                 NSPasteboard.general.setString(item.turnText.isEmpty ? item.text : item.turnText, forType: .string)
                 copied = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
+            }
+            if let onFork {
+                // ⌘-click opens the fork without switching to it, like a link.
+                ReplyActionButton(symbol: "arrow.triangle.branch", help: "Fork from Here") {
+                    onFork((NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags).contains(.command))
+                }
             }
             if let date = item.finishedAt {
                 TimelineView(.periodic(from: .now, by: 30)) { context in

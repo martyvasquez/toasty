@@ -9,10 +9,25 @@
 //                       | remote_control | context_usage
 // stdout (to Toasty):   ready | sdk | models | commands | permission_request | permission_cancel | error | end
 //                       | remote_control_init | remote_control | context_usage
+//
+// `node toasty-agent.mjs fork '<json>'` instead forks a saved session with
+// the SDK's forkSession ({sessionId, upToMessageId, title, dir}), prints
+// {"sessionId": …} or {"error": …} and exits. No query is started.
 import { createInterface } from "node:readline";
-import { query } from "./claude-agent-sdk.mjs";
+import { query, forkSession } from "./claude-agent-sdk.mjs";
 
 const out = (msg) => process.stdout.write(JSON.stringify(msg) + "\n");
+
+if (process.argv[2] === "fork") {
+  try {
+    const a = JSON.parse(process.argv[3] ?? "{}");
+    const r = await forkSession(a.sessionId, { dir: a.dir, upToMessageId: a.upToMessageId, title: a.title });
+    out({ sessionId: r.sessionId });
+  } catch (e) {
+    out({ error: String(e?.message ?? e) });
+  }
+  process.exit(0);
+}
 
 // Streaming input: user messages are queued here and pulled by the SDK.
 const inbox = [];

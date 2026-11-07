@@ -33,6 +33,9 @@ final class ClaudeItem: ObservableObject, Identifiable {
 
     /// The API message this came from, while it is streaming.
     var messageID: String?
+    /// The id of Claude Code's transcript entry for this reply (what a
+    /// fork is cut at).
+    var entryUUID: String?
     /// False while text is still streaming in.
     @Published var finalized: Bool
 
@@ -327,6 +330,28 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
     let cwd: String
 
+    /// Where a forked conversation came from, read from its transcript:
+    /// Claude Code marks each copied entry with the session and message it
+    /// was copied from.
+    struct ForkOrigin: Equatable {
+        let sessionID: String
+        /// The source messages, in order; the last one is the fork point.
+        let messageUUIDs: [String]
+        /// The source conversation's name, as Claude Code saved it.
+        let savedTitle: String?
+    }
+
+    @Published private(set) var forkOrigin: ForkOrigin?
+
+    /// A reply to bring into view (and briefly highlight), e.g. when the
+    /// "Forked from" line of a fork is clicked. The transcript clears it.
+    @Published var revealItemID: String?
+
+    /// The item a transcript entry became, if it's shown.
+    func item(forEntry uuid: String) -> ClaudeItem? {
+        items.first { $0.entryUUID == uuid }
+    }
+
     private var agent: ClaudeAgentProcess?
     private var queued: [[String: Any]] = []
     private var interrupted = false
@@ -339,7 +364,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     private var streamingMessageID: String?
     private var toolInputJSON: [Int: String] = [:]
 
-    init(id: UUID = UUID(), cwd: String, sessionID: String? = nil, customTitle: String? = nil) {
+    init(id: UUID = UUID(), cwd: String, sessionID: String? = nil, customTitle: String? = nil, forked: Bool = false) {
         self.id = id
         self.cwd = cwd
         self.sessionID = sessionID
@@ -350,7 +375,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             permissionMode = mode
             if mode == "auto" { autoModeAvailable = true }
         }
-        if let sessionID { loadHistory(sessionID) }
+        if let sessionID { loadHistory(sessionID, announce: !forked) }
         refreshBranch()
     }
 
@@ -766,7 +791,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 subagentContent(content, parent: parent)
                 return
             }
-            for block in content { assistantBlock(block, messageID: messageID) }
+            for block in content { assistantBlock(block, messageID: messageID, uuid: m["uuid"] as? String) }
             if let error = m["error"] as? String, live {
                 append(.error, ClaudeToolInfo.describeAssistantError(error))
             }
@@ -912,16 +937,19 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         }
     }
 
-    private func assistantBlock(_ block: [String: Any], messageID: String?) {
+    private func assistantBlock(_ block: [String: Any], messageID: String?, uuid: String?) {
         switch block["type"] as? String {
         case "text":
             let text = block["text"] as? String ?? ""
             lastAssistantText = text
             if let item = streaming.values.first(where: { $0.kind == .assistant && !$0.finalized && $0.messageID == messageID }) {
                 item.text = text
+                item.entryUUID = uuid
                 item.finalized = true
             } else if !text.isEmpty {
-                items.append(ClaudeItem(kind: .assistant, text: text))
+                let item = ClaudeItem(kind: .assistant, text: text)
+                item.entryUUID = uuid
+                items.append(item)
             }
         case "thinking":
             let text = block["thinking"] as? String ?? ""
@@ -991,6 +1019,9 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         items.append(ClaudeItem(kind: .user, text: raw))
     }
 
+    /// Shows an error in the transcript (Toasty's own, e.g. a failed fork).
+    func showError(_ text: String) { append(.error, text) }
+
     private func append(_ kind: ClaudeItem.Kind, _ text: String) {
         items.append(ClaudeItem(kind: kind, text: text))
     }
@@ -1020,10 +1051,11 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     /// Shows the saved conversation of a resumed session. Claude Code keeps
     /// it in `~/.claude/projects/<project>/<session>.jsonl`; its entries have
     /// the same shape as SDK messages.
-    private func loadHistory(_ id: String) {
+    private func loadHistory(_ id: String, announce: Bool) {
         guard let url = Activity.transcriptURL(for: id),
               let data = try? Data(contentsOf: url) else { return }
         let lines = data.split(separator: 0x0A)
+        forkOrigin = Self.forkOrigin(lines)
         // Only the tail: long sessions would take a while to lay out.
         for line in lines.suffix(1500) {
             guard let entry = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else { continue }
@@ -1066,7 +1098,44 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             start = i + 1
         }
         if start < items.count { markTurnEnd(in: items[start...], at: nil, duration: nil) }
-        if !items.isEmpty { append(.notice, "Resumed session") }
+        if announce, !items.isEmpty { append(.notice, "Resumed session") }
+    }
+
+    /// The fork origin recorded in a transcript (its copied entries carry
+    /// `forkedFrom`), and the source's name from the source transcript.
+    private static func forkOrigin(_ lines: [Data.SubSequence]) -> ForkOrigin? {
+        var source: String?
+        var uuids: [String] = []
+        for line in lines {
+            // Copied entries come first; stop at the first one that isn't.
+            guard line.range(of: Data(#""forkedFrom""#.utf8)) != nil else {
+                if source != nil { break } else { continue }
+            }
+            guard let entry = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
+                  let from = entry["forkedFrom"] as? [String: Any],
+                  let sid = from["sessionId"] as? String else { continue }
+            if source == nil { source = sid }
+            guard sid == source else { break }
+            if let m = from["messageUuid"] as? String { uuids.append(m) }
+        }
+        guard let source else { return nil }
+        return ForkOrigin(sessionID: source, messageUUIDs: uuids, savedTitle: savedTitle(of: source))
+    }
+
+    /// A session's name as Claude Code saved it (its latest custom or AI
+    /// title), without parsing the whole transcript.
+    nonisolated static func savedTitle(of sessionID: String) -> String? {
+        guard let url = Activity.transcriptURL(for: sessionID),
+              let data = try? Data(contentsOf: url) else { return nil }
+        var ai: String?
+        for line in data.split(separator: 0x0A).reversed() {
+            let custom = line.range(of: Data(#""customTitle""#.utf8)) != nil
+            guard custom || (ai == nil && line.range(of: Data(#""aiTitle""#.utf8)) != nil),
+                  let entry = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else { continue }
+            if let t = entry["customTitle"] as? String, !t.isEmpty { return t }
+            if ai == nil, let t = entry["aiTitle"] as? String, !t.isEmpty { ai = t }
+        }
+        return ai
     }
 
     // MARK: State reporting (sidebar, tab, dock, sounds, keep awake)

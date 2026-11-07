@@ -47,11 +47,39 @@ final class Workspace: ObservableObject, Identifiable {
         return c
     }
 
-    func add(_ conversation: ClaudeConversation, select: Bool) {
+    /// Fork a conversation at one of its replies: Claude Code copies the
+    /// conversation up to and including that reply into a new session,
+    /// which opens in a new tab right after the source.
+    func fork(_ source: ClaudeConversation, at item: ClaudeItem, select: Bool = true) {
+        guard let sessionID = source.sessionID, let uuid = item.entryUUID else { return }
+        var base = source.title
+        if base.hasSuffix(" (fork)") { base.removeLast(7) }
+        let title = "\(base) (fork)"
+        ClaudeAgentProcess.fork(sessionID: sessionID, upToMessageID: uuid, title: title, cwd: source.cwd) { [weak self, weak source] result in
+            guard let self else { return }
+            switch result {
+            case .success(let id):
+                let c = ClaudeConversation(cwd: source?.cwd ?? self.folder, sessionID: id, customTitle: title, forked: true)
+                self.add(c, select: select, after: source)
+            case .failure(let error):
+                source?.showError(error.localizedDescription)
+            }
+        }
+    }
+
+    /// The open conversation (in any workspace) holding a session.
+    static func conversation(withSession id: String) -> ClaudeConversation? {
+        for w in WorkspaceStore.shared.workspaces {
+            if let c = w.conversations.first(where: { $0.sessionID == id }) { return c }
+        }
+        return nil
+    }
+
+    func add(_ conversation: ClaudeConversation, select: Bool, after: ClaudeConversation? = nil) {
         conversation.workspace = self
         observe(conversation)
         var list = conversations
-        if let i = list.firstIndex(where: { $0.id == selectedID }) {
+        if let i = list.firstIndex(where: { $0.id == (after?.id ?? selectedID) }) {
             list.insert(conversation, at: i + 1)
         } else {
             list.append(conversation)
