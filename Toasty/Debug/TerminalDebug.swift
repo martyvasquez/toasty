@@ -1,9 +1,9 @@
 #if DEBUG
 import AppKit
 
-/// Debug commands for the terminal (Phase 1 spike: the window's terminal).
+/// Debug commands for the terminal: the active workspace's selected terminal.
 enum TerminalDebug {
-    static var terminal: TerminalView? { AppDelegate.shared.windowController?.terminal?.terminal }
+    static var terminal: TerminalView? { WorkspaceStore.shared.active?.selectedTerminal?.terminalView }
 
     static func install() {
         // Type text into the shell: {"cmd":"terminalType","text":"ls\r"}

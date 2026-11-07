@@ -21,7 +21,13 @@ enum MainMenu {
         app.addItem(withTitle: "Quit \(name)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         add(app, to: main)
 
+        typealias W = MainWindowController
         let file = NSMenu(title: "File")
+        file.addItem(item("New Tab", #selector(W.newTab(_:)), "t"))
+        file.addItem(item("New Terminal", #selector(W.newTerminal(_:)), "t", [.command, .option]))
+        file.addItem(item("New Workspace…", #selector(W.newWorkspace(_:)), "n"))
+        file.addItem(.separator())
+        file.addItem(item("Close Tab", #selector(W.closeTab(_:)), "w"))
         file.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "W")
         add(file, to: main)
 
@@ -38,12 +44,48 @@ enum MainMenu {
         add(edit, to: main)
 
         let view = NSMenu(title: "View")
+        view.addItem(item("Hide Workspaces", #selector(W.toggleWorkspaces(_:)), "s", [.command, .control]))
+        view.addItem(item("Show Terminal", #selector(W.toggleTerminal(_:)), "t", [.command, .control]))
+        view.addItem(.separator())
         view.addItem(item("Enter Full Screen", #selector(NSWindow.toggleFullScreen(_:)), "f", [.command, .control]))
         add(view, to: main)
+
+        let workspace = NSMenu(title: "Workspace")
+        workspace.addItem(item("New Workspace…", #selector(W.newWorkspace(_:)), ""))
+        workspace.addItem(item("Rename Workspace", #selector(W.renameWorkspace(_:)), "r", [.command, .control]))
+        workspace.addItem(item("Change Folder…", #selector(W.changeWorkspaceFolder(_:)), ""))
+        workspace.addItem(item("Open in Finder", #selector(W.openWorkspaceInFinder(_:)), ""))
+        workspace.addItem(.separator())
+        workspace.addItem(item("Next Workspace", #selector(W.selectNextWorkspace(_:)), "j", [.command, .control]))
+        workspace.addItem(item("Previous Workspace", #selector(W.selectPreviousWorkspace(_:)), "k", [.command, .control]))
+        workspace.addItem(item("Jump to Conversation Needing You", #selector(W.jumpToAttention(_:)), "u", [.command, .control]))
+        workspace.addItem(.separator())
+        for n in 1...9 {
+            // Titled with the workspace's name when the menu opens.
+            let i = item("Workspace \(n)", #selector(W.selectWorkspaceByNumber(_:)), "\(n)", .option)
+            i.tag = n
+            workspace.addItem(i)
+        }
+        workspace.addItem(.separator())
+        workspace.addItem(item("Close Workspace", #selector(W.closeWorkspace(_:)), ""))
+        workspace.delegate = WorkspaceMenuDelegate.shared
+        add(workspace, to: main)
 
         let window = NSMenu(title: "Window")
         window.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         window.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        window.addItem(.separator())
+        window.addItem(item("Show Next Tab", #selector(W.selectNextTab(_:)), "}"))
+        window.addItem(item("Show Previous Tab", #selector(W.selectPreviousTab(_:)), "{"))
+        for n in 1...9 {
+            // ⌘1–⌘8: that tab; ⌘9: the last tab (like Safari). Hidden items
+            // keep their shortcuts.
+            let i = item(n == 9 ? "Select Last Tab" : "Select Tab \(n)", #selector(W.selectTabByNumber(_:)), "\(n)")
+            i.tag = n
+            i.isHidden = true
+            i.allowsKeyEquivalentWhenHidden = true
+            window.addItem(i)
+        }
         add(window, to: main)
         NSApp.windowsMenu = window
 
@@ -63,5 +105,24 @@ enum MainMenu {
         let i = NSMenuItem(title: menu.title, action: nil, keyEquivalent: "")
         i.submenu = menu
         main.addItem(i)
+    }
+}
+
+/// Shows one ⌥1–9 item per existing workspace, titled with its name.
+final class WorkspaceMenuDelegate: NSObject, NSMenuDelegate {
+    static let shared = WorkspaceMenuDelegate()
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        let store = WorkspaceStore.shared
+        for item in menu.items where item.action == #selector(MainWindowController.selectWorkspaceByNumber(_:)) {
+            let i = item.tag - 1
+            let exists = store.workspaces.indices.contains(i)
+            item.isHidden = !exists
+            item.allowsKeyEquivalentWhenHidden = true
+            if exists {
+                item.title = store.workspaces[i].name
+                item.state = store.workspaces[i].id == store.activeID ? .on : .off
+            }
+        }
     }
 }

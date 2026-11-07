@@ -209,11 +209,31 @@ enum DebugControl {
                                             windowNumber: window.windowNumber, context: nil,
                                             characters: chars, charactersIgnoringModifiers: chars,
                                             isARepeat: false, keyCode: code) {
-                    if type == .keyDown, mods.contains(.command), NSApp.mainMenu?.performKeyEquivalent(with: e) == true { continue }
+                    // The real path: key equivalents (menus) first, then the
+                    // first responder.
+                    if window.isKeyWindow { NSApp.sendEvent(e); continue }
+                    // Not key (another app is in front; we never steal focus):
+                    // menus have no target, so find the item and send its
+                    // action down this window's responder chain.
+                    if type == .keyDown, !mods.intersection([.command, .control, .option]).isEmpty {
+                        if let item = menuItem(key: chars, mods: mods, in: NSApp.mainMenu), let action = item.action {
+                            NSApp.mainMenu?.update()
+                            let responder = window.firstResponder ?? window
+                            if !responder.tryToPerform(action, with: item) { window.windowController?.tryToPerform(action, with: item) }
+                            continue
+                        }
+                        if window.firstResponder?.performKeyEquivalent(with: e) == true { continue }
+                    }
                     window.sendEvent(e)
                 }
             }
             return nil
+        }
+
+        // Which menu item a shortcut hits: {"cmd":"menuMatch","chars":"1","mods":"opt"}
+        register("menuMatch") { cmd in
+            let item = menuItem(key: cmd["chars"] as? String ?? "", mods: modifiers(cmd["mods"] as? String), in: NSApp.mainMenu)
+            return item.map { "\($0.title) \($0.action.map(NSStringFromSelector) ?? "-") tag=\($0.tag)" } ?? "none"
         }
 
         register("dump") { _ in
@@ -243,6 +263,23 @@ enum DebugControl {
     /// Extra state for `dump`, contributed by features.
     private static var dumpers: [String: @MainActor () -> Any] = [:]
     static func addDump(_ key: String, _ f: @escaping @MainActor () -> Any) { dumpers[key] = f }
+
+    /// The menu item whose shortcut is `key` + `mods` (hidden items too).
+    static func menuItem(key: String, mods: NSEvent.ModifierFlags, in menu: NSMenu?) -> NSMenuItem? {
+        guard let menu else { return nil }
+        let want = mods.intersection([.command, .control, .option, .shift])
+        for item in menu.items {
+            if let sub = menuItem(key: key, mods: mods, in: item.submenu) { return sub }
+            guard !item.keyEquivalent.isEmpty else { continue }
+            var itemMods = item.keyEquivalentModifierMask.intersection([.command, .control, .option, .shift])
+            var itemKey = item.keyEquivalent
+            // An uppercase or shifted-symbol key equivalent implies Shift.
+            if itemKey.lowercased() != itemKey || "{}|:\"<>?~!@#$%^&*()_+".contains(itemKey) { itemMods.insert(.shift) }
+            itemKey = itemKey.lowercased()
+            if itemMods == want, itemKey == key.lowercased() { return item }
+        }
+        return nil
+    }
 
     static func modifiers(_ s: String?) -> NSEvent.ModifierFlags {
         var m: NSEvent.ModifierFlags = []

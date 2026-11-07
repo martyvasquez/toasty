@@ -41,5 +41,18 @@
 	<string>Copyright © 2026 Marty Vasquez. All rights reserved.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Toasty Workspace</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.martyvasquez.toasty.workspace</string>
+		</dict>
+	</array>
 </dict>
 </plist>

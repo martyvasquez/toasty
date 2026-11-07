@@ -4,7 +4,7 @@ import GhosttyVt
 
 /// A terminal: a login shell on a PTY, emulated by libghostty-vt and drawn
 /// natively. `TerminalScrollView` wraps it for scrollback.
-final class TerminalView: NSView, NSTextInputClient, NSMenuItemValidation {
+final class TerminalView: NSView, NSTextInputClient, NSMenuItemValidation, ObservableObject {
     let vt: VTTerminal
     private(set) var pty: PTYProcess?
     private let renderer = TerminalRenderer()

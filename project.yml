@@ -42,6 +42,11 @@ targets:
         NSPrincipalClass: NSApplication
         NSHumanReadableCopyright: "Copyright © 2026 Marty Vasquez. All rights reserved."
         # Folders can be opened with Toasty (Finder, Dock, `open -a Toasty <dir>`).
+        # A workspace dragged in the sidebar (private, so it can't be dropped as text).
+        UTExportedTypeDeclarations:
+          - UTTypeIdentifier: com.martyvasquez.toasty.workspace
+            UTTypeDescription: Toasty Workspace
+            UTTypeConformsTo: [public.data]
         CFBundleDocumentTypes:
           - CFBundleTypeName: Folder
             CFBundleTypeRole: Viewer
