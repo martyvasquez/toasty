@@ -15,11 +15,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DebugControl.install()
         TerminalDebug.install()
         WorkspaceDebug.install()
+        ClaudeDebug.install()
         #endif
         store.load()
         let controller = MainWindowController(store: store)
         windowController = controller
         controller.showWindow(nil)
+        store.startShownConversation()
         pendingFolders.forEach(store.openFolder)
         pendingFolders = []
         NSApp.activate()

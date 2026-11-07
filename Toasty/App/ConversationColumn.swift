@@ -1,16 +1,12 @@
 import SwiftUI
 
 /// The middle column: the active workspace's selected conversation.
-/// (Phase 3 puts `ClaudeConversationView` here.)
 struct ConversationColumn: View {
     @ObservedObject var store: WorkspaceStore
 
     var body: some View {
         ZStack {
-            Color.claudeBackground
-                // Clicking the page takes focus away from the terminal.
-                .contentShape(Rectangle())
-                .onTapGesture { NSApp.keyWindow?.makeFirstResponder(nil) }
+            Color.claudeBackground.ignoresSafeArea()
             if let workspace = store.active {
                 WorkspaceConversation(workspace: workspace)
             } else {
@@ -18,7 +14,6 @@ struct ConversationColumn: View {
                            button: "New Workspace…", shortcut: "⌘N") { store.createWithFolderPicker() }
             }
         }
-        .ignoresSafeArea()
     }
 }
 
@@ -27,27 +22,12 @@ private struct WorkspaceConversation: View {
 
     var body: some View {
         if let conversation = workspace.selected {
-            ConversationPlaceholder(conversation: conversation)
+            ClaudeConversationView(conversation: conversation,
+                                   onRunInTerminal: { [weak workspace] in workspace?.runInTerminal($0) })
                 .id(conversation.id)
         } else {
             EmptyState(symbol: "sparkle", title: workspace.name,
                        button: "New Tab", shortcut: "⌘T") { workspace.newConversation() }
-        }
-    }
-}
-
-/// Phase 2 stand-in for the transcript and composer.
-private struct ConversationPlaceholder: View {
-    @ObservedObject var conversation: ClaudeConversation
-
-    var body: some View {
-        VStack(spacing: 6) {
-            Text(conversation.title)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.secondary)
-            Text((conversation.cwd as NSString).abbreviatingWithTildeInPath)
-                .font(.system(size: 11.5))
-                .foregroundStyle(.tertiary)
         }
     }
 }

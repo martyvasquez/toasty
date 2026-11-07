@@ -10,7 +10,11 @@
 		021E23FC56ACD71AC24B461D /* TerminalDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDA9BD4515BD6FE72B5BCEAF /* TerminalDebug.swift */; };
 		0953ACD5224F7B6605CF1233 /* TerminalSprites.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9311817626D412A87AA47552 /* TerminalSprites.swift */; };
 		1061436DAC744C0B4D030005 /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04ABDE15409AACAEF4B2BF66 /* TerminalView.swift */; };
+		120D5D296EE4BA6C4E33E628 /* Activity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C221CFDD6F14809C8C78A6D1 /* Activity.swift */; };
 		1ACC8FE2272EB5760687D654 /* WorkspaceSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6927A423E7E99E5F0D72EB08 /* WorkspaceSidebarView.swift */; };
+		2E201587160057E35BDB263E /* ClaudeMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFFBD1A7316E98A070F3E2BE /* ClaudeMarkdown.swift */; };
+		308C0EB67B57D5743742E49F /* ClaudeAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E376E9D81389D2BAC3DC077 /* ClaudeAgent.swift */; };
+		32C56AFA5E5541CBCFF3CF0D /* ClaudeDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCDD12CBF2473066A7A74A44 /* ClaudeDebug.swift */; };
 		339EEDB6041B8A87C4C92758 /* VT.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64C449C667888064F9F12A10 /* VT.swift */; };
 		346191052BC0573C556FAE23 /* MainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FBCBE999788997C12380B2D /* MainWindowController.swift */; };
 		3502266411B2DCC70D0962EA /* TitlebarTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECA042843FEF43774DB0414C /* TitlebarTabs.swift */; };
@@ -18,9 +22,13 @@
 		500B9ECC5A22E8386FBB831D /* TerminalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27278907AA55A2FF70B1DB4 /* TerminalRenderer.swift */; };
 		50719BBE528DB4B26987DCF7 /* WorkspaceDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33D68D9E3E776F9E606A7682 /* WorkspaceDebug.swift */; };
 		53B908DF422B0A0DA826C6F1 /* MainSplitViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8A10A7F8DA308A1B9259A36 /* MainSplitViewController.swift */; };
+		54D737FD0E8282AA3C0E1614 /* ClaudeTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5B8F16A6E5B2987A97AD1D /* ClaudeTypography.swift */; };
 		5A5408F16D2B6E4460483FCB /* TerminalTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9021DD3EFB91CB5031D36A21 /* TerminalTheme.swift */; };
 		6131DD0CF970A46E4FE1AC30 /* KeyCodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64C4D1DA3C7A21F286EE8D53 /* KeyCodes.swift */; };
+		6132779EEA82B2C34C56CDE9 /* ClaudeRequestCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CCEEDDC3B6D5A771D67C9DC /* ClaudeRequestCard.swift */; };
 		78A6CA1B4CA929C128407E33 /* WorkspaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */; };
+		8905A680FA47042672972DFD /* ClaudeConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEF18C42EDAF14F5AFAD03EE /* ClaudeConversationView.swift */; };
+		8AE462A6E941126BC4202A81 /* ClaudeTextViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DB1DB6F9D1A2A6132740C20 /* ClaudeTextViews.swift */; };
 		97DE64296BB25F566553E931 /* TerminalSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D608974EF68852F5E90292F3 /* TerminalSession.swift */; };
 		AC9DFC4D667B3EF0DACDCE40 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FDD4FA67F476B51448A8EB66 /* Assets.xcassets */; };
 		B614E0D5DFBFC6A1EC6A58EB /* ClaudeConversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A3D72521ECFC5F5DC717828 /* ClaudeConversation.swift */; };
@@ -32,12 +40,15 @@
 		C9A592B6AC87794BFE62158E /* GhosttyVt.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 59A391E422005AC05F0585B6 /* GhosttyVt.xcframework */; };
 		E418801CB5AD25148EC64A13 /* PTY.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64890A3F04ACB6E7BF086D88 /* PTY.swift */; };
 		F05E7AF8BA36E71A38111FF3 /* Workspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92F0C051C134C0C9C597BCFD /* Workspace.swift */; };
+		F6A93F0D93822C4E1C46E036 /* ClaudeToolViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA6ECF9E267AAEB50DBBCB05 /* ClaudeToolViews.swift */; };
 		FC6ACCB01BF189ECD781B4B7 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A392D7CD9154E4ADC8244C28 /* main.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		04ABDE15409AACAEF4B2BF66 /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
 		0A1AC4F2009B67034788F88E /* ConversationColumn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationColumn.swift; sourceTree = "<group>"; };
+		1A5B8F16A6E5B2987A97AD1D /* ClaudeTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTypography.swift; sourceTree = "<group>"; };
+		1DB1DB6F9D1A2A6132740C20 /* ClaudeTextViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTextViews.swift; sourceTree = "<group>"; };
 		2FBCBE999788997C12380B2D /* MainWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowController.swift; sourceTree = "<group>"; };
 		326FC85C18EB90E86334C2F6 /* Bridge */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Bridge; path = Toasty/Resources/Bridge; sourceTree = SOURCE_ROOT; };
 		33D68D9E3E776F9E606A7682 /* WorkspaceDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceDebug.swift; sourceTree = "<group>"; };
@@ -50,20 +61,27 @@
 		64C449C667888064F9F12A10 /* VT.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VT.swift; sourceTree = "<group>"; };
 		64C4D1DA3C7A21F286EE8D53 /* KeyCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyCodes.swift; sourceTree = "<group>"; };
 		6927A423E7E99E5F0D72EB08 /* WorkspaceSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSidebarView.swift; sourceTree = "<group>"; };
+		6E376E9D81389D2BAC3DC077 /* ClaudeAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeAgent.swift; sourceTree = "<group>"; };
 		8267153271BF3718002C2343 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		9021DD3EFB91CB5031D36A21 /* TerminalTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalTheme.swift; sourceTree = "<group>"; };
 		92F0C051C134C0C9C597BCFD /* Workspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Workspace.swift; sourceTree = "<group>"; };
 		9311817626D412A87AA47552 /* TerminalSprites.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSprites.swift; sourceTree = "<group>"; };
+		9CCEEDDC3B6D5A771D67C9DC /* ClaudeRequestCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeRequestCard.swift; sourceTree = "<group>"; };
 		A392D7CD9154E4ADC8244C28 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStore.swift; sourceTree = "<group>"; };
 		A8A10A7F8DA308A1B9259A36 /* MainSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainSplitViewController.swift; sourceTree = "<group>"; };
+		AEF18C42EDAF14F5AFAD03EE /* ClaudeConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeConversationView.swift; sourceTree = "<group>"; };
+		BCDD12CBF2473066A7A74A44 /* ClaudeDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeDebug.swift; sourceTree = "<group>"; };
 		BDA9BD4515BD6FE72B5BCEAF /* TerminalDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalDebug.swift; sourceTree = "<group>"; };
+		C221CFDD6F14809C8C78A6D1 /* Activity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Activity.swift; sourceTree = "<group>"; };
 		C7C279FCF3F11C0D07DF1B5B /* DebugControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugControl.swift; sourceTree = "<group>"; };
 		D608974EF68852F5E90292F3 /* TerminalSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSession.swift; sourceTree = "<group>"; };
 		DB24559E15BED10BF20F7121 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		DFFBD1A7316E98A070F3E2BE /* ClaudeMarkdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeMarkdown.swift; sourceTree = "<group>"; };
 		E6DF957BA5BE2D33ABAAE422 /* Toasty.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Toasty.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ECA042843FEF43774DB0414C /* TitlebarTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitlebarTabs.swift; sourceTree = "<group>"; };
 		F27278907AA55A2FF70B1DB4 /* TerminalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalRenderer.swift; sourceTree = "<group>"; };
+		FA6ECF9E267AAEB50DBBCB05 /* ClaudeToolViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeToolViews.swift; sourceTree = "<group>"; };
 		FCD6058B2549DF11F5B70E09 /* .keep */ = {isa = PBXFileReference; path = .keep; sourceTree = "<group>"; };
 		FDD4FA67F476B51448A8EB66 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -92,6 +110,7 @@
 		0CF45AAD513D3B402F26F6F8 /* Debug */ = {
 			isa = PBXGroup;
 			children = (
+				BCDD12CBF2473066A7A74A44 /* ClaudeDebug.swift */,
 				C7C279FCF3F11C0D07DF1B5B /* DebugControl.swift */,
 				BDA9BD4515BD6FE72B5BCEAF /* TerminalDebug.swift */,
 				33D68D9E3E776F9E606A7682 /* WorkspaceDebug.swift */,
@@ -107,6 +126,14 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		1CD6ED451020EC9BA2BD5A08 /* Notifications */ = {
+			isa = PBXGroup;
+			children = (
+				C221CFDD6F14809C8C78A6D1 /* Activity.swift */,
+			);
+			path = Notifications;
+			sourceTree = "<group>";
+		};
 		28E5D759548A89D7AFC70550 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
@@ -120,8 +147,15 @@
 		863D243ADE46861294BC0EF9 /* Claude */ = {
 			isa = PBXGroup;
 			children = (
+				6E376E9D81389D2BAC3DC077 /* ClaudeAgent.swift */,
 				3A3D72521ECFC5F5DC717828 /* ClaudeConversation.swift */,
+				AEF18C42EDAF14F5AFAD03EE /* ClaudeConversationView.swift */,
+				DFFBD1A7316E98A070F3E2BE /* ClaudeMarkdown.swift */,
+				9CCEEDDC3B6D5A771D67C9DC /* ClaudeRequestCard.swift */,
 				3F85C0CF7B802A8107EAC802 /* ClaudeStyle.swift */,
+				1DB1DB6F9D1A2A6132740C20 /* ClaudeTextViews.swift */,
+				FA6ECF9E267AAEB50DBBCB05 /* ClaudeToolViews.swift */,
+				1A5B8F16A6E5B2987A97AD1D /* ClaudeTypography.swift */,
 			);
 			path = Claude;
 			sourceTree = "<group>";
@@ -181,6 +215,7 @@
 				E5996C4FF896C534B47DFE04 /* App */,
 				863D243ADE46861294BC0EF9 /* Claude */,
 				0CF45AAD513D3B402F26F6F8 /* Debug */,
+				1CD6ED451020EC9BA2BD5A08 /* Notifications */,
 				28E5D759548A89D7AFC70550 /* Resources */,
 				A18C1811396D36145BA3042B /* Terminal */,
 				C02E06E6B0BB99FC94E442D8 /* Workspaces */,
@@ -269,9 +304,18 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				120D5D296EE4BA6C4E33E628 /* Activity.swift in Sources */,
 				C83DB61BBC4E1B55D26FE8AB /* AppDelegate.swift in Sources */,
+				308C0EB67B57D5743742E49F /* ClaudeAgent.swift in Sources */,
 				B614E0D5DFBFC6A1EC6A58EB /* ClaudeConversation.swift in Sources */,
+				8905A680FA47042672972DFD /* ClaudeConversationView.swift in Sources */,
+				32C56AFA5E5541CBCFF3CF0D /* ClaudeDebug.swift in Sources */,
+				2E201587160057E35BDB263E /* ClaudeMarkdown.swift in Sources */,
+				6132779EEA82B2C34C56CDE9 /* ClaudeRequestCard.swift in Sources */,
 				3FEABD3A753F771169A42D82 /* ClaudeStyle.swift in Sources */,
+				8AE462A6E941126BC4202A81 /* ClaudeTextViews.swift in Sources */,
+				F6A93F0D93822C4E1C46E036 /* ClaudeToolViews.swift in Sources */,
+				54D737FD0E8282AA3C0E1614 /* ClaudeTypography.swift in Sources */,
 				B7EC6B42A1BE5F57121E7511 /* ConversationColumn.swift in Sources */,
 				C43DE4B1B520DE08BA08379B /* DebugControl.swift in Sources */,
 				6131DD0CF970A46E4FE1AC30 /* KeyCodes.swift in Sources */,

@@ -1,0 +1,1 @@
+@anthropic-ai/claude-agent-sdk 0.3.319 (sdk.mjs, built for Claude Code 2.1.319), vendored unmodified. Update with scripts/update-claude-agent-sdk.sh

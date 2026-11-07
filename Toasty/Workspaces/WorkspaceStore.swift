@@ -82,7 +82,16 @@ final class WorkspaceStore: ObservableObject {
     }
 
     func workspaceSelectionChanged(_ w: Workspace) {
-        if w.id == activeID { selectionChanged.send() }
+        if w.id == activeID {
+            selectionChanged.send()
+            startShownConversation()
+        }
+    }
+
+    /// Like running `claude`: a conversation's agent starts when its tab is
+    /// first shown (restored tabs resume lazily, when first shown).
+    func startShownConversation() {
+        active?.selected?.start()
     }
 
     // MARK: Workspaces
@@ -116,6 +125,7 @@ final class WorkspaceStore: ObservableObject {
         renamingID = nil
         activeID = id
         selectionChanged.send()
+        startShownConversation()
         setNeedsSave()
     }
 

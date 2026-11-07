@@ -14,6 +14,9 @@ final class Workspace: ObservableObject, Identifiable {
     @Published var terminalWidth: CGFloat = 520
 
     weak var store: WorkspaceStore?
+    /// Conversation status changes, forwarded to this workspace's observers
+    /// (the sidebar row shows them).
+    private var statusObservers: [UUID: AnyCancellable] = [:]
 
     init(id: UUID = UUID(), name: String, folder: String) {
         self.id = id
@@ -37,6 +40,7 @@ final class Workspace: ObservableObject, Identifiable {
 
     func add(_ conversation: ClaudeConversation, select: Bool) {
         conversation.workspace = self
+        observe(conversation)
         var list = conversations
         if let i = list.firstIndex(where: { $0.id == selectedID }) {
             list.insert(conversation, at: i + 1)
@@ -70,6 +74,7 @@ final class Workspace: ObservableObject, Identifiable {
     func close(_ conversation: ClaudeConversation) {
         guard let i = conversations.firstIndex(where: { $0.id == conversation.id }) else { return }
         conversation.stop()
+        statusObservers[conversation.id] = nil
         var list = conversations
         list.remove(at: i)
         conversations = list
@@ -86,6 +91,12 @@ final class Workspace: ObservableObject, Identifiable {
     }
 
     func renamed() { changed(); store?.workspaceSelectionChanged(self) }
+
+    private func observe(_ c: ClaudeConversation) {
+        statusObservers[c.id] = c.$phase.map { _ in () }
+            .merge(with: c.$requests.map { _ in () }, c.$attention.map { _ in () })
+            .sink { [weak self] in self?.objectWillChange.send() }
+    }
 
     // MARK: Terminals
 
@@ -148,7 +159,19 @@ final class Workspace: ObservableObject, Identifiable {
         changed()
     }
 
-    func hideTerminal() {
+    /// "Run in Terminal" from a code block: paste the command into the
+    /// shown terminal (never executes it), and focus it.
+    func runInTerminal(_ command: String) {
+        showTerminal()
+        let text = command.trimmingCharacters(in: .newlines)
+        DispatchQueue.main.async {
+            guard let t = self.selectedTerminal else { return }
+            t.view.terminal.insertPaste(text)
+            t.view.terminal.window?.makeFirstResponder(t.view.terminal)
+        }
+    }
+
+        func hideTerminal() {
         terminalVisible = false
         changed()
     }
@@ -203,8 +226,9 @@ final class Workspace: ObservableObject, Identifiable {
     convenience init(saved s: Saved) {
         self.init(id: s.id, name: s.name, folder: s.folder)
         for c in s.conversations {
-            let conv = ClaudeConversation(id: c.id, cwd: c.cwd, sessionID: c.sessionID, customTitle: c.customTitle)
+            let conv = ClaudeConversation(restoring: c.id, cwd: c.cwd, sessionID: c.sessionID, customTitle: c.customTitle)
             conv.workspace = self
+            observe(conv)
             conversations.append(conv)
         }
         selectedID = s.selected.flatMap { id in conversations.contains { $0.id == id } ? id : nil } ?? conversations.first?.id

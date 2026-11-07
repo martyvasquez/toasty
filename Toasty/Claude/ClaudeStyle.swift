@@ -4,8 +4,14 @@ import SwiftUI
 /// Design tokens shared by the window chrome and the conversation (§5).
 /// System colors and fonts throughout, so everything follows light/dark
 /// mode and the accent color; only spacing and sizes are chosen here.
-/// (Phase 3 merges the rest of mostty's `ClaudeStyle` in.)
 enum ClaudeStyle {
+    static var bodySize: CGFloat { ClaudeTypography.bodySize }
+    static var codeSize: CGFloat { ClaudeTypography.codeSize }
+    static let lineHeight: CGFloat = 1.3
+    /// Comfortable reading measure for the transcript.
+    static var readingWidth: CGFloat { ClaudeTypography.measure }
+    static let horizontalPadding: CGFloat = 28
+
     /// The conversation's page (and a selected tab).
     static var background: NSColor { .textBackgroundColor }
 
@@ -24,8 +30,6 @@ enum ClaudeStyle {
             : NSColor.white
     }
 
-    /// The transcript and the composer share one width.
-    static let composerWidth: CGFloat = 900
     static let cornerRadius: CGFloat = 10
 }
 

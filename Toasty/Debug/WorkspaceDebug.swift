@@ -67,21 +67,9 @@ enum WorkspaceDebug {
                 let c = try target()
                 c.customTitle = cmd["name"] as? String
                 w.renamed()
-            case "prompt":
-                // Stand-in for a first prompt (titles the tab) until Phase 3.
-                let c = try target()
-                c.firstPrompt = cmd["text"] as? String
-                w.renamed()
-            case "status":
-                // Fake a status to check the tab and sidebar indicators.
-                let c = try target()
-                switch cmd["status"] as? String ?? "idle" {
-                case "working": c.phase = .working; c.requests = []; c.attention = false
-                case "waiting": c.phase = .working; c.requests = ["permission"]; c.attention = false
-                case "attention": c.phase = .idle; c.requests = []; c.attention = true
-                default: c.phase = .idle; c.requests = []; c.attention = false
-                }
-                w.objectWillChange.send()
+            case "attention":
+                // Mark a tab as finished-unseen (checks the dot).
+                try target().attention = cmd["on"] as? Bool ?? true
             default: throw E("unknown action \(action)")
             }
             return state()

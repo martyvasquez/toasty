@@ -591,6 +591,12 @@ final class TerminalView: NSView, NSTextInputClient, NSMenuItemValidation, Obser
 
     @objc func paste(_ sender: Any?) {
         guard let text = Self.pasteboard.string(forType: .string) else { return }
+        insertPaste(text)
+    }
+
+    /// Paste text as if from the clipboard (bracketed when the program asks
+    /// for it). Never adds a Return: nothing runs until the user presses it.
+    func insertPaste(_ text: String) {
         vt.scroll(GHOSTTY_SCROLL_VIEWPORT_BOTTOM)
         pty?.write(vt.encodePaste(text))
     }
