@@ -161,6 +161,10 @@ struct ClaudeTranscript: View {
         }
         for item in conversation.items {
             switch item.kind {
+            case .tool where item.toolName == "ExitPlanMode":
+                // A plan gets its own row, not a tool line.
+                flush()
+                out.append(.item(item))
             case .tool:
                 run.append(item)
             case .thinking where item.text.isEmpty:
@@ -190,6 +194,117 @@ struct ClaudeTranscript: View {
             ClaudeItemView(item: item, cwd: conversation.cwd, onRun: onRunInTerminal,
                            latest: item.id == latestReplyID)
         }
+    }
+}
+
+/// A plan Claude presented (ExitPlanMode): one quiet line with what
+/// happened to it and its title; click to read the whole plan.
+struct ClaudePlanRow: View {
+    @ObservedObject var item: ClaudeItem
+    let cwd: String
+    @State private var expanded = false
+
+    private var plan: String { item.input["plan"] as? String ?? "" }
+
+    /// The plan's first heading, else its first line.
+    private var title: String {
+        let lines = plan.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        let line = lines.first { $0.hasPrefix("#") } ?? lines.first ?? ""
+        return line.replacingOccurrences(of: #"^#+\s*"#, with: "", options: .regularExpression)
+    }
+
+    private var status: (text: String, symbol: String, color: Color) {
+        guard let result = item.result else {
+            return ("Plan ready for review", "list.bullet.clipboard", Color(nsColor: .systemOrange))
+        }
+        if !item.resultIsError { return ("Plan approved", "checkmark.circle.fill", Color(nsColor: .systemGreen)) }
+        return (result == "You rejected this." ? "Plan rejected" : "Kept planning", "xmark.circle", .secondary)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: status.symbol)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(status.color)
+                    Text(status.text).font(.system(size: 12.5, weight: .medium))
+                    if !title.isEmpty {
+                        Text("· " + title).font(.system(size: 12.5)).lineLimit(1).truncationMode(.tail)
+                    }
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8.5, weight: .bold))
+                        .rotationEffect(.degrees(expanded ? 90 : 0))
+                }
+                .foregroundStyle(.secondary)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(plan.isEmpty)
+            if expanded {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(ClaudeMarkdown.blocks(plan, style: .init(cwd: cwd)).enumerated()), id: \.offset) { _, block in
+                        switch block {
+                        case .text(let s): ClaudeRichText(text: s)
+                        case .code(let l, let c): ClaudeCodeBlock(language: l, code: c)
+                        case .table(let s): ClaudeTableBlock(text: s)
+                        case .rule: Divider()
+                        }
+                    }
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: ClaudeStyle.cornerRadius, style: .continuous).fill(Color.claudeFill))
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+}
+
+/// Claude's task list while it works (TodoWrite / TaskCreate), above the
+/// working line: the current item and its neighbours, ticked off live.
+struct ClaudeTaskList: View {
+    let todos: [ClaudeConversation.Todo]
+    private static let shown = 5
+
+    var body: some View {
+        let done = todos.filter { $0.status == .completed }.count
+        // A window around the first unfinished item.
+        let focus = todos.firstIndex { $0.status != .completed } ?? 0
+        let start = max(0, min(focus - 1, todos.count - Self.shown))
+        let slice = todos[start..<min(todos.count, start + Self.shown)]
+        VStack(alignment: .leading, spacing: 5) {
+            Text("Tasks · \(done) of \(todos.count) done")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.tertiary)
+            ForEach(slice) { todo in
+                HStack(alignment: .firstTextBaseline, spacing: 7) {
+                    Group {
+                        switch todo.status {
+                        case .completed:
+                            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color(nsColor: .systemGreen))
+                        case .inProgress:
+                            Image(systemName: "circle.inset.filled").foregroundStyle(Color.accentColor)
+                        case .pending:
+                            Image(systemName: "circle").foregroundStyle(.tertiary)
+                        }
+                    }
+                    .font(.system(size: 11))
+                    .frame(width: 14)
+                    Text(todo.status == .inProgress ? (todo.activeTitle ?? todo.title) : todo.title)
+                        .font(.system(size: 12.5, weight: todo.status == .inProgress ? .medium : .regular))
+                        .foregroundStyle(todo.status == .completed ? .tertiary : todo.status == .inProgress ? .primary : .secondary)
+                        .strikethrough(todo.status == .completed, color: .secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .padding(.leading, ClaudeComposerBox.inset - 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Tasks, \(done) of \(todos.count) done")
     }
 }
 
@@ -269,6 +384,7 @@ struct ClaudeItemView: View {
         case .user: ClaudeUserMessage(item: item)
         case .assistant: ClaudeAssistantMessage(item: item, cwd: cwd, onRun: onRun, latest: latest)
         case .thinking: ClaudeThinking(item: item)
+        case .tool where item.toolName == "ExitPlanMode": ClaudePlanRow(item: item, cwd: cwd)
         case .tool: ClaudeToolGroup(items: [item], cwd: cwd)
         case .notice:
             Text(item.text)
@@ -530,6 +646,12 @@ struct ClaudeBottomArea: View {
                     .id(request.id)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             } else if conversation.phase == .working {
+                // Claude's task list, when Claude Code gives it one (the CLI
+                // shows it under its spinner).
+                if conversation.todos.contains(where: { $0.status != .completed }) {
+                    ClaudeTaskList(todos: conversation.todos)
+                        .transition(.opacity)
+                }
                 // Right above the input, like the CLI's spinner line.
                 ClaudeWorkingLine(conversation: conversation, activity: conversation.activity)
                     .padding(.leading, ClaudeComposerBox.inset - 2)
@@ -546,6 +668,7 @@ struct ClaudeBottomArea: View {
         .frame(maxWidth: .infinity)
         .animation(.spring(response: 0.3, dampingFraction: 0.9), value: conversation.requests.first?.id)
         .animation(.easeOut(duration: 0.2), value: conversation.phase)
+        .animation(.easeOut(duration: 0.2), value: conversation.todos)
     }
 }
 

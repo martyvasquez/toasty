@@ -27,8 +27,6 @@ private struct InspectorWorkspace: View {
             switch workspace.inspectorTab {
             case .changes:
                 ChangesTab(workspace: workspace, changes: workspace.changes)
-            case .todos:
-                if let c = workspace.selected { TodosTab(conversation: c).id(c.id) } else { NoConversation() }
             case .usage:
                 if let c = workspace.selected { UsageTab(conversation: c).id(c.id) } else { NoConversation() }
             }
@@ -70,7 +68,7 @@ private struct TerminalFooter: View {
 
 private struct NoConversation: View {
     var body: some View {
-        InspectorEmpty(symbol: "sparkle", title: "No Conversation", detail: "Open a tab to see its plan and usage.")
+        InspectorEmpty(symbol: "sparkle", title: "No Conversation", detail: "Open a tab to see its usage.")
     }
 }
 
@@ -441,109 +439,6 @@ struct DiffPage: View {
         }
         .padding(.horizontal, 14)
         .frame(height: 48)
-    }
-}
-
-// MARK: - To-dos
-
-private struct TodosTab: View {
-    @ObservedObject var conversation: ClaudeConversation
-
-    var body: some View {
-        if conversation.todos.isEmpty && conversation.plan == nil {
-            InspectorEmpty(symbol: "list.bullet.clipboard", title: "No Plan Yet",
-                           detail: "Plans Claude presents in Plan mode (⇧⇥) show here, with its task list when it keeps one.")
-        } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    if let plan = conversation.plan { PlanSection(plan: plan, cwd: conversation.cwd) }
-                    if !conversation.todos.isEmpty { list }
-                }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-    }
-
-    private var list: some View {
-        let done = conversation.todos.filter { $0.status == .completed }.count
-        let total = conversation.todos.count
-        return InspectorSection(title: "Tasks") {
-            Text("\(done) of \(total) done").font(.system(size: 11)).foregroundStyle(.tertiary).monospacedDigit()
-        } content: {
-            Meter(fraction: total == 0 ? 0 : Double(done) / Double(total),
-                  tint: done == total ? Color(nsColor: .systemGreen) : .accentColor)
-                .padding(.bottom, 4)
-            VStack(alignment: .leading, spacing: 9) {
-                ForEach(conversation.todos) { todo in
-                    TodoRow(todo: todo, working: conversation.phase == .working)
-                }
-            }
-        }
-    }
-}
-
-private struct TodoRow: View {
-    let todo: ClaudeConversation.Todo
-    let working: Bool
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            icon.frame(width: 14)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(todo.title)
-                    .font(.system(size: 12.5, weight: todo.status == .inProgress ? .medium : .regular))
-                    .foregroundStyle(todo.status == .completed ? .secondary : .primary)
-                    .strikethrough(todo.status == .completed, color: .secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                if todo.status == .inProgress, working, let active = todo.activeTitle, active != todo.title {
-                    Text(active + "…")
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(Color.accentColor)
-                }
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(todo.title), \(todo.status == .completed ? "done" : todo.status == .inProgress ? "in progress" : "to do")")
-    }
-
-    @ViewBuilder private var icon: some View {
-        switch todo.status {
-        case .completed:
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 12))
-                .foregroundStyle(Color(nsColor: .systemGreen))
-        case .inProgress:
-            Image(systemName: "circle.inset.filled")
-                .font(.system(size: 12))
-                .foregroundStyle(Color.accentColor)
-                .symbolEffect(.pulse, isActive: working)
-        case .pending:
-            Image(systemName: "circle")
-                .font(.system(size: 12))
-                .foregroundStyle(.tertiary)
-        }
-    }
-}
-
-private struct PlanSection: View {
-    let plan: String
-    let cwd: String
-
-    var body: some View {
-        InspectorSection(title: "Plan") {
-            let blocks = ClaudeMarkdown.blocks(plan, style: .init(baseSize: 12.5, codeSize: 11.5, cwd: cwd))
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
-                    switch block {
-                    case .text(let s): ClaudeRichText(text: s)
-                    case .code(let lang, let code): ClaudeCodeBlock(language: lang, code: code, onRun: { _ in })
-                    case .table(let s): ClaudeTableBlock(text: s)
-                    case .rule: Rectangle().fill(Color.claudeSeparator).frame(height: 0.5)
-                    }
-                }
-            }
-        }
     }
 }
 

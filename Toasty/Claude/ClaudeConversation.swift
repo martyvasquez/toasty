@@ -270,8 +270,6 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     }
 
     @Published private(set) var todos: [Todo] = []
-    /// The latest plan Claude presented (ExitPlanMode), if any.
-    @Published private(set) var plan: String?
 
     /// Session totals, as /cost reports them (cumulative across turns).
     struct Usage: Equatable {
@@ -331,12 +329,11 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         agent.send(["type": "context_usage"])
     }
 
-    private static let todoTools: Set<String> = ["TodoWrite", "TaskCreate", "TaskUpdate", "ExitPlanMode"]
+    private static let todoTools: Set<String> = ["TodoWrite", "TaskCreate", "TaskUpdate"]
 
-    /// Rebuild the task list and plan from the transcript's tool calls.
+    /// Rebuild Claude's task list from the transcript's tool calls.
     private func recomputeTodos() {
         var list: [Todo] = []
-        var plan: String?
         var nextTaskID = 1
         func scan(_ items: [ClaudeItem]) {
             for item in items where item.kind == .tool {
@@ -367,8 +364,6 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                     }
                     if let subject = item.input["subject"] as? String { list[i].title = subject }
                     if let active = item.input["activeForm"] as? String { list[i].activeTitle = active }
-                case "ExitPlanMode":
-                    if let p = item.input["plan"] as? String, !p.isEmpty { plan = p }
                 default:
                     break
                 }
@@ -376,7 +371,6 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         }
         scan(items)
         if todos != list { todos = list }
-        if self.plan != plan { self.plan = plan }
     }
 
     /// Models Claude Code offers (its own list, as in /model).
@@ -754,7 +748,6 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             description: m["description"] as? String)
         requests.append(request)
         reportState()
-        if tool == "ExitPlanMode", let p = request.input["plan"] as? String, !p.isEmpty { plan = p }
 
         let what: String
         switch tool {

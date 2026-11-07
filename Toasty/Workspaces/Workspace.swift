@@ -324,14 +324,13 @@ final class Workspace: ObservableObject, Identifiable {
 
 /// The inspector's tabs.
 enum InspectorTab: String, CaseIterable, Identifiable {
-    case changes, todos, usage
+    case changes, usage
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .changes: "Changes"
-        case .todos: "Plan"
         case .usage: "Usage"
         }
     }
@@ -339,17 +338,15 @@ enum InspectorTab: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .changes: "arrow.triangle.branch"
-        case .todos: "list.bullet.clipboard"
         case .usage: "gauge.with.dots.needle.50percent"
         }
     }
 
-    /// ⌃⌘1, ⌃⌘2, ⌃⌘3
+    /// ⌃⌘1, ⌃⌘2
     var shortcut: String {
         switch self {
         case .changes: "1"
-        case .todos: "2"
-        case .usage: "3"
+        case .usage: "2"
         }
     }
 }

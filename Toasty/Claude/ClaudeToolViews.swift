@@ -103,7 +103,9 @@ enum ClaudeToolInfo {
             case "Glob", "Grep", "LS": key = "search"
             case "WebFetch", "WebSearch": key = "web"
             case "Task", "Agent": key = "agent"
-            case "TodoWrite": key = "todo"
+            case "TodoWrite", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet": key = "todo"
+            // Loading a deferred tool is plumbing, not something Claude did.
+            case "ToolSearch": continue
             default: key = "other:" + item.toolName
             }
             if groups[key] == nil { order.append(key) }
@@ -134,13 +136,13 @@ enum ClaudeToolInfo {
             case "search": return list.count == 1 ? "searched for \(summary(list[0].toolName, list[0].input, cwd: cwd))" : "searched \(list.count) times"
             case "web": return list.count == 1 ? "looked up \(summary(list[0].toolName, list[0].input, cwd: cwd))" : "looked up \(list.count) pages"
             case "agent": return list.count == 1 ? "ran an agent" : "ran \(list.count) agents"
-            case "todo": return "updated todos"
+            case "todo": return "updated the task list"
             default:
                 let name = displayName(String(key.dropFirst(6)))
                 return list.count == 1 ? "used \(name)" : "used \(name) \(list.count) times"
             }
         }
-        let s = parts.joined(separator: ", ")
+        let s = parts.isEmpty ? "loaded tools" : parts.joined(separator: ", ")
         return s.prefix(1).uppercased() + s.dropFirst()
     }
 

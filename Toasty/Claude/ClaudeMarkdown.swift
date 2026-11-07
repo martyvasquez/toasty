@@ -30,7 +30,7 @@ enum ClaudeMarkdown {
     private enum RawBlock {
         case heading(Int, String)
         case paragraph(String)
-        case list(ordered: Bool, start: Int, items: [(indent: Int, text: String, task: Bool?, number: Int)])
+        case list(ordered: Bool, start: Int, items: [(indent: Int, text: String, task: Bool?, number: Int, ordered: Bool)])
         case quote([String])
         case table([[String]])
         case code(String, String)
@@ -180,12 +180,12 @@ enum ClaudeMarkdown {
             // List
             if let first = listItem(line) {
                 endParagraph()
-                var items: [(indent: Int, text: String, task: Bool?, number: Int)] = []
+                var items: [(indent: Int, text: String, task: Bool?, number: Int, ordered: Bool)] = []
                 let ordered = first.ordered
                 while i < lines.count {
                     let l = lines[i]
                     if let item = listItem(l) {
-                        items.append((item.indent, item.text, item.task, item.number))
+                        items.append((item.indent, item.text, item.task, item.number, item.ordered))
                         i += 1
                     } else if !l.trimmingCharacters(in: .whitespaces).isEmpty,
                               l.hasPrefix("  ") || l.hasPrefix("\t"),
@@ -343,7 +343,7 @@ enum ClaudeMarkdown {
             // (so "10." never touches its text), and all its items share it.
             var textOffset = T.listTextOffset
             if ordered {
-                let widest = items.map { ("\($0.number)." as NSString).size(withAttributes: [.font: numberFont]).width }.max() ?? 0
+                let widest = items.filter(\.ordered).map { ("\($0.number)." as NSString).size(withAttributes: [.font: numberFont]).width }.max() ?? 0
                 textOffset = max(textOffset, (widest + T.listNumberGap + 2).rounded())
             }
             for (n, item) in items.enumerated() {
@@ -363,7 +363,7 @@ enum ClaudeMarkdown {
                         .font: font, .foregroundColor: NSColor.clear,
                         .claudeTask: task, .kern: textOffset - used]))
                     paragraph = T.paragraphStyle(headIndent: textX, firstLineIndent: levelX, spacingBefore: spacing)
-                } else if ordered {
+                } else if item.ordered {
                     // The number as written (Claude numbers its own lists;
                     // a list that starts at 9 stays at 9).
                     let k = item.number
