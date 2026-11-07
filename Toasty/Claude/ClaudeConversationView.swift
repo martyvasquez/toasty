@@ -160,7 +160,7 @@ struct ClaudeTranscript: View {
             .onChange(of: conversation.items.count) { _, _ in
                 // A new message: follow it, unless the user is reading
                 // further up (a prompt they just sent always shows).
-                guard following || conversation.items.last?.kind == .user else { return }
+                guard following || conversation.items.last?.startsTurn == true else { return }
                 following = true
                 withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("bottom", anchor: .bottom) }
             }
@@ -243,8 +243,8 @@ struct ClaudeTranscript: View {
     }
 
     private func spacing(before row: TranscriptRow, after previous: TranscriptRow) -> CGFloat {
-        if row.first?.kind == .user { return 34 }
-        if previous.first?.kind == .user { return 18 }
+        if row.first?.startsTurn == true { return 34 }
+        if previous.first?.startsTurn == true { return 18 }
         return 16
     }
 
@@ -302,6 +302,60 @@ struct ForkedFromLine: View {
         .onHover { hovering = $0 }
         .help("Go to the reply this was forked from")
         .frame(maxWidth: .infinity)
+    }
+}
+
+/// A message from another Claude Code session: one quiet line with the
+/// sender and the message's first line (like the CLI's "Message from
+/// @name: …"); click to read all of it.
+struct ClaudePeerMessage: View {
+    @ObservedObject var item: ClaudeItem
+    let cwd: String
+    @State private var expanded = false
+
+    private var firstLine: String {
+        item.text.split(separator: "\n").first.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "bubble.left")
+                        .font(.system(size: 11.5))
+                    Text("Message from @\(item.sender ?? "another session")")
+                        .font(.system(size: 12.5, weight: .medium))
+                    if !expanded, !firstLine.isEmpty {
+                        Text("· " + firstLine).font(.system(size: 12.5)).lineLimit(1).truncationMode(.tail)
+                    }
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8.5, weight: .bold))
+                        .rotationEffect(.degrees(expanded ? 90 : 0))
+                }
+                .foregroundStyle(.secondary)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("A message from another Claude Code session")
+            if expanded {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(ClaudeMarkdown.blocks(item.text, style: .init(cwd: cwd)).enumerated()), id: \.offset) { _, block in
+                        switch block {
+                        case .text(let s): ClaudeRichText(text: s)
+                        case .code(let l, let c): ClaudeCodeBlock(language: l, code: c)
+                        case .table(let s): ClaudeTableBlock(text: s)
+                        case .rule: Divider()
+                        }
+                    }
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: ClaudeStyle.cornerRadius, style: .continuous).fill(Color.claudeFill))
+            }
+        }
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -479,6 +533,7 @@ struct ClaudeItemView: View {
         case .user: ClaudeUserMessage(item: item)
         case .assistant: ClaudeAssistantMessage(item: item, cwd: cwd, onRun: onRun, latest: latest, onFork: onFork)
         case .thinking: ClaudeThinking(item: item)
+        case .peer: ClaudePeerMessage(item: item, cwd: cwd)
         case .tool where item.toolName == "ExitPlanMode": ClaudePlanRow(item: item, cwd: cwd)
         case .tool: ClaudeToolGroup(items: [item], cwd: cwd)
         case .notice:
@@ -780,6 +835,74 @@ struct ClaudeComposerBox: View {
     /// draft changes.
     @State private var commandsDismissedFor: String?
 
+    /// The @-mention menu's highlighted tab (among the ones that can be
+    /// picked), and the draft it was dismissed for.
+    @State private var mentionIndex = 0
+    @State private var mentionsDismissedFor: String?
+
+    /// "@word" being typed at the end of the draft: the word, and where the
+    /// mention starts.
+    private var mentionQuery: (query: String, start: String.Index)? {
+        let d = conversation.draft
+        guard d != mentionsDismissedFor, let at = d.lastIndex(of: "@") else { return nil }
+        if at > d.startIndex, !d[d.index(before: at)].isWhitespace { return nil }
+        var q = d[d.index(after: at)...]
+        if q.hasPrefix("\"") { q = q.dropFirst() } else if q.contains(where: \.isWhitespace) { return nil }
+        guard !q.contains("\n"), !q.contains("\"") else { return nil }
+        return (String(q), at)
+    }
+
+    /// Tabs matching the mention, grouped by workspace (this one first).
+    private var mentionGroups: [ClaudeMentionMenu.Group] {
+        guard let q = mentionQuery?.query.lowercased() else { return [] }
+        var workspaces = WorkspaceStore.shared.workspaces
+        if let own = conversation.workspace, let i = workspaces.firstIndex(where: { $0 === own }) {
+            workspaces.insert(workspaces.remove(at: i), at: 0)
+        }
+        return workspaces.compactMap { w in
+            let tabs = w.conversations.filter { $0 !== conversation }
+            let prefix = tabs.filter { q.isEmpty || $0.title.lowercased().hasPrefix(q) }
+            let inside = tabs.filter { !q.isEmpty && !$0.title.lowercased().hasPrefix(q) && $0.title.lowercased().contains(q) }
+            let match = prefix + inside
+            return match.isEmpty ? nil : ClaudeMentionMenu.Group(id: w.id, name: w.name, tabs: match)
+        }
+    }
+
+    /// Tabs that can be picked (running and known by their name), in order.
+    private func pickable(_ groups: [ClaudeMentionMenu.Group]) -> [ClaudeConversation] {
+        groups.flatMap(\.tabs).filter { $0.address != nil }
+    }
+
+    /// Up/down/Tab/Return/Esc while the @ menu shows.
+    private func mentionKey(_ selector: Selector) -> Bool {
+        let groups = mentionGroups
+        guard !groups.isEmpty else { return false }
+        if selector == #selector(NSResponder.cancelOperation(_:)) {
+            mentionsDismissedFor = conversation.draft
+            return true
+        }
+        let tabs = pickable(groups)
+        guard !tabs.isEmpty else { return false }
+        let i = min(mentionIndex, tabs.count - 1)
+        switch selector {
+        case #selector(NSResponder.moveUp(_:)): mentionIndex = (i - 1 + tabs.count) % tabs.count
+        case #selector(NSResponder.moveDown(_:)): mentionIndex = (i + 1) % tabs.count
+        case #selector(NSResponder.insertTab(_:)), #selector(NSResponder.insertNewline(_:)): mention(tabs[i])
+        default: return false
+        }
+        return true
+    }
+
+    /// Replace the "@word" being typed with the tab's address, written the
+    /// way Claude Code writes session mentions (quoted when needed).
+    private func mention(_ tab: ClaudeConversation) {
+        guard let name = tab.address, let start = mentionQuery?.start else { return }
+        let plain = name.allSatisfy { $0.isLetter || $0.isNumber || "-_.".contains($0) }
+        conversation.draft = String(conversation.draft[..<start]) + (plain ? "@\(name) " : "@\"\(name)\" ")
+        mentionIndex = 0
+        conversation.focusComposer()
+    }
+
     /// Commands matching a draft that is just "/word" (no arguments yet).
     private var commandMatches: [ClaudeConversation.SlashCommand] {
         let d = conversation.draft
@@ -854,7 +977,7 @@ struct ClaudeComposerBox: View {
                 },
                 onShiftTab: { conversation.cyclePermissionMode() },
                 onPasteImage: { conversation.attachments.append($0) },
-                onKeyCommand: commandKey)
+                onKeyCommand: { commandKey($0) || mentionKey($0) })
                 .frame(height: height)
                 .padding(.horizontal, Self.inset)
                 .padding(.top, 13)
@@ -894,17 +1017,32 @@ struct ClaudeComposerBox: View {
                 .transition(.opacity)
             }
         }
+        // The @ menu: tabs to mention.
+        .overlay(alignment: .top) {
+            let groups = mentionGroups
+            if !groups.isEmpty {
+                let tabs = pickable(groups)
+                ClaudeMentionMenu(groups: groups,
+                                  selected: tabs.isEmpty ? nil : tabs[min(mentionIndex, tabs.count - 1)].id,
+                                  choose: mention)
+                .offset(y: -(ClaudeMentionMenu.height(for: groups) + 8))
+                .transition(.opacity)
+            }
+        }
         .animation(.easeOut(duration: 0.12), value: commandMatches.isEmpty)
+        .animation(.easeOut(duration: 0.12), value: mentionGroups.isEmpty)
         .onChange(of: conversation.draft) { _, d in
             commandIndex = 0
+            mentionIndex = 0
             if d != commandsDismissedFor { commandsDismissedFor = nil }
+            if d != mentionsDismissedFor { mentionsDismissedFor = nil }
         }
     }
 
     private var placeholder: String {
         if !conversation.requests.isEmpty { return "Claude is waiting for your answer above" }
         if conversation.phase == .working { return "Send a follow-up…" }
-        return "Ask Claude to make changes, or type / for commands"
+        return "Ask Claude to make changes · / for commands · @ to message a tab"
     }
 
     @ViewBuilder private var sendButton: some View {
@@ -1116,6 +1254,105 @@ struct ClaudeCommandMenu: View {
             .frame(height: ClaudeCommandMenu.rowHeight)
             .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .fill(selected ? Color.accentColor.opacity(0.18) : .clear))
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+        }
+    }
+}
+
+/// Tabs to mention with "@" (Claude Code's session mentions), grouped by
+/// workspace like the sidebar. Tabs whose session isn't running (or isn't
+/// known by its tab name yet) are greyed out and can't be picked.
+struct ClaudeMentionMenu: View {
+    struct Group: Identifiable {
+        let id: UUID
+        let name: String
+        let tabs: [ClaudeConversation]
+    }
+
+    let groups: [Group]
+    let selected: UUID?
+    let choose: (ClaudeConversation) -> Void
+
+    static let rowHeight: CGFloat = 32
+    static let headerHeight: CGFloat = 26
+    static let maxHeight: CGFloat = 8 * rowHeight
+
+    static func height(for groups: [Group]) -> CGFloat {
+        let content = groups.reduce(0) { $0 + headerHeight + CGFloat($1.tabs.count) * rowHeight }
+        return min(content, maxHeight) + 10
+    }
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(groups) { group in
+                        Text(group.name)
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                            .padding(.horizontal, 10)
+                            .frame(height: Self.headerHeight, alignment: .bottomLeading)
+                            .padding(.bottom, 0)
+                        ForEach(group.tabs) { tab in
+                            MentionRow(tab: tab, selected: tab.id == selected, choose: choose)
+                                .id(tab.id)
+                        }
+                    }
+                }
+                .padding(5)
+            }
+            .scrollIndicators(Self.height(for: groups) >= Self.maxHeight + 10 ? .automatic : .never)
+            .frame(height: Self.height(for: groups))
+            .onChange(of: selected) { _, id in
+                if let id { proxy.scrollTo(id) }
+            }
+        }
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.claudeField))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Tabs to Message")
+    }
+
+    private struct MentionRow: View {
+        @ObservedObject var tab: ClaudeConversation
+        let selected: Bool
+        let choose: (ClaudeConversation) -> Void
+
+        private var hint: String? {
+            if !tab.sessionRunning { return "not running" }
+            return tab.address == nil ? "naming…" : nil
+        }
+
+        var body: some View {
+            let enabled = tab.address != nil
+            HStack(spacing: 8) {
+                // The tab bar's icons: Claude's sparkle, or a branch for a fork.
+                Image(systemName: tab.forkOrigin != nil ? "arrow.triangle.branch" : "sparkle")
+                    .font(.system(size: 9.5, weight: .semibold))
+                    .foregroundStyle(enabled ? Color(nsColor: .systemOrange) : Color.secondary.opacity(0.5))
+                    .frame(width: 12)
+                Text(tab.title)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(enabled ? .primary : .tertiary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 8)
+                if let hint {
+                    Text(hint)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .padding(.horizontal, 10)
+            .frame(height: ClaudeMentionMenu.rowHeight)
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(selected ? Color.accentColor.opacity(0.18) : .clear))
+            .contentShape(Rectangle())
+            .onTapGesture { if enabled { choose(tab) } }
+            .help(enabled ? "Mention @\(tab.title)" : "Open this tab to start its session, then it can be messaged")
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
         }

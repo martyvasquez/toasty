@@ -12,6 +12,9 @@ final class ClaudeItem: ObservableObject, Identifiable {
         case tool
         case notice
         case error
+        /// A message from another Claude Code session (cross-session
+        /// messaging); `text` is its body, `sender` the session's name.
+        case peer
     }
 
     let id: String
@@ -20,6 +23,9 @@ final class ClaudeItem: ObservableObject, Identifiable {
     @Published var text: String
     /// Images attached to a user prompt.
     var images: [NSImage] = []
+    /// The session that sent a `.peer` message (its name, as Claude Code
+    /// addresses it).
+    var sender: String?
     /// When the item was written (from the transcript for resumed sessions).
     var date: Date?
     /// The last reply of a turn: it shows the turn's actions (copy, time).
@@ -56,6 +62,9 @@ final class ClaudeItem: ObservableObject, Identifiable {
         self.text = text
         self.finalized = finalized
     }
+
+    /// A prompt, or a message from another session: what a turn answers.
+    var startsTurn: Bool { kind == .user || kind == .peer }
 
     static func tool(id: String, name: String, input: [String: Any], finalized: Bool) -> ClaudeItem {
         let item = ClaudeItem(id: id, kind: .tool, finalized: finalized)
@@ -158,14 +167,26 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
     var isSelected: Bool { workspace?.selected === self }
 
-    /// A name the user gave the tab, if any.
+    /// A name the user gave the tab, if any. It also becomes the session's
+    /// name in Claude Code (what other sessions call it).
     @Published var customTitle: String? {
-        didSet { if customTitle != oldValue { stateDidChange() } }
+        didSet {
+            guard customTitle != oldValue else { return }
+            stateDidChange()
+            if let name = customTitle.flatMap({ $0.isEmpty ? nil : $0 }) ?? claudeTitle { applyName(name) }
+        }
     }
 
-    /// The tab's title: its name, else the conversation's first prompt.
+    /// The session's name in Claude Code: the title Claude Code wrote for
+    /// the conversation (applied as its name once, so it stays put), or a
+    /// name given with /rename or by a fork.
+    @Published private(set) var claudeTitle: String?
+
+    /// The tab's title: the user's name for it, else the session's name in
+    /// Claude Code, else the conversation's first prompt.
     var title: String {
         if let customTitle, !customTitle.isEmpty { return customTitle }
+        if let claudeTitle, !claudeTitle.isEmpty { return claudeTitle }
         guard let first = items.first(where: { $0.kind == .user })?.text else { return "New Chat" }
         let line = first.split(separator: "\n").first.map(String.init) ?? first
         let t = line.trimmingCharacters(in: .whitespaces)
@@ -353,6 +374,28 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     }
 
     private var agent: ClaudeAgentProcess?
+    /// Prompts sent from the composer whose echo hasn't come back yet.
+    private var sentPrompts: Set<String> = []
+    /// The session has a name in Claude Code (so Claude Code's own title
+    /// isn't applied again).
+    private var named = false
+    /// A name to give the session once it's running and idle.
+    @Published private var pendingName: String?
+
+    /// Claude Code is running for this tab, so other sessions can message it.
+    @Published private(set) var sessionRunning = false
+
+    /// What other sessions call this tab right now, when it can receive a
+    /// message under its tab name: running, and Claude Code knows it by
+    /// that name (not a made-up one, nor one it's about to change).
+    var address: String? {
+        guard sessionRunning, pendingName == nil, let claudeTitle, !claudeTitle.isEmpty,
+              claudeTitle == title else { return nil }
+        return claudeTitle
+    }
+    /// Slash commands Toasty runs without showing them (/rename) whose
+    /// result hasn't come back yet.
+    private var silentCommands = 0
     private var queued: [[String: Any]] = []
     private var interrupted = false
     private var turnsInFlight = 0
@@ -447,7 +490,11 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         item.images = images
         items.append(item)
 
-        var message: [String: Any] = ["type": "user", "text": text]
+        // Claude Code echoes every prompt back (see the bridge); this id
+        // tells Toasty's own prompts apart from messages sent from elsewhere.
+        let promptID = UUID().uuidString.lowercased()
+        sentPrompts.insert(promptID)
+        var message: [String: Any] = ["type": "user", "text": text, "uuid": promptID]
         if !images.isEmpty {
             message["images"] = images.compactMap { image -> [String: String]? in
                 guard let tiff = image.tiffRepresentation,
@@ -563,10 +610,12 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     func stop() {
         agent?.terminate()
         agent = nil
+        sessionRunning = false
     }
 
     private func agentExited(_ status: Int32, stderr: String) {
         agent = nil
+        sessionRunning = false
         remoteControl = .off
         turnsInFlight = 0
         launching = false
@@ -587,11 +636,13 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         switch message["type"] as? String {
         case "ready":
             launching = false
+            sessionRunning = true
             let pending = queued
             queued.removeAll()
             setPhase(pending.contains { $0["type"] as? String == "user" } ? .working : .idle)
             pending.forEach { agent?.send($0) }
             refreshContextUsage()
+            sendPendingName()
         case "sdk":
             if let m = message["message"] as? [String: Any] {
                 #if DEBUG
@@ -654,7 +705,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
     /// Mark the reply ending the turn that started after the last prompt.
     private func markTurnEnd(at date: Date, duration: Int?) {
-        let start = (items.lastIndex { $0.kind == .user } ?? -1) + 1
+        let start = (items.lastIndex { $0.startsTurn } ?? -1) + 1
         markTurnEnd(in: items[start...], at: date, duration: duration)
     }
 
@@ -760,6 +811,12 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 slashCommands = m["slash_commands"] as? [String] ?? []
             case "commands_changed":
                 setCommands(m["commands"])
+            case "session_title_changed":
+                // Renamed (by Toasty, or /rename typed in the composer).
+                if let t = m["title"] as? String, !t.isEmpty {
+                    named = true
+                    if t != claudeTitle { claudeTitle = t }
+                }
             case "compact_boundary":
                 append(.notice, "Conversation compacted")
             case "status":
@@ -784,7 +841,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             // A slash command's output (/context, /cost…) also comes as a
             // synthetic reply; show it like the CLI does.
             if message["model"] as? String == "<synthetic>",
-               items.last(where: { $0.kind == .user })?.text.hasPrefix("/") != true { return }
+               silentCommands > 0 || items.last(where: { $0.kind == .user })?.text.hasPrefix("/") != true { return }
             let messageID = message["id"] as? String
             let content = message["content"] as? [[String: Any]] ?? []
             if let parent {
@@ -798,6 +855,20 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
         case "user":
             guard let message = m["message"] as? [String: Any] else { return }
+            if live, m["isReplay"] as? Bool == true {
+                // The echo of a prompt typed here: already shown.
+                if let id = m["uuid"] as? String, sentPrompts.remove(id) != nil { return }
+                if silentCommands > 0, (message["content"] as? String)?.contains("<command-name>/rename</command-name>") == true { return }
+            }
+            if let peer = Self.peerMessage(m) {
+                guard parent == nil else { return }
+                let item = ClaudeItem(kind: .peer, text: peer.body)
+                item.sender = peer.name
+                items.append(item)
+                return
+            }
+            // Other context Claude Code adds (reminders, notices): not shown.
+            if m["isMeta"] as? Bool == true { return }
             let toolUseResult = m["tool_use_result"] ?? m["toolUseResult"]
             if let text = message["content"] as? String {
                 if !live || m["isReplay"] as? Bool == true { userText(text) }
@@ -838,6 +909,11 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
         case "result":
             guard live else { return }
+            // A silent /rename finished: not a turn of the conversation.
+            if silentCommands > 0, (m["result"] as? String)?.hasPrefix("Session renamed") == true {
+                silentCommands -= 1
+                return
+            }
             readUsage(m)
             finishStreaming()
             status = nil
@@ -864,6 +940,8 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             requests.removeAll()
             setPhase(.idle)
             refreshContextUsage()
+            sendPendingName()
+            adoptClaudeTitle()
             if wasInterrupted {
                 append(.notice, "Interrupted · What should Claude do instead?")
             } else if subtype == "success" && !isError {
@@ -1019,6 +1097,14 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         items.append(ClaudeItem(kind: .user, text: raw))
     }
 
+    /// A message another session sent (Claude Code marks it with an origin
+    /// of kind "peer" carrying the sender's name and the text).
+    nonisolated static func peerMessage(_ m: [String: Any]) -> (name: String, body: String)? {
+        guard let origin = m["origin"] as? [String: Any], origin["kind"] as? String == "peer" else { return nil }
+        let name = origin["name"] as? String ?? "another session"
+        return (name, (origin["body"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
     /// Shows an error in the transcript (Toasty's own, e.g. a failed fork).
     func showError(_ text: String) { append(.error, text) }
 
@@ -1056,10 +1142,28 @@ final class ClaudeConversation: ObservableObject, Identifiable {
               let data = try? Data(contentsOf: url) else { return }
         let lines = data.split(separator: 0x0A)
         forkOrigin = Self.forkOrigin(lines)
+        let titles = Self.savedTitles(lines)
+        let user = customTitle.flatMap { $0.isEmpty ? nil : $0 }
+        if let custom = titles.custom {
+            claudeTitle = custom
+            named = true
+            // Named in Toasty but not (yet) in Claude Code.
+            if let user, user != custom { pendingName = user }
+        } else if let name = user ?? titles.ai {
+            claudeTitle = titles.ai
+            named = true
+            pendingName = name
+        }
         // Only the tail: long sessions would take a while to lay out.
         for line in lines.suffix(1500) {
             guard let entry = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else { continue }
-            if entry["isSidechain"] as? Bool == true || entry["isMeta"] as? Bool == true { continue }
+            if entry["isSidechain"] as? Bool == true { continue }
+            // Renames (Toasty names sessions with /rename): the tab's name
+            // shows them, not the transcript.
+            if line.range(of: Data("<command-name>/rename</command-name>".utf8)) != nil
+                || line.range(of: Data("Session renamed to:".utf8)) != nil,
+               ["user", "system"].contains(entry["type"] as? String ?? "") { continue }
+            if entry["isMeta"] as? Bool == true, Self.peerMessage(entry) == nil { continue }
             if entry["isCompactSummary"] as? Bool == true { continue }
             switch entry["type"] as? String {
             case "user", "assistant":
@@ -1093,7 +1197,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         for item in items where !item.finalized { item.finalized = true }
         // Each earlier turn's last reply gets its actions and time.
         var start = 0
-        for (i, item) in items.enumerated() where item.kind == .user {
+        for (i, item) in items.enumerated() where item.startsTurn {
             if i > start { markTurnEnd(in: items[start..<i], at: nil, duration: nil) }
             start = i + 1
         }
@@ -1127,15 +1231,66 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     nonisolated static func savedTitle(of sessionID: String) -> String? {
         guard let url = Activity.transcriptURL(for: sessionID),
               let data = try? Data(contentsOf: url) else { return nil }
-        var ai: String?
-        for line in data.split(separator: 0x0A).reversed() {
-            let custom = line.range(of: Data(#""customTitle""#.utf8)) != nil
-            guard custom || (ai == nil && line.range(of: Data(#""aiTitle""#.utf8)) != nil),
-                  let entry = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else { continue }
-            if let t = entry["customTitle"] as? String, !t.isEmpty { return t }
-            if ai == nil, let t = entry["aiTitle"] as? String, !t.isEmpty { ai = t }
+        let t = savedTitles(data.split(separator: 0x0A))
+        return t.custom ?? t.ai
+    }
+
+    /// The latest name (/rename, fork) and Claude Code's own title in a
+    /// transcript.
+    nonisolated static func savedTitles(_ lines: [Data.SubSequence]) -> (custom: String?, ai: String?) {
+        var custom: String?, ai: String?
+        for line in lines.reversed() {
+            let c = custom == nil && line.range(of: Data(#""customTitle""#.utf8)) != nil
+            let a = ai == nil && line.range(of: Data(#""aiTitle""#.utf8)) != nil
+            guard c || a, let entry = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else { continue }
+            if c, let t = entry["customTitle"] as? String, !t.isEmpty { custom = t }
+            if a, let t = entry["aiTitle"] as? String, !t.isEmpty { ai = t }
+            if custom != nil && ai != nil { break }
         }
-        return ai
+        return (custom, ai)
+    }
+
+    // MARK: Session name
+
+    /// Claude Code writes its title for a conversation to the transcript
+    /// shortly after the first reply (it isn't sent on the stream). Once it
+    /// exists, it becomes the session's name, once.
+    private func adoptClaudeTitle(retry: Bool = true) {
+        guard !named, let id = sessionID else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+            guard let self, !self.named, self.sessionID == id else { return }
+            let lines = Activity.transcriptURL(for: id).flatMap { try? Data(contentsOf: $0) }?.split(separator: 0x0A) ?? []
+            let t = Self.savedTitles(lines)
+            if let custom = t.custom {
+                self.named = true
+                self.claudeTitle = custom
+            } else if let ai = t.ai {
+                self.claudeTitle = ai
+                self.applyName(self.customTitle.flatMap { $0.isEmpty ? nil : $0 } ?? ai)
+            } else if retry {
+                self.adoptClaudeTitle(retry: false)
+            }
+        }
+    }
+
+    /// Give the session this name in Claude Code (like /rename), now if
+    /// it's running and idle, else as soon as it is.
+    private func applyName(_ name: String) {
+        named = true
+        pendingName = name
+        sendPendingName()
+    }
+
+    private func sendPendingName() {
+        guard let name = pendingName, let agent, agent.isRunning, !launching,
+              phase == .idle, turnsInFlight == 0, requests.isEmpty else { return }
+        pendingName = nil
+        let id = UUID().uuidString.lowercased()
+        sentPrompts.insert(id)
+        silentCommands += 1
+        // Names are one line.
+        let clean = name.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces)
+        agent.send(["type": "user", "text": "/rename \(clean)", "uuid": id])
     }
 
     // MARK: State reporting (sidebar, tab, dock, sounds, keep awake)

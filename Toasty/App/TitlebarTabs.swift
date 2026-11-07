@@ -260,7 +260,8 @@ private struct ConversationTabItem: View {
     }
 
     /// Orange dot: waiting for you. Spinner: working. Accent dot: finished
-    /// while you weren't looking. Otherwise Claude's sparkle.
+    /// while you weren't looking. Otherwise Claude's sparkle, or a branch
+    /// for a fork (its title, "… (fork)", is usually cut off).
     @ViewBuilder private var status: some View {
         if !conversation.requests.isEmpty {
             Circle().fill(Color.orange).frame(width: 7, height: 7)
@@ -269,7 +270,7 @@ private struct ConversationTabItem: View {
         } else if conversation.attention {
             Circle().fill(Color.accentColor).frame(width: 7, height: 7)
         } else {
-            Image(systemName: "sparkle")
+            Image(systemName: conversation.forkOrigin != nil ? "arrow.triangle.branch" : "sparkle")
                 .font(.system(size: 9.5, weight: .semibold))
                 .foregroundStyle(selected ? Color(nsColor: .systemOrange) : Color.secondary.opacity(0.6))
         }

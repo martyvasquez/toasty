@@ -77,6 +77,12 @@ async function start(msg) {
     canUseTool,
     env: { ...process.env, CLAUDE_AGENT_SDK_CLIENT_APP: "toasty" },
     stderr: (data) => process.stderr.write(data),
+    // Echo user messages on the stream, like `--replay-user-messages`: how
+    // messages that didn't come from Toasty's composer (another session's
+    // cross-session message, a prompt sent through Remote Control) show up
+    // in the transcript where they happened. Output only; nothing changes
+    // in what Claude Code does.
+    extraArgs: { "replay-user-messages": null },
   };
   if (msg.pathToClaudeCodeExecutable) options.pathToClaudeCodeExecutable = msg.pathToClaudeCodeExecutable;
   if (msg.resume) options.resume = msg.resume;
@@ -122,6 +128,8 @@ rl.on("line", async (line) => {
         if (msg.text) content.push({ type: "text", text: msg.text });
         push({
           type: "user",
+          // Toasty's id for the prompt, so it can recognize the echo.
+          ...(msg.uuid ? { uuid: msg.uuid } : {}),
           message: { role: "user", content: content.length === 1 && content[0].type === "text" ? msg.text : content },
           parent_tool_use_id: null,
         });
