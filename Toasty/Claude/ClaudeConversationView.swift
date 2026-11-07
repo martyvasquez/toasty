@@ -443,6 +443,9 @@ struct ClaudeComposerBox: View {
                 ComposerIconButton(symbol: "plus", help: "Attach Images…", label: "Attach Images", action: attach)
                 ClaudeModeMenu(conversation: conversation)
                 Spacer(minLength: 8)
+                if conversation.remoteControlAvailable {
+                    ClaudeRemoteControlMenu(conversation: conversation)
+                }
                 ClaudeModelMenu(conversation: conversation)
                 sendButton.padding(.leading, 4)
             }
@@ -603,6 +606,61 @@ struct ClaudeModeMenu: View {
     }
 }
 
+/// Remote Control (as /remote-control in the CLI): continue this session
+/// from claude.ai or the Claude app. Quiet when off; green while connected.
+struct ClaudeRemoteControlMenu: View {
+    @ObservedObject var conversation: ClaudeConversation
+
+    static let symbol = "iphone.radiowaves.left.and.right"
+
+    private var items: [ClaudePopUp<ClaudeChip>.Item] {
+        switch conversation.remoteControl {
+        case .on(let url):
+            var list: [ClaudePopUp<ClaudeChip>.Item] = [
+                .init(title: "Remote Control Is On", subtitle: "Continue this session from claude.ai or the Claude app",
+                      symbol: Self.symbol, enabled: false) {},
+            ]
+            if let url, let link = URL(string: url) {
+                list.append(.init(title: "Open in Browser", symbol: "safari") { NSWorkspace.shared.open(link) })
+                list.append(.init(title: "Copy Link", symbol: "link") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(url, forType: .string)
+                })
+            }
+            list.append(.init(title: "Turn Off Remote Control", symbol: "xmark.circle") { conversation.setRemoteControl(false) })
+            return list
+        case .connecting:
+            return [
+                .init(title: "Connecting…", symbol: Self.symbol, enabled: false) {},
+                .init(title: "Turn Off Remote Control", symbol: "xmark.circle") { conversation.setRemoteControl(false) },
+            ]
+        case .failed(let error):
+            return [
+                .init(title: "Remote Control Couldn't Start", subtitle: error, symbol: "exclamationmark.triangle", enabled: false) {},
+                .init(title: "Try Again", symbol: "arrow.clockwise") { conversation.setRemoteControl(true) },
+            ]
+        case .off:
+            return [
+                .init(title: "Turn On Remote Control", subtitle: "Continue this session from claude.ai or the Claude app",
+                      symbol: Self.symbol) { conversation.setRemoteControl(true) },
+            ]
+        }
+    }
+
+    var body: some View {
+        let state = conversation.remoteControl
+        ClaudePopUp(items: items) { hovering in
+            ClaudeChip(icon: { if case .failed = state { "exclamationmark.triangle" } else { Self.symbol } }(),
+                       title: state.isOn ? "Remote" : state == .connecting ? "Connecting…" : "",
+                       tint: state.isOn ? .green : { if case .failed = state { Color.orange } else { nil } }(),
+                       hovering: hovering)
+        }
+        .help(state.isOn ? "Remote Control is on: continue this session from claude.ai or the Claude app"
+              : "Remote Control")
+        .accessibilityLabel("Remote Control")
+    }
+}
+
 /// A custom-drawn control that opens a native menu below itself
 /// (SwiftUI's Menu flattens custom labels on macOS).
 struct ClaudePopUp<Label: View>: View {
@@ -672,7 +730,7 @@ struct ClaudeChip: View {
             if let icon {
                 Image(systemName: icon).font(.system(size: 11, weight: .medium))
             }
-            Text(title).font(.system(size: 12.5, weight: .medium))
+            if !title.isEmpty { Text(title).font(.system(size: 12.5, weight: .medium)) }
             Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold)).opacity(0.6)
         }
         .foregroundStyle(tint.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.secondary))

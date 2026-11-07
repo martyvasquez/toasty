@@ -127,6 +127,38 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         var id: String { value }
     }
 
+    /// Remote Control (claude.ai and the Claude app), as /remote-control in
+    /// the CLI: this session can be continued from another device.
+    enum RemoteControl: Equatable {
+        case off
+        case connecting
+        case on(url: String?)
+        case failed(String)
+
+        var isOn: Bool { if case .on = self { return true } else { return false } }
+    }
+
+    @Published private(set) var remoteControl: RemoteControl = .off
+    /// False when Claude Code says Remote Control can never work here
+    /// (e.g. org policy or a third-party API provider).
+    @Published private(set) var remoteControlAvailable = true
+
+    /// Turn Remote Control on or off for this session.
+    func setRemoteControl(_ enabled: Bool) {
+        remoteControlUserChoice = enabled
+        remoteControl = enabled ? .connecting : .off
+        if let agent, agent.isRunning, !launching {
+            agent.send(["type": "remote_control", "enabled": enabled])
+        } else if enabled {
+            // Starting the session enables it (see remote_control_init).
+            start()
+        }
+    }
+
+    /// What the user last chose for this tab; it outlives agent restarts
+    /// (otherwise the user's remoteControlAtStartup setting decides).
+    private var remoteControlUserChoice: Bool?
+
     /// Models Claude Code offers (its own list, as in /model).
     @Published private(set) var models: [ModelOption] = []
     /// The project's current git branch, if it's a repository.
@@ -351,6 +383,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
     private func agentExited(_ status: Int32, stderr: String) {
         agent = nil
+        remoteControl = .off
         turnsInFlight = 0
         launching = false
         queued.removeAll()
@@ -375,7 +408,12 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             setPhase(pending.contains { $0["type"] as? String == "user" } ? .working : .idle)
             pending.forEach { agent?.send($0) }
         case "sdk":
-            if let m = message["message"] as? [String: Any] { handleSDK(m) }
+            if let m = message["message"] as? [String: Any] {
+                #if DEBUG
+                Self.debugLog(m)
+                #endif
+                handleSDK(m)
+            }
         case "permission_request":
             permissionRequest(message)
         case "models":
@@ -386,8 +424,26 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                                    detail: m["description"] as? String ?? "")
             }
         case "permission_cancel":
+            // Answered elsewhere too (e.g. from Remote Control).
             requests.removeAll { $0.id == message["id"] as? String }
             reportState()
+        case "remote_control_init":
+            remoteControlAvailable = message["available"] as? Bool ?? true
+            // Like the CLI: start Remote Control with the session when the
+            // user's settings say so, unless they turned it off for this tab.
+            if remoteControlAvailable,
+               remoteControlUserChoice ?? (message["autoEnable"] as? Bool ?? false) {
+                remoteControl = .connecting
+                agent?.send(["type": "remote_control", "enabled": true])
+            }
+        case "remote_control":
+            if let error = message["error"] as? String {
+                remoteControl = .failed(error)
+            } else if message["enabled"] as? Bool == true {
+                remoteControl = .on(url: message["sessionURL"] as? String)
+            } else {
+                remoteControl = .off
+            }
         case "error":
             append(.error, message["message"] as? String ?? "Unknown error")
             if message["fatal"] as? Bool == true { setPhase(.idle) }
@@ -398,6 +454,21 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             break
         }
     }
+
+    #if DEBUG
+    /// Non-streaming SDK messages, for inspecting what Claude Code sends
+    /// (`$TMPDIR/toasty-sdk.log`).
+    private static func debugLog(_ m: [String: Any]) {
+        guard m["type"] as? String != "stream_event",
+              let data = try? JSONSerialization.data(withJSONObject: m),
+              let url = Optional(URL(fileURLWithPath: NSTemporaryDirectory() + "toasty-sdk.log")) else { return }
+        if let h = try? FileHandle(forWritingTo: url) {
+            h.seekToEndOfFile(); h.write(data); h.write(Data("\n".utf8)); try? h.close()
+        } else {
+            try? (data + Data("\n".utf8)).write(to: url)
+        }
+    }
+    #endif
 
     private func permissionRequest(_ m: [String: Any]) {
         guard let id = m["id"] as? String, let tool = m["toolName"] as? String else { return }
@@ -427,6 +498,17 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     /// must not have side effects beyond the transcript when `live` is false.
     private func handleSDK(_ m: [String: Any], live: Bool = true) {
         let parent = m["parent_tool_use_id"] as? String
+
+        // A turn Toasty didn't start (a prompt sent through Remote Control):
+        // show it as working, like one typed here.
+        if live, phase != .working, turnsInFlight == 0,
+           ["stream_event", "assistant"].contains(m["type"] as? String ?? ""),
+           (m["message"] as? [String: Any])?["model"] as? String != "<synthetic>" {
+            interrupted = false
+            turnStarted = Date()
+            turnsInFlight = 1
+            setPhase(.working)
+        }
 
         switch m["type"] as? String {
         case "system":

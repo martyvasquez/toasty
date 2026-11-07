@@ -100,6 +100,12 @@ enum ClaudeDebug {
             return ["items": c.items.count, "appendSeconds": Date().timeIntervalSince(start)]
         }
 
+        // {"cmd":"remote","enabled":true}
+        DebugControl.register("remote") { cmd in
+            try conv().setRemoteControl(cmd["enabled"] as? Bool ?? true)
+            return nil
+        }
+
         DebugControl.register("runInTerminal") { cmd in
             WorkspaceStore.shared.active?.runInTerminal(cmd["text"] as? String ?? "")
             return nil
@@ -139,6 +145,8 @@ enum ClaudeDebug {
                 "title": c.title,
                 "draft": c.draft,
                 "attention": c.attention,
+                "remoteControl": "\(c.remoteControl)",
+                "remoteControlAvailable": c.remoteControlAvailable,
                 "activity": Activity.shared.state(of: c).rawValue,
                 "requests": c.requests.map { ["tool": $0.toolName, "title": $0.title ?? "", "suggestions": $0.suggestions.count] },
                 "itemCount": c.items.count,

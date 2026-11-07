@@ -6,7 +6,9 @@
 // JSON lines over stdio. It makes no decisions of its own.
 //
 // stdin  (from Toasty): start | user | interrupt | permission_response | set_permission_mode | set_model
+//                       | remote_control
 // stdout (to Toasty):   ready | sdk | models | permission_request | permission_cancel | error | end
+//                       | remote_control_init | remote_control
 import { createInterface } from "node:readline";
 import { query } from "./claude-agent-sdk.mjs";
 
@@ -69,6 +71,14 @@ async function start(msg) {
   out({ type: "ready" });
   // Claude Code's own model list (what /model offers), for the picker.
   q.supportedModels().then((models) => out({ type: "models", models }), () => {});
+  // Whether Claude Code says Remote Control should start with the session
+  // (the user's remoteControlAtStartup setting, as the CLI resolves it), so
+  // Toasty can do what the interactive CLI does.
+  q.initializationResult().then((init) => out({
+    type: "remote_control_init",
+    autoEnable: init?.remote_control_auto_enable === true,
+    available: init?.remote_control_available !== false,
+  }), () => {});
   try {
     for await (const m of q) out({ type: "sdk", message: m });
   } catch (e) {
@@ -114,6 +124,17 @@ rl.on("line", async (line) => {
       case "set_permission_mode":
         await q?.setPermissionMode(msg.mode);
         break;
+      case "remote_control": {
+        // Same request as /remote-control in the CLI.
+        try {
+          const r = await q?.enableRemoteControl(msg.enabled === true);
+          out({ type: "remote_control", enabled: msg.enabled === true,
+                sessionURL: r?.session_url, connectURL: r?.connect_url });
+        } catch (e) {
+          out({ type: "remote_control", enabled: false, error: String(e?.message ?? e) });
+        }
+        break;
+      }
     }
   } catch (e) {
     out({ type: "error", message: String(e?.message ?? e) });
