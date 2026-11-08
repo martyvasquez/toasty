@@ -12,6 +12,7 @@ import Testing
         "Toasty/Terminal/TerminalView.swift",
         "web/src/components/Button.tsx",
         "README.md",
+        "project.yml",
     ])
 
     @Test(arguments: [
@@ -22,6 +23,7 @@ import Testing
         ("open dictation/MicCapture.swift", "open Dictation/MicCapture.swift"),
         ("the source/ folder", "the src/ folder"),
         ("edit components/button.tsx", "edit components/Button.tsx"),
+        ("update project.yaml and readme.md.", "update project.yml and README.md."),
     ])
     func resolves(input: String, expected: String) {
         #expect(RepoPaths.resolve(input, in: index) == expected)
@@ -34,6 +36,8 @@ import Testing
         "~/Development/notes",             // outside the repo
         "src/tmp",                         // already right
         "plain text",
+        "use Node.js here",                // no such file: left alone
+        "e.g. this",
     ])
     func leavesAlone(text: String) {
         #expect(RepoPaths.resolve(text, in: index) == text)

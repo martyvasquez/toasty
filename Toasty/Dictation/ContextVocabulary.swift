@@ -24,24 +24,30 @@ nonisolated enum ContextVocabulary {
         var source: Source
     }
 
-    enum Source: String, Sendable { case conversation, changed, recent, project }
+    enum Source: String, Sendable { case core, conversation, catalogue, changed, recent, project }
 
     /// Per-source caps, so one source can't crowd out the others.
-    static let caps: [Source: Int] = [.conversation: 24, .changed: 12, .recent: 12, .project: 8]
+    static let caps: [Source: Int] = [.core: 8, .conversation: 24, .catalogue: 12, .changed: 12, .recent: 12, .project: 8]
 
     /// Does file and git I/O: call off the main thread.
     static func gather(_ input: Input) -> [Found] {
         var found: [Found] = []
         var seen = Set<String>()
-        func add(_ names: [String], _ source: Source) {
+        func add(_ names: [String], _ source: Source, curated: Bool = false) {
             var count = 0
             for name in names where count < caps[source, default: 0] {
-                guard isEligible(name), seen.insert(name.lowercased()).inserted else { continue }
+                guard curated || isEligible(name), seen.insert(name.lowercased()).inserted else { continue }
                 found.append(Found(text: name, source: source))
                 count += 1
             }
         }
+        // The shipped catalogue's core, the conversation, then the catalogue
+        // names this repo uses, then the repo's own names.
+        add(DevVocabulary.catalogue.entries.filter { $0.tier == .core }.map(\.term.text), .core, curated: true)
         add(input.conversation.flatMap(names(in:)), .conversation)
+        if let folder = input.folder {
+            add(DevVocabulary.relevant(in: folder, index: RepoPaths.index(folder: folder)).map(\.text), .catalogue, curated: true)
+        }
         add(input.changed.compactMap(stem), .changed)
         if let folder = input.folder {
             add(recentFiles(in: folder).compactMap(stem), .recent)

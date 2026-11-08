@@ -106,7 +106,13 @@ nonisolated enum Vocabulary {
         if !dropped.isEmpty {
             log.warning("vocabulary over \(DictationConfig.maxVocabularyTerms) terms; not sent to the engine: \(dropped.joined(separator: ", "), privacy: .public)")
         }
+        // The shipped catalogue fixes casing and known mishearings after the
+        // user's own entries (theirs win: first match, first rule).
+        for entry in DevVocabulary.catalogue.entries where seen.insert(entry.term.text.lowercased()).inserted {
+            effective.casing.append(entry.term)
+        }
         effective.replacements = (project?.replacements ?? []) + (global?.replacements ?? [])
+            + DevVocabulary.catalogue.replacements
         return effective
     }
 
@@ -231,14 +237,10 @@ nonisolated enum Vocabulary {
     # - Up to 64 terms reach the engine; a project's own file
     #   (<project>/.toasty/vocabulary.txt) comes first.
 
-    Claude Code
-    Anthropic
-    GitHub
-    TypeScript
-    SwiftUI
-    Xcode
-    MCP
-
+    # Toasty already knows common developer names (Claude Code, TypeScript,
+    # Supabase, Next.js, …) and the names in your project. Add what it
+    # doesn't: your product, teammates, internal tools.
+    #
     # Single words that sound like ordinary ones: add only if you say them
     # often (remove the "# ").
     # Codex!
@@ -249,6 +251,17 @@ nonisolated enum Vocabulary {
 // MARK: - Text step 6: casing fixes (plan §10.5)
 
 nonisolated extension TextPipeline {
+    private static let regexCache = OSAllocatedUnfairLockCache()
+
+    private static func casingRegex(_ term: String) -> NSRegularExpression? {
+        regexCache.value(term) {
+            // Not inside a file name or path: "api.ts", "project.yaml", "src/json".
+            let pattern = "(?<![\\p{L}\\p{N}_./])" + NSRegularExpression.escapedPattern(for: term)
+                + "(?![\\p{L}\\p{N}_/])(?!\\.[\\p{L}\\p{N}])"
+            return try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
+        }
+    }
+
     /// Casing fixes: each term with a capital letter replaces whole-word,
     /// case-insensitive occurrences with its exact casing, only if it isn't
     /// an ordinary word (or is marked `!`). “pty” → “PTY”; “node” stays.
@@ -257,11 +270,22 @@ nonisolated extension TextPipeline {
         var result = text
         for term in terms where term.text.contains(where: \.isUppercase) {
             guard term.forced || !isDictionaryWord(term.text) else { continue }
-            let pattern = "(?<![\\p{L}\\p{N}_])" + NSRegularExpression.escapedPattern(for: term.text) + "(?![\\p{L}\\p{N}_])"
-            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
+            guard let regex = casingRegex(term.text) else { continue }
             result = regex.stringByReplacingMatches(in: result, range: NSRange(result.startIndex..., in: result),
                                                     withTemplate: NSRegularExpression.escapedTemplate(for: term.text))
         }
         return result
+    }
+}
+
+/// Compiled casing patterns, shared across dictations.
+nonisolated final class OSAllocatedUnfairLockCache: @unchecked Sendable {
+    private let lock = NSLock()
+    private var regexes: [String: NSRegularExpression] = [:]
+    func value(_ key: String, make: () -> NSRegularExpression?) -> NSRegularExpression? {
+        if let hit = lock.withLock({ regexes[key] }) { return hit }
+        guard let made = make() else { return nil }
+        lock.withLock { regexes[key] = made }
+        return made
     }
 }

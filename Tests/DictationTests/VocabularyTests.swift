@@ -39,7 +39,8 @@ import Testing
         #expect(effective.engine.terms.count == 64)
         #expect(effective.engine.terms.first?.text == "Toasty Terminal")
         #expect(effective.engine.terms.filter { $0.text.lowercased() == "shared term" }.count == 1)
-        #expect(effective.casing.count == 72)  // 2 + 71 − 1 duplicate
+        // 2 + 71 − 1 duplicate from the files, then the shipped catalogue.
+        #expect(effective.casing.prefix(72).last?.text == "Global Term 70")
     }
 }
 
@@ -142,6 +143,12 @@ import Testing
         #expect(TextPipeline.fixCasing("codex sessions", forced, isDictionaryWord: dictionary) == "Codex sessions")
     }
 
+    @Test func notInsideFileNamesOrPaths() {
+        let t: [Vocabulary.Term] = [.init(text: "YAML"), .init(text: "API"), .init(text: "JSON")]
+        #expect(TextPipeline.fixCasing("project.yaml and api.ts in src/json", t) == "project.yaml and api.ts in src/json")
+        #expect(TextPipeline.fixCasing("the yaml and json api.", t) == "the YAML and JSON API.")
+    }
+
     @Test func notInsideOtherWords() {
         #expect(TextPipeline.fixCasing("empty", terms, isDictionaryWord: dictionary) == "empty")
         #expect(TextPipeline.fixCasing("pty_size", terms, isDictionaryWord: dictionary) == "pty_size")
@@ -179,7 +186,7 @@ import Testing
         let input = ContextVocabulary.Input(folder: nil,
                                             conversation: ["Now fix MicCapture and the TerminalView.", "Earlier: TerminalView, Supabase"],
                                             changed: ["Toasty/Dictation/MicCapture.swift", "Toasty/App/AppDelegate.swift"])
-        let found = ContextVocabulary.gather(input)
+        let found = ContextVocabulary.gather(input).filter { $0.source != .core }
         #expect(found.map(\.text) == ["MicCapture", "TerminalView", "Supabase", "AppDelegate"])
         #expect(found.map(\.source) == [.conversation, .conversation, .conversation, .changed])
     }
@@ -187,5 +194,56 @@ import Testing
     @Test func fileStems() {
         #expect(ContextVocabulary.stem("Toasty/Dictation/MicCapture.swift") == "MicCapture")
         #expect(ContextVocabulary.stem("README") == "README")
+    }
+}
+
+@Suite struct DevVocabularyTests {
+    let catalogue = DevVocabulary.catalogue
+
+    func tier(_ name: String) -> DevVocabulary.Tier? {
+        catalogue.entries.first { $0.term.text == name }?.tier
+    }
+
+    @Test func singleOrdinaryWordsNeverReachTheEngine() {
+        for name in ["Jest", "Stripe", "Sentry", "Codex", "Prettier", "Clerk", "React", "Swift"] {
+            #expect(tier(name) == .text, "\(name)")
+        }
+        #expect(tier("Supabase") == .project)
+        #expect(tier("Claude Code") == .core)
+        for entry in catalogue.entries where entry.tier != .text {
+            let single = !entry.term.text.contains(" ")
+            #expect(!(single && Vocabulary.isDictionaryWord(entry.term.text)), "\(entry.term.text)")
+        }
+    }
+
+    @Test func projectTermsNeedTheRepoToUseThem() {
+        let index = RepoPaths.Index(files: ["supabase/config.toml", "src/app.ts", "Dockerfile", "prisma/schema.prisma"])
+        let names = DevVocabulary.relevant(in: "/nonexistent", index: index).map(\.text)
+        #expect(names.contains("Supabase"))
+        #expect(names.contains("Prisma"))
+        #expect(!names.contains("Django"))
+        #expect(DevVocabulary.relevant(in: "/nonexistent", index: RepoPaths.Index(files: [])).isEmpty)
+    }
+
+    @Test func mishearingsAndCasingOutOfTheBox() {
+        let v = Vocabulary.combine(project: nil, global: nil)
+        #expect(TextPipeline.process("Write a superbase migration and regenerate the type script types.", vocabulary: v)
+                == "Write a Supabase migration and regenerate the TypeScript types.")
+        #expect(TextPipeline.process("Update the clawed agent SDK and the json schema for the api.", vocabulary: v)
+                == "Update the Claude Agent SDK and the JSON schema for the API.")
+        #expect(TextPipeline.process("Use the context 7 MCP server for swift UI docs on macos.", vocabulary: v)
+                == "Use the Context7 MCP server for SwiftUI docs on macOS.")
+    }
+
+    @Test(arguments: [
+        "The cloud bill went up this month, so find the code that keeps polling the portal every few seconds.",
+        "The hex colors in the theme look wrong in dark mode and the toast notifications cover the sidebar.",
+        "Before you change anything, explain your plan in plain English and wait for me to approve it.",
+        "How do the components react to a swift change in the view?",
+        "Just stripe the table rows and express the total in my SQL report.",
+    ])
+    func ordinarySpeechIsUntouched(text: String) {
+        let v = Vocabulary.combine(project: nil, global: nil)
+        #expect(TextPipeline.process(text, vocabulary: v) == text)
     }
 }

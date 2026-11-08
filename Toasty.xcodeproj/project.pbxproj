@@ -52,6 +52,7 @@
 		C377CAE6CF74EDB9ACFFE687 /* CaptureClip.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0AB472102F6E81ECE753B0B /* CaptureClip.swift */; };
 		C43DE4B1B520DE08BA08379B /* DebugControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C279FCF3F11C0D07DF1B5B /* DebugControl.swift */; };
 		C4C4D6FECA7C3F59FBB1EBD6 /* MainMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C51FB87F905EF29B4ECF92F /* MainMenu.swift */; };
+		C4ECA874EF533720FB11A782 /* DevVocabulary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ABA43D749D93D0E19C717F6 /* DevVocabulary.swift */; };
 		C6B075DD73015D8393D48893 /* VocabularyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2C6D266A74900B7BBDA8064 /* VocabularyTests.swift */; };
 		C83DB61BBC4E1B55D26FE8AB /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB24559E15BED10BF20F7121 /* AppDelegate.swift */; };
 		C9A592B6AC87794BFE62158E /* GhosttyVt.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 59A391E422005AC05F0585B6 /* GhosttyVt.xcframework */; };
@@ -125,6 +126,7 @@
 		761A76E108C08A07F86040EB /* SpeechEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechEngineTests.swift; sourceTree = "<group>"; };
 		8267153271BF3718002C2343 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		88842989D41DAAD1748343EE /* DictationConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationConfig.swift; sourceTree = "<group>"; };
+		8ABA43D749D93D0E19C717F6 /* DevVocabulary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevVocabulary.swift; sourceTree = "<group>"; };
 		9021DD3EFB91CB5031D36A21 /* TerminalTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalTheme.swift; sourceTree = "<group>"; };
 		92F0C051C134C0C9C597BCFD /* Workspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Workspace.swift; sourceTree = "<group>"; };
 		9311817626D412A87AA47552 /* TerminalSprites.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSprites.swift; sourceTree = "<group>"; };
@@ -312,6 +314,7 @@
 			children = (
 				B0AB472102F6E81ECE753B0B /* CaptureClip.swift */,
 				080B0B6B44543BB4052752BD /* ContextVocabulary.swift */,
+				8ABA43D749D93D0E19C717F6 /* DevVocabulary.swift */,
 				88842989D41DAAD1748343EE /* DictationConfig.swift */,
 				BE77E4EB884D2153CA08A895 /* DictationController.swift */,
 				5DAAFA268342A12586EEAEBE /* DictationIndicator.swift */,
@@ -489,6 +492,7 @@
 				4E868E3636D7E457ADD0303E /* ContextVocabulary.swift in Sources */,
 				B7EC6B42A1BE5F57121E7511 /* ConversationColumn.swift in Sources */,
 				C43DE4B1B520DE08BA08379B /* DebugControl.swift in Sources */,
+				C4ECA874EF533720FB11A782 /* DevVocabulary.swift in Sources */,
 				15EB038EA82F8DE862AA8137 /* DictationConfig.swift in Sources */,
 				440B3223CC9068684E18E197 /* DictationController.swift in Sources */,
 				8564E49059338213553F5F29 /* DictationDebug.swift in Sources */,

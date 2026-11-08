@@ -31,10 +31,11 @@ nonisolated enum RepoPaths {
         }
     }
 
-    /// Rewrites path-like tokens (with a `/`) in `text` to real repo paths.
+    /// Rewrites path-like tokens (with a `/`, or a file name with an
+    /// extension) in `text` to real repo paths.
     static func resolve(_ text: String, in index: Index) -> String {
-        guard !index.paths.isEmpty, text.contains("/") else { return text }
-        guard let regex = try? NSRegularExpression(pattern: #"[~A-Za-z0-9_.\-]*(?:/[A-Za-z0-9_.\-]+)+/?|[A-Za-z0-9_\-]+/(?=[\s,;:)]|$)"#) else { return text }
+        guard !index.paths.isEmpty else { return text }
+        guard let regex = try? NSRegularExpression(pattern: #"[~A-Za-z0-9_.\-]*(?:/[A-Za-z0-9_.\-]+)+/?|[A-Za-z0-9_\-]+/(?=[\s,;:)]|$)|(?<![A-Za-z0-9_./])[A-Za-z0-9_\-]+\.[A-Za-z][A-Za-z0-9]{0,5}(?![A-Za-z0-9_/])"#) else { return text }
         let ns = text as NSString
         var result = text
         for match in regex.matches(in: text, range: NSRange(location: 0, length: ns.length)).reversed() {
@@ -59,7 +60,9 @@ nonisolated enum RepoPaths {
         let slash = body.hasSuffix("/") ? "/" : ""
         if !slash.isEmpty { body.removeLast() }
         let spoken = body.split(separator: "/").map(String.init)
-        guard spoken.count >= 2 || (spoken.count == 1 && !slash.isEmpty), !spoken.contains(where: \.isEmpty) else { return nil }
+        let fileName = spoken.count == 1 && slash.isEmpty && body.contains(".")
+        guard spoken.count >= 2 || (spoken.count == 1 && !slash.isEmpty) || fileName,
+              !spoken.contains(where: \.isEmpty) else { return nil }
 
         var bestScore = Int.max
         var bestPaths = Set<String>()
@@ -91,7 +94,7 @@ nonisolated enum RepoPaths {
         if a == b { return 0 }
         let (aName, aExt) = split(a), (bName, bExt) = split(b)
         // A spoken extension must match ("user.rs" is never "user.ts").
-        if !aExt.isEmpty, aExt != bExt { return nil }
+        if !aExt.isEmpty, aExt != bExt, sameExtension[aExt] != bExt { return nil }
         if aExt.isEmpty, !bExt.isEmpty { return nil }
         if aName == bName { return 0 }
         if abbreviations[aName]?.contains(bName) == true || abbreviations[bName]?.contains(aName) == true { return 1 }
@@ -106,6 +109,12 @@ nonisolated enum RepoPaths {
         guard let dot = name.lastIndex(of: "."), dot != name.startIndex else { return (name, "") }
         return (String(name[..<dot]), String(name[name.index(after: dot)...]))
     }
+
+    /// Extensions written two ways.
+    static let sameExtension: [String: String] = [
+        "yaml": "yml", "yml": "yaml", "jpeg": "jpg", "jpg": "jpeg", "htm": "html", "html": "htm",
+        "markdown": "md", "tiff": "tif",
+    ]
 
     /// Spoken word → names folders are commonly given.
     static let abbreviations: [String: Set<String>] = [
