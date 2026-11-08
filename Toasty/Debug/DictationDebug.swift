@@ -15,7 +15,15 @@ enum DictationDebug {
         // `term = sounds like, …` for spellings.
         DebugControl.registerAsync("dictationTranscribeFile") { cmd in
             guard let path = cmd["path"] as? String else { throw E("path required") }
-            let samples = try CaptureClip.read(URL(fileURLWithPath: path))
+            var samples = try CaptureClip.read(URL(fileURLWithPath: path))
+            // "startTone": mix the start tone in where the microphone would hear it
+            // (pre-roll + delay into the clip), at full level: a worst case.
+            if cmd["startTone"] as? Bool == true {
+                let tone = DictationTones.samples(.start, rate: 16_000)
+                let at = Int((DictationConfig.preRoll + DictationConfig.startToneDelay) * 16_000)
+                let gain = Float(cmd["toneGain"] as? Double ?? 1)
+                for (i, v) in tone.enumerated() where at + i < samples.count { samples[at + i] += v * gain }
+            }
             let clip = FramedClip(samples: samples, tailSamples: 0, prePressSamples: 0, maxGap: 0, cold: false)
             return try await process(clip, vocabulary: vocabulary(cmd), force: cmd["force"] as? Bool ?? true)
         }
@@ -140,6 +148,46 @@ enum DictationDebug {
             }
             for w in NSApp.windows { if let v = w.contentView { walk(v) } }
             return ["target": DictationController.shared.target?.uuidString ?? "none", "composers": composers]
+        }
+
+        // End to end through the controller (trigger → capture → engine → text →
+        // composer), with a file in place of the microphone:
+        // {"cmd":"dictationSimulateKeys","path":"/x.wav","press":0.5,"release":4.0,"lock":false}
+        // `lock`: double-tap at `press`, then a third press at `release`.
+        DebugControl.registerAsync("dictationSimulateKeys") { cmd in
+            guard let path = cmd["path"] as? String else { throw E("path required") }
+            let audio = try CaptureClip.read(URL(fileURLWithPath: path))
+            let press = cmd["press"] as? Double ?? 0.5
+            let release = cmd["release"] as? Double ?? Double(audio.count) / 16_000
+            let lock = cmd["lock"] as? Bool ?? false
+            let mic = MicCapture.shared, c = DictationController.shared
+            let before = DictationController.currentComposer()?.string ?? ""
+            await mic.beginSimulation(rate: 16_000)
+            defer { mic.endSimulation() }
+            let base = ProcessInfo.processInfo.systemUptime
+            var events: [(Double, TriggerStateMachine.Event)] = lock
+                ? [(press, .triggerDown(base + press)), (press + 0.08, .triggerUp(base + press + 0.08)),
+                   (press + 0.18, .triggerDown(base + press + 0.18)), (press + 0.26, .triggerUp(base + press + 0.26)),
+                   (release, .triggerDown(base + release)), (release + 0.1, .triggerUp(base + release + 0.1))]
+                : [(press, .triggerDown(base + press)), (release, .triggerUp(base + release))]
+            var offset = 0.0, index = 0
+            let end = release + 0.6
+            while ProcessInfo.processInfo.systemUptime - base < end {
+                let now = ProcessInfo.processInfo.systemUptime - base
+                while let first = events.first, now >= first.0 { c.handle(first.1, nsEvent: nil); events.removeFirst() }
+                if now >= offset + 0.1 {
+                    var chunk = [Float](repeating: 0, count: 1_600)
+                    for i in 0..<1_600 where index + i < audio.count { chunk[i] = audio[index + i] }
+                    mic.feed(chunk, at: base + offset)
+                    index += 1_600; offset += 0.1
+                } else {
+                    try await Task.sleep(for: .milliseconds(5))
+                }
+            }
+            for _ in 0..<100 where c.phase != .idle { try await Task.sleep(for: .milliseconds(50)) }
+            let after = DictationController.currentComposer()?.string ?? ""
+            return ["before": before, "after": after, "trigger": c.triggerState, "phase": "\(c.phase)",
+                    "lastRaw": c.lastDictation?.raw ?? "", "lastFinal": c.lastDictation?.final ?? ""]
         }
 
         // {"cmd":"dictationDumpLastClip","path":"/tmp/clip.wav"}: the last framed 16 kHz clip.

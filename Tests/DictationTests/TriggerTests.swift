@@ -1,3 +1,4 @@
+import AppKit
 import Testing
 @testable import Toasty
 
@@ -142,5 +143,46 @@ import Testing
 
     @Test func neverTrailingWhitespace() {
         #expect(TextPipeline.forComposer(" Hello there. \n", before: "") == "Hello there.")
+    }
+}
+
+/// The monitor's reading of real CoreGraphics key events.
+@Suite struct TriggerMonitorMappingTests {
+    func flags(_ keyCode: UInt16, _ flags: CGEventFlags) -> NSEvent? {
+        guard let cg = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: true) else { return nil }
+        cg.type = .flagsChanged
+        cg.flags = flags
+        return NSEvent(cgEvent: cg)
+    }
+    let rightOption = CGEventFlags(rawValue: CGEventFlags.maskAlternate.rawValue | 0x40)
+    let leftOption = CGEventFlags(rawValue: CGEventFlags.maskAlternate.rawValue | 0x20)
+
+    @Test func rightOptionDownAndUp() throws {
+        let down = try #require(flags(61, rightOption))
+        guard case .triggerDown = TriggerMonitor.map(down) else { Issue.record("\(String(describing: TriggerMonitor.map(down)))"); return }
+        let up = try #require(flags(61, []))
+        guard case .triggerUp = TriggerMonitor.map(up) else { Issue.record("not up"); return }
+    }
+
+    @Test func leftOptionIsNotTheTrigger() throws {
+        let left = try #require(flags(58, leftOption))
+        guard case .extraModifier = TriggerMonitor.map(left) else { Issue.record("\(String(describing: TriggerMonitor.map(left)))"); return }
+    }
+
+    @Test func rightOptionWithCommandIsNotAPress() throws {
+        let both = try #require(flags(61, CGEventFlags(rawValue: rightOption.rawValue | CGEventFlags.maskCommand.rawValue)))
+        #expect(TriggerMonitor.map(both) == nil)
+    }
+
+    @Test func escapeAndCommandPeriodCancel() throws {
+        let esc = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1, windowNumber: 0,
+                                                 context: nil, characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53))
+        guard case .escape = TriggerMonitor.map(esc) else { Issue.record("esc"); return }
+        let period = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 1, windowNumber: 0,
+                                                    context: nil, characters: ".", charactersIgnoringModifiers: ".", isARepeat: false, keyCode: 47))
+        guard case .escape = TriggerMonitor.map(period) else { Issue.record("cmd-period"); return }
+        let a = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1, windowNumber: 0,
+                                               context: nil, characters: "a", charactersIgnoringModifiers: "a", isARepeat: false, keyCode: 0))
+        guard case .keyDown = TriggerMonitor.map(a) else { Issue.record("a"); return }
     }
 }

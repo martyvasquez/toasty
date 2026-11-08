@@ -55,6 +55,15 @@ nonisolated enum DictationConfig {
 
     // MARK: Feedback (plan §9.3)
 
+    /// Start/stop/error tones. The start tone plays while recording: at
+    /// full level it flipped the casing of a word in 2 of 16 test clips,
+    /// below about −40 dB nothing (measured); it plays quietly.
+    static let playTones = true
+    /// The start tone plays this long after the press, so a chord or a
+    /// cancel can retract it first.
+    static let startToneDelay: TimeInterval = 0.04
+    /// Text that lands this long after the stop tone gets a "done" tick.
+    static let doneToneAfter: TimeInterval = 2
     /// How long a failed dictation's indicator stays up.
     static let failureVisible: TimeInterval = 0.6
     /// Transcribing shows at least this long, so it doesn't flicker.

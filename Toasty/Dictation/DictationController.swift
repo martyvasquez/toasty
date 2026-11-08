@@ -43,6 +43,8 @@ final class DictationController: ObservableObject {
     private var levelTimer: Timer?
     private var phaseWork: DispatchWorkItem?
     private var transcribingSince: TimeInterval?
+    /// When the last stop tone played (for the "done" tick).
+    private var stoppedAt: TimeInterval?
 
     private struct Capture {
         let id: Int
@@ -52,6 +54,8 @@ final class DictationController: ObservableObject {
         let folder: String?
         /// Context vocabulary, gathered in the background while you speak.
         let context: Task<[ContextVocabulary.Found], Never>
+        /// The press (event time).
+        let press: TimeInterval
     }
 
     private struct Job {
@@ -136,15 +140,22 @@ final class DictationController: ObservableObject {
             return ContextVocabulary.gather(input)
         }
         capture = Capture(id: nextJob, view: view, conversation: view.dictationID,
-                          folder: workspace?.folder, context: context)
+                          folder: workspace?.folder, context: context, press: press)
         MicCapture.shared.begin(press: press)
         target = view.dictationID
         setPhase(.listening)
         startLevelMeter()
+        DictationTones.scheduleStart()
+        announce("Listening")
     }
 
     private func finish(release: TimeInterval) {
         guard let capture else { return }
+        // A short tap (a double-tap's first tap) is decided here, from event
+        // times, so it never races the next press for the microphone.
+        if TriggerStateMachine.under(release - capture.press, DictationConfig.minimumHold) {
+            return drop(reason: "short tap")
+        }
         self.capture = nil
         stopLevelMeter()
         pending += 1
@@ -154,6 +165,16 @@ final class DictationController: ObservableObject {
             vocabulary.repo = capture.folder.map { RepoPaths.index(folder: $0) }
             lastVocabulary = vocabulary
             let outcome = await MicCapture.shared.finish(release: release)
+            // The stop tone plays once the tail is captured, so the
+            // microphone never hears it as speech; a short tap is silent.
+            switch outcome {
+            case .clip:
+                DictationTones.play(.stop)
+                stoppedAt = ProcessInfo.processInfo.systemUptime
+                announce("Transcribing")
+            case .tooShort, .none: DictationTones.retractStart()
+            case .failed: break
+            }
             let job = await Self.transcribe(outcome, view: capture.view, vocabulary: vocabulary)
             complete(capture.id, job)
         }
@@ -165,6 +186,7 @@ final class DictationController: ObservableObject {
         self.capture = nil
         finished[capture.id] = Job()
         MicCapture.shared.cancel()
+        DictationTones.retractStart()
         stopLevelMeter()
         flush()
         settlePhase()
@@ -228,9 +250,20 @@ final class DictationController: ObservableObject {
         guard !text.isEmpty else { return }
         view.insertText(text, replacementRange: caret)
         lastDictation = (raw, text)
+        if let stoppedAt, ProcessInfo.processInfo.systemUptime - stoppedAt >= DictationConfig.doneToneAfter {
+            DictationTones.play(.done)
+        }
     }
 
     // MARK: Indicator
+
+    /// VoiceOver hears state changes (plan §9.3).
+    private func announce(_ text: String) {
+        NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested, userInfo: [
+            .announcement: text,
+            .priority: NSAccessibilityPriorityLevel.high.rawValue,
+        ])
+    }
 
     private func setPhase(_ new: Phase) {
         phaseWork?.cancel(); phaseWork = nil
@@ -245,7 +278,8 @@ final class DictationController: ObservableObject {
         if pending > 0 { return setPhase(.transcribing) }
         if let failure {
             Self.log.error("dictation failed: \(failure, privacy: .public)")
-            NSSound.beep()
+            DictationTones.play(.error)
+            announce("Dictation failed")
             return show(.failed(failure), for: target)
         }
         let shown = transcribingSince.map { ProcessInfo.processInfo.systemUptime - $0 } ?? .infinity
@@ -324,5 +358,91 @@ final class DictationController: ObservableObject {
         if let composer = view as? ComposerTextView, !composer.visibleRect.isEmpty { return composer }
         for sub in view.subviews { if let found = find(in: sub) { return found } }
         return nil
+    }
+}
+
+// MARK: - Edit ▸ Dictation
+
+extension DictationController {
+    /// Edit ▸ Dictation (plan §2): start/finish, cancel, last dictation, vocabulary files.
+    static func menu() -> NSMenuItem {
+        let actions = DictationMenuActions.shared
+        let menu = NSMenu(title: "Dictation")
+        func add(_ title: String, _ action: Selector, _ key: String = "") {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+            item.target = actions
+            menu.addItem(item)
+        }
+        add("Start Dictation", #selector(DictationMenuActions.toggle(_:)))
+        // Esc and ⌘. cancel while dictating (TriggerMonitor); no key equivalent
+        // here, so ⌘. keeps reaching the composer (interrupt) otherwise.
+        add("Cancel Dictation", #selector(DictationMenuActions.cancel(_:)))
+        menu.addItem(.separator())
+        add("Insert Last Dictation", #selector(DictationMenuActions.insertLast(_:)))
+        add("Copy Last Dictation", #selector(DictationMenuActions.copyLast(_:)))
+        menu.addItem(.separator())
+        add("Edit Vocabulary…", #selector(DictationMenuActions.editVocabulary(_:)))
+        add("Edit Project Vocabulary…", #selector(DictationMenuActions.editProjectVocabulary(_:)))
+        let item = NSMenuItem(title: "Dictation", action: nil, keyEquivalent: "")
+        item.submenu = menu
+        return item
+    }
+
+    /// Insert Last Dictation: into the current composer, joined like a new one.
+    func insertLast() {
+        guard let last = lastDictation, let view = Self.currentComposer() else { return }
+        view.window?.makeFirstResponder(view)
+        let caret = view.selectedRange()
+        let before = (view.string as NSString).substring(to: min(caret.location, (view.string as NSString).length))
+        view.insertText(TextPipeline.forComposer(last.final, before: before), replacementRange: caret)
+    }
+
+    func copyLast() {
+        guard let last = lastDictation else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(last.final, forType: .string)
+    }
+
+    var hasLastDictation: Bool { lastDictation != nil }
+
+    func cancelFromMenu() { _ = handle(.escape(ProcessInfo.processInfo.systemUptime), nsEvent: nil) }
+
+    /// The workspace of the visible composer (for its project vocabulary).
+    var currentFolder: String? {
+        guard let id = Self.currentComposer()?.dictationID else { return nil }
+        return WorkspaceStore.shared.workspaces.first { $0.conversations.contains { $0.id == id } }?.folder
+    }
+}
+
+@MainActor
+final class DictationMenuActions: NSObject, NSMenuItemValidation {
+    static let shared = DictationMenuActions()
+    private var controller: DictationController { .shared }
+
+    @objc func toggle(_ sender: Any?) { controller.toggleFromButton() }
+    @objc func cancel(_ sender: Any?) { controller.cancelFromMenu() }
+    @objc func insertLast(_ sender: Any?) { controller.insertLast() }
+    @objc func copyLast(_ sender: Any?) { controller.copyLast() }
+
+    @objc func editVocabulary(_ sender: Any?) {
+        NSWorkspace.shared.open(Vocabulary.ensureGlobalFile())
+    }
+
+    @objc func editProjectVocabulary(_ sender: Any?) {
+        guard let folder = controller.currentFolder else { return }
+        NSWorkspace.shared.open(Vocabulary.ensureProjectFile(folder: folder))
+    }
+
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        switch item.action {
+        case #selector(toggle(_:)):
+            item.title = controller.isRecording ? "Finish Dictation" : "Start Dictation"
+            return controller.isRecording || DictationController.currentComposer() != nil
+        case #selector(cancel(_:)): return controller.isRecording
+        case #selector(insertLast(_:)): return controller.hasLastDictation && DictationController.currentComposer() != nil
+        case #selector(copyLast(_:)): return controller.hasLastDictation
+        case #selector(editProjectVocabulary(_:)): return controller.currentFolder != nil
+        default: return true
+        }
     }
 }

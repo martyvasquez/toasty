@@ -5,8 +5,8 @@ import AppKit
 /// double-tap on, hold mode). Pure: event times in, actions out, so every
 /// boundary is unit-tested with synthetic times.
 ///
-/// Toasty's own rule (the user's choice): Escape cancels a held or locked
-/// dictation, and that Escape is swallowed (Hex ignores Escape, #786).
+/// Toasty's own rule (the user's choice): Escape (or ⌘.) cancels a held or
+/// locked dictation, and that key is swallowed (Hex ignores Escape, #786).
 nonisolated struct TriggerStateMachine: Equatable {
     enum Event: Equatable {
         /// Right Option went down alone (no other modifier held).
@@ -165,7 +165,10 @@ final class TriggerMonitor {
             return down ? .extraModifier(at) : nil
         case .keyDown:
             if event.isARepeat { return nil }
-            return event.keyCode == 53 ? .escape(at) : .keyDown(at)
+            // Esc, or ⌘. (the Mac's other Cancel), cancels a dictation.
+            let commandPeriod = event.charactersIgnoringModifiers == "."
+                && event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command
+            return event.keyCode == 53 || commandPeriod ? .escape(at) : .keyDown(at)
         case .leftMouseDown, .rightMouseDown, .otherMouseDown:
             return .mouseDown(at)
         default:

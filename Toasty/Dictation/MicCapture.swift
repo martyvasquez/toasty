@@ -68,6 +68,9 @@ nonisolated final class MicCapture: @unchecked Sendable {
     /// Bumped on every open/close, so a stale tap callback is ignored.
     private let generation = Atomic<Int>(0)
     private let last = OSAllocatedUnfairLock<FramedClip?>(initialState: nil)
+    /// A finish is waiting for its tail; a press meanwhile waits for it
+    /// (then starts from the ring with its full pre-roll).
+    private let finishing = OSAllocatedUnfairLock<(active: Bool, press: TimeInterval?)>(initialState: (false, nil))
 
     // Queue-confined.
     private var engine: AVAudioEngine?
@@ -159,6 +162,12 @@ nonisolated final class MicCapture: @unchecked Sendable {
     /// its first buffer, without pre-roll.
     @discardableResult
     func begin(press: TimeInterval) -> Bool {
+        let deferred = finishing.withLock { state -> Bool in
+            guard state.active else { return false }
+            state.press = press
+            return true
+        }
+        if deferred { return true }
         let warm = timeline.withLock { timeline -> Bool in
             guard timeline != nil, timeline?.through != nil else { return false }
             timeline?.start(press: press)
@@ -187,12 +196,17 @@ nonisolated final class MicCapture: @unchecked Sendable {
     func finish(release: TimeInterval) async -> Outcome {
         let end = release + DictationConfig.releaseTail
         let deadline = end + DictationConfig.tailDeliveryGrace
+        finishing.withLock { $0 = (true, nil) }
         await waitForPendingStart()
         while !timeline.withLock({ $0?.hasAudio(through: end) ?? true }),
               ProcessInfo.processInfo.systemUptime < deadline {
             try? await Task.sleep(for: .milliseconds(10))
         }
         let (finish, rate) = timeline.withLock { ($0?.finish(release: release), $0?.rate ?? 0) }
+        // A press that came in during the tail starts now, from the ring.
+        if let press = finishing.withLock({ state -> TimeInterval? in defer { state = (false, nil) }; return state.press }) {
+            begin(press: press)
+        }
         queue.async { [self] in afterCapture() }
         switch finish {
         case nil: return .none
@@ -212,6 +226,7 @@ nonisolated final class MicCapture: @unchecked Sendable {
     }
 
     func cancel() {
+        finishing.withLock { $0.press = nil }
         queue.async { [self] in coldPress = nil }
         timeline.withLock { $0?.cancel() }
         queue.async { [self] in afterCapture() }

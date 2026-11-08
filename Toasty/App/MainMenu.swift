@@ -44,6 +44,8 @@ enum MainMenu {
         edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         edit.addItem(.separator())
         edit.addItem(withTitle: "Clear Terminal", action: #selector(TerminalView.clearTerminal(_:)), keyEquivalent: "k")
+        edit.addItem(.separator())
+        edit.addItem(DictationController.menu())
         add(edit, to: main)
 
         let view = NSMenu(title: "View")

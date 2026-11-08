@@ -142,6 +142,28 @@ nonisolated enum Vocabulary {
         return url
     }
 
+    /// Creates `<folder>/.toasty/vocabulary.txt` from the project template if missing.
+    @discardableResult
+    static func ensureProjectFile(folder: String) -> URL {
+        let url = projectURL(folder: folder)
+        if !FileManager.default.fileExists(atPath: url.path) {
+            try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? projectTemplate.write(to: url, atomically: true, encoding: .utf8)
+        }
+        return url
+    }
+
+    static let projectTemplate = """
+    # Dictation vocabulary for this project (it comes before your own
+    # vocabulary). Same format; commit it to share it with the team.
+    #
+    #   Product Name                      a term
+    #   libfoo = lib foo                  a term plus how it may be heard
+    #   foo bar -> FooBar                 a replacement
+    #   Widget!                           fix the casing of an ordinary word
+
+    """
+
     /// The vocabulary for a dictation in `projectFolder` (cheap: files are
     /// re-parsed only when their modification date changes).
     static func effective(projectFolder: String?, context: [ContextVocabulary.Found] = []) -> Effective {

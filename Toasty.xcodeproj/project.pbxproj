@@ -49,6 +49,7 @@
 		B614E0D5DFBFC6A1EC6A58EB /* ClaudeConversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A3D72521ECFC5F5DC717828 /* ClaudeConversation.swift */; };
 		B7EC6B42A1BE5F57121E7511 /* ConversationColumn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A1AC4F2009B67034788F88E /* ConversationColumn.swift */; };
 		B8A7E2BEF7397740BED13E40 /* Bridge in Resources */ = {isa = PBXBuildFile; fileRef = 326FC85C18EB90E86334C2F6 /* Bridge */; };
+		BFDB2DD95D5520E548B85DCE /* DictationTones.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79622B16D0D2B6FA76F28539 /* DictationTones.swift */; };
 		C377CAE6CF74EDB9ACFFE687 /* CaptureClip.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0AB472102F6E81ECE753B0B /* CaptureClip.swift */; };
 		C43DE4B1B520DE08BA08379B /* DebugControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C279FCF3F11C0D07DF1B5B /* DebugControl.swift */; };
 		C4C4D6FECA7C3F59FBB1EBD6 /* MainMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C51FB87F905EF29B4ECF92F /* MainMenu.swift */; };
@@ -124,6 +125,7 @@
 		6F3A8B4B872E5EC65743891C /* Fixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fixtures; path = Tests/Fixtures; sourceTree = SOURCE_ROOT; };
 		7264BFB81D294589F2773124 /* CaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureTests.swift; sourceTree = "<group>"; };
 		761A76E108C08A07F86040EB /* SpeechEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechEngineTests.swift; sourceTree = "<group>"; };
+		79622B16D0D2B6FA76F28539 /* DictationTones.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationTones.swift; sourceTree = "<group>"; };
 		8267153271BF3718002C2343 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		88842989D41DAAD1748343EE /* DictationConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationConfig.swift; sourceTree = "<group>"; };
 		8ABA43D749D93D0E19C717F6 /* DevVocabulary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevVocabulary.swift; sourceTree = "<group>"; };
@@ -318,6 +320,7 @@
 				88842989D41DAAD1748343EE /* DictationConfig.swift */,
 				BE77E4EB884D2153CA08A895 /* DictationController.swift */,
 				5DAAFA268342A12586EEAEBE /* DictationIndicator.swift */,
+				79622B16D0D2B6FA76F28539 /* DictationTones.swift */,
 				E1539C03BDAC3DB442928940 /* MicCapture.swift */,
 				38D1D665E23048F8AD6FBA9E /* RepoPaths.swift */,
 				E1C4288BD8F8A0E1BC06EB85 /* SpeechEngine.swift */,
@@ -497,6 +500,7 @@
 				440B3223CC9068684E18E197 /* DictationController.swift in Sources */,
 				8564E49059338213553F5F29 /* DictationDebug.swift in Sources */,
 				EE57450227154A9F8FF4DE35 /* DictationIndicator.swift in Sources */,
+				BFDB2DD95D5520E548B85DCE /* DictationTones.swift in Sources */,
 				9872B09FC2AF652524111032 /* GitChanges.swift in Sources */,
 				EB6410071FBABD7E99511555 /* InspectorView.swift in Sources */,
 				6131DD0CF970A46E4FE1AC30 /* KeyCodes.swift in Sources */,
