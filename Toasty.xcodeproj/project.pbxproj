@@ -64,7 +64,9 @@
 		F05E7AF8BA36E71A38111FF3 /* Workspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92F0C051C134C0C9C597BCFD /* Workspace.swift */; };
 		F3EDEAA0B2C742A331699A9C /* SpeechEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C4288BD8F8A0E1BC06EB85 /* SpeechEngine.swift */; };
 		F4AD53E268D6DD3A286BE7F8 /* TriggerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40EFFB45D939304276D7148 /* TriggerTests.swift */; };
+		F4C17D44C12AE3718AAED793 /* RepoPathsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C927416C497C43CEEF155A0 /* RepoPathsTests.swift */; };
 		F6A93F0D93822C4E1C46E036 /* ClaudeToolViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA6ECF9E267AAEB50DBBCB05 /* ClaudeToolViews.swift */; };
+		FB9070ABB9CFF93B6A152A50 /* RepoPaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38D1D665E23048F8AD6FBA9E /* RepoPaths.swift */; };
 		FC6ACCB01BF189ECD781B4B7 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A392D7CD9154E4ADC8244C28 /* main.swift */; };
 /* End PBXBuildFile section */
 
@@ -99,10 +101,12 @@
 		080B0B6B44543BB4052752BD /* ContextVocabulary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextVocabulary.swift; sourceTree = "<group>"; };
 		0A1AC4F2009B67034788F88E /* ConversationColumn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationColumn.swift; sourceTree = "<group>"; };
 		1A5B8F16A6E5B2987A97AD1D /* ClaudeTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTypography.swift; sourceTree = "<group>"; };
+		1C927416C497C43CEEF155A0 /* RepoPathsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoPathsTests.swift; sourceTree = "<group>"; };
 		1DB1DB6F9D1A2A6132740C20 /* ClaudeTextViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTextViews.swift; sourceTree = "<group>"; };
 		2FBCBE999788997C12380B2D /* MainWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowController.swift; sourceTree = "<group>"; };
 		326FC85C18EB90E86334C2F6 /* Bridge */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Bridge; path = Toasty/Resources/Bridge; sourceTree = SOURCE_ROOT; };
 		33D68D9E3E776F9E606A7682 /* WorkspaceDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceDebug.swift; sourceTree = "<group>"; };
+		38D1D665E23048F8AD6FBA9E /* RepoPaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoPaths.swift; sourceTree = "<group>"; };
 		38E532463352FE1FCDD0BAFF /* SpeechModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechModels.swift; sourceTree = "<group>"; };
 		3A3D72521ECFC5F5DC717828 /* ClaudeConversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeConversation.swift; sourceTree = "<group>"; };
 		3F85C0CF7B802A8107EAC802 /* ClaudeStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeStyle.swift; sourceTree = "<group>"; };
@@ -285,6 +289,7 @@
 			isa = PBXGroup;
 			children = (
 				7264BFB81D294589F2773124 /* CaptureTests.swift */,
+				1C927416C497C43CEEF155A0 /* RepoPathsTests.swift */,
 				761A76E108C08A07F86040EB /* SpeechEngineTests.swift */,
 				0520699B45C02518BAA81BF5 /* TextPipelineTests.swift */,
 				B40EFFB45D939304276D7148 /* TriggerTests.swift */,
@@ -311,6 +316,7 @@
 				BE77E4EB884D2153CA08A895 /* DictationController.swift */,
 				5DAAFA268342A12586EEAEBE /* DictationIndicator.swift */,
 				E1539C03BDAC3DB442928940 /* MicCapture.swift */,
+				38D1D665E23048F8AD6FBA9E /* RepoPaths.swift */,
 				E1C4288BD8F8A0E1BC06EB85 /* SpeechEngine.swift */,
 				38E532463352FE1FCDD0BAFF /* SpeechModels.swift */,
 				953B4EC2E8F32D9B902082DE /* TextPipeline.swift */,
@@ -496,6 +502,7 @@
 				8E343C37F42EE056A3D4ED01 /* MicCapture.swift in Sources */,
 				A2EC71DB7AA8F9C82C143E0E /* MosttyImport.swift in Sources */,
 				E418801CB5AD25148EC64A13 /* PTY.swift in Sources */,
+				FB9070ABB9CFF93B6A152A50 /* RepoPaths.swift in Sources */,
 				F3EDEAA0B2C742A331699A9C /* SpeechEngine.swift in Sources */,
 				D9F77D560C3635E6D7AD25E2 /* SpeechModels.swift in Sources */,
 				021E23FC56ACD71AC24B461D /* TerminalDebug.swift in Sources */,
@@ -522,6 +529,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0F30004D432418E82D43BAD6 /* CaptureTests.swift in Sources */,
+				F4C17D44C12AE3718AAED793 /* RepoPathsTests.swift in Sources */,
 				CC8328BFDDF5F840A632E2EA /* SpeechEngineTests.swift in Sources */,
 				DB9EF218EA4651E15C47905F /* TextPipelineTests.swift in Sources */,
 				F4AD53E268D6DD3A286BE7F8 /* TriggerTests.swift in Sources */,

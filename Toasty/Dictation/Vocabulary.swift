@@ -36,6 +36,8 @@ nonisolated enum Vocabulary {
         var casing: [Term] = []
         /// Where each engine term came from (project, global, conversation…).
         var sources: [String] = []
+        /// The repo's paths, for spoken paths (nil outside a repo).
+        var repo: RepoPaths.Index?
     }
 
     // MARK: Parsing

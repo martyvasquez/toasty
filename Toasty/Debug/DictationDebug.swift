@@ -165,7 +165,9 @@ enum DictationDebug {
         var input = DictationController.contextInput(workspace: workspace, conversation: shown)
         input.folder = folder
         if cmd["conversation"] as? Bool == false { input.conversation = [] }
-        return Vocabulary.effective(projectFolder: folder, context: ContextVocabulary.gather(input))
+        var effective = Vocabulary.effective(projectFolder: folder, context: ContextVocabulary.gather(input))
+        effective.repo = folder.map { RepoPaths.index(folder: $0) }
+        return effective
     }
 
     private static func process(_ outcome: MicCapture.Outcome, vocabulary: Vocabulary.Effective) async throws -> Any? {

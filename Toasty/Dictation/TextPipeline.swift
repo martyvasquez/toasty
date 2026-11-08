@@ -3,6 +3,7 @@ import Foundation
 /// Turning the engine's text into what's inserted (plan §10). Pure and fast.
 /// Order (Hex dictation/processor.rs:293-417):
 /// 1. trim; 2. spoken formatting; 3. spoken symbols; 4. filler words;
+/// 4½. spoken paths → the repo's real paths (Toasty);
 /// 5. replacements (project, then global); 6. casing fixes; 7. composer finishing.
 nonisolated enum TextPipeline {
     /// Steps 1–6 (finishing needs the text before the caret: `forComposer`).
@@ -12,6 +13,7 @@ nonisolated enum TextPipeline {
         var text = applyFormatting(trimmed)
         text = applySymbols(text)
         text = removeFillers(text)
+        if let repo = vocabulary.repo { text = RepoPaths.resolve(text, in: repo) }
         text = applyReplacements(text, vocabulary.replacements)
         text = fixCasing(text, vocabulary.casing)
         return text

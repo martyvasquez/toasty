@@ -130,7 +130,11 @@ final class DictationController: ObservableObject {
         let workspace = WorkspaceStore.shared.workspaces
             .first { $0.conversations.contains { $0.id == view.dictationID } }
         let input = Self.contextInput(workspace: workspace, conversation: view.dictationID)
-        let context = Task.detached(priority: .userInitiated) { ContextVocabulary.gather(input) }
+        let context = Task.detached(priority: .userInitiated) {
+            // The repo index too, while you speak (cached for a minute).
+            if let folder = input.folder { _ = RepoPaths.index(folder: folder) }
+            return ContextVocabulary.gather(input)
+        }
         capture = Capture(id: nextJob, view: view, conversation: view.dictationID,
                           folder: workspace?.folder, context: context)
         MicCapture.shared.begin(press: press)
@@ -146,7 +150,8 @@ final class DictationController: ObservableObject {
         pending += 1
         setPhase(.transcribing)
         Task {
-            let vocabulary = Vocabulary.effective(projectFolder: capture.folder, context: await capture.context.value)
+            var vocabulary = Vocabulary.effective(projectFolder: capture.folder, context: await capture.context.value)
+            vocabulary.repo = capture.folder.map { RepoPaths.index(folder: $0) }
             lastVocabulary = vocabulary
             let outcome = await MicCapture.shared.finish(release: release)
             let job = await Self.transcribe(outcome, view: capture.view, vocabulary: vocabulary)
