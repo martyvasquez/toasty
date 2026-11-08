@@ -4,3 +4,9 @@ build/
 DerivedData/
 # Built by scripts/build-ghostty-vt.sh (commit pinned in Vendor/GHOSTTY_VT_VERSION)
 Vendor/GhosttyVt.xcframework/
+# Built by scripts/build-transcribe.sh (commit pinned in the script)
+Vendor/CTranscribe.xcframework/
+Vendor/TRANSCRIBE_VERSION
+# Fetched by scripts/fetch-speech-models.sh (pinned revision + sha256)
+Toasty/Resources/SpeechModels/*.gguf
+Toasty/Resources/SpeechModels/*.partial

@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         TerminalDebug.install()
         WorkspaceDebug.install()
         ClaudeDebug.install()
+        DictationDebug.install()
         #endif
         store.load()
         Activity.shared.start()
@@ -25,6 +26,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.startShownConversation()
         pendingFolders.forEach(store.openFolder)
         pendingFolders = []
+        // Dictation's speech model loads and prewarms in the background once
+        // the window is up, so the first dictation is ready.
+        SpeechEngine.shared.preload()
         // First launch: offer to bring over mostty's workspaces.
         if store.isFirstLaunch, MosttyImport.isAvailable,
            !UserDefaults.standard.bool(forKey: "ToastyImportedFromMostty") {

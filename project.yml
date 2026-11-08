@@ -23,14 +23,24 @@ targets:
       - path: Toasty
         excludes:
           - "Resources/Bridge/*"
+          - "Resources/SpeechModels/*"
       # The Node bridge and the vendored Agent SDK are copied as plain files
       # (folder reference) into Contents/Resources/Bridge.
       - path: Toasty/Resources/Bridge
         type: folder
         buildPhase: resources
+      # Dictation's speech models (fetched by scripts/fetch-speech-models.sh,
+      # gitignored), copied into Contents/Resources/SpeechModels.
+      - path: Toasty/Resources/SpeechModels
+        type: folder
+        buildPhase: resources
     dependencies:
       - framework: Vendor/GhosttyVt.xcframework
         embed: false
+      # Dynamic by the engine's design (Metal inside); embed and sign it.
+      - framework: Vendor/CTranscribe.xcframework
+        embed: true
+        codeSign: true
     info:
       path: Toasty/Info.plist
       properties:

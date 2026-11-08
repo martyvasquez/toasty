@@ -22,6 +22,12 @@ enum DebugControl {
 
     static func register(_ cmd: String, _ handler: @escaping Handler) { handlers[cmd] = handler }
 
+    /// A command that replies when its work finishes (e.g. a transcription);
+    /// raise `MCTL_TIMEOUT` for slow ones.
+    typealias AsyncHandler = @MainActor ([String: Any]) async throws -> Any?
+    private static var asyncHandlers: [String: AsyncHandler] = [:]
+    static func registerAsync(_ cmd: String, _ handler: @escaping AsyncHandler) { asyncHandlers[cmd] = handler }
+
     static func install() {
         registerBuiltins()
         // Listen on a thread of our own and hop to the main queue: AppKit
@@ -43,9 +49,23 @@ enum DebugControl {
               let cmd = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
         let id = cmd["id"] as? String ?? ""
         var reply: [String: Any] = ["id": id]
+        if let name = cmd["cmd"] as? String, let handler = asyncHandlers[name] {
+            Task {
+                do {
+                    let result = try await handler(cmd)
+                    reply["ok"] = true
+                    if let result { reply["result"] = result }
+                } catch {
+                    reply["ok"] = false
+                    reply["error"] = "\(error)"
+                }
+                send(reply)
+            }
+            return
+        }
         do {
             guard let name = cmd["cmd"] as? String, let handler = handlers[name] else {
-                throw DebugError("unknown command \(cmd["cmd"] ?? "nil"); known: \(handlers.keys.sorted().joined(separator: ", "))")
+                throw DebugError("unknown command \(cmd["cmd"] ?? "nil"); known: \((Array(handlers.keys) + asyncHandlers.keys).sorted().joined(separator: ", "))")
             }
             reply["ok"] = true
             if let result = try handler(cmd) { reply["result"] = result }

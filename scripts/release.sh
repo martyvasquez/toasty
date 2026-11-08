@@ -38,6 +38,8 @@ if [[ -n "$KEY_ID" && -n "$ISSUER_ID" ]]; then
 fi
 
 [[ -d Vendor/GhosttyVt.xcframework ]] || { echo "▸ Building libghostty-vt…"; scripts/build-ghostty-vt.sh; }
+[[ -d Vendor/CTranscribe.xcframework ]] || { echo "▸ Building transcribe.cpp…"; scripts/build-transcribe.sh; }
+echo "▸ Checking speech models…"; scripts/fetch-speech-models.sh
 
 rm -rf "$OUT"; mkdir -p "$OUT"
 xcodegen generate -q
