@@ -149,8 +149,24 @@ enum WorkspaceDebug {
         DebugControl.register("toast") { cmd in
             let wi = cmd["workspace"] as? Int ?? 0, ti = cmd["index"] as? Int ?? 0
             guard store.workspaces.indices.contains(wi), store.workspaces[wi].conversations.indices.contains(ti) else { throw E("no such tab") }
-            Activity.shared.present(source: store.workspaces[wi].conversations[ti], title: cmd["title"] as? String ?? "Test", body: cmd["body"] as? String ?? "")
+            Activity.shared.present(source: store.workspaces[wi].conversations[ti], title: cmd["title"] as? String ?? "Test", body: cmd["body"] as? String ?? "",
+                                    stopped: cmd["stopped"] as? Bool ?? false)
             return state()
+        }
+        // A fake pending request on tab `index` of workspace `workspace`:
+        // {"cmd":"fakeRequest","tool":"Bash","title":"…"}; no "tool" clears it.
+        // {"cmd":"notices"} lists the sidebar's notifications.
+        DebugControl.register("fakeRequest") { cmd in
+            let wi = cmd["workspace"] as? Int ?? 0, ti = cmd["index"] as? Int ?? 0
+            guard store.workspaces.indices.contains(wi), store.workspaces[wi].conversations.indices.contains(ti) else { throw E("no such tab") }
+            var input: [String: Any] = [:]
+            if let q = cmd["question"] as? String { input["questions"] = [["question": q]] }
+            store.workspaces[wi].conversations[ti].debugSetRequest(toolName: cmd["tool"] as? String, input: input,
+                                                                   title: cmd["title"] as? String)
+            return nil
+        }
+        DebugControl.register("notices") { _ in
+            Activity.shared.notices.map { ["kind": "\($0.kind)", "text": $0.text, "tab": $0.conversation.title] }
         }
         // The window's sheet (alert): {"cmd":"sheet"} describes it,
         // {"cmd":"sheet","press":"Cancel"} presses a button.

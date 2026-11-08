@@ -159,7 +159,10 @@ final class Workspace: ObservableObject, Identifiable {
     private func observe(_ c: ClaudeConversation) {
         statusObservers[c.id] = c.$phase.map { _ in () }
             .merge(with: c.$requests.map { _ in () }, c.$attention.map { _ in () })
-            .sink { [weak self] in self?.objectWillChange.send() }
+            .sink { [weak self] in
+                self?.objectWillChange.send()
+                Activity.shared.objectWillChange.send()  // the sidebar's Notifications
+            }
     }
 
     // MARK: Terminals

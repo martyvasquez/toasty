@@ -73,6 +73,48 @@ Shipped on `main`; documented in `docs/DICTATION.md`.
 - **Live text while speaking** (Parakeet v2 can't stream; re-run on the
   growing buffer, or a streaming model after a license review).
 
+## Notifications (sidebar)
+
+Built: the "Notifications" section at the bottom of the workspaces sidebar
+(`Notifications/NotificationsSection.swift`, `Activity.notices`). A to-do
+list derived from live state, not a log: waiting rows (permission,
+question, plan) leave when answered; finished/stopped rows leave when the
+tab is seen or dismissed.
+
+### Ideas (not committed)
+
+- **Slimmer workspace rows.** The status subtitle on workspace rows now
+  partly repeats the list; rows could drop to the status icon only.
+- **Keyboard shortcuts (undecided).** Maybe ⌘1–9 go to notifications
+  instead of tabs. Caution: the list reorders and shrinks, so a number
+  doesn't keep pointing at the same item. Alternatives: ⌃⌘U cycles through
+  the list in order, or one key focuses the list for arrows + Return.
+  Decide after living with the list.
+- **Crash rows.** "Claude Code stopped unexpectedly" (agent exit) doesn't
+  notify today, so it never gets a row.
+
+## Git worktrees (next sprint)
+
+Right-click a workspace → "New Worktree…" (branch name; new branch from
+HEAD by default) → `git worktree add` → a workspace nested under its parent
+with a fresh Claude tab. A worktree is a `Workspace` with a parent link;
+tabs, terminal, Changes and sessions already work off the folder, and
+`refreshBranch()` already reads a worktree's `.git` file.
+
+Agreed (2026-11-08):
+- Location: Claude Code's convention, `<repo>/.claude/worktrees/<name>`
+  (needs to be gitignored).
+- Worktrees made outside Toasty (`git worktree list`) show up automatically.
+- Notification rows gain the worktree name.
+
+Open:
+- Removing: confirm; git refuses with uncommitted changes; delete the
+  branch or not. Merging stays with the user/Claude (no button).
+- Ignored files (`node_modules`, `.env`): check Claude Code's
+  `.worktreeinclude` and `WorktreeCreate` hooks; Toasty running git itself
+  would bypass hooks.
+- Collapsed parent shows the strongest status of its worktrees.
+
 ## Reference
 
 - Cross-session messaging docs:

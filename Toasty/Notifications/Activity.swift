@@ -21,6 +21,8 @@ final class Activity: NSObject, ObservableObject {
     private struct Message {
         var text: String
         var date: Date
+        /// The turn ended with an error rather than finishing.
+        var stopped = false
     }
 
     struct Toast: Identifiable, Equatable {
@@ -145,12 +147,12 @@ final class Activity: NSObject, ObservableObject {
 
     /// Something happened in a conversation the user should know about
     /// (finished, stopped, needs them): sound, attention, toast, banner.
-    func present(source conversation: ClaudeConversation, title: String, body rawBody: String) {
+    func present(source conversation: ClaudeConversation, title: String, body rawBody: String, stopped: Bool = false) {
         // One line of text for the sidebar, toast and banner.
         let body = rawBody.split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
             .joined(separator: " ")
-        messages[conversation.id] = Message(text: body.isEmpty ? title : body, date: Date())
+        messages[conversation.id] = Message(text: body.isEmpty ? title : body, date: Date(), stopped: stopped)
 
         // 1. Sound
         if soundName.lowercased() != "none", let sound = NSSound(named: NSSound.Name(soundName)) {
@@ -212,6 +214,42 @@ final class Activity: NSObject, ObservableObject {
             let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
             center.add(request)
         }
+    }
+
+    // MARK: Notifications (sidebar)
+
+    /// A conversation that needs the user, for the sidebar's list. Derived
+    /// from live state, so it goes away by itself once answered or seen.
+    struct Notice: Identifiable {
+        enum Kind { case permission, question, plan, stopped, finished }
+        let conversation: ClaudeConversation
+        let kind: Kind
+        let text: String
+        let date: Date
+        var id: UUID { conversation.id }
+    }
+
+    /// Waiting conversations first, then stopped and finished ones; newest
+    /// first within each. The same set the dock badge counts.
+    var notices: [Notice] {
+        let list: [Notice] = allConversations.compactMap { c in
+            let date = messages[c.id]?.date ?? entries[c.id]?.since ?? .distantPast
+            if let r = c.requests.first {
+                let kind: Notice.Kind = switch r.toolName {
+                case "AskUserQuestion": .question
+                case "ExitPlanMode": .plan
+                default: .permission
+                }
+                // A plan's summary only repeats the row's title.
+                return Notice(conversation: c, kind: kind, text: kind == .plan ? "" : r.summary, date: date)
+            }
+            guard c.attention else { return nil }
+            let m = messages[c.id]
+            return Notice(conversation: c, kind: m?.stopped == true ? .stopped : .finished,
+                          text: m?.text ?? "", date: date)
+        }
+        func rank(_ k: Notice.Kind) -> Int { k == .finished ? 2 : (k == .stopped ? 1 : 0) }
+        return list.sorted { (rank($0.kind), $1.date) < (rank($1.kind), $0.date) }
     }
 
     // MARK: Dock badge

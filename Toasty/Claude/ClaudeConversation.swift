@@ -151,6 +151,17 @@ struct ClaudePermissionRequest: Identifiable {
     let description: String?
 }
 
+extension ClaudePermissionRequest {
+    /// One line saying what Claude is waiting on (toast, banner, sidebar).
+    var summary: String {
+        switch toolName {
+        case "AskUserQuestion": return (input["questions"] as? [[String: Any]])?.first?["question"] as? String ?? "Claude has a question"
+        case "ExitPlanMode": return "Claude has a plan ready for review"
+        default: return title ?? "Claude needs your permission to use \(ClaudeToolInfo.displayName(toolName))"
+        }
+    }
+}
+
 /// A Claude Code conversation (one tab): the transcript, the agent
 /// process, and pending prompts. It renders what Claude Code reports and
 /// forwards what the user types or decides; it never steers the agent.
@@ -769,13 +780,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         requests.append(request)
         reportState()
 
-        let what: String
-        switch tool {
-        case "AskUserQuestion": what = (request.input["questions"] as? [[String: Any]])?.first?["question"] as? String ?? "Claude has a question"
-        case "ExitPlanMode": what = "Claude has a plan ready for review"
-        default: what = request.title ?? "Claude needs your permission to use \(ClaudeToolInfo.displayName(tool))"
-        }
-        notify(title: "Claude Code needs you", body: what)
+        notify(title: "Claude Code needs you", body: request.summary)
     }
 
     /// Handles one SDK message. Also used to replay a saved transcript, so it
@@ -949,7 +954,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 notify(title: "Claude Code finished · \(projectName)",
                        body: String(summary.prefix(600)).isEmpty ? "Done" : String(summary.prefix(600)))
             } else {
-                notify(title: "Claude Code stopped · \(projectName)", body: (m["result"] as? String) ?? subtype)
+                notify(title: "Claude Code stopped · \(projectName)", body: (m["result"] as? String) ?? subtype, stopped: true)
             }
 
         default:
@@ -1312,13 +1317,13 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         Activity.shared.setAgentState(self, state)
     }
 
-    private func notify(title: String, body rawBody: String) {
+    private func notify(title: String, body rawBody: String, stopped: Bool = false) {
         // Plain text for banners and the sidebar: drop Markdown markers.
         let body = rawBody
             .replacingOccurrences(of: #"(?m)^#{1,6}\s*"#, with: "", options: .regularExpression)
             .replacingOccurrences(of: #"[`*_]{1,3}"#, with: "", options: .regularExpression)
             .replacingOccurrences(of: #"\[([^\]]+)\]\([^)]+\)"#, with: "$1", options: .regularExpression)
-        Activity.shared.present(source: self, title: title, body: body)
+        Activity.shared.present(source: self, title: title, body: body, stopped: stopped)
     }
 
     private func stateDidChange() {
@@ -1357,6 +1362,19 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
 #if DEBUG
 extension ClaudeConversation {
+    /// Debug: a pending request with no agent behind it (for the
+    /// sidebar's notifications), or clear them with `toolName` nil.
+    func debugSetRequest(toolName: String?, input: [String: Any] = [:], title: String? = nil) {
+        if let toolName {
+            requests = [ClaudePermissionRequest(id: UUID().uuidString, toolName: toolName, input: input, toolUseID: nil,
+                                                suggestions: [], decisionReason: nil, blockedPath: nil,
+                                                title: title, description: nil)]
+        } else {
+            requests = []
+        }
+        reportState()
+    }
+
     /// Debug: show Markdown as if Claude had replied with it.
     func debugAppendReply(_ markdown: String) {
         items.append(ClaudeItem(kind: .assistant, text: markdown))

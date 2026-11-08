@@ -16,6 +16,7 @@
 		15EB038EA82F8DE862AA8137 /* DictationConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88842989D41DAAD1748343EE /* DictationConfig.swift */; };
 		17AEE60631D8A36D8B7D6BA3 /* CTranscribe.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F8C8A579882F85EF3293A41D /* CTranscribe.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		1ACC8FE2272EB5760687D654 /* WorkspaceSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6927A423E7E99E5F0D72EB08 /* WorkspaceSidebarView.swift */; };
+		229AA2E1849A5A346C4A74E8 /* NotificationsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADBCB0D878A12E401FE41DCD /* NotificationsSection.swift */; };
 		2E201587160057E35BDB263E /* ClaudeMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFFBD1A7316E98A070F3E2BE /* ClaudeMarkdown.swift */; };
 		308C0EB67B57D5743742E49F /* ClaudeAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E376E9D81389D2BAC3DC077 /* ClaudeAgent.swift */; };
 		32C56AFA5E5541CBCFF3CF0D /* ClaudeDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCDD12CBF2473066A7A74A44 /* ClaudeDebug.swift */; };
@@ -146,6 +147,7 @@
 		A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStore.swift; sourceTree = "<group>"; };
 		A8A10A7F8DA308A1B9259A36 /* MainSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainSplitViewController.swift; sourceTree = "<group>"; };
 		AAFDD6D5C02551210E270F85 /* SpeechModels */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SpeechModels; path = Toasty/Resources/SpeechModels; sourceTree = SOURCE_ROOT; };
+		ADBCB0D878A12E401FE41DCD /* NotificationsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsSection.swift; sourceTree = "<group>"; };
 		AEF18C42EDAF14F5AFAD03EE /* ClaudeConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeConversationView.swift; sourceTree = "<group>"; };
 		B0AB472102F6E81ECE753B0B /* CaptureClip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureClip.swift; sourceTree = "<group>"; };
 		B40EFFB45D939304276D7148 /* TriggerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TriggerTests.swift; sourceTree = "<group>"; };
@@ -220,6 +222,7 @@
 			isa = PBXGroup;
 			children = (
 				C221CFDD6F14809C8C78A6D1 /* Activity.swift */,
+				ADBCB0D878A12E401FE41DCD /* NotificationsSection.swift */,
 			);
 			path = Notifications;
 			sourceTree = "<group>";
@@ -520,6 +523,7 @@
 				346191052BC0573C556FAE23 /* MainWindowController.swift in Sources */,
 				8E343C37F42EE056A3D4ED01 /* MicCapture.swift in Sources */,
 				A2EC71DB7AA8F9C82C143E0E /* MosttyImport.swift in Sources */,
+				229AA2E1849A5A346C4A74E8 /* NotificationsSection.swift in Sources */,
 				E418801CB5AD25148EC64A13 /* PTY.swift in Sources */,
 				FB9070ABB9CFF93B6A152A50 /* RepoPaths.swift in Sources */,
 				74AD96205B972C48FB67E2B3 /* SettingsWindow.swift in Sources */,

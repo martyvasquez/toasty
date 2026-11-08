@@ -50,6 +50,8 @@ struct WorkspaceSidebarView: View {
                 .animation(.easeInOut(duration: 0.15), value: store.workspaces.map(\.id))
             }
             .scrollIndicators(.never)
+
+            NotificationsSection()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
