@@ -46,6 +46,41 @@ nonisolated enum DictationConfig {
     static let vadThreshold = 0.4
     static let vadMinSpeechMs: Int32 = 160
 
+    // MARK: Capture (hex/src/dictation.rs:39-96, dictation/audio.rs:25, audio.rs:235-346)
+
+    /// Native-rate audio kept while the microphone is warm (TIMELINE_BUFFER_DURATION).
+    static let ringSeconds: TimeInterval = 10
+    /// Audio kept from before the press, so the first word is never clipped.
+    static let preRoll: TimeInterval = 0.45
+    /// Shorter presses (press→release, event times) are discarded silently.
+    static let minimumHold: TimeInterval = 0.3
+    /// Audio kept after the release: it often lands while the last word sounds.
+    static let releaseTail: TimeInterval = 0.2
+    /// How long past the tail to wait for its audio to arrive.
+    static let tailDeliveryGrace: TimeInterval = 0.1
+    /// A step in the microphone timeline larger than this is a gap…
+    static let gapTolerance: TimeInterval = 0.05
+    /// …filled with zeros up to this long (a Bluetooth start hiccup is ~140 ms);
+    /// a longer one fails the capture.
+    static let maxPaddedGap: TimeInterval = 0.25
+    /// No audio for this long from an open microphone: reopen it.
+    static let stallTimeout: TimeInterval = 4
+    /// Opening a device: attempts, and the wait between them, before the next device.
+    static let openAttempts = 3
+    static let openRetryDelay: TimeInterval = 0.1
+    /// Reopening after every device failed: backoff from…to.
+    static let reopenBackoffInitial: TimeInterval = 0.25
+    static let reopenBackoffMax: TimeInterval = 5
+    /// The microphone closes this long after Toasty stops being the active app.
+    static let coldCloseDelay: TimeInterval = 30
+
+    // MARK: Gates (hex/src/dictation.rs:91-96)
+
+    /// A clip whose loudest 30 ms window (DC removed) stays below this is
+    /// silence: discarded before the engine, which hallucinates "Thank you."
+    static let silenceThresholdDBFS: Float = -50
+    static let silenceWindowSamples = 480
+
     struct BundledModel: Sendable {
         let file: String
         let bytes: Int

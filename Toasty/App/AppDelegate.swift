@@ -59,6 +59,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate()
     }
 
+    /// Dictation's microphone stays warm while Toasty is active (instant
+    /// start with pre-roll) and closes 30 s after it isn't (plan D9).
+    func applicationDidBecomeActive(_ notification: Notification) {
+        if !Self.isRunningTests { MicCapture.shared.appBecameActive() }
+    }
+
+    func applicationDidResignActive(_ notification: Notification) {
+        if !Self.isRunningTests { MicCapture.shared.appResignedActive() }
+    }
+
     /// Quitting stops Claude and terminal programs: ask first if any are busy.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         // An open import sheet would block quitting.

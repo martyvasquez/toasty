@@ -100,12 +100,20 @@ nonisolated final class SpeechEngine: @unchecked Sendable {
     private enum Detector { case unloaded, loaded(model: OpaquePointer, session: OpaquePointer), failed }
 
     private let modelsFolder: URL
+    /// Cancelled once the process is exiting.
+    private let quitting = SpeechCancelToken()
+
+    private final class AbortCheck {
+        let tokens: [SpeechCancelToken]
+        init(tokens: [SpeechCancelToken]) { self.tokens = tokens }
+    }
 
     /// One engine per models folder; the app uses `shared`. (Tests make
     /// their own with the repo's folder.)
     init(modelsFolder: URL) {
         self.modelsFolder = modelsFolder
         Self.installLogging()
+        Self.freeAtExit(self)
         let thread = Thread { [self] in loop() }
         thread.name = "toasty.speech"
         thread.qualityOfService = .userInteractive
@@ -153,6 +161,57 @@ nonisolated final class SpeechEngine: @unchecked Sendable {
         }
     }
 
+    // MARK: Process exit
+
+    /// `exit` (what `NSApplication.terminate` and XCTest end with) runs
+    /// ggml's static destructors, and its Metal device list aborts unless
+    /// every Metal buffer is already freed (ggml_metal_rsets_free). So at exit
+    /// the engine thread frees everything first. An `atexit` handler added
+    /// after the library loaded runs before its destructors. Like Hex
+    /// (desktop/process_exit.rs), a run that won't stop in time ends the
+    /// process with `_exit`, which skips the destructors.
+    ///
+    /// ggml creates its Metal device list (a function-local static) during
+    /// the first load, registering its destructor then; handlers run in
+    /// reverse order, so the hook is added again after every load to stay
+    /// ahead of it. Freeing twice is harmless.
+    private static let engines = OSAllocatedUnfairLock<[SpeechEngine]>(initialState: [])
+
+    private static func freeAtExit(_ engine: SpeechEngine) {
+        engines.withLock { $0.append(engine) }
+    }
+
+    private static func addExitHook() {
+        atexit { SpeechEngine.freeAllForExit() }
+    }
+
+    private static func freeAllForExit() {
+        for engine in engines.withLock({ $0 }) where !engine.freeForExit(timeout: 3) {
+            log.error("speech engine busy at exit; ending without library teardown")
+            _exit(0)
+        }
+    }
+
+    /// Stops new work, aborts a running decode, frees all native resources on
+    /// the engine thread; false if that didn't happen within `timeout`.
+    private func freeForExit(timeout: TimeInterval) -> Bool {
+        quitting.cancel()
+        let done = DispatchSemaphore(value: 0)
+        condition.lock()
+        jobs.insert({ [self] in
+            freeModel()
+            if case .loaded(let model, let session) = detector {
+                transcribe_vad_session_free(session)
+                transcribe_model_free(model)
+            }
+            detector = .failed
+            done.signal()
+        }, at: 0)
+        condition.signal()
+        condition.unlock()
+        return done.wait(timeout: .now() + timeout) == .success
+    }
+
     // MARK: Engine thread
 
     private func enqueue(_ job: @escaping @Sendable () -> Void) -> Bool {
@@ -178,6 +237,7 @@ nonisolated final class SpeechEngine: @unchecked Sendable {
 
     private func loadIfNeeded() throws {
         if model != nil { return }
+        if quitting.isCancelled { throw EngineError.cancelled }
         do {
             try load()
             status.withLock { $0.loaded = true; $0.loadError = nil }
@@ -197,6 +257,7 @@ nonisolated final class SpeechEngine: @unchecked Sendable {
         params.no_mmap = false   // weights stay clean, file-backed pages
         var loaded: OpaquePointer?
         let result = transcribe_model_load_file(url.path, &params, &loaded)
+        Self.addExitHook()  // after ggml's statics exist (see Process exit)
         guard result == TRANSCRIBE_OK, let loaded else { throw EngineError.load(Self.describe(result)) }
 
         do {
@@ -300,12 +361,13 @@ nonisolated final class SpeechEngine: @unchecked Sendable {
             session = try? makeSession()
         }
 
-        if let cancel {
-            transcribe_set_abort_callback(current, { userData in
-                guard let userData else { return false }
-                return Unmanaged<SpeechCancelToken>.fromOpaque(userData).takeUnretainedValue().isCancelled
-            }, Unmanaged.passUnretained(cancel).toOpaque())
-        }
+        // Aborts on the job's token or when the process is exiting.
+        let abort = AbortCheck(tokens: [cancel, quitting].compactMap { $0 })
+        transcribe_set_abort_callback(current, { userData in
+            guard let userData else { return false }
+            return Unmanaged<AbortCheck>.fromOpaque(userData).takeUnretainedValue().tokens.contains { $0.isCancelled }
+        }, Unmanaged.passUnretained(abort).toOpaque())
+        defer { withExtendedLifetime(abort) {} }
 
         let useVocabulary = !vocabulary.terms.isEmpty && status.withLock { $0.vocabularySupported }
         let terms = useVocabulary ? Array(vocabulary.terms.prefix(DictationConfig.maxVocabularyTerms)) : []
@@ -423,6 +485,7 @@ nonisolated final class SpeechEngine: @unchecked Sendable {
             params.backend = TRANSCRIBE_BACKEND_CPU
             var loaded: OpaquePointer?
             var result = transcribe_model_load_file(url.path, &params, &loaded)
+            Self.addExitHook()  // after ggml's statics exist (see Process exit)
             guard result == TRANSCRIBE_OK, let loaded else { throw EngineError.load("detector: \(Self.describe(result))") }
             var info = transcribe_vad_info()
             transcribe_vad_info_init(&info)

@@ -51,6 +51,8 @@ targets:
         LSApplicationCategoryType: public.app-category.developer-tools
         NSPrincipalClass: NSApplication
         NSHumanReadableCopyright: "Copyright © 2026 Marty Vasquez. All rights reserved."
+        # Dictation: speech is transcribed on this Mac; audio never leaves it.
+        NSMicrophoneUsageDescription: "Toasty listens while you hold Right Option to dictate. Speech is transcribed on this Mac and never leaves it."
         # Folders can be opened with Toasty (Finder, Dock, `open -a Toasty <dir>`).
         # A workspace dragged in the sidebar (private, so it can't be dropped as text).
         UTExportedTypeDeclarations:
@@ -68,6 +70,8 @@ targets:
       properties:
         # Not sandboxed: Toasty runs your login shell, node and claude.
         com.apple.security.app-sandbox: false
+        # Hardened runtime: needed to open the microphone for dictation.
+        com.apple.security.device.audio-input: true
     settings:
       base:
         PRODUCT_NAME: Toasty
