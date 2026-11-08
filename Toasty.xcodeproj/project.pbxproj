@@ -25,6 +25,7 @@
 		39DB48C5EA22DF75F0E540AB /* CTranscribe.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = F8C8A579882F85EF3293A41D /* CTranscribe.xcframework */; };
 		3FEABD3A753F771169A42D82 /* ClaudeStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F85C0CF7B802A8107EAC802 /* ClaudeStyle.swift */; };
 		440B3223CC9068684E18E197 /* DictationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE77E4EB884D2153CA08A895 /* DictationController.swift */; };
+		4E868E3636D7E457ADD0303E /* ContextVocabulary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 080B0B6B44543BB4052752BD /* ContextVocabulary.swift */; };
 		500B9ECC5A22E8386FBB831D /* TerminalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27278907AA55A2FF70B1DB4 /* TerminalRenderer.swift */; };
 		5044C8F9C7B16559001A2B48 /* SpeechModels in Resources */ = {isa = PBXBuildFile; fileRef = AAFDD6D5C02551210E270F85 /* SpeechModels */; };
 		50719BBE528DB4B26987DCF7 /* WorkspaceDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33D68D9E3E776F9E606A7682 /* WorkspaceDebug.swift */; };
@@ -93,6 +94,7 @@
 /* Begin PBXFileReference section */
 		04ABDE15409AACAEF4B2BF66 /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
 		07E44FEF143B34DDB7720C70 /* Vocabulary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Vocabulary.swift; sourceTree = "<group>"; };
+		080B0B6B44543BB4052752BD /* ContextVocabulary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextVocabulary.swift; sourceTree = "<group>"; };
 		0A1AC4F2009B67034788F88E /* ConversationColumn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationColumn.swift; sourceTree = "<group>"; };
 		1A5B8F16A6E5B2987A97AD1D /* ClaudeTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTypography.swift; sourceTree = "<group>"; };
 		1DB1DB6F9D1A2A6132740C20 /* ClaudeTextViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTextViews.swift; sourceTree = "<group>"; };
@@ -301,6 +303,7 @@
 			isa = PBXGroup;
 			children = (
 				B0AB472102F6E81ECE753B0B /* CaptureClip.swift */,
+				080B0B6B44543BB4052752BD /* ContextVocabulary.swift */,
 				88842989D41DAAD1748343EE /* DictationConfig.swift */,
 				BE77E4EB884D2153CA08A895 /* DictationController.swift */,
 				5DAAFA268342A12586EEAEBE /* DictationIndicator.swift */,
@@ -474,6 +477,7 @@
 				8AE462A6E941126BC4202A81 /* ClaudeTextViews.swift in Sources */,
 				F6A93F0D93822C4E1C46E036 /* ClaudeToolViews.swift in Sources */,
 				54D737FD0E8282AA3C0E1614 /* ClaudeTypography.swift in Sources */,
+				4E868E3636D7E457ADD0303E /* ContextVocabulary.swift in Sources */,
 				B7EC6B42A1BE5F57121E7511 /* ConversationColumn.swift in Sources */,
 				C43DE4B1B520DE08BA08379B /* DebugControl.swift in Sources */,
 				15EB038EA82F8DE862AA8137 /* DictationConfig.swift in Sources */,

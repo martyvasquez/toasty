@@ -111,6 +111,15 @@ enum DictationDebug {
             return try await process(outcome, vocabulary: vocabulary(cmd))
         }
 
+        // {"cmd":"dictationVocabulary","project":"/path"}: the engine list with each term's source.
+        DebugControl.register("dictationVocabulary") { cmd in
+            let v = try vocabulary(cmd)
+            let last = cmd["last"] as? Bool == true ? DictationController.shared.lastVocabulary : nil
+            let effective = last ?? v
+            return ["terms": zip(effective.engine.terms, effective.sources).map { "\($0.text)  ← \($1)" },
+                    "replacements": effective.replacements.map { "\($0.from) -> \($0.to)" }]
+        }
+
         // Indicator states for screenshots: {"cmd":"dictationIndicator","phase":"listening","level":0.6}
         DebugControl.register("dictationIndicator") { cmd in
             let level = Float(cmd["level"] as? Double ?? 0)
@@ -149,7 +158,14 @@ enum DictationDebug {
         if let file = cmd["vocabulary"] as? String {
             return Vocabulary.combine(project: Vocabulary.parse(try String(contentsOfFile: file, encoding: .utf8)), global: nil)
         }
-        return Vocabulary.effective(projectFolder: cmd["project"] as? String)
+        // As a dictation in that workspace's shown conversation would.
+        let folder = cmd["project"] as? String
+        let workspace = WorkspaceStore.shared.workspaces.first { $0.folder == folder }
+        let shown = workspace?.selected?.id
+        var input = DictationController.contextInput(workspace: workspace, conversation: shown)
+        input.folder = folder
+        if cmd["conversation"] as? Bool == false { input.conversation = [] }
+        return Vocabulary.effective(projectFolder: folder, context: ContextVocabulary.gather(input))
     }
 
     private static func process(_ outcome: MicCapture.Outcome, vocabulary: Vocabulary.Effective) async throws -> Any? {

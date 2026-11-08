@@ -28,6 +28,8 @@ final class DictationController: ObservableObject {
 
     /// The last successful dictation (memory only).
     private(set) var lastDictation: (raw: String, final: String)?
+    /// The vocabulary the last dictation used (debug).
+    private(set) var lastVocabulary: Vocabulary.Effective?
     /// Event time vs. handling time of the last trigger press (clock check).
     private(set) var lastEventDelay: TimeInterval?
 
@@ -48,6 +50,8 @@ final class DictationController: ObservableObject {
         let conversation: UUID?
         /// The target's workspace folder (its project vocabulary).
         let folder: String?
+        /// Context vocabulary, gathered in the background while you speak.
+        let context: Task<[ContextVocabulary.Found], Never>
     }
 
     private struct Job {
@@ -123,9 +127,12 @@ final class DictationController: ObservableObject {
             return
         }
         nextJob += 1
-        let folder = WorkspaceStore.shared.workspaces
-            .first { $0.conversations.contains { $0.id == view.dictationID } }?.folder
-        capture = Capture(id: nextJob, view: view, conversation: view.dictationID, folder: folder)
+        let workspace = WorkspaceStore.shared.workspaces
+            .first { $0.conversations.contains { $0.id == view.dictationID } }
+        let input = Self.contextInput(workspace: workspace, conversation: view.dictationID)
+        let context = Task.detached(priority: .userInitiated) { ContextVocabulary.gather(input) }
+        capture = Capture(id: nextJob, view: view, conversation: view.dictationID,
+                          folder: workspace?.folder, context: context)
         MicCapture.shared.begin(press: press)
         target = view.dictationID
         setPhase(.listening)
@@ -138,8 +145,9 @@ final class DictationController: ObservableObject {
         stopLevelMeter()
         pending += 1
         setPhase(.transcribing)
-        let vocabulary = Vocabulary.effective(projectFolder: capture.folder)
         Task {
+            let vocabulary = Vocabulary.effective(projectFolder: capture.folder, context: await capture.context.value)
+            lastVocabulary = vocabulary
             let outcome = await MicCapture.shared.finish(release: release)
             let job = await Self.transcribe(outcome, view: capture.view, vocabulary: vocabulary)
             complete(capture.id, job)
@@ -274,6 +282,22 @@ final class DictationController: ObservableObject {
         self.locked = locked
     }
     #endif
+
+    /// What the context vocabulary reads, taken on the main actor: the
+    /// conversation's recent text (newest first) and the changed files.
+    static func contextInput(workspace: Workspace?, conversation id: UUID?) -> ContextVocabulary.Input {
+        var input = ContextVocabulary.Input(folder: workspace?.folder)
+        if let conversation = workspace?.conversations.first(where: { $0.id == id }) {
+            var texts = [conversation.draft]
+            for item in conversation.items.suffix(60).reversed() {
+                texts.append(item.text)
+                texts += item.input.values.compactMap { $0 as? String }
+            }
+            input.conversation = texts
+        }
+        input.changed = workspace?.changes.files.map(\.path) ?? []
+        return input
+    }
 
     // MARK: Target
 

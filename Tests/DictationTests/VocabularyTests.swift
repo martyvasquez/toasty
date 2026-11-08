@@ -119,4 +119,41 @@ import Testing
         #expect(Vocabulary.isDictionaryWord("conductor"))
         #expect(!Vocabulary.isDictionaryWord("worktree"))
     }
+
+    @Test func inflectedWordsAreOrdinaryWords() {
+        for word in ["resumed", "scrolls", "running", "stopped", "fixes", "libraries", "copied", "quickly", "bigger"] {
+            #expect(Vocabulary.isDictionaryWord(word), "\(word)")
+        }
+        for word in ["nonisolated", "libghostty", "supabase", "zustand", "xcodegen"] {
+            #expect(!Vocabulary.isDictionaryWord(word), "\(word)")
+        }
+    }
+}
+
+@Suite struct ContextVocabularyTests {
+    @Test(arguments: ["MicCapture", "TerminalView", "NSTextView", "Context7", "utf8", "Supabase", "nonisolated", "libghostty", "useSWR"])
+    func eligible(name: String) { #expect(ContextVocabulary.isEligible(name)) }
+
+    @Test(arguments: ["isEmpty", "fileName", "user_id", "PTY", "JSON", "the", "Resumed", "Portal", "cloud", "abc", "src/main", "x1"])
+    func notEligible(name: String) { #expect(!ContextVocabulary.isEligible(name)) }
+
+    @Test func camelParts() {
+        #expect(ContextVocabulary.camelParts("MicCapture") == ["Mic", "Capture"])
+        #expect(ContextVocabulary.camelParts("NSTextView") == ["NS", "Text", "View"])
+        #expect(ContextVocabulary.camelParts("useSWR") == ["use", "SWR"])
+    }
+
+    @Test func conversationNamesComeFirstNewestFirstAndAreDeduplicated() {
+        let input = ContextVocabulary.Input(folder: nil,
+                                            conversation: ["Now fix MicCapture and the TerminalView.", "Earlier: TerminalView, Supabase"],
+                                            changed: ["Toasty/Dictation/MicCapture.swift", "Toasty/App/AppDelegate.swift"])
+        let found = ContextVocabulary.gather(input)
+        #expect(found.map(\.text) == ["MicCapture", "TerminalView", "Supabase", "AppDelegate"])
+        #expect(found.map(\.source) == [.conversation, .conversation, .conversation, .changed])
+    }
+
+    @Test func fileStems() {
+        #expect(ContextVocabulary.stem("Toasty/Dictation/MicCapture.swift") == "MicCapture")
+        #expect(ContextVocabulary.stem("README") == "README")
+    }
 }

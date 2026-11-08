@@ -34,6 +34,8 @@ nonisolated enum Vocabulary {
         var engine = VocabularySnapshot()
         var replacements: [Replacement] = []
         var casing: [Term] = []
+        /// Where each engine term came from (project, global, conversation…).
+        var sources: [String] = []
     }
 
     // MARK: Parsing
@@ -82,16 +84,20 @@ nonisolated enum Vocabulary {
 
     /// Project before global; duplicates (case-insensitive) dropped; at most
     /// 64 engine terms (the rest logged). Replacements: project first.
-    static func combine(project: File?, global: File?) -> Effective {
+    static func combine(project: File?, global: File?, context: [ContextVocabulary.Found] = []) -> Effective {
         var effective = Effective()
         var seen = Set<String>()
         var dropped: [String] = []
-        for term in (project?.terms ?? []) + (global?.terms ?? []) {
+        let all = (project?.terms ?? []).map { ($0, "project file") }
+            + (global?.terms ?? []).map { ($0, "global file") }
+            + context.map { (Term(text: $0.text), $0.source.rawValue) }
+        for (term, source) in all {
             guard seen.insert(term.text.lowercased()).inserted else { continue }
             effective.casing.append(term)
             if effective.engine.terms.count < DictationConfig.maxVocabularyTerms {
                 effective.engine.terms.append(.init(text: term.text, soundsLike: term.soundsLike))
-            } else {
+                effective.sources.append(source)
+            } else if source.hasSuffix("file") {
                 dropped.append(term.text)
             }
         }
@@ -130,10 +136,10 @@ nonisolated enum Vocabulary {
 
     /// The vocabulary for a dictation in `projectFolder` (cheap: files are
     /// re-parsed only when their modification date changes).
-    static func effective(projectFolder: String?) -> Effective {
+    static func effective(projectFolder: String?, context: [ContextVocabulary.Found] = []) -> Effective {
         let global = cache.load(ensureGlobalFile())
         let project = projectFolder.flatMap { cache.load(projectURL(folder: $0)) }
-        return combine(project: project, global: global)
+        return combine(project: project, global: global, context: context)
     }
 
     private static let cache = FileCache()
@@ -170,9 +176,35 @@ nonisolated enum Vocabulary {
     }()
 
     /// Whether every word of `phrase` is an ordinary word (case-insensitive).
+    /// The system list has no inflections, so "resumed", "scrolls",
+    /// "running" are checked by their stem too.
     static func isDictionaryWord(_ phrase: String) -> Bool {
         let parts = phrase.lowercased().split { !$0.isLetter }
-        return !parts.isEmpty && parts.allSatisfy { words.contains(String($0)) }
+        return !parts.isEmpty && parts.allSatisfy { isWord(String($0)) }
+    }
+
+    private static func isWord(_ word: String) -> Bool {
+        if words.contains(word) { return true }
+        return stems(word).contains { $0.count >= 3 && words.contains($0) }
+    }
+
+    /// Candidate stems for an inflected English word.
+    static func stems(_ word: String) -> [String] {
+        var out: [String] = []
+        func strip(_ suffix: String, _ replacements: [String] = [""]) {
+            guard word.hasSuffix(suffix), word.count > suffix.count + 2 else { return }
+            let base = String(word.dropLast(suffix.count))
+            for r in replacements { out.append(base + r) }
+            // stopped → stop, running → run
+            if let last = base.last, base.count >= 3, base.dropLast().last == last, !"aeiou".contains(last) {
+                out.append(String(base.dropLast()))
+            }
+        }
+        strip("ies", ["y"]); strip("ied", ["y"]); strip("ier", ["y"]); strip("iest", ["y"])
+        strip("es"); strip("s"); strip("ed", ["", "e"]); strip("ing", ["", "e"])
+        strip("ers", ["", "e"]); strip("er", ["", "e"]); strip("est", ["", "e"])
+        strip("ly"); strip("ily", ["y"]); strip("ness")
+        return out
     }
 
     // MARK: Template
