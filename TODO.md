@@ -48,6 +48,32 @@ incoming "Message from @name" rows, the @ menu.
 - **Send to tab / broadcast / gathered replies**, user-driven ways to move
   text between tabs. Mostly covered by @ messaging now; probably drop.
 
+## Dictation
+
+Built so far (branch `dictation/d0-engine-spike`): local engine, mic on
+demand, Right Option hold / double-tap lock, Esc cancels, composer
+insertion, mic button, vocabulary files + context vocabulary, spoken
+formatting/symbols, filler words, replacements, casing fixes.
+
+### Next (rest of D3, D5, D6)
+
+- **Tones** (start/stop/error), **Edit ▸ Dictation** menu (Cancel ⌘.,
+  Insert/Copy Last Dictation, Edit Vocabulary…, Edit Project Vocabulary…),
+  VoiceOver announcements.
+- **Key-press clock check** with real Right Option events (D2 carry-over).
+- Acknowledgements/licenses (Parakeet CC BY 4.0, transcribe.cpp MIT,
+  Silero MIT), memory/idle-CPU check, release build + notarization.
+
+### Later / ideas
+
+- **Casing commands** ("snake case foo bar", "camel case …"): need an end
+  delimiter; rarely needed in prompts (plan §10.2, deferred).
+- **Spoken numbers in names**: "Swift Six" → "Swift 6".
+- **Growing release tail** (up to 600 ms while still speaking; Hex).
+- **Closed-lid rule**: skip the built-in mic while a MacBook's lid is closed (Hex).
+- **Live text while speaking** (Parakeet v2 can't stream; re-run on the
+  growing buffer, or a streaming model after a license review).
+
 ## Reference
 
 - Cross-session messaging docs:

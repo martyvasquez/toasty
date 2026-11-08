@@ -57,6 +57,7 @@
 		C9A592B6AC87794BFE62158E /* GhosttyVt.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 59A391E422005AC05F0585B6 /* GhosttyVt.xcframework */; };
 		CC8328BFDDF5F840A632E2EA /* SpeechEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761A76E108C08A07F86040EB /* SpeechEngineTests.swift */; };
 		D9F77D560C3635E6D7AD25E2 /* SpeechModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38E532463352FE1FCDD0BAFF /* SpeechModels.swift */; };
+		DB9EF218EA4651E15C47905F /* TextPipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0520699B45C02518BAA81BF5 /* TextPipelineTests.swift */; };
 		E418801CB5AD25148EC64A13 /* PTY.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64890A3F04ACB6E7BF086D88 /* PTY.swift */; };
 		EB6410071FBABD7E99511555 /* InspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E974BF37B348BD074F448190 /* InspectorView.swift */; };
 		EE57450227154A9F8FF4DE35 /* DictationIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DAAFA268342A12586EEAEBE /* DictationIndicator.swift */; };
@@ -93,6 +94,7 @@
 
 /* Begin PBXFileReference section */
 		04ABDE15409AACAEF4B2BF66 /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
+		0520699B45C02518BAA81BF5 /* TextPipelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextPipelineTests.swift; sourceTree = "<group>"; };
 		07E44FEF143B34DDB7720C70 /* Vocabulary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Vocabulary.swift; sourceTree = "<group>"; };
 		080B0B6B44543BB4052752BD /* ContextVocabulary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextVocabulary.swift; sourceTree = "<group>"; };
 		0A1AC4F2009B67034788F88E /* ConversationColumn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationColumn.swift; sourceTree = "<group>"; };
@@ -284,6 +286,7 @@
 			children = (
 				7264BFB81D294589F2773124 /* CaptureTests.swift */,
 				761A76E108C08A07F86040EB /* SpeechEngineTests.swift */,
+				0520699B45C02518BAA81BF5 /* TextPipelineTests.swift */,
 				B40EFFB45D939304276D7148 /* TriggerTests.swift */,
 				A2C6D266A74900B7BBDA8064 /* VocabularyTests.swift */,
 			);
@@ -520,6 +523,7 @@
 			files = (
 				0F30004D432418E82D43BAD6 /* CaptureTests.swift in Sources */,
 				CC8328BFDDF5F840A632E2EA /* SpeechEngineTests.swift in Sources */,
+				DB9EF218EA4651E15C47905F /* TextPipelineTests.swift in Sources */,
 				F4AD53E268D6DD3A286BE7F8 /* TriggerTests.swift in Sources */,
 				C6B075DD73015D8393D48893 /* VocabularyTests.swift in Sources */,
 			);

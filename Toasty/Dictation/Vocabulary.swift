@@ -244,45 +244,9 @@ nonisolated enum Vocabulary {
     """
 }
 
-// MARK: - Text steps (plan §10, steps 5–6)
+// MARK: - Text step 6: casing fixes (plan §10.5)
 
 nonisolated extension TextPipeline {
-    /// Replacements (Portal's matcher, Hex's rules): whole words, case-
-    /// insensitive, the trigger's words separated by any spaces or hyphens
-    /// (“cloud code” matches “CloudCode”, “cloud-code”), `_` is part of a
-    /// word, longest trigger first, single pass (output never re-matched).
-    static func applyReplacements(_ text: String, _ rules: [Vocabulary.Replacement]) -> String {
-        let ordered = rules.enumerated().sorted {
-            $0.element.from.count != $1.element.from.count ? $0.element.from.count > $1.element.from.count : $0.offset < $1.offset
-        }.map(\.element)
-        guard !ordered.isEmpty else { return text }
-        let alternatives = ordered.map { rule in
-            rule.from.split { $0.isWhitespace || $0 == "-" }
-                .map { NSRegularExpression.escapedPattern(for: String($0)) }
-                .joined(separator: "[\\s\\-]*")
-        }
-        let pattern = "(?<![\\p{L}\\p{N}_])(?:" + alternatives.map { "(\($0))" }.joined(separator: "|") + ")(?![\\p{L}\\p{N}_])"
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return text }
-        let source = text.precomposedStringWithCanonicalMapping as NSString
-        var output = ""
-        var cursor = 0
-        for match in regex.matches(in: source as String, range: NSRange(location: 0, length: source.length)) {
-            guard let group = (1...ordered.count).first(where: { match.range(at: $0).location != NSNotFound }) else { continue }
-            output += source.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
-            output += ordered[group - 1].to
-            cursor = match.range.location + match.range.length
-        }
-        output += source.substring(from: cursor)
-        return tidyDeletions(output)
-    }
-
-    /// After an empty replacement: no doubled or edge spaces, no space before punctuation.
-    private static func tidyDeletions(_ text: String) -> String {
-        var t = text.replacingOccurrences(of: "[ \\t]{2,}", with: " ", options: .regularExpression)
-        t = t.replacingOccurrences(of: "[ \\t]+([,.;:!?])", with: "$1", options: .regularExpression)
-        return t.trimmingCharacters(in: .whitespaces)
-    }
-
     /// Casing fixes: each term with a capital letter replaces whole-word,
     /// case-insensitive occurrences with its exact casing, only if it isn't
     /// an ordinary word (or is marked `!`). “pty” → “PTY”; “node” stays.

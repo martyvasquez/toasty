@@ -71,17 +71,49 @@ import Testing
         #expect(TextPipeline.applyReplacements("reissues", rules) == "reissues")
     }
 
+    /// hex: longest_match_wins_and_replacements_do_not_recurse — all matches
+    /// compete longest-first, so "code then open" beats "open code".
     @Test func longestMatchWinsAndOutputsAreNotReplacedAgain() {
         let rules = r([("open", "closed"), ("open code", "OpenCode"), ("code then open", "combined"), ("closed", "shut")])
-        #expect(TextPipeline.applyReplacements("open code then open", rules) == "OpenCode then closed")
+        #expect(TextPipeline.applyReplacements("open code then open", rules) == "closed combined")
         let chain = r([("open code", "OpenCode"), ("alpha", "beta release"), ("beta", "gamma")])
         #expect(TextPipeline.applyReplacements("OPEN CODE alpha", chain) == "OpenCode beta release")
     }
 
-    @Test func emptyReplacementDeletes() {
-        let rules = r([("um", "")])
-        #expect(TextPipeline.applyReplacements("I um think so.", rules) == "I think so.")
-        #expect(TextPipeline.applyReplacements("I think so um.", rules) == "I think so.")
+    /// hex: empty_replacements_delete_phrases_and_collapse_surrounding_spacing_and_punctuation
+    @Test(arguments: [
+        ("I um think so.", "I think so."),
+        ("I, um, think so.", "I, think so."),
+        ("I, um, uh, think so.", "I, think so."),
+        ("Um, the build passed.", "The build passed."),
+        ("Um, uh, the build passed.", "The build passed."),
+        ("um, the build passed.", "the build passed."),
+        ("I think so um.", "I think so."),
+        ("I think so, um.", "I think so."),
+        ("I think so, um", "I think so"),
+        ("Thank you.", ""),
+        ("Hello. Thank you.", "Hello."),
+        ("Hello. Thank you. The build passed.", "Hello. The build passed."),
+    ])
+    func emptyReplacementDeletes(input: String, expected: String) {
+        let rules = r([("um", ""), ("uh", ""), ("thank you", "")])
+        #expect(TextPipeline.applyReplacements(input, rules) == expected)
+    }
+
+    @Test func overlappingRejectedMatchDoesNotHideAPhrase() {
+        let rules = r([("I I", "I"), ("the the", "the")])
+        #expect(TextPipeline.applyReplacements("Hi I I think so.", rules) == "Hi I think so.")
+        #expect(TextPipeline.applyReplacements("Breathe the the air.", rules) == "Breathe the air.")
+    }
+
+    @Test func duplicatePhrasesUseFileOrder() {
+        #expect(TextPipeline.applyReplacements("hex", r([("hex", "first"), ("HEX", "second")])) == "first")
+    }
+
+    @Test func unspacedScripts() {
+        let rules = r([("issue", "Issue"), ("open code", "OpenCode")])
+        #expect(TextPipeline.applyReplacements("这个issue很重要", rules) == "这个Issue很重要")
+        #expect(TextPipeline.applyReplacements("用open code写", rules) == "用OpenCode写")
     }
 
     @Test func userExample() {
