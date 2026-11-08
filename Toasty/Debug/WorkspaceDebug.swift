@@ -217,6 +217,93 @@ enum WorkspaceDebug {
             store.save()
             return WorkspaceStore.stateURL.path
         }
+
+        // Time switching workspaces: {"cmd":"perfSwitch","count":10}.
+        // Each switch is timed from activate until the main queue runs
+        // again (the SwiftUI update, layout and commit all happen first).
+        DebugControl.registerAsync("perfSwitch") { cmd in
+            let count = cmd["count"] as? Int ?? 10
+            guard store.workspaces.count > 1 else { throw E("need 2+ workspaces") }
+            var times: [Double] = []
+            for _ in 0..<count {
+                let start = CACurrentMediaTime()
+                // {"a":0,"b":3}: back and forth between two workspaces.
+                if let a = cmd["a"] as? Int, let b = cmd["b"] as? Int, store.workspaces.indices.contains(a),
+                   store.workspaces.indices.contains(b) {
+                    store.activate(store.workspaces[store.active?.id == store.workspaces[a].id ? b : a].id)
+                } else {
+                    store.activateRelative(1)
+                }
+                await nextTurn()
+                times.append((CACurrentMediaTime() - start) * 1000)
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+            return Self.summary(times)
+        }
+
+        // Time typing in the composer (each keystroke changes the
+        // conversation the transcript observes): {"cmd":"perfType","count":20}.
+        DebugControl.registerAsync("perfType") { cmd in
+            guard let c = store.active?.selected else { throw E("no conversation") }
+            let saved = c.draft
+            var times: [Double] = []
+            for _ in 0..<(cmd["count"] as? Int ?? 20) {
+                let start = CACurrentMediaTime()
+                c.draft += "a"
+                await nextTurn()
+                times.append((CACurrentMediaTime() - start) * 1000)
+                try? await Task.sleep(for: .milliseconds(20))
+            }
+            c.draft = saved
+            return Self.summary(times)
+        }
+
+        // Scroll the transcript up by hand in steps and time each one:
+        // {"cmd":"perfScroll","steps":60,"dy":3}. "jumps" counts steps where
+        // the view didn't land where the wheel put it.
+        DebugControl.registerAsync("perfScroll") { cmd in
+            guard let window = DebugControl.window else { throw E("no window") }
+            let steps = cmd["steps"] as? Int ?? 60, dy = Int32(cmd["dy"] as? Int ?? 3)
+            let x = cmd["x"] as? Double ?? 500, y = cmd["y"] as? Double ?? 300
+            @MainActor func transcript(_ v: NSView) -> [NSScrollView] {
+                ((v as? NSScrollView).map { [$0] } ?? []) + v.subviews.flatMap(transcript)
+            }
+            guard let sv = transcript(window.contentView!).filter({ !($0.superview is TerminalScrollView) && $0.documentView?.isFlipped == true && !$0.isHiddenOrHasHiddenAncestor })
+                .max(by: { ($0.documentView?.frame.height ?? 0) < ($1.documentView?.frame.height ?? 0) }) else { throw E("no transcript") }
+            var times: [Double] = []
+            var deltas: [Int] = []
+            for _ in 0..<steps {
+                let before = sv.contentView.bounds.origin.y
+                guard let cg = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: dy * 10, wheel2: 0, wheel3: 0) else { break }
+                let screen = window.convertPoint(toScreen: NSPoint(x: x, y: window.frame.height - y))
+                cg.location = CGPoint(x: screen.x, y: (NSScreen.screens.first?.frame.height ?? 0) - screen.y)
+                guard let e = NSEvent(cgEvent: cg) else { break }
+                let start = CACurrentMediaTime()
+                window.sendEvent(e)
+                await nextTurn()
+                times.append((CACurrentMediaTime() - start) * 1000)
+                try? await Task.sleep(for: .milliseconds(16))
+                deltas.append(Int((sv.contentView.bounds.origin.y - before).rounded()))
+            }
+            var r = Self.summary(times)
+            // Every step should move the same distance; others are jumps.
+            let typical = deltas.sorted()[deltas.count / 2]
+            r["jumps"] = deltas.filter { abs($0 - typical) > 1 }.count
+            r["deltas"] = deltas.map(String.init).joined(separator: " ")
+            r["height"] = sv.documentView?.frame.height ?? 0
+            return r
+        }
+    }
+
+    @MainActor private static func nextTurn() async {
+        await withCheckedContinuation { c in DispatchQueue.main.async { c.resume() } }
+    }
+
+    private static func summary(_ ms: [Double]) -> [String: Any] {
+        let s = ms.sorted()
+        func r(_ v: Double) -> Double { (v * 10).rounded() / 10 }
+        return ["count": s.count, "medianMs": r(s.isEmpty ? 0 : s[s.count / 2]),
+                "maxMs": r(s.last ?? 0), "meanMs": r(s.reduce(0, +) / Double(max(1, s.count)))]
     }
 
     static func state() -> [String: Any] {

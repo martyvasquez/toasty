@@ -93,8 +93,16 @@ enum ClaudeDebug {
         }
 
         // A long synthetic session: {"cmd":"longSession","turns":600} (3 rows per turn).
+        // {"turns":60,"workspace":1}: into that workspace's selected tab.
         DebugControl.register("longSession") { cmd in
-            let c = try conv()
+            let c: ClaudeConversation
+            if let i = cmd["workspace"] as? Int {
+                guard WorkspaceStore.shared.workspaces.indices.contains(i),
+                      let s = WorkspaceStore.shared.workspaces[i].selected else { throw E("no workspace \(i)") }
+                c = s
+            } else {
+                c = try conv()
+            }
             let start = Date()
             c.debugAppendLongSession(turns: cmd["turns"] as? Int ?? 600)
             return ["items": c.items.count, "appendSeconds": Date().timeIntervalSince(start)]
@@ -117,7 +125,7 @@ enum ClaudeDebug {
             @MainActor func scrollViews(_ v: NSView) -> [NSScrollView] {
                 ((v as? NSScrollView).map { [$0] } ?? []) + v.subviews.flatMap(scrollViews)
             }
-            let candidates = scrollViews(root).filter { !($0.superview is TerminalScrollView) && !($0.documentView is FlippedView) }
+            let candidates = scrollViews(root).filter { !($0.superview is TerminalScrollView) && !($0.documentView is FlippedView) && !$0.isHiddenOrHasHiddenAncestor }
             guard let sv = candidates.max(by: { ($0.documentView?.frame.height ?? 0) < ($1.documentView?.frame.height ?? 0) }),
                   let doc = sv.documentView else { throw E("no transcript") }
             // Respect the content insets (the transcript runs under the titlebar).

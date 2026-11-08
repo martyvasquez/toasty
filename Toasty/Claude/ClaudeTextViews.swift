@@ -31,11 +31,15 @@ struct ClaudeRichText: NSViewRepresentable {
         view.linkTextAttributes = [.cursor: NSCursor.pointingHand]
         view.delegate = context.coordinator
         view.textStorage?.setAttributedString(text)
+        view.shownText = text
         view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return view
     }
 
     func updateNSView(_ view: ClaudeOutputTextView, context: Context) {
+        // The same (cached) string as last time: nothing to compare.
+        guard view.shownText !== text else { return }
+        view.shownText = text
         guard let storage = view.textStorage, !storage.isEqual(to: text) else { return }
         // Keep a selection the user is making in a streaming message.
         let selection = view.selectedRanges
@@ -76,6 +80,8 @@ struct ClaudeRichText: NSViewRepresentable {
 }
 
 final class ClaudeOutputTextView: NSTextView {
+    /// The string last handed to the view.
+    weak var shownText: NSAttributedString?
     /// Measured heights by width, cleared when the text changes.
     var heights: [Int: CGFloat] = [:] {
         didSet { if heights.isEmpty { usedWidths.removeAll() } }

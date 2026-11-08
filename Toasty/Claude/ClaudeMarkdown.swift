@@ -37,7 +37,27 @@ enum ClaudeMarkdown {
         case rule
     }
 
+    /// Parsed messages, so re-rendering a transcript (typing, hovering,
+    /// status updates, switching back to it) never parses the same text twice.
+    private final class Parsed {
+        let blocks: [Block]
+        init(_ blocks: [Block]) { self.blocks = blocks }
+    }
+    private static let parsed: NSCache<NSString, Parsed> = {
+        let cache = NSCache<NSString, Parsed>()
+        cache.countLimit = 4000
+        return cache
+    }()
+
     static func blocks(_ markdown: String, style: Style = .init()) -> [Block] {
+        let key = "\(style.baseSize)|\(style.codeSize)|\(style.cwd ?? "")|\(markdown)" as NSString
+        if let hit = parsed.object(forKey: key) { return hit.blocks }
+        let out = parseBlocks(markdown, style: style)
+        parsed.setObject(Parsed(out), forKey: key)
+        return out
+    }
+
+    private static func parseBlocks(_ markdown: String, style: Style) -> [Block] {
         let raw = parse(markdown)
         var out: [Block] = []
         var pending = NSMutableAttributedString()

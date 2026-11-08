@@ -43,6 +43,15 @@ private enum TranscriptRow: Identifiable {
         }
     }
 
+    /// The same items (a run of tools grows as tools are added).
+    func same(as other: TranscriptRow) -> Bool {
+        switch (self, other) {
+        case (.item(let a), .item(let b)): a === b
+        case (.tools(let a), .tools(let b)): a.count == b.count && zip(a, b).allSatisfy { $0 === $1 }
+        default: false
+        }
+    }
+
     var first: ClaudeItem? {
         switch self {
         case .item(let i): i
@@ -56,7 +65,8 @@ struct ClaudeTranscript: View {
     var onRunInTerminal: (String) -> Void
 
     /// Only the most recent rows are laid out; earlier ones on request.
-    @State private var limit = 160
+    @State private var limit = Self.initialLimit
+    private static let initialLimit = 160
     /// The view is scrolled to (near) the end.
     @State private var atBottom = true
     /// Follow new output, like a terminal: on while at the bottom, off once
@@ -80,6 +90,7 @@ struct ClaudeTranscript: View {
 
     var body: some View {
         let all = rows
+        let latestReply = latestReplyID
         let hidden = max(0, all.count - limit)
         let shown = Array(all.suffix(limit))
 
@@ -94,16 +105,16 @@ struct ClaudeTranscript: View {
                         ClaudeEmptyState(conversation: conversation)
                     }
                     if hidden > 0 {
-                        Button("Show \(hidden) Earlier") { limit += 160 }
+                        Button("Show \(hidden) Earlier") { limit += Self.initialLimit }
                             .buttonStyle(.link)
                             .font(.system(size: 12))
                             .frame(maxWidth: .infinity)
                             .padding(.bottom, 20)
                     }
-                    ForEach(Array(shown.enumerated()), id: \.element.id) { i, row in
-                        rowView(row)
-                            .padding(.top, i == 0 ? 0 : spacing(before: row, after: shown[i - 1]))
-                    }
+                    TranscriptRows(rows: shown, latestReply: latestReply, highlighted: highlighted,
+                                   forkable: forkable(shown), conversation: conversation,
+                                   onRun: onRunInTerminal)
+                        .equatable()
                     // The end marker carries the space below the last message,
                     // so scrolling to it lands on the very end.
                     Color.clear.frame(height: 40).id("bottom")
@@ -157,10 +168,16 @@ struct ClaudeTranscript: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
             }
+            .onChange(of: all.count) { old, new in
+                // Reading further up: new rows grow the laid out window
+                // rather than slide it, so what's on screen stays put.
+                if !following, new > old, conversation.items.last?.startsTurn != true { limit += new - old }
+            }
             .onChange(of: conversation.items.count) { _, _ in
                 // A new message: follow it, unless the user is reading
                 // further up (a prompt they just sent always shows).
                 guard following || conversation.items.last?.startsTurn == true else { return }
+                if !following { limit = Self.initialLimit }
                 following = true
                 withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("bottom", anchor: .bottom) }
             }
@@ -200,13 +217,13 @@ struct ClaudeTranscript: View {
         }
     }
 
-    /// Forking needs Claude Code's id for the reply and a saved session.
-    private func forkAction(_ item: ClaudeItem) -> ((Bool) -> Void)? {
-        guard item.endsTurn, item.entryUUID != nil, conversation.sessionID != nil,
-              let workspace = conversation.workspace else { return nil }
-        return { [weak conversation] background in
-            guard let conversation else { return }
-            workspace.fork(conversation, at: item, select: !background)
+    /// Replies that can be forked (Claude Code's id for the reply and a
+    /// saved session).
+    private func forkable(_ rows: [TranscriptRow]) -> [String] {
+        guard conversation.sessionID != nil, conversation.workspace != nil else { return [] }
+        return rows.compactMap {
+            guard case .item(let i) = $0, i.endsTurn, i.entryUUID != nil else { return nil }
+            return i.id
         }
     }
 
@@ -241,6 +258,31 @@ struct ClaudeTranscript: View {
         flush()
         return out
     }
+}
+
+/// The transcript's rows. Redrawn only when they change, not whenever the
+/// conversation does (typing a prompt, status and usage updates, focus).
+private struct TranscriptRows: View, Equatable {
+    let rows: [TranscriptRow]
+    let latestReply: String?
+    let highlighted: String?
+    let forkable: [String]
+    /// Not observed: the rows are what's shown.
+    let conversation: ClaudeConversation
+    let onRun: (String) -> Void
+
+    static func == (a: Self, b: Self) -> Bool {
+        a.conversation === b.conversation && a.latestReply == b.latestReply
+            && a.highlighted == b.highlighted && a.forkable == b.forkable
+            && a.rows.elementsEqual(b.rows) { $0.same(as: $1) }
+    }
+
+    var body: some View {
+        ForEach(Array(rows.enumerated()), id: \.element.id) { i, row in
+            rowView(row)
+                .padding(.top, i == 0 ? 0 : spacing(before: row, after: rows[i - 1]))
+        }
+    }
 
     private func spacing(before row: TranscriptRow, after previous: TranscriptRow) -> CGFloat {
         if row.first?.startsTurn == true { return 34 }
@@ -248,13 +290,21 @@ struct ClaudeTranscript: View {
         return 16
     }
 
+    private func forkAction(_ item: ClaudeItem) -> ((Bool) -> Void)? {
+        guard forkable.contains(item.id), let workspace = conversation.workspace else { return nil }
+        return { [weak conversation] background in
+            guard let conversation else { return }
+            workspace.fork(conversation, at: item, select: !background)
+        }
+    }
+
     @ViewBuilder private func rowView(_ row: TranscriptRow) -> some View {
         switch row {
         case .tools(let items):
             ClaudeToolGroup(items: items, cwd: conversation.cwd)
         case .item(let item):
-            ClaudeItemView(item: item, cwd: conversation.cwd, onRun: onRunInTerminal,
-                           latest: item.id == latestReplyID, onFork: forkAction(item))
+            ClaudeItemView(item: item, cwd: conversation.cwd, onRun: onRun,
+                           latest: item.id == latestReply, onFork: forkAction(item))
                 .background {
                     RoundedRectangle(cornerRadius: ClaudeStyle.cornerRadius, style: .continuous)
                         .fill(Color.accentColor.opacity(highlighted == item.id ? 0.1 : 0))

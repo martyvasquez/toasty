@@ -51,8 +51,7 @@ final class MainSplitViewController: NSSplitViewController {
         sidebarItem.canCollapse = true
         sidebarItem.isCollapsed = !store.sidebarVisible
 
-        let content = NSHostingController(rootView: ConversationColumn(store: store))
-        content.sizingOptions = []
+        let content = ConversationColumnController(store: store)
         contentItem = NSSplitViewItem(viewController: content)
         contentItem.minimumThickness = Self.minConversation
         contentItem.holdingPriority = .init(249)
