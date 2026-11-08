@@ -35,6 +35,7 @@
 		6131DD0CF970A46E4FE1AC30 /* KeyCodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64C4D1DA3C7A21F286EE8D53 /* KeyCodes.swift */; };
 		6132779EEA82B2C34C56CDE9 /* ClaudeRequestCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CCEEDDC3B6D5A771D67C9DC /* ClaudeRequestCard.swift */; };
 		661A4A0A4B1CF64A4E83E929 /* Fixtures in Resources */ = {isa = PBXBuildFile; fileRef = 6F3A8B4B872E5EC65743891C /* Fixtures */; };
+		6CBCBC44A0E7D23F1974174F /* Vocabulary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07E44FEF143B34DDB7720C70 /* Vocabulary.swift */; };
 		78A6CA1B4CA929C128407E33 /* WorkspaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */; };
 		8564E49059338213553F5F29 /* DictationDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 662BABDF0CE9D1BACB40CDDF /* DictationDebug.swift */; };
 		8905A680FA47042672972DFD /* ClaudeConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEF18C42EDAF14F5AFAD03EE /* ClaudeConversationView.swift */; };
@@ -50,6 +51,7 @@
 		C377CAE6CF74EDB9ACFFE687 /* CaptureClip.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0AB472102F6E81ECE753B0B /* CaptureClip.swift */; };
 		C43DE4B1B520DE08BA08379B /* DebugControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C279FCF3F11C0D07DF1B5B /* DebugControl.swift */; };
 		C4C4D6FECA7C3F59FBB1EBD6 /* MainMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C51FB87F905EF29B4ECF92F /* MainMenu.swift */; };
+		C6B075DD73015D8393D48893 /* VocabularyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2C6D266A74900B7BBDA8064 /* VocabularyTests.swift */; };
 		C83DB61BBC4E1B55D26FE8AB /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB24559E15BED10BF20F7121 /* AppDelegate.swift */; };
 		C9A592B6AC87794BFE62158E /* GhosttyVt.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 59A391E422005AC05F0585B6 /* GhosttyVt.xcframework */; };
 		CC8328BFDDF5F840A632E2EA /* SpeechEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761A76E108C08A07F86040EB /* SpeechEngineTests.swift */; };
@@ -90,6 +92,7 @@
 
 /* Begin PBXFileReference section */
 		04ABDE15409AACAEF4B2BF66 /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
+		07E44FEF143B34DDB7720C70 /* Vocabulary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Vocabulary.swift; sourceTree = "<group>"; };
 		0A1AC4F2009B67034788F88E /* ConversationColumn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationColumn.swift; sourceTree = "<group>"; };
 		1A5B8F16A6E5B2987A97AD1D /* ClaudeTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTypography.swift; sourceTree = "<group>"; };
 		1DB1DB6F9D1A2A6132740C20 /* ClaudeTextViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTextViews.swift; sourceTree = "<group>"; };
@@ -120,6 +123,7 @@
 		938002554F60AC3FFC1B8C75 /* TriggerMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TriggerMonitor.swift; sourceTree = "<group>"; };
 		953B4EC2E8F32D9B902082DE /* TextPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextPipeline.swift; sourceTree = "<group>"; };
 		9CCEEDDC3B6D5A771D67C9DC /* ClaudeRequestCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeRequestCard.swift; sourceTree = "<group>"; };
+		A2C6D266A74900B7BBDA8064 /* VocabularyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VocabularyTests.swift; sourceTree = "<group>"; };
 		A392D7CD9154E4ADC8244C28 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStore.swift; sourceTree = "<group>"; };
 		A8A10A7F8DA308A1B9259A36 /* MainSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainSplitViewController.swift; sourceTree = "<group>"; };
@@ -279,6 +283,7 @@
 				7264BFB81D294589F2773124 /* CaptureTests.swift */,
 				761A76E108C08A07F86040EB /* SpeechEngineTests.swift */,
 				B40EFFB45D939304276D7148 /* TriggerTests.swift */,
+				A2C6D266A74900B7BBDA8064 /* VocabularyTests.swift */,
 			);
 			path = DictationTests;
 			sourceTree = "<group>";
@@ -304,6 +309,7 @@
 				38E532463352FE1FCDD0BAFF /* SpeechModels.swift */,
 				953B4EC2E8F32D9B902082DE /* TextPipeline.swift */,
 				938002554F60AC3FFC1B8C75 /* TriggerMonitor.swift */,
+				07E44FEF143B34DDB7720C70 /* Vocabulary.swift */,
 			);
 			path = Dictation;
 			sourceTree = "<group>";
@@ -495,6 +501,7 @@
 				3502266411B2DCC70D0962EA /* TitlebarTabs.swift in Sources */,
 				51C4BADA68E4CF5BC521F1CB /* TriggerMonitor.swift in Sources */,
 				339EEDB6041B8A87C4C92758 /* VT.swift in Sources */,
+				6CBCBC44A0E7D23F1974174F /* Vocabulary.swift in Sources */,
 				F05E7AF8BA36E71A38111FF3 /* Workspace.swift in Sources */,
 				50719BBE528DB4B26987DCF7 /* WorkspaceDebug.swift in Sources */,
 				1ACC8FE2272EB5760687D654 /* WorkspaceSidebarView.swift in Sources */,
@@ -510,6 +517,7 @@
 				0F30004D432418E82D43BAD6 /* CaptureTests.swift in Sources */,
 				CC8328BFDDF5F840A632E2EA /* SpeechEngineTests.swift in Sources */,
 				F4AD53E268D6DD3A286BE7F8 /* TriggerTests.swift in Sources */,
+				C6B075DD73015D8393D48893 /* VocabularyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

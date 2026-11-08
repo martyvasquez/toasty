@@ -1,0 +1,269 @@
+import Foundation
+import os
+
+/// The vocabulary (plan §10.4–10.5): terms that bias the engine (rescoring
+/// checks the audio), replacements applied to the text, and casing fixes.
+/// Two plain-text files, re-read whenever they change:
+/// - global: ~/Library/Application Support/<app name>/vocabulary.txt
+///   (created from a commented template on first use; the Debug build's
+///   own folder for Toasty Debug);
+/// - project: <workspace folder>/.toasty/vocabulary.txt (optional).
+nonisolated enum Vocabulary {
+    private static let log = Logger(subsystem: "com.martyvasquez.toasty", category: "vocabulary")
+
+    struct Term: Equatable, Sendable {
+        var text: String
+        var soundsLike: [String] = []
+        /// `Term!`: fix the casing even though it's a dictionary word.
+        var forced = false
+    }
+
+    struct Replacement: Equatable, Sendable {
+        var from: String
+        var to: String
+    }
+
+    struct File: Equatable, Sendable {
+        var terms: [Term] = []
+        var replacements: [Replacement] = []
+        var warnings: [String] = []
+    }
+
+    /// What one dictation uses.
+    struct Effective: Sendable {
+        var engine = VocabularySnapshot()
+        var replacements: [Replacement] = []
+        var casing: [Term] = []
+    }
+
+    // MARK: Parsing
+
+    /// One entry per line; `#` comments and blank lines ignored.
+    ///   Claude Code                        a term
+    ///   libghostty = lib ghostty, lib ghosty   a term with sounds-like spellings (≤ 16)
+    ///   cloud code -> Claude Code          a replacement (text only, always applied)
+    ///   PTY!                               force the casing fix for a dictionary word
+    static func parse(_ text: String) -> File {
+        var file = File()
+        for raw in text.split(whereSeparator: \.isNewline) {
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            guard !line.isEmpty, !line.hasPrefix("#") else { continue }
+            if let arrow = line.range(of: "->") {
+                let from = line[..<arrow.lowerBound].trimmingCharacters(in: .whitespaces)
+                let to = line[arrow.upperBound...].trimmingCharacters(in: .whitespaces)
+                guard !from.isEmpty else { file.warnings.append("“\(line)”: nothing to replace"); continue }
+                if from.filter(\.isLetter).count <= 3 {
+                    file.warnings.append("“\(from)” is very short; it may replace more than you mean.")
+                } else if !from.contains(" "), isDictionaryWord(from) {
+                    file.warnings.append("“\(from)” is an ordinary word; every “\(from)” will become “\(to)”.")
+                }
+                file.replacements.append(Replacement(from: from, to: to))
+                continue
+            }
+            let parts = line.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+            var name = parts[0]
+            var forced = false
+            if name.hasSuffix("!") { forced = true; name.removeLast(); name = name.trimmingCharacters(in: .whitespaces) }
+            guard !name.isEmpty else { continue }
+            if name.count > DictationConfig.maxTermCharacters || name.contains(where: { "/\\".contains($0) }) {
+                file.warnings.append("“\(name)” skipped: terms are at most \(DictationConfig.maxTermCharacters) characters, without / or \\.")
+                continue
+            }
+            let spellings = parts.count > 1
+                ? parts[1].split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+                : []
+            if !name.contains(" ") && (name.count < 7 || isDictionaryWord(name)) {
+                file.warnings.append("“\(name)” is a short or ordinary single word; it may replace words that sound like it. A longer form (e.g. “Claude Code”, not “Claude”) is safer.")
+            }
+            file.terms.append(Term(text: name, soundsLike: Array(spellings.prefix(DictationConfig.maxSoundsLikePerTerm)), forced: forced))
+        }
+        return file
+    }
+
+    /// Project before global; duplicates (case-insensitive) dropped; at most
+    /// 64 engine terms (the rest logged). Replacements: project first.
+    static func combine(project: File?, global: File?) -> Effective {
+        var effective = Effective()
+        var seen = Set<String>()
+        var dropped: [String] = []
+        for term in (project?.terms ?? []) + (global?.terms ?? []) {
+            guard seen.insert(term.text.lowercased()).inserted else { continue }
+            effective.casing.append(term)
+            if effective.engine.terms.count < DictationConfig.maxVocabularyTerms {
+                effective.engine.terms.append(.init(text: term.text, soundsLike: term.soundsLike))
+            } else {
+                dropped.append(term.text)
+            }
+        }
+        if !dropped.isEmpty {
+            log.warning("vocabulary over \(DictationConfig.maxVocabularyTerms) terms; not sent to the engine: \(dropped.joined(separator: ", "), privacy: .public)")
+        }
+        effective.replacements = (project?.replacements ?? []) + (global?.replacements ?? [])
+        return effective
+    }
+
+    // MARK: Files
+
+    static var globalURL: URL {
+        let name = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Toasty"
+        return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(name, isDirectory: true)
+            .appendingPathComponent("vocabulary.txt")
+    }
+
+    static func projectURL(folder: String) -> URL {
+        URL(fileURLWithPath: folder, isDirectory: true)
+            .appendingPathComponent(".toasty", isDirectory: true)
+            .appendingPathComponent("vocabulary.txt")
+    }
+
+    /// Creates the global file from the template if it doesn't exist.
+    @discardableResult
+    static func ensureGlobalFile() -> URL {
+        let url = globalURL
+        if !FileManager.default.fileExists(atPath: url.path) {
+            try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? template.write(to: url, atomically: true, encoding: .utf8)
+        }
+        return url
+    }
+
+    /// The vocabulary for a dictation in `projectFolder` (cheap: files are
+    /// re-parsed only when their modification date changes).
+    static func effective(projectFolder: String?) -> Effective {
+        let global = cache.load(ensureGlobalFile())
+        let project = projectFolder.flatMap { cache.load(projectURL(folder: $0)) }
+        return combine(project: project, global: global)
+    }
+
+    private static let cache = FileCache()
+
+    private final class FileCache: @unchecked Sendable {
+        private let lock = NSLock()
+        private var files: [URL: (date: Date, file: File)] = [:]
+
+        func load(_ url: URL) -> File? {
+            guard let date = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date else {
+                return nil
+            }
+            if let hit = lock.withLock({ files[url] }), hit.date == date { return hit.file }
+            guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+            let file = parse(text)
+            for warning in file.warnings {
+                Vocabulary.log.warning("\(url.path, privacy: .public): \(warning, privacy: .public)")
+            }
+            lock.withLock { files[url] = (date, file) }
+            return file
+        }
+    }
+
+    // MARK: Dictionary words (/usr/share/dict/words)
+
+    /// Loads the system word list in the background (call at launch).
+    static func preload() {
+        DispatchQueue.global(qos: .utility).async { _ = words }
+    }
+
+    private static let words: Set<String> = {
+        guard let text = try? String(contentsOfFile: "/usr/share/dict/words", encoding: .utf8) else { return [] }
+        return Set(text.split(whereSeparator: \.isNewline).map { $0.lowercased() })
+    }()
+
+    /// Whether every word of `phrase` is an ordinary word (case-insensitive).
+    static func isDictionaryWord(_ phrase: String) -> Bool {
+        let parts = phrase.lowercased().split { !$0.isLetter }
+        return !parts.isEmpty && parts.allSatisfy { words.contains(String($0)) }
+    }
+
+    // MARK: Template
+
+    static let template = """
+    # Toasty dictation vocabulary: names and terms you say in prompts.
+    # One entry per line. Lines starting with # are ignored.
+    #
+    #   Claude Code                       a term, written exactly as it should appear.
+    #                                     The speech engine favours it when the audio
+    #                                     supports it, and its casing is fixed in text.
+    #   libghostty = lib ghostty          a term plus how it may be heard (sounds-like).
+    #   nimblest -> Nimbalyst             a replacement: always applied to the text.
+    #   Codex!                            "!" also fixes the casing of an ordinary word
+    #                                     ("codex" → "Codex" everywhere).
+    #
+    # Tips:
+    # - Prefer multi-word terms. A single short or ordinary word ("Claude", "Node")
+    #   can turn words that sound like it into the term ("cloud" → "Claude").
+    # - Casing is only fixed for words that aren't ordinary English words, unless
+    #   marked with "!".
+    # - Up to 64 terms reach the engine; a project's own file
+    #   (<project>/.toasty/vocabulary.txt) comes first.
+
+    Claude Code
+    Anthropic
+    GitHub
+    TypeScript
+    SwiftUI
+    Xcode
+    MCP
+
+    # Single words that sound like ordinary ones: add only if you say them
+    # often (remove the "# ").
+    # Codex!
+    # worktree
+    """
+}
+
+// MARK: - Text steps (plan §10, steps 5–6)
+
+nonisolated extension TextPipeline {
+    /// Replacements (Portal's matcher, Hex's rules): whole words, case-
+    /// insensitive, the trigger's words separated by any spaces or hyphens
+    /// (“cloud code” matches “CloudCode”, “cloud-code”), `_` is part of a
+    /// word, longest trigger first, single pass (output never re-matched).
+    static func applyReplacements(_ text: String, _ rules: [Vocabulary.Replacement]) -> String {
+        let ordered = rules.enumerated().sorted {
+            $0.element.from.count != $1.element.from.count ? $0.element.from.count > $1.element.from.count : $0.offset < $1.offset
+        }.map(\.element)
+        guard !ordered.isEmpty else { return text }
+        let alternatives = ordered.map { rule in
+            rule.from.split { $0.isWhitespace || $0 == "-" }
+                .map { NSRegularExpression.escapedPattern(for: String($0)) }
+                .joined(separator: "[\\s\\-]*")
+        }
+        let pattern = "(?<![\\p{L}\\p{N}_])(?:" + alternatives.map { "(\($0))" }.joined(separator: "|") + ")(?![\\p{L}\\p{N}_])"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return text }
+        let source = text.precomposedStringWithCanonicalMapping as NSString
+        var output = ""
+        var cursor = 0
+        for match in regex.matches(in: source as String, range: NSRange(location: 0, length: source.length)) {
+            guard let group = (1...ordered.count).first(where: { match.range(at: $0).location != NSNotFound }) else { continue }
+            output += source.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
+            output += ordered[group - 1].to
+            cursor = match.range.location + match.range.length
+        }
+        output += source.substring(from: cursor)
+        return tidyDeletions(output)
+    }
+
+    /// After an empty replacement: no doubled or edge spaces, no space before punctuation.
+    private static func tidyDeletions(_ text: String) -> String {
+        var t = text.replacingOccurrences(of: "[ \\t]{2,}", with: " ", options: .regularExpression)
+        t = t.replacingOccurrences(of: "[ \\t]+([,.;:!?])", with: "$1", options: .regularExpression)
+        return t.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Casing fixes: each term with a capital letter replaces whole-word,
+    /// case-insensitive occurrences with its exact casing, only if it isn't
+    /// an ordinary word (or is marked `!`). “pty” → “PTY”; “node” stays.
+    static func fixCasing(_ text: String, _ terms: [Vocabulary.Term],
+                          isDictionaryWord: (String) -> Bool = Vocabulary.isDictionaryWord) -> String {
+        var result = text
+        for term in terms where term.text.contains(where: \.isUppercase) {
+            guard term.forced || !isDictionaryWord(term.text) else { continue }
+            let pattern = "(?<![\\p{L}\\p{N}_])" + NSRegularExpression.escapedPattern(for: term.text) + "(?![\\p{L}\\p{N}_])"
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
+            result = regex.stringByReplacingMatches(in: result, range: NSRange(result.startIndex..., in: result),
+                                                    withTemplate: NSRegularExpression.escapedTemplate(for: term.text))
+        }
+        return result
+    }
+}

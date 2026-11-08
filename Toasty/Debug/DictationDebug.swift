@@ -143,12 +143,16 @@ enum DictationDebug {
         }
     }
 
-    private static func vocabulary(_ cmd: [String: Any]) throws -> VocabularySnapshot {
-        guard let file = cmd["vocabulary"] as? String else { return .empty }
-        return parseTerms(try String(contentsOfFile: file, encoding: .utf8))
+    /// `vocabulary`: a file to use alone; else the real global file plus the
+    /// project file of `project` (a folder), as a dictation would.
+    private static func vocabulary(_ cmd: [String: Any]) throws -> Vocabulary.Effective {
+        if let file = cmd["vocabulary"] as? String {
+            return Vocabulary.combine(project: Vocabulary.parse(try String(contentsOfFile: file, encoding: .utf8)), global: nil)
+        }
+        return Vocabulary.effective(projectFolder: cmd["project"] as? String)
     }
 
-    private static func process(_ outcome: MicCapture.Outcome, vocabulary: VocabularySnapshot) async throws -> Any? {
+    private static func process(_ outcome: MicCapture.Outcome, vocabulary: Vocabulary.Effective) async throws -> Any? {
         switch outcome {
         case .none: return ["outcome": "no capture"]
         case .tooShort: return ["outcome": "too short"]
@@ -158,7 +162,7 @@ enum DictationDebug {
     }
 
     /// Gates, then (if kept, or `force`) the engine.
-    private static func process(_ clip: FramedClip, vocabulary: VocabularySnapshot, force: Bool) async throws -> Any? {
+    private static func process(_ clip: FramedClip, vocabulary: Vocabulary.Effective, force: Bool) async throws -> Any? {
         let gate = await CaptureClip.gate(clip) { await SpeechEngine.shared.containsSpeech($0) }
         if gate == .digitalSilence, !force { MicCapture.shared.reopenSilentStream() }
         var result: [String: Any] = [
@@ -169,9 +173,10 @@ enum DictationDebug {
             "levelDBFS": (CaptureClip.loudestWindowDBFS(Array(clip.released)) * 10).rounded() / 10,
         ]
         guard gate == .keep || force else { result["outcome"] = "discarded"; return result }
-        let t = try await SpeechEngine.shared.transcribe(clip.samples, vocabulary: vocabulary)
+        let t = try await SpeechEngine.shared.transcribe(clip.samples, vocabulary: vocabulary.engine)
         result["outcome"] = "transcribed"
         result["text"] = t.text
+        result["final"] = TextPipeline.forComposer(TextPipeline.process(t.text, vocabulary: vocabulary), before: "")
         result["runSeconds"] = t.runSeconds
         result["audioSeconds"] = t.audioSeconds
         result["vocabularyTerms"] = t.vocabularyTerms
@@ -200,16 +205,5 @@ enum DictationDebug {
         try file.write(from: buffer)
     }
 
-    static func parseTerms(_ text: String) -> VocabularySnapshot {
-        var snapshot = VocabularySnapshot()
-        for raw in text.split(whereSeparator: \.isNewline) {
-            let line = raw.trimmingCharacters(in: .whitespaces)
-            guard !line.isEmpty, !line.hasPrefix("#") else { continue }
-            let parts = line.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
-            let spellings = parts.count > 1 ? parts[1].split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) } : []
-            snapshot.terms.append(.init(text: parts[0], soundsLike: spellings.filter { !$0.isEmpty }))
-        }
-        return snapshot
-    }
 }
 #endif

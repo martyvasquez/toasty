@@ -46,12 +46,15 @@ final class DictationController: ObservableObject {
         let id: Int
         weak var view: ComposerTextView?
         let conversation: UUID?
+        /// The target's workspace folder (its project vocabulary).
+        let folder: String?
     }
 
     private struct Job {
         weak var view: ComposerTextView?
         var text: String?
         var failure: String?
+        var vocabulary = Vocabulary.Effective()
     }
 
     private init() {}
@@ -120,7 +123,9 @@ final class DictationController: ObservableObject {
             return
         }
         nextJob += 1
-        capture = Capture(id: nextJob, view: view, conversation: view.dictationID)
+        let folder = WorkspaceStore.shared.workspaces
+            .first { $0.conversations.contains { $0.id == view.dictationID } }?.folder
+        capture = Capture(id: nextJob, view: view, conversation: view.dictationID, folder: folder)
         MicCapture.shared.begin(press: press)
         target = view.dictationID
         setPhase(.listening)
@@ -133,9 +138,10 @@ final class DictationController: ObservableObject {
         stopLevelMeter()
         pending += 1
         setPhase(.transcribing)
+        let vocabulary = Vocabulary.effective(projectFolder: capture.folder)
         Task {
             let outcome = await MicCapture.shared.finish(release: release)
-            let job = await Self.transcribe(outcome, view: capture.view)
+            let job = await Self.transcribe(outcome, view: capture.view, vocabulary: vocabulary)
             complete(capture.id, job)
         }
     }
@@ -154,7 +160,8 @@ final class DictationController: ObservableObject {
     // MARK: Jobs
 
     /// Gates → engine. A silent or too-short capture yields no text and no failure.
-    nonisolated private static func transcribe(_ outcome: MicCapture.Outcome, view: ComposerTextView?) async -> Job {
+    nonisolated private static func transcribe(_ outcome: MicCapture.Outcome, view: ComposerTextView?,
+                                               vocabulary: Vocabulary.Effective) async -> Job {
         switch outcome {
         case .none, .tooShort:
             return Job(view: view)
@@ -172,8 +179,8 @@ final class DictationController: ObservableObject {
                 return Job(view: view)
             }
             do {
-                let result = try await SpeechEngine.shared.transcribe(clip.samples, vocabulary: .empty)
-                return Job(view: view, text: result.text)
+                let result = try await SpeechEngine.shared.transcribe(clip.samples, vocabulary: vocabulary.engine)
+                return Job(view: view, text: result.text, vocabulary: vocabulary)
             } catch {
                 return Job(view: view, failure: String(describing: error))
             }
@@ -192,11 +199,11 @@ final class DictationController: ObservableObject {
     private func flush() {
         while let job = finished.removeValue(forKey: nextToInsert + 1) {
             nextToInsert += 1
-            if let raw = job.text, !raw.isEmpty { insert(raw, into: job.view) }
+            if let raw = job.text, !raw.isEmpty { insert(raw, into: job.view, vocabulary: job.vocabulary) }
         }
     }
 
-    private func insert(_ raw: String, into view: ComposerTextView?) {
+    private func insert(_ raw: String, into view: ComposerTextView?, vocabulary: Vocabulary.Effective) {
         guard let view = (view?.window != nil ? view : nil) ?? Self.currentComposer() else {
             lastDictation = (raw, raw)
             Self.log.info("dictation kept as last dictation: no composer")
@@ -204,7 +211,7 @@ final class DictationController: ObservableObject {
         }
         let caret = view.selectedRange()
         let before = (view.string as NSString).substring(to: min(caret.location, (view.string as NSString).length))
-        let text = TextPipeline.forComposer(raw, before: before)
+        let text = TextPipeline.forComposer(TextPipeline.process(raw, vocabulary: vocabulary), before: before)
         guard !text.isEmpty else { return }
         view.insertText(text, replacementRange: caret)
         lastDictation = (raw, text)

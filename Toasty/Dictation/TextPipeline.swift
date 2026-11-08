@@ -4,6 +4,16 @@ import Foundation
 /// runs on the main actor. (Spoken symbols, fillers, replacements and
 /// casing fixes join this in phase D4.)
 nonisolated enum TextPipeline {
+    /// Steps before target finishing: replacements (project, then global),
+    /// then casing fixes. (D4 adds spoken formatting, symbols and fillers
+    /// before these.)
+    static func process(_ raw: String, vocabulary: Vocabulary.Effective) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        let replaced = applyReplacements(trimmed, vocabulary.replacements)
+        return fixCasing(replaced, vocabulary.casing)
+    }
+
     // MARK: Composer finishing (plan §10.6; Hex paste.rs:710-816)
 
     /// `text` as inserted after `before` (the text before the caret): one
