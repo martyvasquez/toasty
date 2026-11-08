@@ -50,7 +50,7 @@ incoming "Message from @name" rows, the @ menu.
 
 ## Dictation
 
-Shipped on branch `dictation/d0-engine-spike` (see BUILD_PLAN.md §13).
+Shipped on `main`; documented in `docs/DICTATION.md`.
 
 ### Next
 

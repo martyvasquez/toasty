@@ -514,34 +514,19 @@ multiple windows per workspace, CLI-in-terminal session tracking via hooks.
 3. Phase 6 import from mostty — wanted?
 4. Updates (Sparkle) — wanted for a personal tool?
 
-## 13. Dictation (shipped on branch `dictation/d0-engine-spike`)
+## 13. Dictation
 
-Spec: `~/Development/dictation/TOASTY_DICTATION_PLAN.md` (phases D0–D6).
-Fully local: Parakeet TDT 0.6B v2 (Q8_0 GGUF) on Metal through
-transcribe.cpp (Hex's fork, pinned), Silero VAD; models fetched at build
-time with pinned revisions and sha256, bundled in the app; no network.
+**Full documentation: [`docs/DICTATION.md`](docs/DICTATION.md)** (using it,
+what you can say, vocabulary, how it works, setup, tuning, troubleshooting,
+decisions). The original phase plan (D0–D6) was
+`~/Development/dictation/TOASTY_DICTATION_PLAN.md`; its decisions are
+summarized in the doc.
 
-- **Use:** hold Right Option in Toasty, speak, release; double-tap to lock,
-  press again to finish; Esc or ⌘. cancels. The composer's mic button does
-  the same. Text is inserted at the composer's caret; never submitted.
-  Edit ▸ Dictation: Start/Finish, Cancel, Insert/Copy Last Dictation,
-  Vocabulary… (opens Settings ▸ Dictation: edit your terms and
-  replacements, everywhere or for this project; see what Toasty adds).
-- **Mic:** opens on the press (~120 ms lost cold) and stays open 15 s after
-  a dictation; closes when Toasty isn't active (the user disliked the
-  always-on indicator). Bluetooth inputs are passed over (Hex's rule).
-- **Text:** spoken formatting, symbols (Hex + dot, backslash, dash dash,
-  tilde, equals sign, pipe symbol, brackets), filler words, replacements,
-  casing fixes, composer joining (Hex's rules, all their tests ported).
-- **Vocabulary:** shipped developer catalogue (DevVocabulary.swift:
-  core/project/text tiers), context names (conversation, changed files,
-  recent commits, project manifests), spoken paths matched to the repo's
-  real paths, then the user's global and project files on top.
-- **Measured** on the user's 16 recorded clips: WER 15.2% plain → 8.3%
-  out of the box; trap and plain clips unchanged. Steady-state run ≈ 0.1–
-  0.2 s for a 7 s clip on M1 Max; idle CPU ≈ 0.3%; model pages clean and
-  reclaimable; app ≈ 730 MB.
-- **Debug commands:** dictationState, dictationTranscribeFile,
-  dictationSimulate, dictationSimulateKeys, dictationPress/Release,
-  dictationVocabulary, dictationDumpLastClip, dictationIndicator.
-- **Not yet:** see TODO.md › Dictation.
+In short: hold Right Option, speak, release; text appears in the message
+box (never sent). Fully local: Parakeet TDT 0.6B v2 on Metal through
+transcribe.cpp (pinned), Silero VAD, models bundled at build time. Text
+pipeline ported from Hex (symbols, formatting, fillers, replacements),
+plus repo-aware paths and a layered vocabulary (project file, your file,
+names from the conversation and repo, built-in developer names), edited in
+Settings ▸ Dictation. Code in `Toasty/Dictation/`, tests in
+`Tests/DictationTests/`, remaining work in `TODO.md` › Dictation.
