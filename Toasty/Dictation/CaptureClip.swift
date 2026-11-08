@@ -211,7 +211,12 @@ nonisolated struct CaptureTimeline: Sendable {
         var cold: Bool
         var maxGap: TimeInterval = 0
         var failure: Failure?
+        /// Cold: capture time of the first sample.
+        var firstAudio: TimeInterval?
     }
+
+    /// The last cold recording's delay from press to its first audio.
+    private(set) var lastColdDelay: TimeInterval?
 
     init(rate: Double, seconds: TimeInterval = DictationConfig.ringSeconds) {
         self.rate = rate
@@ -240,6 +245,7 @@ nonisolated struct CaptureTimeline: Sendable {
                 noteGap(gap)
             }
         }
+        if recording?.cold == true, recording?.firstAudio == nil, !samples.isEmpty { recording?.firstAudio = start }
         write(samples)
         through = start + Double(samples.count) / rate
     }
@@ -289,6 +295,7 @@ nonisolated struct CaptureTimeline: Sendable {
                          minimumHold: TimeInterval = DictationConfig.minimumHold) -> Finish? {
         guard let recording else { return nil }
         self.recording = nil
+        if recording.cold, let first = recording.firstAudio { lastColdDelay = first - recording.press }
         // Microsecond slack: 0.3 s held must count as 0.3 s despite float rounding.
         if release - recording.press + 1e-6 < minimumHold { return .tooShort }
         if let failure = recording.failure { return .failed(failure) }

@@ -45,6 +45,7 @@ enum DictationDebug {
             mic["lastError"] = m.lastError
             if let at = m.lastBufferAt { mic["lastBufferAgoMs"] = Int((now - at) * 1000) }
             if let l = m.latency { mic["latencyMs"] = (l * 10_000).rounded() / 10 }
+            if let c = m.lastColdDelay { mic["lastColdStartLostMs"] = Int(c * 1000) }
             let devices = MicCapture.inputDevices()
             let defaultID = MicCapture.defaultInputID()
             mic["inputs"] = devices.map { d -> [String: Any] in

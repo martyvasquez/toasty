@@ -71,7 +71,13 @@ nonisolated enum DictationConfig {
     /// Reopening after every device failed: backoff from…to.
     static let reopenBackoffInitial: TimeInterval = 0.25
     static let reopenBackoffMax: TimeInterval = 5
-    /// The microphone closes this long after Toasty stops being the active app.
+    /// Keep the microphone open whenever Toasty is the active app (macOS then
+    /// shows its orange mic indicator the whole time). Off: it opens on the
+    /// press — the first ~0.1–0.3 s may be lost to the open, no pre-roll —
+    /// and stays open `micLinger` after a dictation, so the next one is warm.
+    static let keepMicWarmWhileActive = false
+    static let micLinger: TimeInterval = 15
+    /// Warm mode: the microphone closes this long after Toasty stops being active.
     static let coldCloseDelay: TimeInterval = 30
 
     // MARK: Gates (hex/src/dictation.rs:91-96)

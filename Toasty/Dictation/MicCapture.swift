@@ -49,6 +49,8 @@ nonisolated final class MicCapture: @unchecked Sendable {
         /// the input latency (positive, a few ms to ~100 ms).
         var latency: TimeInterval?
         var lastBufferAt: TimeInterval?
+        /// Last cold capture: press → its first audio (speech lost to the open).
+        var lastColdDelay: TimeInterval?
     }
 
     enum Outcome: Sendable {
@@ -71,6 +73,7 @@ nonisolated final class MicCapture: @unchecked Sendable {
     private var engine: AVAudioEngine?
     private var configurationObserver: NSObjectProtocol?
     private var wantWarm = false
+    private var active = false
     /// A capture started while the microphone was closed: start at the
     /// first delivered buffer (no pre-roll).
     private var coldPress: TimeInterval?
@@ -118,28 +121,34 @@ nonisolated final class MicCapture: @unchecked Sendable {
     /// prompts before the first dictation.
     private static let grantedKey = "ToastyDictationMicrophoneGranted"
 
-    /// Toasty became the active app: open (or keep) the microphone.
+    /// Toasty became the active app: open (or keep) the microphone when it
+    /// stays warm while active (`keepMicWarmWhileActive`).
     func appBecameActive() {
         queue.async { [self] in
+            active = true
+            installListeners()
+            guard DictationConfig.keepMicWarmWhileActive else { return }
             closeWork?.cancel(); closeWork = nil; closeDue = false
             wantWarm = true
             state.withLock { $0.warm = true }
-            installListeners()
             openIfNeeded()
         }
     }
 
-    /// Toasty stopped being active: close the microphone in 30 s, unless it
-    /// becomes active again first. Never closes mid-capture.
+    /// Toasty stopped being active: close the microphone (warm mode: in 30 s,
+    /// unless it becomes active again first). Never closes mid-capture.
     func appResignedActive() {
         queue.async { [self] in
-            wantWarm = false
-            state.withLock { $0.warm = false }
-            closeWork?.cancel()
-            let work = DispatchWorkItem { [weak self] in self?.closeWhenIdle() }
-            closeWork = work
-            queue.asyncAfter(deadline: .now() + DictationConfig.coldCloseDelay, execute: work)
+            active = false
+            scheduleClose(after: DictationConfig.keepMicWarmWhileActive ? DictationConfig.coldCloseDelay : 0)
         }
+    }
+
+    private func scheduleClose(after delay: TimeInterval) {
+        closeWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.closeWhenIdle() }
+        closeWork = work
+        queue.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
     /// Starts a capture at `press` (host-clock seconds, e.g. `NSEvent.timestamp`).
@@ -152,6 +161,7 @@ nonisolated final class MicCapture: @unchecked Sendable {
             timeline?.start(press: press)
             return true
         }
+        queue.async { [self] in closeWork?.cancel(); closeWork = nil }
         if !warm {
             queue.async { [self] in
                 // Open already but no buffer yet: start at the first one.
@@ -358,6 +368,10 @@ nonisolated final class MicCapture: @unchecked Sendable {
 
     private func closeWhenIdle() {
         closeWork = nil
+        if !(DictationConfig.keepMicWarmWhileActive && active) {
+            wantWarm = false
+            state.withLock { $0.warm = false }
+        }
         if recordingActive || coldPress != nil { closeDue = true; return }
         if !wantWarm { close() }
     }
@@ -365,6 +379,15 @@ nonisolated final class MicCapture: @unchecked Sendable {
     /// After a capture finishes or is cancelled: apply what waited for it.
     private func afterCapture() {
         if recordingActive { return }
+        if let delay = timeline.withLock({ $0?.lastColdDelay }) {
+            state.withLock { $0.lastColdDelay = delay }
+        }
+        // Linger mode: stay open a while, so a follow-up dictation is warm.
+        if !DictationConfig.keepMicWarmWhileActive, active, engine != nil {
+            wantWarm = true
+            state.withLock { $0.warm = true }
+            scheduleClose(after: DictationConfig.micLinger)
+        }
         // A capture that outlived its microphone is done: drop its timeline.
         if engine == nil, !simulating { timeline.withLock { $0 = nil } }
         if closeDue, !wantWarm { closeDue = false; close(); return }
