@@ -145,10 +145,20 @@ final class AboutPanel: NSObject {
     static let shared = AboutPanel()
 
     @objc func show(_ sender: Any?) {
-        let credits = NSAttributedString(
-            string: "Claude Code through the official Claude Agent SDK.\nTerminal emulation by libghostty-vt.",
-            attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor,
-                         .paragraphStyle: { let p = NSMutableParagraphStyle(); p.alignment = .center; return p }()])
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor,
+            .paragraphStyle: { let p = NSMutableParagraphStyle(); p.alignment = .center; return p }(),
+        ]
+        let credits = NSMutableAttributedString(
+            string: "Claude Code through the official Claude Agent SDK.\nTerminal emulation by libghostty-vt.\n"
+                + "Dictation by NVIDIA Parakeet, on this Mac.\n",
+            attributes: attributes)
+        // The full notices (Parakeet, Silero VAD, transcribe.cpp, ggml, miniz, Hex).
+        if let url = Bundle.main.url(forResource: "Acknowledgements", withExtension: "txt") {
+            var link = attributes
+            link[.link] = url
+            credits.append(NSAttributedString(string: "Acknowledgements", attributes: link))
+        }
         NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
         NSApp.activate()
     }

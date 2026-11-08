@@ -48,6 +48,7 @@
 		AC9DFC4D667B3EF0DACDCE40 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FDD4FA67F476B51448A8EB66 /* Assets.xcassets */; };
 		B614E0D5DFBFC6A1EC6A58EB /* ClaudeConversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A3D72521ECFC5F5DC717828 /* ClaudeConversation.swift */; };
 		B7EC6B42A1BE5F57121E7511 /* ConversationColumn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A1AC4F2009B67034788F88E /* ConversationColumn.swift */; };
+		B7F0FB9F1258B0B03E206081 /* Acknowledgements.txt in Resources */ = {isa = PBXBuildFile; fileRef = 46AACC525014FD188E135CFC /* Acknowledgements.txt */; };
 		B8A7E2BEF7397740BED13E40 /* Bridge in Resources */ = {isa = PBXBuildFile; fileRef = 326FC85C18EB90E86334C2F6 /* Bridge */; };
 		BFDB2DD95D5520E548B85DCE /* DictationTones.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79622B16D0D2B6FA76F28539 /* DictationTones.swift */; };
 		C377CAE6CF74EDB9ACFFE687 /* CaptureClip.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0AB472102F6E81ECE753B0B /* CaptureClip.swift */; };
@@ -112,6 +113,7 @@
 		38E532463352FE1FCDD0BAFF /* SpeechModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechModels.swift; sourceTree = "<group>"; };
 		3A3D72521ECFC5F5DC717828 /* ClaudeConversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeConversation.swift; sourceTree = "<group>"; };
 		3F85C0CF7B802A8107EAC802 /* ClaudeStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeStyle.swift; sourceTree = "<group>"; };
+		46AACC525014FD188E135CFC /* Acknowledgements.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = Acknowledgements.txt; sourceTree = "<group>"; };
 		51858B1B05CCCBC863B4BC45 /* Toasty.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Toasty.entitlements; sourceTree = "<group>"; };
 		59A391E422005AC05F0585B6 /* GhosttyVt.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = GhosttyVt.xcframework; path = Vendor/GhosttyVt.xcframework; sourceTree = "<group>"; };
 		5C51FB87F905EF29B4ECF92F /* MainMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenu.swift; sourceTree = "<group>"; };
@@ -221,6 +223,7 @@
 		28E5D759548A89D7AFC70550 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				46AACC525014FD188E135CFC /* Acknowledgements.txt */,
 				FDD4FA67F476B51448A8EB66 /* Assets.xcassets */,
 				326FC85C18EB90E86334C2F6 /* Bridge */,
 				AAFDD6D5C02551210E270F85 /* SpeechModels */,
@@ -466,6 +469,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B7F0FB9F1258B0B03E206081 /* Acknowledgements.txt in Resources */,
 				AC9DFC4D667B3EF0DACDCE40 /* Assets.xcassets in Resources */,
 				B8A7E2BEF7397740BED13E40 /* Bridge in Resources */,
 				5044C8F9C7B16559001A2B48 /* SpeechModels in Resources */,

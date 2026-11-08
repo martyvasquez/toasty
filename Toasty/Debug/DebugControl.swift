@@ -131,7 +131,11 @@ enum DebugControl {
         register("screenshot") { cmd in
             guard let main = window else { throw DebugError("no window") }
             // {"sheet":true}: the attached sheet (a window of its own).
-            let window = cmd["sheet"] as? Bool == true ? (main.attachedSheet ?? main) : main
+            var window = cmd["sheet"] as? Bool == true ? (main.attachedSheet ?? main) : main
+            // {"other":true}: the frontmost other window of ours (e.g. the About panel).
+            if cmd["other"] as? Bool == true, let other = NSApp.windows.first(where: { $0 !== main && $0.isVisible && $0.frame.width > 50 }) {
+                window = other
+            }
             let path = cmd["path"] as? String ?? NSTemporaryDirectory() + "toasty-\(Int(Date().timeIntervalSince1970)).png"
             window.displayIfNeeded()
             guard let image = captureWindow(window.windowNumber) else { throw DebugError("capture failed") }
@@ -249,6 +253,8 @@ enum DebugControl {
         }
 
         // Send an action up the responder chain (copy:, paste:, clearTerminal:…).
+        register("about") { _ in AboutPanel.shared.show(nil); return nil }
+
         register("action") { cmd in
             guard let name = cmd["name"] as? String else { throw DebugError("name required") }
             // To the window's first responder chain even while Toasty is in
