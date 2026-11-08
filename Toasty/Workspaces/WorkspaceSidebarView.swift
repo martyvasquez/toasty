@@ -32,13 +32,21 @@ struct WorkspaceSidebarView: View {
                 VStack(spacing: 2) {
                     ForEach(Array(store.workspaces.enumerated()), id: \.element.id) { i, w in
                         WorkspaceRow(workspace: w, index: i, store: store)
-                            .opacity(store.draggingID == w.id ? 0.35 : 1)
+                            .opacity(store.draggingID.map { $0 == w.id || $0 == w.parentID } == true ? 0.35 : 1)
                             .onDrag {
-                                store.draggingID = w.id
-                                return NSItemProvider(item: w.id.uuidString.data(using: .utf8) as NSData?,
+                                // A worktree drags its parent (they move together).
+                                let id = w.parentID ?? w.id
+                                store.draggingID = id
+                                return NSItemProvider(item: id.uuidString.data(using: .utf8) as NSData?,
                                                       typeIdentifier: UTType.toastyWorkspace.identifier)
                             }
                             .onDrop(of: [.toastyWorkspace], delegate: WorkspaceDropDelegate(target: w.id, store: store))
+                        // Worktrees being created, after the last of the group.
+                        if !store.pendingWorktrees.isEmpty, isLastOfGroup(i) {
+                            ForEach(store.pendingWorktrees.filter { $0.parentID == (w.parentID ?? w.id) }) { p in
+                                PendingWorktreeRow(name: p.name)
+                            }
+                        }
                     }
                     // Dropping below the last workspace moves it to the end.
                     Color.clear
@@ -54,6 +62,43 @@ struct WorkspaceSidebarView: View {
             NotificationsSection()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    /// Whether the workspace at `i` ends its group (a workspace and its
+    /// worktrees).
+    private func isLastOfGroup(_ i: Int) -> Bool {
+        let list = store.workspaces
+        return i == list.count - 1 || list[i + 1].parentID == nil
+    }
+}
+
+/// How far a worktree's row is indented under its parent.
+private let worktreeIndent: CGFloat = 16
+
+/// A worktree being created.
+private struct PendingWorktreeRow: View {
+    let name: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            ProgressView().controlSize(.small).scaleEffect(0.7).frame(width: 14, height: 14)
+                .frame(width: 16, height: 18)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(name)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .frame(height: 18)
+                Text("Creating worktree…")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 6)
+        .padding(.leading, 8 + worktreeIndent)
+        .padding(.trailing, 8)
+        .transition(.opacity)
     }
 }
 
@@ -123,7 +168,8 @@ private struct WorkspaceRow: View {
             }
         }
         .padding(.vertical, 6)
-        .padding(.horizontal, 8)
+        .padding(.leading, 8 + (workspace.isWorktree ? worktreeIndent : 0))
+        .padding(.trailing, 8)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color.primary.opacity(isActive ? 0.10 : (hovering ? 0.05 : 0)))
@@ -135,16 +181,25 @@ private struct WorkspaceRow: View {
             if !isRenaming { store.activate(workspace.id) }
         })
         .contextMenu {
-            Button("Rename…") { store.renamingID = workspace.id }
-            Button("Change Folder…") { store.chooseFolder(for: workspace.id) }
-            Button("Open in Finder") { NSWorkspace.shared.open(URL(fileURLWithPath: workspace.folder)) }
-            Divider()
-            Button("Move Up") { store.move(workspace.id, by: -1) }
-                .disabled(index == 0)
-            Button("Move Down") { store.move(workspace.id, by: 1) }
-                .disabled(index == store.workspaces.count - 1)
-            Divider()
-            Button("Close Workspace") { store.requestClose(workspace.id) }
+            if workspace.isWorktree {
+                Button("Rename…") { store.renamingID = workspace.id }
+                Button("Open in Finder") { NSWorkspace.shared.open(URL(fileURLWithPath: workspace.folder)) }
+                Divider()
+                Button("Remove Worktree…") { store.requestRemoveWorktree(workspace.id) }
+            } else {
+                Button("New Worktree…") { store.requestNewWorktree(for: workspace.id) }
+                Divider()
+                Button("Rename…") { store.renamingID = workspace.id }
+                Button("Change Folder…") { store.chooseFolder(for: workspace.id) }
+                Button("Open in Finder") { NSWorkspace.shared.open(URL(fileURLWithPath: workspace.folder)) }
+                Divider()
+                Button("Move Up") { store.move(workspace.id, by: -1) }
+                    .disabled(!store.canMove(workspace.id, by: -1))
+                Button("Move Down") { store.move(workspace.id, by: 1) }
+                    .disabled(!store.canMove(workspace.id, by: 1))
+                Divider()
+                Button("Close Workspace") { store.requestClose(workspace.id) }
+            }
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
@@ -193,7 +248,7 @@ private struct WorkspaceRow: View {
             Circle().fill(Color.accentColor).frame(width: 7, height: 7)
                 .help("Something finished in this workspace")
         } else {
-            Image(systemName: "folder")
+            Image(systemName: workspace.isWorktree ? "arrow.triangle.branch" : "folder")
                 .font(.system(size: 12.5))
                 .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
         }

@@ -47,6 +47,34 @@ enum WorkspaceDebug {
             return state()
         }
 
+        // {"cmd":"worktree","action":"new","index":0,"branch":"x"} creates without
+        // the prompt; "prompt" shows it; "remove" shows the removal sheet
+        // (press it with "sheet"); "sync"; "files" lists what would be copied.
+        DebugControl.registerAsync("worktree") { cmd in
+            let action = cmd["action"] as? String ?? "sync"
+            let i = cmd["index"] as? Int ?? (store.workspaces.firstIndex { $0.id == store.activeID } ?? 0)
+            guard store.workspaces.indices.contains(i) else { throw E("no workspace \(i)") }
+            let w = store.workspaces[i]
+            switch action {
+            case "new":
+                guard let branch = cmd["branch"] as? String else { throw E("branch=") }
+                let result = await withCheckedContinuation { c in
+                    store.createWorktree(for: w, branch: branch) { c.resume(returning: $0) }
+                }
+                if case .failure(let error) = result { throw E(error.localizedDescription) }
+            case "prompt": store.requestNewWorktree(for: w.id)
+            case "remove": store.requestRemoveWorktree(w.id)
+            case "sync":
+                store.syncWorktrees()
+                try? await Task.sleep(for: .milliseconds(800))
+            case "files":
+                let folder = w.folder
+                return await Task.detached { Worktrees.list(in: folder)?.first.map { Worktrees.ignoredFilesToCopy(in: $0.path) } ?? [] }.value
+            default: throw E("unknown action \(action)")
+            }
+            return state()
+        }
+
         // {"cmd":"inspector","tab":"changes","visible":true,"terminal":false,"diff":0}
         DebugControl.register("inspector") { cmd in
             guard let w = store.active else { throw E("no active workspace") }
@@ -318,11 +346,14 @@ enum WorkspaceDebug {
             "terminalColumnWidth": wc?.layout.terminalWidth ?? 0,
             "dockBadge": NSApp.dockTile.badgeLabel ?? "",
             "keepingAwake": Activity.shared.keepingAwake,
+            "pendingWorktrees": store.pendingWorktrees.map(\.name),
             "toast": Activity.shared.toast.map { "\($0.title) | \($0.body) | \($0.location)" } ?? "",
             "workspaces": store.workspaces.map { w -> [String: Any] in
                 [
                     "name": w.name,
                     "folder": w.folder,
+                    "parent": w.parent?.name ?? "",
+                    "copied": w.copiedFiles,
                     "tabs": w.conversations.map(\.title),
                     "selected": w.conversations.firstIndex { $0.id == w.selectedID } ?? -1,
                     "terminals": w.terminals.map { "\($0.displayTitle)\($0.isStarted ? "" : " (not started)")" },

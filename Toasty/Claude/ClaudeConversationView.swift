@@ -800,6 +800,13 @@ struct ClaudeThinking: View {
 struct ClaudeEmptyState: View {
     @ObservedObject var conversation: ClaudeConversation
 
+    /// A new worktree's ignored files: "Copied .env, .env.local and 2 more".
+    static func copiedLine(_ files: [String]) -> String {
+        let shown = files.prefix(3).joined(separator: ", ")
+        let more = files.count - 3
+        return more > 0 ? "Copied \(shown) and \(more) more" : "Copied \(shown)"
+    }
+
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: "sparkle")
@@ -819,6 +826,13 @@ struct ClaudeEmptyState: View {
             .font(.system(size: 12))
             .foregroundStyle(.secondary)
             .textSelection(.enabled)
+            if let copied = conversation.workspace?.copiedFiles, !copied.isEmpty {
+                Text(Self.copiedLine(copied))
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+                    .help(copied.joined(separator: "\n"))
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 120)
@@ -914,7 +928,7 @@ struct ClaudeComposerBox: View {
             let prefix = tabs.filter { q.isEmpty || $0.title.lowercased().hasPrefix(q) }
             let inside = tabs.filter { !q.isEmpty && !$0.title.lowercased().hasPrefix(q) && $0.title.lowercased().contains(q) }
             let match = prefix + inside
-            return match.isEmpty ? nil : ClaudeMentionMenu.Group(id: w.id, name: w.name, tabs: match)
+            return match.isEmpty ? nil : ClaudeMentionMenu.Group(id: w.id, name: w.displayName, tabs: match)
         }
     }
 

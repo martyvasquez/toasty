@@ -93,27 +93,18 @@ tab is seen or dismissed.
 - **Crash rows.** "Claude Code stopped unexpectedly" (agent exit) doesn't
   notify today, so it never gets a row.
 
-## Git worktrees (next sprint)
+## Git worktrees
 
-Right-click a workspace → "New Worktree…" (branch name; new branch from
-HEAD by default) → `git worktree add` → a workspace nested under its parent
-with a fresh Claude tab. A worktree is a `Workspace` with a parent link;
-tabs, terminal, Changes and sessions already work off the folder, and
-`refreshBranch()` already reads a worktree's `.git` file.
+Built 2026-11-08 (`Workspaces/Worktrees.swift`): New Worktree… (workspace
+context menu, ⇧⌘N) → `~/Toasty Worktrees/<repo>/<branch>`, ignored files
+copied (folders skipped, `.worktreeinclude` adds more), nested under the
+parent, worktrees made outside Toasty discovered; Remove Worktree… deletes
+the folder and branch after one confirmation that says what will be lost.
 
-Agreed (2026-11-08):
-- Location: Claude Code's convention, `<repo>/.claude/worktrees/<name>`
-  (needs to be gitignored).
-- Worktrees made outside Toasty (`git worktree list`) show up automatically.
-- Notification rows gain the worktree name.
-
-Open:
-- Removing: confirm; git refuses with uncommitted changes; delete the
-  branch or not. Merging stays with the user/Claude (no button).
-- Ignored files (`node_modules`, `.env`): check Claude Code's
-  `.worktreeinclude` and `WorktreeCreate` hooks; Toasty running git itself
-  would bypass hooks.
-- Collapsed parent shows the strongest status of its worktrees.
+Later:
+- "Install Dependencies" button for a worktree: detect the package manager
+  from the lockfile (npm/pnpm/yarn/bun, uv/poetry, bundler, SwiftPM) and run
+  the install in the worktree's terminal tab so the output is visible.
 
 ## Reference
 

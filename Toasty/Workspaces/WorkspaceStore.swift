@@ -19,6 +19,8 @@ final class WorkspaceStore: ObservableObject {
     @Published var renamingID: UUID?
     /// The workspace being dragged in the sidebar.
     @Published var draggingID: UUID?
+    /// Worktrees being created (placeholder rows in the sidebar).
+    @Published var pendingWorktrees: [PendingWorktree] = []
     var windowFrame: NSRect?
 
     /// The active workspace or its selection changed (window title, focus).
@@ -57,8 +59,13 @@ final class WorkspaceStore: ObservableObject {
         defer { loading = false }
         if let data = try? Data(contentsOf: Self.stateURL),
            let s = try? JSONDecoder().decode(Saved.self, from: data) {
-            workspaces = s.workspaces.map { Workspace(saved: $0) }
-            workspaces.forEach { $0.store = self }
+            let loaded = s.workspaces.map { Workspace(saved: $0) }
+            loaded.forEach { $0.store = self }
+            // A worktree whose parent is gone stands on its own.
+            for w in loaded where w.parentID != nil && !loaded.contains(where: { $0.id == w.parentID && $0.parentID == nil }) {
+                w.parentID = nil
+            }
+            workspaces = Self.grouped(loaded)
             activeID = s.activeWorkspace.flatMap { id in workspaces.contains { $0.id == id } ? id : nil }
                 ?? workspaces.first?.id
             sidebarVisible = s.sidebarVisible
@@ -71,6 +78,12 @@ final class WorkspaceStore: ObservableObject {
         }
         if workspaces.isEmpty {
             create(folder: NSHomeDirectory(), name: "Home")
+        }
+        syncWorktrees()
+        // Worktrees made or removed outside Toasty show up on coming back.
+        NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification,
+                                               object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { WorkspaceStore.shared.syncWorktrees() }
         }
     }
 
@@ -119,13 +132,18 @@ final class WorkspaceStore: ObservableObject {
 
     @discardableResult
     func create(folder: String, name: String? = nil, activate: Bool = true, withConversation: Bool = true,
-                append: Bool = false) -> Workspace {
-        let w = Workspace(name: name ?? Self.projectName(for: URL(fileURLWithPath: folder)), folder: folder)
+                append: Bool = false, parent: Workspace? = nil) -> Workspace {
+        let w = Workspace(name: name ?? Self.projectName(for: URL(fileURLWithPath: folder)), folder: folder,
+                          parentID: parent?.id)
         w.store = self
         if withConversation { w.newConversation() }
         var list = workspaces
-        if !append, let i = list.firstIndex(where: { $0.id == activeID }) {
-            list.insert(w, at: i + 1)
+        if let parent, let i = list.firstIndex(where: { $0.id == parent.id }) {
+            // A worktree goes after its parent's other worktrees.
+            list.insert(w, at: i + 1 + children(of: parent.id).count)
+        } else if !append, let active, let i = list.firstIndex(where: { $0.id == (active.parentID ?? active.id) }) {
+            // After the active workspace and its worktrees.
+            list.insert(w, at: i + 1 + children(of: list[i].id).count)
         } else {
             list.append(w)
         }
@@ -191,55 +209,91 @@ final class WorkspaceStore: ObservableObject {
     /// Close a workspace, asking first if anything is running in it.
     func requestClose(_ id: UUID) {
         guard let w = workspaces.first(where: { $0.id == id }) else { return }
-        Activity.shared.confirm(Activity.shared.closeWarning(conversations: w.conversations, terminals: w.terminals, action: "close it"),
+        let all = [w] + children(of: id)
+        Activity.shared.confirm(Activity.shared.closeWarning(conversations: all.flatMap(\.conversations),
+                                                             terminals: all.flatMap(\.terminals), action: "close it"),
                                 title: "Close “\(w.name)”?", button: "Close Workspace") { [weak self] in
             self?.close(id)
         }
     }
 
+    /// Close a workspace and its worktrees (closing doesn't delete them:
+    /// they come back with their parent).
     func close(_ id: UUID) {
         guard let i = workspaces.firstIndex(where: { $0.id == id }) else { return }
-        workspaces[i].conversations.forEach { Activity.shared.forget($0) }
-        let w = workspaces[i]
+        let closing = [workspaces[i]] + children(of: id)
+        closing.forEach { w in w.conversations.forEach { Activity.shared.forget($0) } }
         var list = workspaces
-        list.remove(at: i)
+        list.removeAll { w in closing.contains { $0.id == w.id } }
         workspaces = list
-        w.stop()
-        if activeID == id {
-            activeID = list.isEmpty ? nil : list[min(i, list.count - 1)].id
+        closing.forEach { $0.stop() }
+        if let activeID, closing.contains(where: { $0.id == activeID }) {
+            let next = list.isEmpty ? nil : list[min(i, list.count - 1)]
+            if let parentID = closing[0].parentID {
+                // A closed worktree's next sibling, else its parent.
+                self.activeID = next?.parentID == parentID ? next?.id : parentID
+            } else {
+                self.activeID = next?.id
+            }
             selectionChanged.send()
         }
         setNeedsSave()
     }
 
+    // MARK: Worktrees
+
+    /// The worktrees shown under a workspace, in order.
+    func children(of id: UUID) -> [Workspace] { workspaces.filter { $0.parentID == id } }
+
+    /// Each top-level workspace followed by its worktrees.
+    static func grouped(_ list: [Workspace]) -> [Workspace] {
+        list.filter { $0.parentID == nil }.flatMap { top in [top] + list.filter { $0.parentID == top.id } }
+    }
+
+    /// Reorder the top-level workspaces; worktrees travel with their parent.
+    private func reorder(_ tops: [UUID]) {
+        workspaces = tops.flatMap { id in workspaces.filter { $0.id == id || $0.parentID == id } }
+        setNeedsSave()
+    }
+
+    private var topIDs: [UUID] { workspaces.filter { $0.parentID == nil }.map(\.id) }
+
+    /// A workspace's top-level workspace (itself or its parent).
+    private func top(_ id: UUID) -> UUID? {
+        workspaces.first { $0.id == id }.map { $0.parentID ?? $0.id }
+    }
+
     // MARK: Order
 
+    // Only top-level workspaces move; their worktrees move with them.
+
     func move(_ id: UUID, to target: UUID) {
-        guard id != target,
-              let from = workspaces.firstIndex(where: { $0.id == id }),
-              let to = workspaces.firstIndex(where: { $0.id == target }) else { return }
-        var list = workspaces
-        list.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
-        workspaces = list
-        setNeedsSave()
+        guard let id = top(id), let target = top(target), id != target else { return }
+        var tops = topIDs
+        guard let from = tops.firstIndex(of: id), let to = tops.firstIndex(of: target) else { return }
+        tops.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
+        reorder(tops)
     }
 
     func moveToEnd(_ id: UUID) {
-        guard let from = workspaces.firstIndex(where: { $0.id == id }), from != workspaces.count - 1 else { return }
-        var list = workspaces
-        list.append(list.remove(at: from))
-        workspaces = list
-        setNeedsSave()
+        guard let id = top(id) else { return }
+        var tops = topIDs
+        guard let from = tops.firstIndex(of: id), from != tops.count - 1 else { return }
+        tops.append(tops.remove(at: from))
+        reorder(tops)
     }
 
     func move(_ id: UUID, by delta: Int) {
-        guard let from = workspaces.firstIndex(where: { $0.id == id }) else { return }
-        let to = from + delta
-        guard workspaces.indices.contains(to) else { return }
-        var list = workspaces
-        list.swapAt(from, to)
-        workspaces = list
-        setNeedsSave()
+        var tops = topIDs
+        guard let from = tops.firstIndex(of: id), tops.indices.contains(from + delta) else { return }
+        tops.swapAt(from, from + delta)
+        reorder(tops)
+    }
+
+    /// Whether `move(id, by: delta)` would do anything.
+    func canMove(_ id: UUID, by delta: Int) -> Bool {
+        guard let from = topIDs.firstIndex(of: id) else { return false }
+        return topIDs.indices.contains(from + delta)
     }
 
     // MARK: Attention

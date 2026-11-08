@@ -113,7 +113,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     private func updateTitle() {
         guard let window else { return }
         if let w = store.active {
-            window.title = w.selected.map { "\(w.name) — \($0.title)" } ?? w.name
+            window.title = w.selected.map { "\(w.displayName) — \($0.title)" } ?? w.displayName
         } else {
             window.title = "Toasty"
         }
@@ -260,6 +260,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     @objc func importFromMostty(_ sender: Any?) { MosttyImport.present(store: store) }
 
+    @objc func newWorktree(_ sender: Any?) {
+        if let id = store.activeID { store.requestNewWorktree(for: id) }
+    }
+
+    @objc func removeWorktree(_ sender: Any?) {
+        if let id = store.activeID { store.requestRemoveWorktree(id) }
+    }
+
     @objc func closeWorkspace(_ sender: Any?) {
         if let id = store.activeID { store.requestClose(id) }
     }
@@ -289,9 +297,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             return w != nil
         case #selector(selectWorkspaceByNumber(_:)):
             return store.workspaces.indices.contains(item.tag - 1)
-        case #selector(newTerminal(_:)), #selector(renameWorkspace(_:)), #selector(changeWorkspaceFolder(_:)),
+        case #selector(newTerminal(_:)), #selector(renameWorkspace(_:)),
              #selector(openWorkspaceInFinder(_:)), #selector(closeWorkspace(_:)):
             return w != nil
+        case #selector(newWorktree(_:)):
+            return w.map { Worktrees.isInRepository($0.folder) } ?? false
+        case #selector(removeWorktree(_:)):
+            return w?.isWorktree == true
+        case #selector(changeWorkspaceFolder(_:)):
+            return w.map { !$0.isWorktree } ?? false
         case #selector(importFromMostty(_:)):
             return MosttyImport.isAvailable
         case #selector(selectNextWorkspace(_:)), #selector(selectPreviousWorkspace(_:)):

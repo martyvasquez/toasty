@@ -169,7 +169,7 @@ final class Activity: NSObject, ObservableObject {
         }
         syncDockBadge()
 
-        let location = [conversation.workspace?.name, conversation.title]
+        let location = [conversation.workspace?.displayName, conversation.title]
             .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " › ")
 
         // 3. In-window toast (not for the conversation on screen).

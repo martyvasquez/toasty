@@ -168,7 +168,7 @@ private struct NoticeRow: View {
 
     /// "Workspace · Tab".
     private var location: String {
-        [notice.conversation.workspace?.name, notice.conversation.title]
+        [notice.conversation.workspace?.displayName, notice.conversation.title]
             .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 

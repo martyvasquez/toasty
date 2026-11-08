@@ -62,6 +62,7 @@
 		C83DB61BBC4E1B55D26FE8AB /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB24559E15BED10BF20F7121 /* AppDelegate.swift */; };
 		C9A592B6AC87794BFE62158E /* GhosttyVt.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 59A391E422005AC05F0585B6 /* GhosttyVt.xcframework */; };
 		CC8328BFDDF5F840A632E2EA /* SpeechEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761A76E108C08A07F86040EB /* SpeechEngineTests.swift */; };
+		D85CB4EE647ED61981C904D6 /* Worktrees.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4F699DD786C95D272697F9D /* Worktrees.swift */; };
 		D9F77D560C3635E6D7AD25E2 /* SpeechModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38E532463352FE1FCDD0BAFF /* SpeechModels.swift */; };
 		DB9EF218EA4651E15C47905F /* TextPipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0520699B45C02518BAA81BF5 /* TextPipelineTests.swift */; };
 		E418801CB5AD25148EC64A13 /* PTY.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64890A3F04ACB6E7BF086D88 /* PTY.swift */; };
@@ -144,6 +145,7 @@
 		9CCEEDDC3B6D5A771D67C9DC /* ClaudeRequestCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeRequestCard.swift; sourceTree = "<group>"; };
 		A2C6D266A74900B7BBDA8064 /* VocabularyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VocabularyTests.swift; sourceTree = "<group>"; };
 		A392D7CD9154E4ADC8244C28 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		A4F699DD786C95D272697F9D /* Worktrees.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Worktrees.swift; sourceTree = "<group>"; };
 		A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStore.swift; sourceTree = "<group>"; };
 		A8A10A7F8DA308A1B9259A36 /* MainSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainSplitViewController.swift; sourceTree = "<group>"; };
 		AAFDD6D5C02551210E270F85 /* SpeechModels */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SpeechModels; path = Toasty/Resources/SpeechModels; sourceTree = SOURCE_ROOT; };
@@ -295,6 +297,7 @@
 				92F0C051C134C0C9C597BCFD /* Workspace.swift */,
 				6927A423E7E99E5F0D72EB08 /* WorkspaceSidebarView.swift */,
 				A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */,
+				A4F699DD786C95D272697F9D /* Worktrees.swift */,
 			);
 			path = Workspaces;
 			sourceTree = "<group>";
@@ -544,6 +547,7 @@
 				50719BBE528DB4B26987DCF7 /* WorkspaceDebug.swift in Sources */,
 				1ACC8FE2272EB5760687D654 /* WorkspaceSidebarView.swift in Sources */,
 				78A6CA1B4CA929C128407E33 /* WorkspaceStore.swift in Sources */,
+				D85CB4EE647ED61981C904D6 /* Worktrees.swift in Sources */,
 				FC6ACCB01BF189ECD781B4B7 /* main.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

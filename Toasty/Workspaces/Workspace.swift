@@ -18,6 +18,11 @@ final class Workspace: ObservableObject, Identifiable {
     @Published var inspectorTab: InspectorTab = .changes
     /// A changed file whose diff fills the conversation column.
     @Published var diffFile: GitChanges.File?
+    /// The workspace this one is a git worktree of (shown nested under it).
+    var parentID: UUID?
+    /// Ignored files copied in when Toasty created this worktree (shown in
+    /// its first tab's empty state).
+    @Published var copiedFiles: [String] = []
 
     /// Git status of the workspace folder (the inspector's Changes tab).
     lazy var changes = GitChanges(folder: folder)
@@ -27,10 +32,20 @@ final class Workspace: ObservableObject, Identifiable {
     /// (the sidebar row shows them).
     private var statusObservers: [UUID: AnyCancellable] = [:]
 
-    init(id: UUID = UUID(), name: String, folder: String) {
+    init(id: UUID = UUID(), name: String, folder: String, parentID: UUID? = nil) {
         self.id = id
         self.name = name
         self.folder = folder
+        self.parentID = parentID
+    }
+
+    var isWorktree: Bool { parentID != nil }
+    var parent: Workspace? { parentID.flatMap { id in store?.workspaces.first { $0.id == id } } }
+
+    /// The name with its parent's for a worktree ("toasty › fix-login"),
+    /// where the workspace is named out of the sidebar's context.
+    var displayName: String {
+        parent.map { "\($0.name) › \(name)" } ?? name
     }
 
     var selected: ClaudeConversation? { conversations.first { $0.id == selectedID } }
@@ -297,6 +312,7 @@ final class Workspace: ObservableObject, Identifiable {
         var inspectorVisible: Bool?
         var inspectorTab: String?
         var inspectorFraction: Double?
+        var parentID: UUID?
     }
 
     struct SavedConversation: Codable {
@@ -323,11 +339,12 @@ final class Workspace: ObservableObject, Identifiable {
               terminalWidth: nil,
               inspectorVisible: inspectorVisible,
               inspectorTab: inspectorTab.rawValue,
-              inspectorFraction: nil)
+              inspectorFraction: nil,
+              parentID: parentID)
     }
 
     convenience init(saved s: Saved) {
-        self.init(id: s.id, name: s.name, folder: s.folder)
+        self.init(id: s.id, name: s.name, folder: s.folder, parentID: s.parentID)
         for c in s.conversations {
             let conv = ClaudeConversation(restoring: c.id, cwd: c.cwd, sessionID: c.sessionID, customTitle: c.customTitle)
             conv.workspace = self

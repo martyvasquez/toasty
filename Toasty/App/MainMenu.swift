@@ -70,6 +70,9 @@ enum MainMenu {
         let workspace = NSMenu(title: "Workspace")
         workspace.addItem(item("New Workspace…", #selector(W.newWorkspace(_:)), ""))
         workspace.addItem(item("Rename Workspace", #selector(W.renameWorkspace(_:)), "r", [.command, .control]))
+        workspace.addItem(item("New Worktree…", #selector(W.newWorktree(_:)), "N"))
+        workspace.addItem(item("Remove Worktree…", #selector(W.removeWorktree(_:)), ""))
+        workspace.addItem(.separator())
         workspace.addItem(item("Change Folder…", #selector(W.changeWorkspaceFolder(_:)), ""))
         workspace.addItem(item("Open in Finder", #selector(W.openWorkspaceInFinder(_:)), ""))
         workspace.addItem(.separator())
@@ -137,7 +140,7 @@ final class WorkspaceMenuDelegate: NSObject, NSMenuDelegate {
             item.isHidden = !exists
             item.allowsKeyEquivalentWhenHidden = true
             if exists {
-                item.title = store.workspaces[i].name
+                item.title = store.workspaces[i].displayName
                 item.state = store.workspaces[i].id == store.activeID ? .on : .off
             }
         }
