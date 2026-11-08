@@ -254,6 +254,7 @@ enum DebugControl {
 
         // Send an action up the responder chain (copy:, paste:, clearTerminal:…).
         register("about") { _ in AboutPanel.shared.show(nil); return nil }
+        register("settings") { _ in SettingsWindowController.shared.show(nil); return nil }
 
         register("action") { cmd in
             guard let name = cmd["name"] as? String else { throw DebugError("name required") }

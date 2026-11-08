@@ -27,8 +27,10 @@ terminal**; don't build the rest of the app on it until it passes.
    browser-based editors.
 3. **The UI renders events and collects input; it never decides what Claude
    does.**
-4. **Simple.** A personal tool. No settings screens, no speculative
-   features, no abstractions without a second use.
+4. **Simple.** A personal tool. No speculative features, no abstractions
+   without a second use. One standard Settings window (⌘,) is allowed
+   (added 2026-11-08 at the user's request, for dictation's vocabulary);
+   add a pane only when something truly needs it.
 5. **Refined.** The user cares a lot about typography, spacing and
    integration (§5). Verify visually with real screenshots (§9) after every
    UI change. Don't guess.
@@ -523,7 +525,8 @@ time with pinned revisions and sha256, bundled in the app; no network.
   press again to finish; Esc or ⌘. cancels. The composer's mic button does
   the same. Text is inserted at the composer's caret; never submitted.
   Edit ▸ Dictation: Start/Finish, Cancel, Insert/Copy Last Dictation,
-  Edit Vocabulary…, Edit Project Vocabulary….
+  Vocabulary… (opens Settings ▸ Dictation: edit your terms and
+  replacements, everywhere or for this project; see what Toasty adds).
 - **Mic:** opens on the press (~120 ms lost cold) and stays open 15 s after
   a dictation; closes when Toasty isn't active (the user disliked the
   always-on indicator). Bluetooth inputs are passed over (Hex's rule).

@@ -76,8 +76,8 @@ nonisolated enum Vocabulary {
             let spellings = parts.count > 1
                 ? parts[1].split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
                 : []
-            if !name.contains(" ") && (name.count < 7 || isDictionaryWord(name)) {
-                file.warnings.append("“\(name)” is a short or ordinary single word; it may replace words that sound like it. A longer form (e.g. “Claude Code”, not “Claude”) is safer.")
+            if !name.contains(" ") && isDictionaryWord(name) {
+                file.warnings.append("“\(name)” is also an ordinary word, so it may replace words that sound like it. A longer form (e.g. “Claude Code”, not “Claude”) is safer.")
             }
             file.terms.append(Term(text: name, soundsLike: Array(spellings.prefix(DictationConfig.maxSoundsLikePerTerm)), forced: forced))
         }

@@ -30,6 +30,7 @@ import Testing
         #expect(!Vocabulary.parse("Node").warnings.isEmpty)
         #expect(Vocabulary.parse("Claude Code").warnings.isEmpty)
         #expect(Vocabulary.parse("libghostty").warnings.isEmpty)
+        #expect(Vocabulary.parse("GitHub").warnings.isEmpty)
     }
 
     @Test func projectTermsComeFirstAndTheListIsCapped() {
@@ -245,5 +246,20 @@ import Testing
     func ordinarySpeechIsUntouched(text: String) {
         let v = Vocabulary.combine(project: nil, global: nil)
         #expect(TextPipeline.process(text, vocabulary: v) == text)
+    }
+}
+
+@Suite struct VocabularyEditorFileTests {
+    @Test func savesWhatItLoads() {
+        let terms = [VocabularyEditor.TermRow(text: "Nimbalyst", soundsLike: "nimble list, nimblest", fixCase: false),
+                     VocabularyEditor.TermRow(text: "Codex", soundsLike: "", fixCase: true),
+                     VocabularyEditor.TermRow(text: "  ", soundsLike: "", fixCase: false)]
+        let rules = [VocabularyEditor.ReplacementRow(from: "source slash", to: "src/"),
+                     VocabularyEditor.ReplacementRow(from: "", to: "ignored")]
+        let text = VocabularyEditor.serialize(header: "# my notes", terms: terms, replacements: rules)
+        #expect(text == "# my notes\n\nNimbalyst = nimble list, nimblest\nCodex!\n\nsource slash -> src/\n")
+        let file = Vocabulary.parse(text)
+        #expect(file.terms == [.init(text: "Nimbalyst", soundsLike: ["nimble list", "nimblest"]), .init(text: "Codex", forced: true)])
+        #expect(file.replacements == [.init(from: "source slash", to: "src/")])
     }
 }

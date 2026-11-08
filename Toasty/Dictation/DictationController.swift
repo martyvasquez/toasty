@@ -381,8 +381,7 @@ extension DictationController {
         add("Insert Last Dictation", #selector(DictationMenuActions.insertLast(_:)))
         add("Copy Last Dictation", #selector(DictationMenuActions.copyLast(_:)))
         menu.addItem(.separator())
-        add("Edit Vocabulary…", #selector(DictationMenuActions.editVocabulary(_:)))
-        add("Edit Project Vocabulary…", #selector(DictationMenuActions.editProjectVocabulary(_:)))
+        add("Vocabulary…", #selector(DictationMenuActions.editVocabulary(_:)))
         let item = NSMenuItem(title: "Dictation", action: nil, keyEquivalent: "")
         item.submenu = menu
         return item
@@ -425,12 +424,7 @@ final class DictationMenuActions: NSObject, NSMenuItemValidation {
     @objc func copyLast(_ sender: Any?) { controller.copyLast() }
 
     @objc func editVocabulary(_ sender: Any?) {
-        NSWorkspace.shared.open(Vocabulary.ensureGlobalFile())
-    }
-
-    @objc func editProjectVocabulary(_ sender: Any?) {
-        guard let folder = controller.currentFolder else { return }
-        NSWorkspace.shared.open(Vocabulary.ensureProjectFile(folder: folder))
+        SettingsWindowController.shared.show(sender)
     }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
@@ -441,7 +435,6 @@ final class DictationMenuActions: NSObject, NSMenuItemValidation {
         case #selector(cancel(_:)): return controller.isRecording
         case #selector(insertLast(_:)): return controller.hasLastDictation && DictationController.currentComposer() != nil
         case #selector(copyLast(_:)): return controller.hasLastDictation
-        case #selector(editProjectVocabulary(_:)): return controller.currentFolder != nil
         default: return true
         }
     }

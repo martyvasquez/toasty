@@ -11,6 +11,10 @@ enum MainMenu {
         about.target = AboutPanel.shared
         app.addItem(about)
         app.addItem(.separator())
+        let settings = NSMenuItem(title: "Settings…", action: #selector(SettingsWindowController.show(_:)), keyEquivalent: ",")
+        settings.target = SettingsWindowController.shared
+        app.addItem(settings)
+        app.addItem(.separator())
         let services = NSMenuItem(title: "Services", action: nil, keyEquivalent: "")
         services.submenu = NSMenu(title: "Services")
         NSApp.servicesMenu = services.submenu
