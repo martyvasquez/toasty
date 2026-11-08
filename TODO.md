@@ -50,19 +50,18 @@ incoming "Message from @name" rows, the @ menu.
 
 ## Dictation
 
-Built so far (branch `dictation/d0-engine-spike`): local engine, mic on
-demand, Right Option hold / double-tap lock, Esc cancels, composer
-insertion, mic button, vocabulary files + context vocabulary, spoken
-formatting/symbols, filler words, replacements, casing fixes.
+Shipped on branch `dictation/d0-engine-spike` (see BUILD_PLAN.md §13).
 
-### Next (rest of D3, D5, D6)
+### Next
 
-- **Tones** (start/stop/error), **Edit ▸ Dictation** menu (Cancel ⌘.,
-  Insert/Copy Last Dictation, Edit Vocabulary…, Edit Project Vocabulary…),
-  VoiceOver announcements.
-- **Key-press clock check** with real Right Option events (D2 carry-over).
-- Acknowledgements/licenses (Parakeet CC BY 4.0, transcribe.cpp MIT,
-  Silero MIT), memory/idle-CPU check, release build + notarization.
+- **Key-press clock check** with real Right Option presses (needs the
+  user: compare `lastPressHandledAfterMs` in `dictationState`).
+- **Notarize** the release (needs the `toasty-notary` keychain profile),
+  then launch-test the Release build.
+- **Large repos:** spoken-path matching scans every file and folder per
+  dictation; index by last segment if a monorepo feels slow.
+- **About panel (pre-existing):** the dark-mode icon is a placeholder in the
+  Debug build; the first credit line wraps ("SDK." alone).
 
 ### Later / ideas
 
