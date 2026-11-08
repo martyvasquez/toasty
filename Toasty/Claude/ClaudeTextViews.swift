@@ -163,6 +163,8 @@ struct ClaudeComposer: NSViewRepresentable {
     var onPasteImage: ((NSImage) -> Void)?
     /// Gets keys first (e.g. the slash command menu): return true if handled.
     var onKeyCommand: ((Selector) -> Bool)?
+    /// The conversation, so dictation can show its state on this composer.
+    var dictationID: UUID?
 
     /// One line of text at rest; the box grows as you type.
     static var minHeight: CGFloat {
@@ -214,6 +216,7 @@ struct ClaudeComposer: NSViewRepresentable {
             }(),
         ]
         view.placeholder = placeholder
+        view.dictationID = dictationID
         view.string = text
 
         scroll.documentView = view
@@ -225,6 +228,7 @@ struct ClaudeComposer: NSViewRepresentable {
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         context.coordinator.parent = self
         guard let view = scroll.documentView as? ComposerTextView else { return }
+        view.dictationID = dictationID
         if view.string != text {
             view.string = text
             context.coordinator.recalcHeight()
@@ -311,6 +315,8 @@ struct ClaudeComposer: NSViewRepresentable {
 
 final class ComposerTextView: NSTextView {
     weak var coordinator: ClaudeComposer.Coordinator?
+    /// The conversation this composer belongs to (dictation's target id).
+    var dictationID: UUID?
 
     /// No system badge beside the cursor (Siri, dictation, input source).
     override func preferredTextAccessoryPlacement() -> NSTextCursorAccessoryPlacement { .invisible }

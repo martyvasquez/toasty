@@ -121,6 +121,9 @@ nonisolated final class MicCapture: @unchecked Sendable {
     /// prompts before the first dictation.
     private static let grantedKey = "ToastyDictationMicrophoneGranted"
 
+    /// Access was granted before (it may read as not determined at launch).
+    static var previouslyGranted: Bool { UserDefaults.standard.bool(forKey: grantedKey) }
+
     /// Toasty became the active app: open (or keep) the microphone when it
     /// stays warm while active (`keepMicWarmWhileActive`).
     func appBecameActive() {

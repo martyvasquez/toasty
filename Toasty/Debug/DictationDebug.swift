@@ -1,4 +1,5 @@
 #if DEBUG
+import AppKit
 import AVFoundation
 
 /// Debug commands for dictation: test the pipeline with WAV files instead of
@@ -52,7 +53,11 @@ enum DictationDebug {
                 ["name": d.name, "transport": d.transport.rawValue, "default": d.id == defaultID]
             }
             mic["choice"] = MicCapture.candidates(devices, defaultID: defaultID).map(\.name)
-            return ["engine": engine, "mic": mic]
+            let c = DictationController.shared
+            var control: [String: Any] = ["trigger": c.triggerState, "phase": "\(c.phase)", "locked": c.locked]
+            if let d = c.lastEventDelay { control["lastPressHandledAfterMs"] = (d * 10_000).rounded() / 10 }
+            if let last = c.lastDictation { control["last"] = ["raw": last.raw, "final": last.final] }
+            return ["engine": engine, "mic": mic, "control": control]
         }
 
         // Live microphone: {"cmd":"dictationPress"} … speak … {"cmd":"dictationRelease"}.
@@ -104,6 +109,28 @@ enum DictationDebug {
                 }
             }
             return try await process(outcome, vocabulary: vocabulary(cmd))
+        }
+
+        // Indicator states for screenshots: {"cmd":"dictationIndicator","phase":"listening","level":0.6}
+        DebugControl.register("dictationIndicator") { cmd in
+            let level = Float(cmd["level"] as? Double ?? 0)
+            let phase: DictationController.Phase = switch cmd["phase"] as? String ?? "idle" {
+            case "listening": .listening
+            case "transcribing": .transcribing
+            case "failed": .failed("The microphone stopped for 400 ms.")
+            default: .idle
+            }
+            DictationController.shared.debugShow(phase, level: level, locked: cmd["locked"] as? Bool ?? false)
+            var composers: [[String: Any]] = []
+            func walk(_ v: NSView) {
+                if let c = v as? ComposerTextView {
+                    composers.append(["id": c.dictationID?.uuidString ?? "nil", "hidden": c.isHiddenOrHasHiddenAncestor,
+                                      "visible": NSStringFromRect(c.visibleRect), "focused": c.window?.firstResponder === c])
+                }
+                v.subviews.forEach(walk)
+            }
+            for w in NSApp.windows { if let v = w.contentView { walk(v) } }
+            return ["target": DictationController.shared.target?.uuidString ?? "none", "composers": composers]
         }
 
         // {"cmd":"dictationDumpLastClip","path":"/tmp/clip.wav"}: the last framed 16 kHz clip.

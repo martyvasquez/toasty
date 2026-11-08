@@ -46,6 +46,20 @@ nonisolated enum DictationConfig {
     static let vadThreshold = 0.4
     static let vadMinSpeechMs: Int32 = 160
 
+    // MARK: Trigger (plan D7; hex/src/suppression.rs:22)
+
+    /// Right Option (Left Option, 58, is used constantly in a terminal app).
+    static let triggerKeyCode: UInt16 = 61
+    /// A second tap released within this of the first release locks recording.
+    static let doubleTapWindow: TimeInterval = 0.3
+
+    // MARK: Feedback (plan §9.3)
+
+    /// How long a failed dictation's indicator stays up.
+    static let failureVisible: TimeInterval = 0.6
+    /// Transcribing shows at least this long, so it doesn't flicker.
+    static let transcribingMinimumVisible: TimeInterval = 0.2
+
     // MARK: Capture (hex/src/dictation.rs:39-96, dictation/audio.rs:25, audio.rs:235-346)
 
     /// Native-rate audio kept while the microphone is warm (TIMELINE_BUFFER_DURATION).

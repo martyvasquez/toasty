@@ -977,7 +977,8 @@ struct ClaudeComposerBox: View {
                 },
                 onShiftTab: { conversation.cyclePermissionMode() },
                 onPasteImage: { conversation.attachments.append($0) },
-                onKeyCommand: { commandKey($0) || mentionKey($0) })
+                onKeyCommand: { commandKey($0) || mentionKey($0) },
+                dictationID: conversation.id)
                 .frame(height: height)
                 .padding(.horizontal, Self.inset)
                 .padding(.top, 13)
@@ -992,6 +993,7 @@ struct ClaudeComposerBox: View {
                     ClaudeRemoteControlMenu(conversation: conversation)
                 }
                 ClaudeModelMenu(conversation: conversation)
+                DictationMicButton(conversation: conversation.id)
                 sendButton.padding(.leading, 4)
             }
             .padding(.leading, Self.inset - 7)

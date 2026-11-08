@@ -34,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Dictation's speech model loads and prewarms in the background once
         // the window is up, so the first dictation is ready.
         SpeechEngine.shared.preload()
+        DictationController.shared.start()
         // First launch: offer to bring over mostty's workspaces.
         if store.isFirstLaunch, MosttyImport.isAvailable,
            !UserDefaults.standard.bool(forKey: "ToastyImportedFromMostty") {
