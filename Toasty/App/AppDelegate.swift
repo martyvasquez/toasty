@@ -10,7 +10,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = MainMenu.make()
     }
 
+    /// Unit tests run hosted in the Debug app: start nothing (no window,
+    /// workspaces, Claude or terminals), so tests never touch real state.
+    static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if Self.isRunningTests { return }
         #if DEBUG
         DebugControl.install()
         TerminalDebug.install()

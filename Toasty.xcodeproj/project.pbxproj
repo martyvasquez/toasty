@@ -30,6 +30,7 @@
 		5A5408F16D2B6E4460483FCB /* TerminalTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9021DD3EFB91CB5031D36A21 /* TerminalTheme.swift */; };
 		6131DD0CF970A46E4FE1AC30 /* KeyCodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64C4D1DA3C7A21F286EE8D53 /* KeyCodes.swift */; };
 		6132779EEA82B2C34C56CDE9 /* ClaudeRequestCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CCEEDDC3B6D5A771D67C9DC /* ClaudeRequestCard.swift */; };
+		661A4A0A4B1CF64A4E83E929 /* Fixtures in Resources */ = {isa = PBXBuildFile; fileRef = 6F3A8B4B872E5EC65743891C /* Fixtures */; };
 		78A6CA1B4CA929C128407E33 /* WorkspaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */; };
 		8564E49059338213553F5F29 /* DictationDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 662BABDF0CE9D1BACB40CDDF /* DictationDebug.swift */; };
 		8905A680FA47042672972DFD /* ClaudeConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEF18C42EDAF14F5AFAD03EE /* ClaudeConversationView.swift */; };
@@ -41,10 +42,12 @@
 		B614E0D5DFBFC6A1EC6A58EB /* ClaudeConversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A3D72521ECFC5F5DC717828 /* ClaudeConversation.swift */; };
 		B7EC6B42A1BE5F57121E7511 /* ConversationColumn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A1AC4F2009B67034788F88E /* ConversationColumn.swift */; };
 		B8A7E2BEF7397740BED13E40 /* Bridge in Resources */ = {isa = PBXBuildFile; fileRef = 326FC85C18EB90E86334C2F6 /* Bridge */; };
+		C377CAE6CF74EDB9ACFFE687 /* CaptureClip.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0AB472102F6E81ECE753B0B /* CaptureClip.swift */; };
 		C43DE4B1B520DE08BA08379B /* DebugControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C279FCF3F11C0D07DF1B5B /* DebugControl.swift */; };
 		C4C4D6FECA7C3F59FBB1EBD6 /* MainMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C51FB87F905EF29B4ECF92F /* MainMenu.swift */; };
 		C83DB61BBC4E1B55D26FE8AB /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB24559E15BED10BF20F7121 /* AppDelegate.swift */; };
 		C9A592B6AC87794BFE62158E /* GhosttyVt.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 59A391E422005AC05F0585B6 /* GhosttyVt.xcframework */; };
+		CC8328BFDDF5F840A632E2EA /* SpeechEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761A76E108C08A07F86040EB /* SpeechEngineTests.swift */; };
 		D9F77D560C3635E6D7AD25E2 /* SpeechModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38E532463352FE1FCDD0BAFF /* SpeechModels.swift */; };
 		E418801CB5AD25148EC64A13 /* PTY.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64890A3F04ACB6E7BF086D88 /* PTY.swift */; };
 		EB6410071FBABD7E99511555 /* InspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E974BF37B348BD074F448190 /* InspectorView.swift */; };
@@ -53,6 +56,16 @@
 		F6A93F0D93822C4E1C46E036 /* ClaudeToolViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA6ECF9E267AAEB50DBBCB05 /* ClaudeToolViews.swift */; };
 		FC6ACCB01BF189ECD781B4B7 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A392D7CD9154E4ADC8244C28 /* main.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		8EE1E5A62C3828965473942B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EE1D125644D343C88CE5D7A8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 733C2EEAA9AEDF81A7F0D8AA;
+			remoteInfo = Toasty;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		C438CE03621E19EF30B90509 /* Embed Frameworks */ = {
@@ -88,6 +101,8 @@
 		662BABDF0CE9D1BACB40CDDF /* DictationDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationDebug.swift; sourceTree = "<group>"; };
 		6927A423E7E99E5F0D72EB08 /* WorkspaceSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSidebarView.swift; sourceTree = "<group>"; };
 		6E376E9D81389D2BAC3DC077 /* ClaudeAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeAgent.swift; sourceTree = "<group>"; };
+		6F3A8B4B872E5EC65743891C /* Fixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fixtures; path = Tests/Fixtures; sourceTree = SOURCE_ROOT; };
+		761A76E108C08A07F86040EB /* SpeechEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechEngineTests.swift; sourceTree = "<group>"; };
 		8267153271BF3718002C2343 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		88842989D41DAAD1748343EE /* DictationConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationConfig.swift; sourceTree = "<group>"; };
 		9021DD3EFB91CB5031D36A21 /* TerminalTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalTheme.swift; sourceTree = "<group>"; };
@@ -99,9 +114,11 @@
 		A8A10A7F8DA308A1B9259A36 /* MainSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainSplitViewController.swift; sourceTree = "<group>"; };
 		AAFDD6D5C02551210E270F85 /* SpeechModels */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SpeechModels; path = Toasty/Resources/SpeechModels; sourceTree = SOURCE_ROOT; };
 		AEF18C42EDAF14F5AFAD03EE /* ClaudeConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeConversationView.swift; sourceTree = "<group>"; };
+		B0AB472102F6E81ECE753B0B /* CaptureClip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureClip.swift; sourceTree = "<group>"; };
 		B522B1F4E328C3F351D75754 /* GitChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitChanges.swift; sourceTree = "<group>"; };
 		BCDD12CBF2473066A7A74A44 /* ClaudeDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeDebug.swift; sourceTree = "<group>"; };
 		BDA9BD4515BD6FE72B5BCEAF /* TerminalDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalDebug.swift; sourceTree = "<group>"; };
+		C11531EBFE7ED105AE65FCC4 /* ToastyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ToastyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C221CFDD6F14809C8C78A6D1 /* Activity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Activity.swift; sourceTree = "<group>"; };
 		C7C279FCF3F11C0D07DF1B5B /* DebugControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugControl.swift; sourceTree = "<group>"; };
 		D608974EF68852F5E90292F3 /* TerminalSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSession.swift; sourceTree = "<group>"; };
@@ -135,6 +152,7 @@
 		055ABB4FECED906F969CEAFA = {
 			isa = PBXGroup;
 			children = (
+				3A7757AAF4A44FAD6D7ED52D /* Tests */,
 				F5AD5A247C5B0AA3C0F9F617 /* Toasty */,
 				1980C5FD4F7744E0EDFF43ED /* Frameworks */,
 				D036D61EA093857ED019A572 /* Products */,
@@ -179,6 +197,15 @@
 				FD5208B6D881C79977926E54 /* Bridge */,
 			);
 			path = Resources;
+			sourceTree = "<group>";
+		};
+		3A7757AAF4A44FAD6D7ED52D /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				6F3A8B4B872E5EC65743891C /* Fixtures */,
+				C6DD56F891F4B9E034A4D746 /* DictationTests */,
+			);
+			path = Tests;
 			sourceTree = "<group>";
 		};
 		47BE5B242EE11E55D43B6BA7 /* Inspector */ = {
@@ -232,10 +259,19 @@
 			path = Workspaces;
 			sourceTree = "<group>";
 		};
+		C6DD56F891F4B9E034A4D746 /* DictationTests */ = {
+			isa = PBXGroup;
+			children = (
+				761A76E108C08A07F86040EB /* SpeechEngineTests.swift */,
+			);
+			path = DictationTests;
+			sourceTree = "<group>";
+		};
 		D036D61EA093857ED019A572 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				E6DF957BA5BE2D33ABAAE422 /* Toasty.app */,
+				C11531EBFE7ED105AE65FCC4 /* ToastyTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -243,6 +279,7 @@
 		D544FAAC6507F31CEF5016D5 /* Dictation */ = {
 			isa = PBXGroup;
 			children = (
+				B0AB472102F6E81ECE753B0B /* CaptureClip.swift */,
 				88842989D41DAAD1748343EE /* DictationConfig.swift */,
 				E1C4288BD8F8A0E1BC06EB85 /* SpeechEngine.swift */,
 				38E532463352FE1FCDD0BAFF /* SpeechModels.swift */,
@@ -313,6 +350,25 @@
 			productReference = E6DF957BA5BE2D33ABAAE422 /* Toasty.app */;
 			productType = "com.apple.product-type.application";
 		};
+		B085017F419A0C1E905DA028 /* ToastyTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA9E61DE6534CE7898A3F2D2 /* Build configuration list for PBXNativeTarget "ToastyTests" */;
+			buildPhases = (
+				7306AD7BAFA2E9DFDA9BAC8A /* Sources */,
+				DF7DC286EB6B138FD26C6167 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5DF51E47D87678AB4030528E /* PBXTargetDependency */,
+			);
+			name = ToastyTests;
+			packageProductDependencies = (
+			);
+			productName = ToastyTests;
+			productReference = C11531EBFE7ED105AE65FCC4 /* ToastyTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -323,6 +379,10 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					733C2EEAA9AEDF81A7F0D8AA = {
+						DevelopmentTeam = G88C7HMHUJ;
+						ProvisioningStyle = Automatic;
+					};
+					B085017F419A0C1E905DA028 = {
 						DevelopmentTeam = G88C7HMHUJ;
 						ProvisioningStyle = Automatic;
 					};
@@ -343,11 +403,20 @@
 			projectRoot = "";
 			targets = (
 				733C2EEAA9AEDF81A7F0D8AA /* Toasty */,
+				B085017F419A0C1E905DA028 /* ToastyTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		DF7DC286EB6B138FD26C6167 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				661A4A0A4B1CF64A4E83E929 /* Fixtures in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E2DF406E5C7DFE9B39F9910F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -367,6 +436,7 @@
 			files = (
 				120D5D296EE4BA6C4E33E628 /* Activity.swift in Sources */,
 				C83DB61BBC4E1B55D26FE8AB /* AppDelegate.swift in Sources */,
+				C377CAE6CF74EDB9ACFFE687 /* CaptureClip.swift in Sources */,
 				308C0EB67B57D5743742E49F /* ClaudeAgent.swift in Sources */,
 				B614E0D5DFBFC6A1EC6A58EB /* ClaudeConversation.swift in Sources */,
 				8905A680FA47042672972DFD /* ClaudeConversationView.swift in Sources */,
@@ -407,9 +477,42 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7306AD7BAFA2E9DFDA9BAC8A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC8328BFDDF5F840A632E2EA /* SpeechEngineTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		5DF51E47D87678AB4030528E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 733C2EEAA9AEDF81A7F0D8AA /* Toasty */;
+			targetProxy = 8EE1E5A62C3828965473942B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		083267FD28FFA7EA837BEA48 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.martyvasquez.toasty.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Toasty Debug.app/Contents/MacOS/Toasty Debug";
+			};
+			name = Debug;
+		};
 		4A424E6312A0DAF44E4B4938 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -525,6 +628,23 @@
 			};
 			name = Release;
 		};
+		6796E5407918E4197B7A6F98 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.martyvasquez.toasty.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Toasty Debug.app/Contents/MacOS/Toasty Debug";
+			};
+			name = Release;
+		};
 		AA54359F2BE76F644D157E59 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -601,6 +721,15 @@
 			buildConfigurations = (
 				AA54359F2BE76F644D157E59 /* Debug */,
 				5DB72EFADB400D3082851862 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		AA9E61DE6534CE7898A3F2D2 /* Build configuration list for PBXNativeTarget "ToastyTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				083267FD28FFA7EA837BEA48 /* Debug */,
+				6796E5407918E4197B7A6F98 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

@@ -1,5 +1,5 @@
 #if DEBUG
-import AVFoundation
+import Foundation
 
 /// Debug commands for dictation: test the pipeline with WAV files instead of
 /// a microphone (TOASTY_DICTATION_PLAN.md §11.3).
@@ -12,7 +12,8 @@ enum DictationDebug {
         // `term = sounds like, …` for spellings.
         DebugControl.registerAsync("dictationTranscribeFile") { cmd in
             guard let path = cmd["path"] as? String else { throw E("path required") }
-            let samples = try readWAV16kMono(URL(fileURLWithPath: path))
+            let samples = try CaptureClip.read(URL(fileURLWithPath: path))
+            let speech = await SpeechEngine.shared.containsSpeech(samples)
             var vocabulary = VocabularySnapshot.empty
             if let file = cmd["vocabulary"] as? String {
                 vocabulary = try parseTerms(String(contentsOfFile: file, encoding: .utf8))
@@ -23,6 +24,7 @@ enum DictationDebug {
                 "audioSeconds": t.audioSeconds, "runSeconds": t.runSeconds,
                 "encodeMs": t.encodeMs, "decodeMs": t.decodeMs,
                 "vocabularyTerms": t.vocabularyTerms,
+                "speech": speech.map { $0 ? "yes" : "no" } ?? "unknown",
             ] as [String: Any]
         }
 
@@ -36,36 +38,11 @@ enum DictationDebug {
             engine["loadError"] = s.loadError
             engine["loadSeconds"] = s.loadSeconds
             engine["prewarmSeconds"] = s.prewarmSeconds
+            engine["detectorLoaded"] = s.detectorLoaded
+            engine["detectorError"] = s.detectorError
             if let r = s.lastRun { engine["lastRun"] = ["text": r.text, "runSeconds": r.runSeconds] }
             return ["engine": engine]
         }
-    }
-
-    /// Any audio file → 16 kHz mono Float32.
-    static func readWAV16kMono(_ url: URL) throws -> [Float] {
-        let file = try AVAudioFile(forReading: url)
-        let source = file.processingFormat
-        guard let input = AVAudioPCMBuffer(pcmFormat: source, frameCapacity: AVAudioFrameCount(file.length)) else {
-            throw E("can't allocate buffer")
-        }
-        try file.read(into: input)
-        let target = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16_000, channels: 1, interleaved: false)!
-        if source.sampleRate == 16_000, source.channelCount == 1, let data = input.floatChannelData {
-            return Array(UnsafeBufferPointer(start: data[0], count: Int(input.frameLength)))
-        }
-        guard let converter = AVAudioConverter(from: source, to: target) else { throw E("can't convert \(source)") }
-        let capacity = AVAudioFrameCount(Double(input.frameLength) * 16_000 / source.sampleRate) + 1024
-        guard let output = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity) else { throw E("can't allocate") }
-        nonisolated(unsafe) var fed = false
-        var error: NSError?
-        converter.convert(to: output, error: &error) { _, status in
-            if fed { status.pointee = .endOfStream; return nil }
-            fed = true
-            status.pointee = .haveData
-            return input
-        }
-        if let error { throw error }
-        return Array(UnsafeBufferPointer(start: output.floatChannelData![0], count: Int(output.frameLength)))
     }
 
     static func parseTerms(_ text: String) -> VocabularySnapshot {

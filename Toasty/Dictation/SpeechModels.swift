@@ -20,9 +20,13 @@ nonisolated enum SpeechModels {
         }
     }
 
-    static func url(for model: DictationConfig.BundledModel, in bundle: Bundle = .main) throws -> URL {
-        guard let folder = bundle.resourceURL?.appendingPathComponent(DictationConfig.modelsFolder, isDirectory: true)
-        else { throw Failure.missing(model.file) }
+    /// The app's bundled models folder.
+    static var bundledFolder: URL {
+        (Bundle.main.resourceURL ?? Bundle.main.bundleURL)
+            .appendingPathComponent(DictationConfig.modelsFolder, isDirectory: true)
+    }
+
+    static func url(for model: DictationConfig.BundledModel, in folder: URL = bundledFolder) throws -> URL {
         let url = folder.appendingPathComponent(model.file)
         guard let size = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? Int else {
             throw Failure.missing(model.file)

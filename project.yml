@@ -85,6 +85,25 @@ targets:
           PRODUCT_BUNDLE_IDENTIFIER: com.martyvasquez.toasty.debug
           APP_DISPLAY_NAME: Toasty Debug
 
+  # Unit tests, hosted in the Debug app (which starts nothing under tests;
+  # see AppDelegate.isRunningTests). Engine tests use its bundled models.
+  ToastyTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/DictationTests
+      - path: Tests/Fixtures
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - target: Toasty
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.martyvasquez.toasty.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Toasty Debug.app/Contents/MacOS/Toasty Debug"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+
 schemes:
   Toasty:
     build:
@@ -92,3 +111,7 @@ schemes:
         Toasty: all
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - ToastyTests

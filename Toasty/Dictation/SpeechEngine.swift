@@ -46,7 +46,7 @@ nonisolated final class SpeechCancelToken: Sendable {
 /// Metal only, one CPU thread, a fresh session per run, a prewarm at load,
 /// vocabulary rescoring at boost 2.5, repetition partials kept.
 nonisolated final class SpeechEngine: @unchecked Sendable {
-    static let shared = SpeechEngine()
+    static let shared = SpeechEngine(modelsFolder: SpeechModels.bundledFolder)
     static let log = Logger(subsystem: "com.martyvasquez.toasty", category: "speech")
 
     enum EngineError: Error, CustomStringConvertible {
@@ -81,6 +81,8 @@ nonisolated final class SpeechEngine: @unchecked Sendable {
         var pendingJobs = 0
         var runs = 0
         var lastRun: Transcription?
+        var detectorLoaded = false
+        var detectorError: String?
     }
 
     private let status = OSAllocatedUnfairLock(initialState: Status())
@@ -94,8 +96,15 @@ nonisolated final class SpeechEngine: @unchecked Sendable {
     private var model: OpaquePointer?
     private var session: OpaquePointer?
     private var lastRunEnded: Date?
+    private var detector: Detector = .unloaded
+    private enum Detector { case unloaded, loaded(model: OpaquePointer, session: OpaquePointer), failed }
 
-    private init() {
+    private let modelsFolder: URL
+
+    /// One engine per models folder; the app uses `shared`. (Tests make
+    /// their own with the repo's folder.)
+    init(modelsFolder: URL) {
+        self.modelsFolder = modelsFolder
         Self.installLogging()
         let thread = Thread { [self] in loop() }
         thread.name = "toasty.speech"
@@ -110,7 +119,25 @@ nonisolated final class SpeechEngine: @unchecked Sendable {
     func preload() {
         _ = enqueue { [self] in
             do { try loadIfNeeded() } catch { Self.log.error("speech model load failed: \(String(describing: error), privacy: .public)") }
+            _ = detectorSession()
         }
+    }
+
+    /// Whether 16 kHz mono `samples` contain speech (Silero VAD, threshold
+    /// 0.4, min speech 160 ms), or nil when the detector isn't available and
+    /// the caller should keep the clip (speech_detector.rs).
+    func containsSpeech(_ samples: [Float]) async -> Bool? {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Bool?, Never>) in
+            let queued = enqueue { [self] in continuation.resume(returning: detectSpeech(samples)) }
+            if !queued { continuation.resume(returning: nil) }
+        }
+    }
+
+    /// Zeros appended up to Parakeet's 1.5 s minimum; longer clips unchanged
+    /// (no trailing silence for v2: hex transcription.rs:272).
+    static func padded(_ samples: [Float]) -> [Float] {
+        guard samples.count < DictationConfig.minimumSamples else { return samples }
+        return samples + [Float](repeating: 0, count: DictationConfig.minimumSamples - samples.count)
     }
 
     /// Transcribes 16 kHz mono Float32 samples. Shorter than 1.5 s is padded.
@@ -119,7 +146,7 @@ nonisolated final class SpeechEngine: @unchecked Sendable {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Transcription, Error>) in
             let queued = enqueue { [self] in
                 if cancel?.isCancelled == true { return continuation.resume(throwing: EngineError.cancelled) }
-                do { continuation.resume(returning: try run(samples, vocabulary: vocabulary, cancel: cancel)) }
+                do { continuation.resume(returning: try transcribeJob(samples, vocabulary: vocabulary, cancel: cancel)) }
                 catch { continuation.resume(throwing: error) }
             }
             if !queued { continuation.resume(throwing: EngineError.busy) }
@@ -161,7 +188,7 @@ nonisolated final class SpeechEngine: @unchecked Sendable {
     }
 
     private func load() throws {
-        let url = try SpeechModels.url(for: DictationConfig.speechModel)
+        let url = try SpeechModels.url(for: DictationConfig.speechModel, in: modelsFolder)
         let started = Date()
 
         var params = transcribe_model_load_params()
@@ -264,10 +291,7 @@ nonisolated final class SpeechEngine: @unchecked Sendable {
     private func run(_ samples: [Float], vocabulary: VocabularySnapshot, cancel: SpeechCancelToken?) throws -> Transcription {
         try loadIfNeeded()
         let started = Date()
-        var pcm = samples
-        if pcm.count < DictationConfig.minimumSamples {
-            pcm.append(contentsOf: repeatElement(0, count: DictationConfig.minimumSamples - pcm.count))
-        }
+        let pcm = Self.padded(samples)
 
         let current = try session ?? makeSession()
         session = nil
@@ -350,6 +374,93 @@ nonisolated final class SpeechEngine: @unchecked Sendable {
             decode \(transcription.decodeMs, format: .fixed(precision: 0)) ms, \(terms.count) terms)
             """)
         return transcription
+    }
+
+    /// A clip longer than the model's limit runs in chunks, skipping chunks
+    /// the detector hears no speech in (Hex transcribe_chunked). Parakeet v2
+    /// reports no limit (max_audio_ms 0), so this is one run in practice.
+    private func transcribeJob(_ samples: [Float], vocabulary: VocabularySnapshot,
+                               cancel: SpeechCancelToken?) throws -> Transcription {
+        try loadIfNeeded()
+        let limitMs = status.withLock { $0.maxAudioMs }
+        let limit = Int(limitMs) * DictationConfig.sampleRate / 1000
+        guard limit > 0, samples.count > limit else { return try run(samples, vocabulary: vocabulary, cancel: cancel) }
+
+        var combined: Transcription?
+        var texts: [String] = []
+        for start in stride(from: 0, to: samples.count, by: limit) {
+            if cancel?.isCancelled == true { throw EngineError.cancelled }
+            let chunk = Array(samples[start..<min(start + limit, samples.count)])
+            if detectSpeech(chunk) == false { continue }
+            let part = try run(chunk, vocabulary: vocabulary, cancel: cancel)
+            if !part.text.isEmpty { texts.append(part.text) }
+            if var total = combined {
+                total.audioSeconds += part.audioSeconds; total.runSeconds += part.runSeconds
+                total.encodeMs += part.encodeMs; total.decodeMs += part.decodeMs
+                combined = total
+            } else {
+                combined = part
+            }
+        }
+        var result = combined ?? Transcription(text: "", audioSeconds: 0, runSeconds: 0, encodeMs: 0, decodeMs: 0,
+                                               vocabularyTerms: 0)
+        result.text = texts.joined(separator: " ")
+        return result
+    }
+
+    // MARK: Speech detector (Silero VAD on the CPU: loads in tens of ms)
+
+    private func detectorSession() -> OpaquePointer? {
+        switch detector {
+        case .loaded(_, let session): return session
+        case .failed: return nil
+        case .unloaded: break
+        }
+        do {
+            let url = try SpeechModels.url(for: DictationConfig.speechDetector, in: modelsFolder)
+            var params = transcribe_model_load_params()
+            transcribe_model_load_params_init(&params)
+            params.backend = TRANSCRIBE_BACKEND_CPU
+            var loaded: OpaquePointer?
+            var result = transcribe_model_load_file(url.path, &params, &loaded)
+            guard result == TRANSCRIBE_OK, let loaded else { throw EngineError.load("detector: \(Self.describe(result))") }
+            var info = transcribe_vad_info()
+            transcribe_vad_info_init(&info)
+            var session: OpaquePointer?
+            result = transcribe_vad_get_info(loaded, &info)
+            if result == TRANSCRIBE_OK { result = transcribe_vad_session_init(loaded, nil, &session) }
+            guard result == TRANSCRIBE_OK, let session, info.sample_rate == Int32(DictationConfig.sampleRate) else {
+                transcribe_model_free(loaded)
+                throw EngineError.load("detector: \(Self.describe(result)), \(info.sample_rate) Hz")
+            }
+            detector = .loaded(model: loaded, session: session)
+            status.withLock { $0.detectorLoaded = true; $0.detectorError = nil }
+            return session
+        } catch {
+            // Dictation keeps working without it (clips are then kept).
+            detector = .failed
+            status.withLock { $0.detectorLoaded = false; $0.detectorError = String(describing: error) }
+            Self.log.error("speech detector unavailable: \(String(describing: error), privacy: .public)")
+            return nil
+        }
+    }
+
+    private func detectSpeech(_ samples: [Float]) -> Bool? {
+        guard !samples.isEmpty, let session = detectorSession() else { return samples.isEmpty ? false : nil }
+        var params = transcribe_vad_params()
+        transcribe_vad_params_init(&params)
+        params.threshold = DictationConfig.vadThreshold
+        params.min_speech_ms = DictationConfig.vadMinSpeechMs
+        let result = samples.withUnsafeBufferPointer {
+            transcribe_vad_run(session, $0.baseAddress, Int32($0.count), &params)
+        }
+        var summary = transcribe_vad_result()
+        transcribe_vad_result_init(&summary)
+        guard result == TRANSCRIBE_OK, transcribe_vad_get_result(session, &summary) == TRANSCRIBE_OK else {
+            Self.log.error("speech detection failed: \(Self.describe(result), privacy: .public)")
+            return nil
+        }
+        return summary.n_segments > 0
     }
 
     // MARK: Helpers
