@@ -90,6 +90,9 @@ async function start(msg) {
     tools: { type: "preset", preset: "claude_code" },
     settingSources: ["user", "project", "local"],
     includePartialMessages: true,
+    // Like the CLI: a predicted next prompt after each turn (Claude Code
+    // honors the user's promptSuggestionEnabled setting).
+    promptSuggestions: true,
     canUseTool,
     env: { ...process.env, CLAUDE_AGENT_SDK_CLIENT_APP: "toasty" },
     stderr: (data) => process.stderr.write(data),
@@ -151,6 +154,9 @@ rl.on("line", async (line) => {
         });
         break;
       }
+      case "stop_task":
+        await q?.stopTask(msg.taskId);
+        break;
       case "interrupt":
         await q?.interrupt();
         break;

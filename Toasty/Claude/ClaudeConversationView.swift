@@ -279,7 +279,9 @@ private struct TranscriptRows: View, Equatable {
 
     var body: some View {
         ForEach(Array(rows.enumerated()), id: \.element.id) { i, row in
+            // Tool lines and thoughts sit at the reply's left edge.
             rowView(row)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, i == 0 ? 0 : spacing(before: row, after: rows[i - 1]))
         }
     }
@@ -525,6 +527,8 @@ struct ClaudeWorkingLine: View {
             let n = activity.outputTokens
             parts.append("↓ \(n >= 1000 ? String(format: "%.1fk", Double(n) / 1000) : "\(n)") tokens")
         }
+        let background = conversation.backgroundTasks.count
+        if background > 0 { parts.append("\(background) in background") }
         parts.append("esc to interrupt")
         return parts.joined(separator: " · ")
     }
@@ -874,6 +878,13 @@ struct ClaudeBottomArea: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.bottom, -2)
                     .transition(.opacity)
+            } else if !conversation.backgroundTasks.isEmpty {
+                // Between turns: what Claude Code still has running.
+                ClaudeBackgroundLine(conversation: conversation)
+                    .padding(.leading, ClaudeComposerBox.inset - 2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, -2)
+                    .transition(.opacity)
             }
             ClaudeComposerBox(conversation: conversation)
         }
@@ -884,6 +895,58 @@ struct ClaudeBottomArea: View {
         .frame(maxWidth: .infinity)
         .animation(.spring(response: 0.3, dampingFraction: 0.9), value: conversation.requests.first?.id)
         .animation(.easeOut(duration: 0.2), value: conversation.phase)
+        .animation(.easeOut(duration: 0.2), value: conversation.backgroundTasks.isEmpty)
+    }
+}
+
+/// Above the composer between turns: background work Claude Code is still
+/// running (a shell started in the background, a subagent), so a finished
+/// turn that said "I'll be notified" doesn't look idle. Click for a menu to
+/// stop a task.
+struct ClaudeBackgroundLine: View {
+    @ObservedObject var conversation: ClaudeConversation
+
+    var body: some View {
+        let tasks = conversation.backgroundTasks
+        ClaudePopUp(items: tasks.map { task in
+            ClaudePopUp.Item(title: "Stop “\(Self.short(task.description))”", symbol: "stop.circle") {
+                conversation.stopTask(task.id)
+            }
+        }) { hovering in
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                HStack(spacing: 7) {
+                    ProgressView().controlSize(.small).scaleEffect(0.55)
+                        .frame(width: 14, height: 14)
+                    Text(tasks.count == 1 ? "Running in the background" : "\(tasks.count) tasks running in the background")
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(hovering ? .primary : .secondary)
+                    Text(details(tasks, now: context.date))
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(.tertiary)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .help("Claude Code is still running this; it picks up the result when it finishes. Click to stop.")
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Running in the background")
+    }
+
+    private func details(_ tasks: [ClaudeConversation.BackgroundTask], now: Date) -> String {
+        guard let oldest = tasks.map(\.started).min() else { return "" }
+        let time = ClaudeToolInfo.duration(max(0, Int(now.timeIntervalSince(oldest))))
+        if tasks.count == 1, !tasks[0].description.isEmpty {
+            return Self.short(tasks[0].description) + " · " + time
+        }
+        return time
+    }
+
+    static func short(_ s: String) -> String {
+        let line = s.split(separator: "\n").first.map(String.init) ?? s
+        return line.count > 60 ? String(line.prefix(59)) + "…" : line
     }
 }
 
@@ -1042,7 +1105,10 @@ struct ClaudeComposerBox: View {
                 onShiftTab: { conversation.cyclePermissionMode() },
                 onPasteImage: { conversation.attachments.append($0) },
                 onKeyCommand: { commandKey($0) || mentionKey($0) },
-                dictationID: conversation.id)
+                dictationID: conversation.id,
+                suggestion: conversation.phase == .idle && conversation.requests.isEmpty
+                    && conversation.attachments.isEmpty ? conversation.suggestion : nil,
+                onAcceptSuggestion: { conversation.acceptSuggestion() })
                 .frame(height: height)
                 .padding(.horizontal, Self.inset)
                 .padding(.top, 13)

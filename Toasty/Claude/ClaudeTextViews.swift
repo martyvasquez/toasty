@@ -171,6 +171,10 @@ struct ClaudeComposer: NSViewRepresentable {
     var onKeyCommand: ((Selector) -> Bool)?
     /// The conversation, so dictation can show its state on this composer.
     var dictationID: UUID?
+    /// Claude Code's suggested next prompt: ghost text while empty, Tab
+    /// takes it.
+    var suggestion: String? = nil
+    var onAcceptSuggestion: () -> Void = {}
 
     /// One line of text at rest; the box grows as you type.
     static var minHeight: CGFloat {
@@ -222,6 +226,7 @@ struct ClaudeComposer: NSViewRepresentable {
             }(),
         ]
         view.placeholder = placeholder
+        view.suggestion = suggestion
         view.dictationID = dictationID
         view.string = text
 
@@ -235,9 +240,14 @@ struct ClaudeComposer: NSViewRepresentable {
         context.coordinator.parent = self
         guard let view = scroll.documentView as? ComposerTextView else { return }
         view.dictationID = dictationID
+        if view.suggestion != suggestion { view.suggestion = suggestion }
         if view.string != text {
             view.string = text
-            context.coordinator.recalcHeight()
+            view.setSelectedRange(NSRange(location: (text as NSString).length, length: 0))
+            // Not during this view update: SwiftUI drops state written
+            // while it updates a view (the box kept its old height after
+            // sending, or stayed one line for a draft set from code).
+            DispatchQueue.main.async { context.coordinator.recalcHeight() }
         }
         if view.placeholder != placeholder {
             view.placeholder = placeholder
@@ -278,6 +288,11 @@ struct ClaudeComposer: NSViewRepresentable {
         func recalcHeight() {
             guard let view = textView,
                   let layout = view.textLayoutManager else { return }
+            if view.string.isEmpty {
+                if abs(parent.height - ClaudeComposer.minHeight) > 0.5 { parent.height = ClaudeComposer.minHeight }
+                view.enclosingScrollView?.hasVerticalScroller = false
+                return
+            }
             layout.ensureLayout(for: layout.documentRange)
             var h: CGFloat = 0
             layout.enumerateTextLayoutFragments(from: layout.documentRange.endLocation, options: [.reverse, .ensuresLayout]) { f in
@@ -309,6 +324,9 @@ struct ClaudeComposer: NSViewRepresentable {
                 return true
             case #selector(NSResponder.cancelOperation(_:)):
                 return parent.onEscape()
+            case #selector(NSResponder.insertTab(_:)) where textView.string.isEmpty && parent.suggestion != nil:
+                parent.onAcceptSuggestion()
+                return true
             case #selector(NSResponder.insertBacktab(_:)):
                 parent.onShiftTab()
                 return true
@@ -329,6 +347,10 @@ final class ComposerTextView: NSTextView {
     var placeholder: String = "" {
         didSet { if placeholder != oldValue { needsDisplay = true } }
     }
+    /// Shown in place of the placeholder, with a "tab" key hint.
+    var suggestion: String? {
+        didSet { if suggestion != oldValue { needsDisplay = true } }
+    }
 
     /// Whether the placeholder was last drawn; typing only invalidates the
     /// typed glyph's rect, so the whole view must redraw when this flips.
@@ -343,6 +365,15 @@ final class ComposerTextView: NSTextView {
 
     override var string: String {
         didSet { updatePlaceholder() }
+    }
+
+    /// Wrapping changes with the width: measure again (outside layout).
+    override func setFrameSize(_ newSize: NSSize) {
+        let widthChanged = abs(newSize.width - frame.width) > 0.5
+        super.setFrameSize(newSize)
+        if widthChanged, !string.isEmpty {
+            DispatchQueue.main.async { [weak self] in self?.coordinator?.recalcHeight() }
+        }
     }
 
     override func didChangeText() {
@@ -362,7 +393,12 @@ final class ComposerTextView: NSTextView {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        guard string.isEmpty, !hasMarkedText(), !placeholder.isEmpty else { return }
+        guard string.isEmpty, !hasMarkedText() else { return }
+        if let suggestion, !suggestion.isEmpty {
+            drawSuggestion(suggestion)
+            return
+        }
+        guard !placeholder.isEmpty else { return }
         // Same font and line height as typed text, so the placeholder sits
         // exactly where the first line will.
         let style = NSMutableParagraphStyle()
@@ -376,6 +412,39 @@ final class ComposerTextView: NSTextView {
         let x = textContainerInset.width + (textContainer?.lineFragmentPadding ?? 0)
         let rect = NSRect(x: x, y: textContainerInset.height, width: bounds.width - x * 2, height: bounds.height)
         (placeholder as NSString).draw(with: rect, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine], attributes: attrs)
+    }
+
+    /// The suggested prompt on one line (truncated), then a small "tab"
+    /// key cap, like the CLI's ghost text.
+    private func drawSuggestion(_ text: String) {
+        let style = NSMutableParagraphStyle()
+        style.lineHeightMultiple = 1.2
+        style.lineBreakMode = .byTruncatingTail
+        let font = font ?? NSFont.systemFont(ofSize: ClaudeStyle.bodySize)
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: font, .foregroundColor: NSColor.placeholderTextColor, .paragraphStyle: style,
+        ]
+        let keyFont = NSFont.systemFont(ofSize: 10.5, weight: .medium)
+        let keyAttrs: [NSAttributedString.Key: Any] = [.font: keyFont, .foregroundColor: NSColor.tertiaryLabelColor]
+        let key = "tab" as NSString
+        let keySize = key.size(withAttributes: keyAttrs)
+        let capWidth = ceil(keySize.width) + 10, capHeight: CGFloat = 16
+
+        let line = text.replacingOccurrences(of: "\n", with: " ") as NSString
+        let x = textContainerInset.width + (textContainer?.lineFragmentPadding ?? 0)
+        let available = max(0, bounds.width - x * 2 - capWidth - 8)
+        let width = min(ceil(line.size(withAttributes: attrs).width), available)
+        let lineHeight = ceil(font.boundingRectForFont.height * 1.2)
+        line.draw(with: NSRect(x: x, y: textContainerInset.height, width: width, height: lineHeight),
+                  options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine], attributes: attrs)
+
+        let cap = NSRect(x: x + width + 8, y: textContainerInset.height + (lineHeight - capHeight) / 2,
+                         width: capWidth, height: capHeight)
+        let path = NSBezierPath(roundedRect: cap.insetBy(dx: 0.25, dy: 0.25), xRadius: 4, yRadius: 4)
+        path.lineWidth = 0.5
+        NSColor.tertiaryLabelColor.setStroke()
+        path.stroke()
+        key.draw(at: NSPoint(x: cap.midX - keySize.width / 2, y: cap.midY - keySize.height / 2), withAttributes: keyAttrs)
     }
 
     override func becomeFirstResponder() -> Bool {

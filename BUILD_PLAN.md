@@ -244,6 +244,18 @@ the user; check light mode and ask.
   the sentence. File links look like the code/text they're in (hand cursor
   only); web links are blue with a soft underline.
 - Empty-thinking blocks are hidden. Notices are centered tertiary 11.5pt.
+- Tool lines and "Thought" rows sit at the reply's left edge (not
+  centered), so they read as part of that reply (2026-11-09).
+- Background work: between turns, while Claude Code reports live
+  background tasks (`background_tasks_changed`, non-ambient), a line sits
+  where the working line goes: mini spinner, "Running in the background",
+  the task's description and elapsed time (or "N tasks running in the
+  background"); click for a menu to stop a task. While working, the
+  working line adds "· N in background".
+- Prompt suggestions (Claude Code's `promptSuggestions`, honoring the
+  user's `promptSuggestionEnabled`): ghost text in the empty composer with
+  a small "tab" key cap; Tab fills the draft. Hidden while working, while
+  a prompt is pending, or with attachments.
 
 **Typography of Claude's replies** (from Marker, tuned denser — port
 `ClaudeTypography.swift`, `ClaudeMarkdown.swift` from mostty as-is)

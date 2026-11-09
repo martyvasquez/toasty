@@ -249,6 +249,35 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         if !parsed.isEmpty, parsed != commands { commands = parsed }
     }
     @Published private(set) var turnStarted: Date?
+
+    /// Work Claude Code keeps running between turns (background shells,
+    /// subagents, monitors), from its `background_tasks_changed` level.
+    struct BackgroundTask: Identifiable, Equatable {
+        let id: String
+        var description: String
+        var type: String
+        var started: Date
+    }
+    @Published private(set) var backgroundTasks: [BackgroundTask] = []
+
+    /// Claude Code's guess at the next prompt (its prompt suggestions),
+    /// shown as ghost text in an empty composer; Tab takes it.
+    @Published private(set) var suggestion: String?
+
+    #if DEBUG
+    func debugSuggest(_ s: String?) { suggestion = s }
+    #endif
+
+    func acceptSuggestion() {
+        guard let s = suggestion, draft.isEmpty else { return }
+        draft = s
+        suggestion = nil
+    }
+
+    /// Stop a background task (like killing it in the CLI's task list).
+    func stopTask(_ id: String) {
+        agent?.send(["type": "stop_task", "taskId": id])
+    }
     /// Live step and token count of the running turn.
     let activity = ClaudeTurnActivity()
     @Published var draft: String = ""
@@ -506,6 +535,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         guard !text.isEmpty || !attachments.isEmpty else { return }
         let images = attachments
         draft = ""
+        suggestion = nil
         attachments = []
 
         let item = ClaudeItem(kind: .user, text: text)
@@ -695,6 +725,8 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         switch type {
         case "ready":
             launching = false
+            // The level is per process: a new CLI starts with none.
+            backgroundTasks = []
             sessionRunning = true
             let pending = queued
             queued.removeAll()
@@ -757,6 +789,8 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             if message["fatal"] as? Bool == true { setPhase(.idle) }
         case "end":
             // The query finished (stdin closed or the session ended).
+            backgroundTasks = []
+            suggestion = nil
             setPhase(.idle)
         default:
             break
@@ -845,6 +879,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             interrupted = false
             turnStarted = Date()
             activity.reset()
+            suggestion = nil
             turnsInFlight = 1
             setPhase(.working)
         }
@@ -865,6 +900,15 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 slashCommands = m["slash_commands"] as? [String] ?? []
             case "commands_changed":
                 setCommands(m["commands"])
+            case "background_tasks_changed":
+                guard live else { return }
+                let old = Dictionary(backgroundTasks.map { ($0.id, $0.started) }, uniquingKeysWith: { a, _ in a })
+                backgroundTasks = (m["tasks"] as? [[String: Any]] ?? []).compactMap { t in
+                    // Housekeeping (watchers, hidden tasks) isn't activity.
+                    guard let id = t["task_id"] as? String, t["ambient"] as? Bool != true else { return nil }
+                    return BackgroundTask(id: id, description: t["description"] as? String ?? "",
+                                          type: t["task_type"] as? String ?? "", started: old[id] ?? Date())
+                }
             case "session_title_changed":
                 // Renamed (by Toasty, or /rename typed in the composer).
                 if let t = m["title"] as? String, !t.isEmpty {
@@ -947,6 +991,11 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                     break
                 }
             }
+
+        case "prompt_suggestion":
+            guard live, phase == .idle, let text = m["suggestion"] as? String else { return }
+            let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            suggestion = t.isEmpty ? nil : t
 
         case "rate_limit_event":
             guard live, let info = m["rate_limit_info"] as? [String: Any] else { return }

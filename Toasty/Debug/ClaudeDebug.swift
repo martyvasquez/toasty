@@ -24,6 +24,11 @@ enum ClaudeDebug {
             try conv().draft += (cmd["text"] as? String ?? "").replacingOccurrences(of: "\\n", with: "\n")
             return nil
         }
+        // Show a prompt suggestion (ghost text): {"cmd":"suggest","text":"…"}
+        DebugControl.register("suggest") { cmd in
+            try conv().debugSuggest(cmd["text"] as? String)
+            return nil
+        }
         DebugControl.register("submit") { _ in try conv().submit(); return nil }
         DebugControl.register("interrupt") { _ in try conv().interrupt(); return nil }
         DebugControl.register("mode") { cmd in
