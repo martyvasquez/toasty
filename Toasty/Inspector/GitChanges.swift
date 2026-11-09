@@ -36,14 +36,23 @@ final class GitChanges: ObservableObject {
         case conflicted = "!"
         case typeChanged = "T"
 
+        /// The letter shown on the row. A new file reads "N" whether or
+        /// not it's staged: git's "A" vs "U" split means nothing to most people.
+        var mark: String {
+            switch self {
+            case .added, .untracked: "N"
+            default: rawValue
+            }
+        }
+
         var label: String {
             switch self {
             case .modified: "Modified"
-            case .added: "Added"
+            case .added: "New"
             case .deleted: "Deleted"
             case .renamed: "Renamed"
             case .copied: "Copied"
-            case .untracked: "Untracked"
+            case .untracked: "New"
             case .conflicted: "Conflicted"
             case .typeChanged: "Type Changed"
             }

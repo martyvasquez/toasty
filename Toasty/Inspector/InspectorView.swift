@@ -231,8 +231,7 @@ private struct BranchHeader: View {
                     WorktreeBadge(help: worktreeHelp)
                 }
                 Spacer(minLength: 6)
-                if changes.ahead > 0 { SyncBadge(symbol: "arrow.up", count: changes.ahead, help: "Commits not pushed") }
-                if changes.behind > 0 { SyncBadge(symbol: "arrow.down", count: changes.behind, help: "Commits to pull") }
+                SyncStatus(changes: changes)
             }
             HStack(spacing: 6) {
                 Text(summary)
@@ -255,12 +254,11 @@ private struct BranchHeader: View {
     }
 
     private var summary: String {
-        let n = changes.files.count
-        let files = n == 0 ? "No uncommitted changes" : n == 1 ? "1 changed file" : "\(n) changed files"
-        if let upstream = changes.upstream, changes.ahead == 0, changes.behind == 0, n == 0 {
-            return "Up to date with \(upstream)"
+        switch changes.files.count {
+        case 0: "Everything committed"
+        case 1: "1 file not committed"
+        case let n: "\(n) files not committed"
         }
-        return files
     }
 }
 
@@ -280,17 +278,42 @@ private struct WorktreeBadge: View {
     }
 }
 
-private struct SyncBadge: View {
-    let symbol: String
-    let count: Int
-    let help: String
+/// Whether the branch's commits are on the remote, in words: "Pushed",
+/// "2 not pushed", "1 to pull", or "Not pushed" for a branch that has
+/// never been pushed.
+private struct SyncStatus: View {
+    @ObservedObject var changes: GitChanges
 
     var body: some View {
-        HStack(spacing: 2) {
-            Image(systemName: symbol).font(.system(size: 9, weight: .bold))
-            Text("\(count)").font(.system(size: 11, weight: .medium)).monospacedDigit()
+        HStack(spacing: 4) {
+            if changes.branch == nil {
+                EmptyView()
+            } else if changes.upstream == nil {
+                pill(nil, "Not pushed", help: "This branch isn't on a remote yet")
+            } else if changes.ahead == 0 && changes.behind == 0 {
+                pill("checkmark", "Pushed", help: "All commits are on \(changes.upstream ?? "the remote")")
+            } else {
+                if changes.ahead > 0 {
+                    pill("arrow.up", "\(changes.ahead) not pushed",
+                         help: "\(commits(changes.ahead)) not on \(changes.upstream ?? "the remote") yet")
+                }
+                if changes.behind > 0 {
+                    pill("arrow.down", "\(changes.behind) to pull",
+                         help: "\(commits(changes.behind)) on \(changes.upstream ?? "the remote") you don't have")
+                }
+            }
+        }
+    }
+
+    private func commits(_ n: Int) -> String { n == 1 ? "1 commit" : "\(n) commits" }
+
+    private func pill(_ symbol: String?, _ text: String, help: String) -> some View {
+        HStack(spacing: 3) {
+            if let symbol { Image(systemName: symbol).font(.system(size: 9, weight: .bold)) }
+            Text(text).font(.system(size: 11, weight: .medium)).monospacedDigit()
         }
         .foregroundStyle(.secondary)
+        .fixedSize()
         .padding(.horizontal, 6)
         .frame(height: 18)
         .background(Capsule().fill(Color.primary.opacity(0.07)))
@@ -366,7 +389,7 @@ struct StatusMark: View {
     let status: GitChanges.Status
 
     var body: some View {
-        Text(status.rawValue)
+        Text(status.mark)
             .font(.system(size: 10, weight: .bold, design: .rounded))
             .foregroundStyle(color)
             .frame(width: 16, height: 16)
