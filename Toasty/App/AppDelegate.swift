@@ -16,6 +16,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if Self.isRunningTests { return }
+        // Finder's Services menu: "New Toasty Tab Here".
+        NSApp.servicesProvider = ServiceProvider()
+        NSUpdateDynamicServices()
         #if DEBUG
         DebugControl.install()
         TerminalDebug.install()
@@ -47,10 +50,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Folders from Finder, the Dock or `open -a Toasty <dir>`: their
     /// workspace, or a new one.
     func application(_ application: NSApplication, open urls: [URL]) {
+        openFolders(urls)
+    }
+
+    /// Each URL's folder (a file's enclosing folder): a new tab in its
+    /// workspace, or a new workspace. Shared by Finder's "Open With", the
+    /// Dock, `open -a` and the "New Toasty Tab Here" service.
+    func openFolders(_ urls: [URL]) {
+        var seen = Set<String>()
         for url in urls {
             var isDir: ObjCBool = false
             guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) else { continue }
             let folder = isDir.boolValue ? url.path : url.deletingLastPathComponent().path
+            guard seen.insert(WorkspaceStore.normalize(folder)).inserted else { continue }
             if windowController == nil {
                 pendingFolders.append(folder)
             } else {

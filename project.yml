@@ -54,6 +54,16 @@ targets:
         # Dictation: speech is transcribed on this Mac; audio never leaves it.
         NSMicrophoneUsageDescription: "Toasty listens while you hold Right Option to dictate. Speech is transcribed on this Mac and never leaves it."
         # Folders can be opened with Toasty (Finder, Dock, `open -a Toasty <dir>`).
+        # Finder > Services: a new tab in the folder's workspace, or a new one.
+        NSServices:
+          - NSMenuItem:
+              default: New $(APP_DISPLAY_NAME) Tab Here
+            NSMessage: openTab
+            NSRequiredContext:
+              NSTextContent: FilePath
+            NSSendTypes:
+              - NSFilenamesPboardType
+              - public.plain-text
         # A workspace dragged in the sidebar (private, so it can't be dropped as text).
         UTExportedTypeDeclarations:
           - UTTypeIdentifier: com.martyvasquez.toasty.workspace

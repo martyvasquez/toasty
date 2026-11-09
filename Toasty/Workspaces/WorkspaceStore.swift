@@ -304,10 +304,10 @@ final class WorkspaceStore: ObservableObject {
         Activity.shared.jumpToLatest()
     }
 
-    // MARK: Opening folders (`open -a Toasty <dir>`, Finder, Dock)
+    // MARK: Opening folders (Services, `open -a Toasty <dir>`, Finder, Dock)
 
-    /// The workspace whose folder is, or contains, `path` (deepest wins), or
-    /// a new workspace for it.
+    /// A new tab in the workspace whose folder is, or contains, `path`
+    /// (deepest wins), working in `path`; or a new workspace for it.
     func openFolder(_ path: String) {
         let target = Self.normalize(path)
         let match = workspaces
@@ -315,10 +315,7 @@ final class WorkspaceStore: ObservableObject {
             .max { Self.normalize($0.folder).count < Self.normalize($1.folder).count }
         if let match {
             activate(match.id)
-            if Self.normalize(match.folder) != target {
-                match.newTerminal(cwd: target)
-                match.showTerminal()
-            }
+            match.newConversation(cwd: target)
         } else {
             create(folder: target)
         }

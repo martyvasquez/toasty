@@ -347,8 +347,8 @@ Re-implement mostty's behavior (`mostty/.../Workspaces/` +
   order (drag to reorder), rename inline (double-click / ⌃⌘R), context menu
   (Rename, Change Folder…, Open in Finder, Move Up/Down, Close). ⌘N new
   workspace (pick a folder), ⌥1–9 switch, ⌃⌘J/⌃⌘K next/prev. Opening a
-  folder (`open -a Toasty <dir>`, Finder, Dock) → its workspace, or a new
-  one.
+  folder (Finder > Services > "New Toasty Tab Here", `open -a Toasty <dir>`,
+  Finder, Dock) → a new tab in its workspace, or a new workspace.
 - `Activity` (replaces mostty's `WorkspaceNotifier`), keyed by conversation
   (and by terminal for CLI sessions run in a terminal, optional): states
   working / waiting / idle.

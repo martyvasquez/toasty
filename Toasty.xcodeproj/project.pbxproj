@@ -38,6 +38,7 @@
 		6132779EEA82B2C34C56CDE9 /* ClaudeRequestCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CCEEDDC3B6D5A771D67C9DC /* ClaudeRequestCard.swift */; };
 		661A4A0A4B1CF64A4E83E929 /* Fixtures in Resources */ = {isa = PBXBuildFile; fileRef = 6F3A8B4B872E5EC65743891C /* Fixtures */; };
 		6CBCBC44A0E7D23F1974174F /* Vocabulary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07E44FEF143B34DDB7720C70 /* Vocabulary.swift */; };
+		72B35C923E6E7BBD19F19BC3 /* ServiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E0AF94EDDB841E22D8DEAA /* ServiceProvider.swift */; };
 		74AD96205B972C48FB67E2B3 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A784151685B16B9E4F4EC6E /* SettingsWindow.swift */; };
 		78A6CA1B4CA929C128407E33 /* WorkspaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */; };
 		8564E49059338213553F5F29 /* DictationDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 662BABDF0CE9D1BACB40CDDF /* DictationDebug.swift */; };
@@ -160,6 +161,7 @@
 		C11531EBFE7ED105AE65FCC4 /* ToastyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ToastyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C221CFDD6F14809C8C78A6D1 /* Activity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Activity.swift; sourceTree = "<group>"; };
 		C7C279FCF3F11C0D07DF1B5B /* DebugControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugControl.swift; sourceTree = "<group>"; };
+		D1E0AF94EDDB841E22D8DEAA /* ServiceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceProvider.swift; sourceTree = "<group>"; };
 		D608974EF68852F5E90292F3 /* TerminalSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSession.swift; sourceTree = "<group>"; };
 		DB24559E15BED10BF20F7121 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		DFFBD1A7316E98A070F3E2BE /* ClaudeMarkdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeMarkdown.swift; sourceTree = "<group>"; };
@@ -355,6 +357,7 @@
 				5C51FB87F905EF29B4ECF92F /* MainMenu.swift */,
 				A8A10A7F8DA308A1B9259A36 /* MainSplitViewController.swift */,
 				2FBCBE999788997C12380B2D /* MainWindowController.swift */,
+				D1E0AF94EDDB841E22D8DEAA /* ServiceProvider.swift */,
 				1A784151685B16B9E4F4EC6E /* SettingsWindow.swift */,
 				ECA042843FEF43774DB0414C /* TitlebarTabs.swift */,
 			);
@@ -529,6 +532,7 @@
 				229AA2E1849A5A346C4A74E8 /* NotificationsSection.swift in Sources */,
 				E418801CB5AD25148EC64A13 /* PTY.swift in Sources */,
 				FB9070ABB9CFF93B6A152A50 /* RepoPaths.swift in Sources */,
+				72B35C923E6E7BBD19F19BC3 /* ServiceProvider.swift in Sources */,
 				74AD96205B972C48FB67E2B3 /* SettingsWindow.swift in Sources */,
 				F3EDEAA0B2C742A331699A9C /* SpeechEngine.swift in Sources */,
 				D9F77D560C3635E6D7AD25E2 /* SpeechModels.swift in Sources */,
