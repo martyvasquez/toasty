@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// One item in a conversation's transcript.
 @MainActor
@@ -23,6 +24,8 @@ final class ClaudeItem: ObservableObject, Identifiable {
     @Published var text: String
     /// Images attached to a user prompt.
     var images: [NSImage] = []
+    /// Other files attached to a user prompt (PDFs, documents…).
+    var files: [URL] = []
     /// The session that sent a `.peer` message (its name, as Claude Code
     /// addresses it).
     var sender: String?
@@ -386,6 +389,9 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     /// The project's current git branch, if it's a repository.
     @Published private(set) var branch: String?
     @Published var attachments: [NSImage] = []
+    /// Files that aren't images, attached by path: Claude reads them
+    /// itself (Read handles PDFs; other formats it converts).
+    @Published var files: [URL] = []
     /// Bumped to move keyboard focus to the composer.
     @Published var composerFocusToken = 0
 
@@ -530,17 +536,53 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
     // MARK: User actions
 
+    /// Attach files from the picker, a drop or a paste: images go in as
+    /// images, anything else by path.
+    func attach(_ urls: [URL]) {
+        for url in urls {
+            let type = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType
+            if type?.conforms(to: .image) == true, let image = NSImage(contentsOf: url) {
+                attachments.append(image)
+            } else if !files.contains(url) {
+                files.append(url)
+            }
+        }
+        focusComposer()
+    }
+
+    /// How attached files are named in the prompt Claude receives, one per
+    /// line after the text. Resumed transcripts are read back with it.
+    nonisolated static let attachedFilePrefix = "Attached file: "
+
+    /// A prompt as sent, split into what the user typed and the files.
+    nonisolated static func splitAttachedFiles(_ raw: String) -> (text: String, files: [URL]) {
+        var lines = raw.components(separatedBy: "\n")
+        var files: [URL] = []
+        while let last = lines.last, last.hasPrefix(attachedFilePrefix) {
+            files.insert(URL(fileURLWithPath: String(last.dropFirst(attachedFilePrefix.count))), at: 0)
+            lines.removeLast()
+        }
+        guard !files.isEmpty else { return (raw, []) }
+        return (lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines), files)
+    }
+
     func submit() {
-        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty || !attachments.isEmpty else { return }
+        let typed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !typed.isEmpty || !attachments.isEmpty || !files.isEmpty else { return }
         let images = attachments
+        let attachedFiles = files
         draft = ""
         suggestion = nil
         attachments = []
+        files = []
 
-        let item = ClaudeItem(kind: .user, text: text)
+        let item = ClaudeItem(kind: .user, text: typed)
         item.images = images
+        item.files = attachedFiles
         items.append(item)
+
+        let paths = attachedFiles.map { Self.attachedFilePrefix + $0.path }.joined(separator: "\n")
+        let text = paths.isEmpty ? typed : typed.isEmpty ? paths : typed + "\n\n" + paths
 
         // Claude Code echoes every prompt back (see the bridge); this id
         // tells Toasty's own prompts apart from messages sent from elsewhere.
@@ -1197,7 +1239,10 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             append(.notice, "Interrupted")
             return
         }
-        items.append(ClaudeItem(kind: .user, text: raw))
+        let (text, files) = Self.splitAttachedFiles(raw)
+        let item = ClaudeItem(kind: .user, text: text)
+        item.files = files
+        items.append(item)
     }
 
     /// A message another session sent (Claude Code marks it with an origin

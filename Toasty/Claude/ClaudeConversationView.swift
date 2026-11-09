@@ -7,6 +7,7 @@ import SwiftUI
 struct ClaudeConversationView: View {
     @ObservedObject var conversation: ClaudeConversation
     var onRunInTerminal: (String) -> Void
+    @State private var dropTargeted = false
 
     var body: some View {
         // The transcript scrolls under the composer and fades out above it.
@@ -16,6 +17,12 @@ struct ClaudeConversationView: View {
                     .background(alignment: .top) { ComposerFade() }
             }
             .background(Color.claudeBackground)
+            // Files dropped anywhere on the conversation are attached.
+            .onDrop(of: [.fileURL], isTargeted: $dropTargeted) { providers in
+                loadFileURLs(providers) { conversation.attach($0) }
+                return true
+            }
+            .overlay { if dropTargeted { DropTargetOverlay() } }
         .onAppear { conversation.focusComposer() }
         // Esc anywhere in the conversation: deny a pending prompt or
         // interrupt, like the CLI.
@@ -629,6 +636,11 @@ struct ClaudeUserMessage: View {
                         }
                     }
                 }
+                if !item.files.isEmpty {
+                    VStack(alignment: .trailing, spacing: 6) {
+                        ForEach(item.files, id: \.self) { AttachedFileChip(url: $0) }
+                    }
+                }
                 if !item.text.isEmpty {
                     ClaudeRichText(text: Self.attributed(item.text), hugs: true)
                         .padding(.horizontal, 15)
@@ -1077,12 +1089,13 @@ struct ClaudeComposerBox: View {
     }
 
     private var isEmpty: Bool {
-        conversation.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && conversation.attachments.isEmpty
+        conversation.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && conversation.attachments.isEmpty && conversation.files.isEmpty
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if !conversation.attachments.isEmpty {
+            if !conversation.attachments.isEmpty || !conversation.files.isEmpty {
                 attachments.padding(.horizontal, 14).padding(.top, 12)
             }
             ClaudeComposer(
@@ -1104,10 +1117,11 @@ struct ClaudeComposerBox: View {
                 },
                 onShiftTab: { conversation.cyclePermissionMode() },
                 onPasteImage: { conversation.attachments.append($0) },
+                onFiles: { conversation.attach($0) },
                 onKeyCommand: { commandKey($0) || mentionKey($0) },
                 dictationID: conversation.id,
                 suggestion: conversation.phase == .idle && conversation.requests.isEmpty
-                    && conversation.attachments.isEmpty ? conversation.suggestion : nil,
+                    && conversation.attachments.isEmpty && conversation.files.isEmpty ? conversation.suggestion : nil,
                 onAcceptSuggestion: { conversation.acceptSuggestion() })
                 .frame(height: height)
                 .padding(.horizontal, Self.inset)
@@ -1116,7 +1130,7 @@ struct ClaudeComposerBox: View {
             // One quiet row: attach and mode on the left, model and send on
             // the right. Text-only controls; only send carries color.
             HStack(spacing: 2) {
-                ComposerIconButton(symbol: "plus", help: "Attach Images…", label: "Attach Images", action: attach)
+                ComposerIconButton(symbol: "plus", help: "Attach Files…", label: "Attach Files", action: attach)
                 ClaudeModeMenu(conversation: conversation)
                 Spacer(minLength: 8)
                 if conversation.remoteControlAvailable {
@@ -1210,40 +1224,137 @@ struct ClaudeComposerBox: View {
     }
 
     private var attachments: some View {
-        HStack(spacing: 8) {
-            ForEach(Array(conversation.attachments.enumerated()), id: \.offset) { i, image in
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 52, height: 52)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.1)))
-                    .overlay(alignment: .topTrailing) {
-                        Button { conversation.attachments.remove(at: i) } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .symbolRenderingMode(.palette)
-                                .foregroundStyle(.white, .black.opacity(0.6))
-                                .font(.system(size: 15))
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Array(conversation.attachments.enumerated()), id: \.offset) { i, image in
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 52, height: 52)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.1)))
+                        .overlay(alignment: .topTrailing) {
+                            RemoveAttachmentButton(label: "Remove Image") { conversation.attachments.remove(at: i) }
                         }
-                        .buttonStyle(.plain)
-                        .offset(x: 5, y: -5)
-                        .accessibilityLabel("Remove Image")
-                    }
+                }
+                ForEach(conversation.files, id: \.self) { url in
+                    AttachedFileChip(url: url, height: 52)
+                        .overlay(alignment: .topTrailing) {
+                            RemoveAttachmentButton(label: "Remove \(url.lastPathComponent)") {
+                                conversation.files.removeAll { $0 == url }
+                            }
+                        }
+                }
             }
+            // Room for the remove buttons, which sit over the corners.
+            .padding(.top, 5).padding(.trailing, 5)
         }
+        .padding(.top, -5)
     }
 
     private func attach() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.image]
         panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
         panel.begin { response in
             guard response == .OK else { return }
-            for url in panel.urls {
-                if let image = NSImage(contentsOf: url) { conversation.attachments.append(image) }
-            }
-            conversation.focusComposer()
+            conversation.attach(panel.urls)
         }
+    }
+}
+
+private struct RemoveAttachmentButton: View {
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark.circle.fill")
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(.white, .black.opacity(0.6))
+                .font(.system(size: 15))
+        }
+        .buttonStyle(.plain)
+        .offset(x: 5, y: -5)
+        .accessibilityLabel(label)
+    }
+}
+
+/// An attached file: its Finder icon, name and kind. Double-click opens it.
+struct AttachedFileChip: View {
+    let url: URL
+    var height: CGFloat = 44
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                .resizable()
+                .frame(width: height - 16, height: height - 16)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(url.lastPathComponent)
+                    .font(.system(size: 12.5, weight: .medium))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(kind)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(.leading, 8)
+        .padding(.trailing, 12)
+        .frame(maxWidth: 260, alignment: .leading)
+        .frame(height: height)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.06)))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.1)))
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { NSWorkspace.shared.open(url) }
+        .help(url.path)
+        .contextMenu {
+            Button("Open") { NSWorkspace.shared.open(url) }
+            Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+        }
+    }
+
+    /// "PDF", "DOCX"…: the extension says it shorter than the type's name.
+    private var kind: String {
+        let ext = url.pathExtension.uppercased()
+        return ext.isEmpty ? "File" : ext
+    }
+}
+
+/// Shown over the conversation while files are dragged over it.
+private struct DropTargetOverlay: View {
+    var body: some View {
+        ZStack {
+            Color.claudeBackground.opacity(0.75)
+            VStack(spacing: 8) {
+                Image(systemName: "paperclip")
+                    .font(.system(size: 24, weight: .light))
+                Text("Drop to Attach")
+                    .font(.system(size: 13, weight: .medium))
+            }
+            .foregroundStyle(.secondary)
+        }
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .strokeBorder(Color.accentColor.opacity(0.6), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+            .padding(8))
+        .allowsHitTesting(false)
+        .transition(.opacity)
+    }
+}
+
+/// The file URLs in a drop, in order, delivered on the main actor.
+@MainActor func loadFileURLs(_ providers: [NSItemProvider], _ done: @escaping ([URL]) -> Void) {
+    Task { @MainActor in
+        var urls: [URL] = []
+        for p in providers where p.canLoadObject(ofClass: URL.self) {
+            let url: URL? = await withCheckedContinuation { c in
+                _ = p.loadObject(ofClass: URL.self) { url, _ in c.resume(returning: url) }
+            }
+            if let url, url.isFileURL { urls.append(url) }
+        }
+        if !urls.isEmpty { done(urls) }
     }
 }
 

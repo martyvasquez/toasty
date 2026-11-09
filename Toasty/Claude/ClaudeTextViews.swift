@@ -167,6 +167,9 @@ struct ClaudeComposer: NSViewRepresentable {
     var onEscape: () -> Bool
     var onShiftTab: () -> Void
     var onPasteImage: ((NSImage) -> Void)?
+    /// Files pasted or dropped on the composer, attached instead of
+    /// inserted as paths.
+    var onFiles: (([URL]) -> Void)?
     /// Gets keys first (e.g. the slash command menu): return true if handled.
     var onKeyCommand: ((Selector) -> Bool)?
     /// The conversation, so dictation can show its state on this composer.
@@ -473,6 +476,11 @@ final class ComposerTextView: NSTextView {
     // handed to the conversation as attachments.
     override func paste(_ sender: Any?) {
         let pb = NSPasteboard.general
+        // Files copied in Finder (they also carry their names as text).
+        if let onFiles = coordinator?.parent.onFiles, let urls = Self.fileURLs(pb) {
+            onFiles(urls)
+            return
+        }
         let hasText = pb.canReadObject(forClasses: [NSString.self], options: nil)
         if !hasText, let onImage = coordinator?.parent.onPasteImage,
            let image = NSImage(pasteboard: pb) {
@@ -480,5 +488,29 @@ final class ComposerTextView: NSTextView {
             return
         }
         pasteAsPlainText(sender)
+    }
+
+    // Dropped files are attachments, not paths typed into the prompt.
+    static func fileURLs(_ pb: NSPasteboard) -> [URL]? {
+        let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
+        return urls?.isEmpty == false ? urls : nil
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        if coordinator?.parent.onFiles != nil, Self.fileURLs(sender.draggingPasteboard) != nil { return .copy }
+        return super.draggingEntered(sender)
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        if coordinator?.parent.onFiles != nil, Self.fileURLs(sender.draggingPasteboard) != nil { return .copy }
+        return super.draggingUpdated(sender)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        if let onFiles = coordinator?.parent.onFiles, let urls = Self.fileURLs(sender.draggingPasteboard) {
+            onFiles(urls)
+            return true
+        }
+        return super.performDragOperation(sender)
     }
 }
