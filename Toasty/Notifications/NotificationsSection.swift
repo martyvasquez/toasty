@@ -70,9 +70,7 @@ private struct NoticeRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            Image(systemName: symbol)
-                .font(.system(size: 12.5, weight: .medium))
-                .foregroundStyle(color)
+            StatusDot(color: color)
                 .frame(width: 16, height: 18)
 
             VStack(alignment: .leading, spacing: 1) {
@@ -147,22 +145,11 @@ private struct NoticeRow: View {
         }
     }
 
-    private var symbol: String {
-        switch notice.kind {
-        case .permission: "exclamationmark.circle"
-        case .question: "questionmark.bubble"
-        case .plan: "list.bullet.clipboard"
-        case .stopped: "xmark.octagon"
-        case .finished: "checkmark.circle"
-        }
-    }
-
     private var color: Color {
         switch notice.kind {
-        case .permission, .plan: .orange
-        case .question: .purple
-        case .stopped: .red
-        case .finished: .green
+        case .permission, .question, .plan: StatusColor.needsInput
+        case .stopped: StatusColor.stopped
+        case .finished: StatusColor.ready
         }
     }
 

@@ -30,6 +30,8 @@ final class Activity: NSObject, ObservableObject {
         let title: String
         let body: String
         let location: String
+        /// Its status color (see `StatusColor`).
+        let color: Color
         weak var conversation: ClaudeConversation?
 
         static func == (a: Toast, b: Toast) -> Bool { a.id == b.id }
@@ -86,6 +88,9 @@ final class Activity: NSObject, ObservableObject {
     }
 
     /// The latest message (needs you / finished) from any of these.
+    /// The conversation's last turn ended with an error (shown red).
+    func isStopped(_ c: ClaudeConversation) -> Bool { messages[c.id]?.stopped == true }
+
     func latestMessage(_ conversations: [ClaudeConversation]) -> String? {
         conversations.compactMap { messages[$0.id] }.max { $0.date < $1.date }?.text
     }
@@ -174,7 +179,9 @@ final class Activity: NSObject, ObservableObject {
 
         // 3. In-window toast (not for the conversation on screen).
         if !visible {
-            let toast = Toast(title: title, body: body, location: location, conversation: conversation)
+            let color = !conversation.requests.isEmpty ? StatusColor.needsInput
+                : stopped ? StatusColor.stopped : StatusColor.ready
+            let toast = Toast(title: title, body: body, location: location, color: color, conversation: conversation)
             withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { self.toast = toast }
             dismissWork?.cancel()
             let work = DispatchWorkItem { [weak self] in
@@ -409,10 +416,8 @@ struct ActivityToastView: View {
     var body: some View {
         if windowIsKey, let toast = activity.toast {
             HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "sparkle")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.orange)
-                    .padding(.top, 1)
+                StatusDot(color: toast.color)
+                    .frame(height: 16)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(toast.title)
                         .font(.system(size: 12, weight: .semibold))
@@ -445,7 +450,7 @@ struct ActivityToastView: View {
             .frame(width: 300, alignment: .leading)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(Color.orange.opacity(0.45), lineWidth: 1))
+                .strokeBorder(toast.color.opacity(0.45), lineWidth: 1))
             .shadow(color: .black.opacity(0.25), radius: 10, y: 4)
             .contentShape(Rectangle())
             .onTapGesture { activity.open(toast) }
@@ -456,4 +461,25 @@ struct ActivityToastView: View {
             .accessibilityAddTraits(.isButton)
         }
     }
+}
+
+/// The app's status colors, the same in sidebar rows, tabs and
+/// notifications: orange = Claude needs your input, blue (accent) = ready to
+/// review, red = stopped with an error. Idle and working are gray (icons, a
+/// spinner); selection is shown by a background, never a color.
+enum StatusColor {
+    static let needsInput = Color.orange
+    static let ready = Color.accentColor
+    static let stopped = Color.red
+
+    /// Ready to review, or stopped, for a finished-unseen conversation.
+    @MainActor static func done(_ c: ClaudeConversation) -> Color {
+        Activity.shared.isStopped(c) ? stopped : ready
+    }
+}
+
+/// A status dot (see `StatusColor`).
+struct StatusDot: View {
+    let color: Color
+    var body: some View { Circle().fill(color).frame(width: 7, height: 7) }
 }

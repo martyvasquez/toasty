@@ -73,29 +73,27 @@ struct WorkspaceSidebarView: View {
 }
 
 /// How far a worktree's row is indented under its parent.
-private let worktreeIndent: CGFloat = 16
+private let worktreeIndent: CGFloat = 20
+/// Rows are one line: 18pt plus this above and below.
+private let rowVerticalPadding: CGFloat = 5
 
 /// A worktree being created.
 private struct PendingWorktreeRow: View {
     let name: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(spacing: 8) {
             ProgressView().controlSize(.small).scaleEffect(0.7).frame(width: 14, height: 14)
                 .frame(width: 16, height: 18)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(name)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .frame(height: 18)
-                Text("Creating worktree…")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
-            }
+            Text(name)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 6)
+        .frame(height: 18)
+        .padding(.vertical, rowVerticalPadding)
+        .help("Creating worktree…")
         .padding(.leading, 8 + worktreeIndent)
         .padding(.trailing, 8)
         .transition(.opacity)
@@ -110,7 +108,6 @@ private struct WorkspaceRow: View {
 
     @State private var hovering = false
     @State private var draft = ""
-    @State private var pulse = false
     @FocusState private var fieldFocused: Bool
 
     private var isActive: Bool { store.activeID == workspace.id }
@@ -120,54 +117,53 @@ private struct WorkspaceRow: View {
     private var attention: Bool { workspace.hasAttention }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(spacing: 8) {
             leadingIcon.frame(width: 16, height: 18)
 
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 6) {
-                    if isRenaming {
-                        TextField("Name", text: $draft)
-                            .textFieldStyle(.plain)
-                            .font(.system(size: 13, weight: .medium))
-                            .focused($fieldFocused)
-                            .onSubmit(commit)
-                            .onExitCommand { store.renamingID = nil }
-                            .onAppear {
-                                draft = workspace.name
-                                DispatchQueue.main.async { fieldFocused = true }
-                            }
-                            .onChange(of: fieldFocused) { _, focused in if !focused && isRenaming { commit() } }
-                    } else {
-                        Text(workspace.name)
-                            .font(.system(size: 13, weight: isActive ? .medium : .regular))
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    }
-                    Spacer(minLength: 0)
-                    if hovering && index < 9 && !isRenaming {
-                        Text("⌥\(index + 1)")
-                            .font(.system(size: 10.5, weight: .medium))
-                            .foregroundStyle(.tertiary)
-                    } else if workspace.conversations.count > 1 {
-                        Text("\(workspace.conversations.count)")
-                            .font(.system(size: 10.5, weight: .medium))
-                            .foregroundStyle(.tertiary)
-                            .help("\(workspace.conversations.count) conversations")
-                    }
-                }
-                .frame(height: 18)
-
-                TimelineView(.periodic(from: .now, by: 30)) { context in
-                    Text(subtitle(now: context.date))
-                        .font(.system(size: 11))
-                        .foregroundStyle(waiting ? AnyShapeStyle(Color.orange) : AnyShapeStyle(.tertiary))
+            HStack(spacing: 6) {
+                if isRenaming {
+                    TextField("Name", text: $draft)
+                        .textFieldStyle(.plain)
+                        .font(nameFont)
+                        .focused($fieldFocused)
+                        .onSubmit(commit)
+                        .onExitCommand { store.renamingID = nil }
+                        .onAppear {
+                            draft = workspace.name
+                            DispatchQueue.main.async { fieldFocused = true }
+                        }
+                        .onChange(of: fieldFocused) { _, focused in if !focused && isRenaming { commit() } }
+                } else {
+                    Text(workspace.name)
+                        .font(nameFont)
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
-                        .truncationMode(working || waiting || attention ? .tail : .middle)
+                        .truncationMode(.tail)
+                }
+                Spacer(minLength: 0)
+                if hovering && index < 9 && !isRenaming {
+                    Text("⌥\(index + 1)")
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(.tertiary)
+                } else if working && !waiting {
+                    // How long Claude has been at it, once it's a minute.
+                    TimelineView(.periodic(from: .now, by: 30)) { context in
+                        if let minutes = workingMinutes(now: context.date), minutes > 0 {
+                            Text(Self.duration(minutes))
+                                .font(.system(size: 10.5, weight: .medium))
+                                .foregroundStyle(.tertiary)
+                                .monospacedDigit()
+                        }
+                    }
+                } else if workspace.conversations.count > 1 {
+                    Text("\(workspace.conversations.count)")
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(.tertiary)
                 }
             }
         }
-        .padding(.vertical, 6)
+        .frame(height: 18)
+        .padding(.vertical, rowVerticalPadding)
         .padding(.leading, 8 + (workspace.isWorktree ? worktreeIndent : 0))
         .padding(.trailing, 8)
         .background(
@@ -175,6 +171,7 @@ private struct WorkspaceRow: View {
                 .fill(Color.primary.opacity(isActive ? 0.10 : (hovering ? 0.05 : 0)))
         )
         .contentShape(Rectangle())
+        .help(help)
         .onHover { hovering = $0 }
         .onTapGesture(count: 2) { store.renamingID = workspace.id }
         .simultaneousGesture(TapGesture(count: 1).onEnded {
@@ -205,24 +202,31 @@ private struct WorkspaceRow: View {
         .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
     }
 
-    /// What Claude is doing here: working (and for how long), what it's
-    /// waiting on, or what finished while you weren't looking; else the
-    /// folder.
-    private func subtitle(now: Date) -> String {
+    /// Workspaces are always bold; their worktrees are a step below:
+    /// smaller and regular weight. Selection shows in the background.
+    private var nameFont: Font {
+        workspace.isWorktree ? .system(size: 12) : .system(size: 13, weight: .semibold)
+    }
+
+    private func workingMinutes(now: Date) -> Int? {
+        activity.workingSince(workspace.conversations).map { Int(now.timeIntervalSince($0) / 60) }
+    }
+
+    /// The tooltip: what Claude is doing here (waiting on, working, or what
+    /// finished unseen), then the folder.
+    private var help: String {
         let conversations = workspace.conversations
+        var status: String?
         if waiting {
-            let asking = conversations.filter { !$0.requests.isEmpty }
-            return activity.latestMessage(asking) ?? "Waiting for you"
+            status = activity.latestMessage(conversations.filter { !$0.requests.isEmpty }) ?? "Waiting for you"
+        } else if working {
+            status = workingMinutes(now: .now).map { $0 > 0 ? "Working · \(Self.duration($0))" : "Working…" } ?? "Working…"
+        } else if attention {
+            status = activity.latestMessage(conversations.filter(\.attention))
         }
-        if working {
-            guard let since = activity.workingSince(conversations) else { return "Working…" }
-            let minutes = Int(now.timeIntervalSince(since) / 60)
-            return minutes < 1 ? "Working…" : "Working · \(Self.duration(minutes))"
-        }
-        if attention, let message = activity.latestMessage(conversations.filter(\.attention)) {
-            return message
-        }
-        return (workspace.folder as NSString).abbreviatingWithTildeInPath
+        var lines = [status, (workspace.folder as NSString).abbreviatingWithTildeInPath].compactMap { $0 }
+        if conversations.count > 1 { lines.append("\(conversations.count) conversations") }
+        return lines.joined(separator: "\n")
     }
 
     private static func duration(_ minutes: Int) -> String {
@@ -232,25 +236,17 @@ private struct WorkspaceRow: View {
     /// Claude's status when there is one, else the folder.
     @ViewBuilder private var leadingIcon: some View {
         if waiting {
-            Circle()
-                .fill(Color.orange)
-                .frame(width: 7, height: 7)
-                .scaleEffect(pulse ? 1.25 : 0.85)
-                .opacity(pulse ? 1 : 0.6)
-                .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: pulse)
-                .onAppear { pulse = true }
-                .onDisappear { pulse = false }
-                .help("Claude is waiting for you")
+            StatusDot(color: StatusColor.needsInput)
         } else if working {
             ProgressView().controlSize(.small).scaleEffect(0.7).frame(width: 14, height: 14)
-                .help("Claude is working")
         } else if attention {
-            Circle().fill(Color.accentColor).frame(width: 7, height: 7)
-                .help("Something finished in this workspace")
+            // Red if anything here stopped with an error, else blue.
+            let done = workspace.conversations.filter(\.attention)
+            StatusDot(color: done.contains(where: activity.isStopped) ? StatusColor.stopped : StatusColor.ready)
         } else {
             Image(systemName: workspace.isWorktree ? "arrow.triangle.branch" : "folder")
-                .font(.system(size: 12.5))
-                .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+                .font(.system(size: workspace.isWorktree ? 11.5 : 12.5))
+                .foregroundStyle(Color.secondary)  // gray = idle; selection is the background
         }
     }
 

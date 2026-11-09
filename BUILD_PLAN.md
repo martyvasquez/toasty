@@ -352,8 +352,11 @@ Re-implement mostty's behavior (`mostty/.../Workspaces/` +
 - `Activity` (replaces mostty's `WorkspaceNotifier`), keyed by conversation
   (and by terminal for CLI sessions run in a terminal, optional): states
   working / waiting / idle.
-  - Sidebar row: spinner + "Working · 4m", pulsing orange dot + message
-    when waiting, accent dot + summary when finished unseen.
+  - Sidebar rows are one line (no folder path; worktrees indented under
+    their parent). The leading icon shows status: spinner while working
+    (with a trailing "4m" after a minute), pulsing orange dot when waiting,
+    accent dot when finished unseen. Messages live in the sidebar's
+    Notifications; the row's tooltip has the status and the folder.
   - Tab dots as in §5. Dock badge = conversations needing you.
   - Sound (`defaults write com.martyvasquez.toasty ToastySound Glass`,
     "none" to mute), in-window toast (top-right, click jumps to the tab),

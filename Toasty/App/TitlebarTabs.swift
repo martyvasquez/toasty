@@ -259,20 +259,21 @@ private struct ConversationTabItem: View {
         .accessibilityLabel(conversation.title)
     }
 
-    /// Orange dot: waiting for you. Spinner: working. Accent dot: finished
-    /// while you weren't looking. Otherwise Claude's sparkle, or a branch
-    /// for a fork (its title, "… (fork)", is usually cut off).
+    /// Status (see `StatusColor`): orange dot waiting for you, spinner
+    /// working, blue/red dot finished/stopped while you weren't looking.
+    /// Otherwise a gray sparkle, or a branch for a fork (its title,
+    /// "… (fork)", is usually cut off).
     @ViewBuilder private var status: some View {
         if !conversation.requests.isEmpty {
-            Circle().fill(Color.orange).frame(width: 7, height: 7)
+            StatusDot(color: StatusColor.needsInput)
         } else if conversation.phase != .idle {
             ProgressView().controlSize(.small).scaleEffect(0.6).frame(width: 12, height: 12)
         } else if conversation.attention {
-            Circle().fill(Color.accentColor).frame(width: 7, height: 7)
+            StatusDot(color: StatusColor.done(conversation))
         } else {
             Image(systemName: conversation.forkOrigin != nil ? "arrow.triangle.branch" : "sparkle")
                 .font(.system(size: 9.5, weight: .semibold))
-                .foregroundStyle(selected ? Color(nsColor: .systemOrange) : Color.secondary.opacity(0.6))
+                .foregroundStyle(selected ? Color.secondary : Color.secondary.opacity(0.6))
         }
     }
 
