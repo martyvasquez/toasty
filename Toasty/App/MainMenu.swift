@@ -76,9 +76,18 @@ enum MainMenu {
         workspace.addItem(item("Change Folder…", #selector(W.changeWorkspaceFolder(_:)), ""))
         workspace.addItem(item("Open in Finder", #selector(W.openWorkspaceInFinder(_:)), ""))
         workspace.addItem(.separator())
-        workspace.addItem(item("Next Workspace", #selector(W.selectNextWorkspace(_:)), "j", [.command, .control]))
-        workspace.addItem(item("Previous Workspace", #selector(W.selectPreviousWorkspace(_:)), "k", [.command, .control]))
+        workspace.addItem(item("Next Workspace", #selector(W.selectNextWorkspace(_:)), arrow(NSDownArrowFunctionKey), [.command, .option]))
+        workspace.addItem(item("Previous Workspace", #selector(W.selectPreviousWorkspace(_:)), arrow(NSUpArrowFunctionKey), [.command, .option]))
+        // ⌃⌘J / ⌃⌘K: the older shortcuts, kept as hidden alternates.
+        workspace.addItem(hidden(item("Next Workspace", #selector(W.selectNextWorkspace(_:)), "j", [.command, .control])))
+        workspace.addItem(hidden(item("Previous Workspace", #selector(W.selectPreviousWorkspace(_:)), "k", [.command, .control])))
         workspace.addItem(item("Jump to Conversation Needing You", #selector(W.jumpToAttention(_:)), "u", [.command, .control]))
+        for n in 1...9 {
+            // ⌘1–9: the nth row of the sidebar's Notifications list.
+            let i = item("Notification \(n)", #selector(W.openNotification(_:)), "\(n)")
+            i.tag = n
+            workspace.addItem(hidden(i))
+        }
         workspace.addItem(.separator())
         for n in 1...9 {
             // Titled with the workspace's name when the menu opens.
@@ -95,17 +104,11 @@ enum MainMenu {
         window.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         window.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
         window.addItem(.separator())
-        window.addItem(item("Show Next Tab", #selector(W.selectNextTab(_:)), "}"))
-        window.addItem(item("Show Previous Tab", #selector(W.selectPreviousTab(_:)), "{"))
-        for n in 1...9 {
-            // ⌘1–⌘8: that tab; ⌘9: the last tab (like Safari). Hidden items
-            // keep their shortcuts.
-            let i = item(n == 9 ? "Select Last Tab" : "Select Tab \(n)", #selector(W.selectTabByNumber(_:)), "\(n)")
-            i.tag = n
-            i.isHidden = true
-            i.allowsKeyEquivalentWhenHidden = true
-            window.addItem(i)
-        }
+        window.addItem(item("Show Next Tab", #selector(W.selectNextTab(_:)), arrow(NSRightArrowFunctionKey), [.command, .option]))
+        window.addItem(item("Show Previous Tab", #selector(W.selectPreviousTab(_:)), arrow(NSLeftArrowFunctionKey), [.command, .option]))
+        // ⌘} / ⌘{: the macOS-standard tab shortcuts, kept as hidden alternates.
+        window.addItem(hidden(item("Show Next Tab", #selector(W.selectNextTab(_:)), "}")))
+        window.addItem(hidden(item("Show Previous Tab", #selector(W.selectPreviousTab(_:)), "{")))
         add(window, to: main)
         NSApp.windowsMenu = window
 
@@ -118,6 +121,16 @@ enum MainMenu {
     static func item(_ title: String, _ action: Selector?, _ key: String, _ mods: NSEvent.ModifierFlags = .command) -> NSMenuItem {
         let i = NSMenuItem(title: title, action: action, keyEquivalent: key)
         i.keyEquivalentModifierMask = mods
+        return i
+    }
+
+    /// A key equivalent for an arrow key (NSUpArrowFunctionKey, …).
+    static func arrow(_ key: Int) -> String { String(UnicodeScalar(UInt16(key))!) }
+
+    /// Hidden from the menu; the shortcut still works.
+    static func hidden(_ i: NSMenuItem) -> NSMenuItem {
+        i.isHidden = true
+        i.allowsKeyEquivalentWhenHidden = true
         return i
     }
 

@@ -186,21 +186,71 @@ struct NewTabButton: View {
     }
 }
 
+// MARK: - Tab strip
+
+/// A row of tabs that never grows past the room it's given: tabs share the
+/// width evenly (up to `maxWidth`), shrink to `minWidth`, and past that the
+/// row scrolls sideways, keeping the selected tab in view. `trailing` (the
+/// + button) follows the last tab and always stays visible.
+struct FittingTabStrip<Item: Identifiable, Tab: View, Trailing: View>: View where Item.ID: Hashable {
+    let items: [Item]
+    let selectedID: Item.ID?
+    let minWidth: CGFloat
+    let maxWidth: CGFloat
+    @ViewBuilder let tab: (Item) -> Tab
+    @ViewBuilder let trailing: () -> Trailing
+
+    /// The + button's width plus its gap.
+    private static var trailingRoom: CGFloat { 28 + TabStyle.gap }
+
+    var body: some View {
+        GeometryReader { geo in
+            let room = max(0, geo.size.width - Self.trailingRoom)
+            let n = CGFloat(max(items.count, 1))
+            let width = min(maxWidth, max(minWidth, (room - TabStyle.gap * (n - 1)) / n))
+            let content = width * n + TabStyle.gap * (n - 1)
+            HStack(spacing: TabStyle.gap) {
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal) {
+                        HStack(spacing: TabStyle.gap) {
+                            ForEach(items) { item in
+                                tab(item).frame(width: width).id(item.id)
+                            }
+                        }
+                        // Room for the selected tab's shadow.
+                        .padding(.vertical, 4)
+                    }
+                    .scrollIndicators(.never)
+                    .scrollDisabled(content <= room)
+                    .frame(width: min(content, room))
+                    .onAppear { reveal(selectedID, proxy) }
+                    .onChange(of: selectedID) { _, id in reveal(id, proxy) }
+                    .onChange(of: items.count) { reveal(selectedID, proxy) }
+                }
+                trailing()
+                Spacer(minLength: 0)
+            }
+            .frame(height: geo.size.height)
+        }
+    }
+
+    private func reveal(_ id: Item.ID?, _ proxy: ScrollViewProxy) {
+        guard let id else { return }
+        DispatchQueue.main.async { withAnimation(.easeInOut(duration: 0.15)) { proxy.scrollTo(id) } }
+    }
+}
+
 // MARK: - Conversation tabs
 
 private struct ConversationTabBar: View {
     @ObservedObject var workspace: Workspace
 
     var body: some View {
-        HStack(spacing: TabStyle.gap) {
-            ForEach(Array(workspace.conversations.enumerated()), id: \.element.id) { i, c in
-                ConversationTabItem(conversation: c, index: i,
-                                    selected: c.id == workspace.selectedID,
-                                    workspace: workspace)
-                    .frame(minWidth: 110, maxWidth: 240)
-            }
+        FittingTabStrip(items: workspace.conversations, selectedID: workspace.selectedID,
+                        minWidth: 110, maxWidth: 240) { c in
+            ConversationTabItem(conversation: c, selected: c.id == workspace.selectedID, workspace: workspace)
+        } trailing: {
             NewTabButton(help: "New Tab (⌘T)") { workspace.newConversation() }
-            Spacer(minLength: 0)
         }
         .padding(.leading, 8)
         .padding(.trailing, 6)
@@ -209,7 +259,6 @@ private struct ConversationTabBar: View {
 
 private struct ConversationTabItem: View {
     @ObservedObject var conversation: ClaudeConversation
-    let index: Int
     let selected: Bool
     let workspace: Workspace
     @State private var hovering = false
@@ -247,7 +296,7 @@ private struct ConversationTabItem: View {
             TabCloseButton(visible: hovering && !renaming, help: "Close Tab (⌘W)") { workspace.requestClose(conversation) }
         }
         .onHover { hovering = $0 }
-        .help(index < 9 ? "\(conversation.title)  ⌘\(index + 1)" : conversation.title)
+        .help(conversation.title)
         .contextMenu {
             Button("Rename…") { renaming = true }
             Button("Close Tab") { workspace.requestClose(conversation) }
@@ -291,16 +340,14 @@ struct TerminalTabBar: View {
     @ObservedObject var workspace: Workspace
 
     var body: some View {
-        HStack(spacing: TabStyle.gap) {
-            ForEach(workspace.terminals) { t in
-                TerminalTabItem(session: t, selected: t.id == workspace.selectedTerminalID, workspace: workspace)
-                    .frame(minWidth: 90, maxWidth: 180)
-            }
+        FittingTabStrip(items: workspace.terminals, selectedID: workspace.selectedTerminalID,
+                        minWidth: 90, maxWidth: 180) { t in
+            TerminalTabItem(session: t, selected: t.id == workspace.selectedTerminalID, workspace: workspace)
+        } trailing: {
             NewTabButton(help: "New Terminal") {
                 workspace.newTerminal()
                 AppDelegate.shared.windowController?.focusTerminal()
             }
-            Spacer(minLength: 0)
         }
         .padding(.leading, 8)
     }

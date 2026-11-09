@@ -85,11 +85,11 @@ tab is seen or dismissed.
 
 - **Slimmer workspace rows.** The status subtitle on workspace rows now
   partly repeats the list; rows could drop to the status icon only.
-- **Keyboard shortcuts (undecided).** Maybe ⌘1–9 go to notifications
-  instead of tabs. Caution: the list reorders and shrinks, so a number
-  doesn't keep pointing at the same item. Alternatives: ⌃⌘U cycles through
-  the list in order, or one key focuses the list for arrows + Return.
-  Decide after living with the list.
+- **Notification shortcut (trial).** ⌘1–9 open the nth row of the
+  Notifications list (2026-11-08); workspaces moved back to ⌥1–9 and tabs
+  have no number keys (⌥⌘←/→ instead). Watch for: the list reorders, so a
+  number doesn't keep pointing at the same item. If that bites, fall back
+  to ⌘1–9 = workspaces and an easier "next needing me" key.
 - **Crash rows.** "Claude Code stopped unexpectedly" (agent exit) doesn't
   notify today, so it never gets a row.
 

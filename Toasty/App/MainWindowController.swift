@@ -185,16 +185,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         }
     }
 
-    @objc func selectTabByNumber(_ sender: NSMenuItem) {
-        guard let w = store.active else { return }
-        if terminalFocused {
-            let i = sender.tag == 9 ? w.terminals.count - 1 : sender.tag - 1
-            if w.terminals.indices.contains(i) { w.selectTerminal(w.terminals[i].id) }
-        } else {
-            w.select(index: sender.tag == 9 ? w.conversations.count - 1 : sender.tag - 1)
-        }
-    }
-
     @objc func selectNextTab(_ sender: Any?) { selectRelativeTab(1) }
     @objc func selectPreviousTab(_ sender: Any?) { selectRelativeTab(-1) }
 
@@ -249,6 +239,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     @objc func selectPreviousWorkspace(_ sender: Any?) { store.activateRelative(-1) }
     @objc func selectWorkspaceByNumber(_ sender: NSMenuItem) { store.activate(index: sender.tag - 1) }
     @objc func jumpToAttention(_ sender: Any?) { store.jumpToAttention() }
+    /// ⌘1–9: open the nth notification in the sidebar's list.
+    @objc func openNotification(_ sender: NSMenuItem) {
+        let notices = Activity.shared.notices
+        guard notices.indices.contains(sender.tag - 1) else { NSSound.beep(); return }
+        Activity.shared.show(notices[sender.tag - 1].conversation)
+    }
 
     @objc func changeWorkspaceFolder(_ sender: Any?) {
         if let id = store.activeID { store.chooseFolder(for: id) }
@@ -293,8 +289,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             return true
         case #selector(closeTab(_:)):
             return terminalFocused ? w?.selectedTerminal != nil : w?.selected != nil
-        case #selector(selectTabByNumber(_:)):
-            return w != nil
         case #selector(selectWorkspaceByNumber(_:)):
             return store.workspaces.indices.contains(item.tag - 1)
         case #selector(newTerminal(_:)), #selector(renameWorkspace(_:)),
