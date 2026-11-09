@@ -188,7 +188,7 @@ private struct ChangesTab: View {
 
     private var loaded: some View {
         VStack(spacing: 0) {
-            BranchHeader(changes: changes)
+            BranchHeader(changes: changes, workspace: workspace)
                 .padding(.horizontal, 14)
                 .padding(.top, 12)
                 .padding(.bottom, 10)
@@ -214,6 +214,7 @@ private struct ChangesTab: View {
 
 private struct BranchHeader: View {
     @ObservedObject var changes: GitChanges
+    let workspace: Workspace
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -225,6 +226,10 @@ private struct BranchHeader: View {
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
                     .truncationMode(.middle)
+                    .layoutPriority(-1)  // the name gives way, not the pill
+                if workspace.isWorktree {
+                    WorktreeBadge(help: worktreeHelp)
+                }
                 Spacer(minLength: 6)
                 if changes.ahead > 0 { SyncBadge(symbol: "arrow.up", count: changes.ahead, help: "Commits not pushed") }
                 if changes.behind > 0 { SyncBadge(symbol: "arrow.down", count: changes.behind, help: "Commits to pull") }
@@ -244,6 +249,11 @@ private struct BranchHeader: View {
         }
     }
 
+    private var worktreeHelp: String {
+        let path = (workspace.folder as NSString).abbreviatingWithTildeInPath
+        return workspace.parent.map { "Worktree of \($0.name) · \(path)" } ?? "Worktree · \(path)"
+    }
+
     private var summary: String {
         let n = changes.files.count
         let files = n == 0 ? "No uncommitted changes" : n == 1 ? "1 changed file" : "\(n) changed files"
@@ -251,6 +261,22 @@ private struct BranchHeader: View {
             return "Up to date with \(upstream)"
         }
         return files
+    }
+}
+
+/// "Worktree", styled like the ahead/behind badges beside it.
+private struct WorktreeBadge: View {
+    let help: String
+
+    var body: some View {
+        Text("Worktree")
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(.secondary)
+            .fixedSize()
+            .padding(.horizontal, 6)
+            .frame(height: 18)
+            .background(Capsule().fill(Color.primary.opacity(0.07)))
+            .help(help)
     }
 }
 
