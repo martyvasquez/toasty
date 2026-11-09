@@ -385,6 +385,17 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     }
 
     private var agent: ClaudeAgentProcess?
+    /// The Agent SDK the running agent loaded (see `ClaudeSDK`).
+    private var sdk: ClaudeSDK.Option?
+    /// Claude Code has answered through this agent (any SDK message, model
+    /// or command list): its SDK works.
+    private var agentAlive = false
+    /// Sent to the agent before it was alive: replayed if it's restarted on
+    /// another SDK.
+    private var sentBeforeAlive: [[String: Any]] = []
+    /// An SDK that kept the agent from starting; this agent is the retry on
+    /// the next one. Marked bad once the retry comes alive.
+    private var suspectSDK: String?
     /// Prompts sent from the composer whose echo hasn't come back yet.
     private var sentPrompts: Set<String> = []
     /// The session has a name in Claude Code (so Claude Code's own title
@@ -571,6 +582,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
     private func send(_ message: [String: Any]) {
         if let agent, agent.isRunning, !launching {
+            if !agentAlive { sentBeforeAlive.append(message) }
             agent.send(message)
             return
         }
@@ -597,14 +609,21 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 fail(error)
             case .success(let env):
                 guard env.claude != nil else { fail(ClaudeAgentError.noClaude); return }
+                // The best SDK on disk now; a closer match to the installed
+                // `claude` downloads in the background for the next tab.
+                let sdk = ClaudeSDK.shared.choice(excluding: self.suspectSDK)
+                ClaudeSDK.shared.refresh(environment: env)
                 let agent = ClaudeAgentProcess(
                     onMessage: { [weak self] in self?.handle($0) },
                     onExit: { [weak self] status, err in self?.agentExited(status, stderr: err) })
                 var options: [String: Any] = ["cwd": self.cwd]
                 if let id = self.sessionID { options["resume"] = id }
                 do {
-                    try agent.start(environment: env, options: options)
+                    try agent.start(environment: env, options: options, sdk: sdk)
                     self.agent = agent
+                    self.sdk = sdk
+                    self.agentAlive = false
+                    self.sentBeforeAlive = []
                 } catch {
                     fail(error)
                 }
@@ -625,6 +644,22 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     }
 
     private func agentExited(_ status: Int32, stderr: String) {
+        // A downloaded SDK that died before Claude Code said anything:
+        // restart once on the next one, replaying what was sent. (`stop()`
+        // clears `agent` first, so closing the tab never lands here.)
+        if agent != nil, status != 0, !agentAlive, suspectSDK == nil, let sdk, !sdk.isBundled {
+            let replay = sentBeforeAlive + queued
+            agent = nil
+            self.sdk = nil
+            sessionRunning = false
+            launching = false
+            sentBeforeAlive = []
+            queued = replay
+            suspectSDK = sdk.version
+            startAgent()
+            return
+        }
+        if suspectSDK != nil, !agentAlive { suspectSDK = nil }  // The retry failed too: not the SDK.
         agent = nil
         sessionRunning = false
         remoteControl = .off
@@ -643,14 +678,28 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
     // MARK: Messages from the bridge
 
+    /// Claude Code answered: the SDK works. If this agent is the retry
+    /// after another SDK failed to start, that one is bad.
+    private func noteAlive() {
+        agentAlive = true
+        sentBeforeAlive = []
+        guard let suspect = suspectSDK, let sdk else { return }
+        suspectSDK = nil
+        ClaudeSDK.shared.markBad(suspect)
+        append(.notice, "Claude Agent SDK \(suspect) couldn't start Claude Code, so this tab restarted with \(sdk.version). Toasty won't use \(suspect) again.")
+    }
+
     private func handle(_ message: [String: Any]) {
-        switch message["type"] as? String {
+        let type = message["type"] as? String
+        if !agentAlive, type == "sdk" || type == "models" || type == "commands" { noteAlive() }
+        switch type {
         case "ready":
             launching = false
             sessionRunning = true
             let pending = queued
             queued.removeAll()
             setPhase(pending.contains { $0["type"] as? String == "user" } ? .working : .idle)
+            if !agentAlive { sentBeforeAlive += pending }
             pending.forEach { agent?.send($0) }
             refreshContextUsage()
             sendPendingName()

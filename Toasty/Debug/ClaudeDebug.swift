@@ -146,6 +146,48 @@ enum ClaudeDebug {
             return NSStringFromRect(doc.frame)
         }
 
+        // The Agent SDK in use and on disk: {"cmd":"sdk"}. Actions:
+        // "refresh" (check npm now, even if `claude` didn't change),
+        // "installBroken" (a fake newest SDK that can't load, to exercise the
+        // fallback: open a new conversation tab next), "reset" (forget
+        // downloads and bad marks).
+        DebugControl.registerAsync("sdk") { cmd in
+            let sdk = ClaudeSDK.shared
+            switch cmd["action"] as? String {
+            case "refresh":
+                let env: ClaudeEnvironment.Resolved = try await withCheckedThrowingContinuation { k in
+                    ClaudeEnvironment.resolve { k.resume(with: $0) }
+                }
+                sdk.refresh(environment: env, force: true)
+            case "installBroken":
+                try sdk.debugInstallBroken()
+            case "reset":
+                sdk.debugReset()
+            case nil:
+                break
+            case let other?:
+                throw E("unknown action \(other)")
+            }
+            let choice = sdk.choice()
+            return [
+                "choice": choice.version, "choicePath": choice.path ?? "bundled",
+                "claude": sdk.claudeVersion ?? "",
+                "bundled": ClaudeSDK.bundled?.version ?? "",
+                "installed": sdk.installed.map { "\($0.version) (Claude Code \($0.claudeCode))" },
+                "bad": Array(sdk.bad).sorted(),
+                "summary": sdk.summary,
+            ] as [String: Any]
+        }
+
+        // Fork the conversation at its last reply, like the reply's Fork button.
+        DebugControl.register("fork") { _ in
+            let c = try conv()
+            guard let w = c.workspace else { throw E("no workspace") }
+            guard let item = c.items.last(where: { $0.kind == .assistant && $0.entryUUID != nil }) else { throw E("no reply to fork at") }
+            w.fork(c, at: item)
+            return nil
+        }
+
         // The conversation's state; poll it to wait for a turn.
         DebugControl.register("conv") { cmd in
             let c = try conv()

@@ -106,6 +106,7 @@ targets:
     platform: macOS
     sources:
       - path: Tests/DictationTests
+      - path: Tests/ClaudeTests
       - path: Tests/Fixtures
         type: folder
         buildPhase: resources

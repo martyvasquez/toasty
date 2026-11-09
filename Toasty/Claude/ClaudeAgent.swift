@@ -31,14 +31,14 @@ final class ClaudeAgentProcess {
     }
 
     /// Start the bridge. `options` are passed to the bridge's `start`
-    /// message (cwd, resume, …).
-    func start(environment env: ClaudeEnvironment.Resolved, options: [String: Any]) throws {
+    /// message (cwd, resume, …); `sdk` is the Agent SDK it loads.
+    func start(environment env: ClaudeEnvironment.Resolved, options: [String: Any], sdk: ClaudeSDK.Option) throws {
         guard let script = Bundle.main.url(forResource: "toasty-agent", withExtension: "mjs", subdirectory: "Bridge") else {
             throw ClaudeAgentError.missingBridge
         }
         process.executableURL = URL(fileURLWithPath: env.node)
         process.arguments = [script.path]
-        process.environment = env.variables
+        process.environment = Self.environment(env, sdk: sdk)
         process.currentDirectoryURL = URL(fileURLWithPath: options["cwd"] as? String ?? NSHomeDirectory())
         process.standardInput = stdin
         process.standardOutput = stdout
@@ -115,12 +115,13 @@ final class ClaudeAgentProcess {
                 completion(.failure(ClaudeAgentError.missingBridge)); return
             }
             let args: [String: Any] = ["sessionId": sessionID, "upToMessageId": upToMessageID, "title": title, "dir": cwd]
+            let variables = environment(env, sdk: ClaudeSDK.shared.choice())
             guard let json = try? JSONSerialization.data(withJSONObject: args) else { return }
             DispatchQueue.global(qos: .userInitiated).async {
                 let p = Process()
                 p.executableURL = URL(fileURLWithPath: env.node)
                 p.arguments = [script.path, "fork", String(decoding: json, as: UTF8.self)]
-                p.environment = env.variables
+                p.environment = variables
                 p.currentDirectoryURL = URL(fileURLWithPath: cwd)
                 let out = Pipe()
                 p.standardOutput = out
@@ -143,6 +144,14 @@ final class ClaudeAgentProcess {
                 DispatchQueue.main.async { MainActor.assumeIsolated { completion(outcome) } }
             }
         }
+    }
+
+    /// The bridge's environment: the user's, plus the SDK to load when it
+    /// isn't the bundled one.
+    private static func environment(_ env: ClaudeEnvironment.Resolved, sdk: ClaudeSDK.Option) -> [String: String] {
+        var variables = env.variables
+        if let path = sdk.path { variables["TOASTY_SDK_PATH"] = path }
+        return variables
     }
 
     private func receiveStderr(_ text: String) {

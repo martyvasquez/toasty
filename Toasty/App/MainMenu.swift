@@ -143,7 +143,7 @@ final class AboutPanel: NSObject {
             .paragraphStyle: { let p = NSMutableParagraphStyle(); p.alignment = .center; return p }(),
         ]
         let credits = NSMutableAttributedString(
-            string: "Claude Code through the official Claude Agent SDK.\nTerminal emulation by libghostty-vt.\n"
+            string: "\(ClaudeSDK.shared.summary)\nTerminal emulation by libghostty-vt.\n"
                 + "Dictation by NVIDIA Parakeet, on this Mac.\n",
             attributes: attributes)
         // The full notices (Parakeet, Silero VAD, transcribe.cpp, ggml, miniz, Hex).

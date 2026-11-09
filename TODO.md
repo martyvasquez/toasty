@@ -10,23 +10,40 @@ Toasty runs the installed `claude` (terminal tabs and the bridge's
 `pathToClaudeCodeExecutable`), so Claude Code updates reach Toasty on their
 own. The Agent SDK is vendored and pinned
 (`Resources/Bridge/claude-agent-sdk-VERSION.txt`: 0.3.319, built for
-Claude Code 2.1.319, matching the install as of 2026-11-08). As Claude Code
-moves ahead, the bridge can fall behind: new stream fields and options go
-missing or break silently.
+Claude Code 2.1.319). Both ship almost daily (19 releases Oct 14 - Nov 6),
+so a build falls behind within days.
 
-### Next
+Decided 2026-11-09: the SDK updates itself to match the installed `claude`;
+a daily cloud routine ("Toasty SDK changelog watch") reads the SDK
+changelog and emails only when something breaks Toasty or is worth
+adopting. Its instructions hold a USES / CONSIDERING list; update it when
+Toasty starts using a new SDK option, message or hook.
 
-- **Mismatch check at launch.** Compare `claude --version` with the Claude
-  Code version in `claude-agent-sdk-VERSION.txt` (run off the main thread;
-  reuse the env lookup in `ClaudeAgent.swift`). If the installed `claude`
-  is newer, say so quietly (one line in Settings/About, or a single
-  dismissible notice per version), not a modal. Older-than-built is worth
-  a note too, since the bridge may send options the CLI doesn't know.
-- **Decide what counts as drift.** Patch-level gaps are usually harmless;
-  pick a threshold (e.g. minor version) so the notice isn't noise.
-- **Update routine.** `scripts/update-claude-agent-sdk.sh` → rebuild →
-  smoke-test a conversation tab (send, tool permission, fork, @ message).
-  Write the steps in the script header or `docs/` so it's a 2-minute job.
+### Built: SDK auto-update (2026-11-09)
+
+`Claude/ClaudeSDK.swift`: when a conversation tab starts it gets the best
+SDK on disk; a background check downloads the newest SDK built for a Claude
+Code <= the installed `claude` (npm checksum, `manifest.json`, bridge
+`selftest`) into `~/Library/Application Support/<app>/SDK/` for the next
+tab. A downloaded SDK that dies before Claude Code answers: the tab restarts
+once on the next one and the transcript says so; that version is marked
+bad. About shows the versions. Debug: `mctl '{"cmd":"sdk"}'` (actions
+`refresh`, `installBroken`, `reset`); `TEST_RUNNER_TOASTY_NETWORK_TESTS=1`
+runs the real-download test.
+
+Follow-ups:
+- **Fallback in the sidebar?** Shown in the tab's transcript today; a
+  Notifications row would need a notice not tied to a conversation.
+- **Release line change.** Auto-update only follows the bundled SDK's line
+  (0.3.x for Claude Code 2.1.x). If Claude Code moves to 2.2, nothing
+  downloads until the bundled SDK is updated (the changelog routine should
+  flag that release).
+
+### Also
+
+- **Transcript files** are read directly (`ClaudeConversation.swift`,
+  peer `isMeta` entries, session titles) and aren't covered by the SDK
+  changelog. Move to `getSessionMessages` / `listSessions` where possible.
 
 ## Messaging between tabs
 
@@ -129,6 +146,58 @@ Later:
 - "Install Dependencies" button for a worktree: detect the package manager
   from the lockfile (npm/pnpm/yarn/bun, uv/poetry, bundler, SwiftPM) and run
   the install in the worktree's terminal tab so the output is visible.
+
+## SDK hooks & callbacks (considerations)
+
+Not committed: options worth weighing, checked against the SDK docs for
+0.3.319 on 2026-11-09 (https://code.claude.com/docs/en/agent-sdk/typescript,
+.../agent-sdk/hooks). The bridge (`toasty-agent.mjs`) registers no `hooks`
+today. SDK hooks run alongside the user's own settings hooks, not instead
+of them. Rough order of value:
+
+- **`onElicitation`.** MCP servers asking the user for input (forms,
+  sign-in links) have no handler in Toasty, so they likely fail where the
+  CLI would ask. More a correctness gap than a feature.
+- **`session_state_changed`** (idle / running / requires_action) as the
+  source for sidebar status instead of inferring it. Needs
+  `CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS=1`.
+- **Background tasks panel.** `task_started` / `task_progress` /
+  `task_notification` + `background_tasks_changed` (full live set; replace
+  the cache), `agentProgressSummaries` for one-line progress,
+  `stopTask(id)` per row, `backgroundTasks()` to move a running Bash or
+  subagent to the background (the CLI's Ctrl-B).
+- **Undo Claude's edits.** `enableFileCheckpointing` + `rewindFiles(uuid)`;
+  pairs with Fork. The `replay-user-messages` prerequisite is already on.
+  Only reverts Write/Edit/NotebookEdit: not Bash changes, most subagent
+  edits, or folder create/delete, so label it "Undo Claude's edits", not
+  "Restore". After the stream ends, resume with an empty prompt first.
+- **Live files-touched list.** `PostToolUse` on Edit/Write/MultiEdit feeds
+  the Changes header the moment each edit lands (no git polling); rows
+  jump to the diff.
+- **Terminal context on send.** `UserPromptSubmit` → `additionalContext`
+  with the last command + output from the workspace's terminal tab, so
+  "fix this" after a failed build needs no paste.
+- **Next-prompt ghost text.** `promptSuggestions` → `prompt_suggestion`
+  after each turn; show in the composer, Tab accepts.
+- **Model fallback notice.** `PostModelSwitch` fires on fallback too; say
+  "Fell back to X" instead of switching silently.
+- **Question previews.** `toolConfig.askUserQuestion.previewFormat`
+  (markdown/html) for side-by-side option previews in the question card.
+- **MCP panel.** `mcpServerStatus()`, `toggleMcpServer()`,
+  `reconnectMcpServer()`: per-server status, toggle, reconnect.
+- **User hooks visible.** `includeHookEvents` → `hook_started` /
+  `hook_response`, to explain "stuck" turns caused by a slow settings hook.
+- **`conversation_reset`** (sent on `/clear`): check the transcript clears.
+- **Bash in a real terminal (speculative).** `PreToolUse` + `updatedInput`
+  to route long-running commands (dev servers, watchers) into a Toasty
+  terminal tab.
+
+Skip unless a need appears: `MessageDisplay` (display-only rewrite; Toasty
+renders its own transcript), `PreModelSwitch`, `DirectoryAdded`,
+`Notification` (canUseTool covers prompts), `Setup`, `ConfigChange`,
+`InstructionsLoaded`, `TeammateIdle`, `Task*` hooks, `FileChanged`,
+`CwdChanged`, `Worktree*` (unless routing Claude Code's worktrees through
+Toasty's). `onUserDialog` exists in the SDK code but isn't documented.
 
 ## Reference
 

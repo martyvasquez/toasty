@@ -24,6 +24,7 @@
 		346191052BC0573C556FAE23 /* MainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FBCBE999788997C12380B2D /* MainWindowController.swift */; };
 		3502266411B2DCC70D0962EA /* TitlebarTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECA042843FEF43774DB0414C /* TitlebarTabs.swift */; };
 		39DB48C5EA22DF75F0E540AB /* CTranscribe.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = F8C8A579882F85EF3293A41D /* CTranscribe.xcframework */; };
+		3C7A12F4E8E396CA83D229F1 /* ClaudeSDKTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE3BEB622EF1F6E34C0F08C /* ClaudeSDKTests.swift */; };
 		3FEABD3A753F771169A42D82 /* ClaudeStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F85C0CF7B802A8107EAC802 /* ClaudeStyle.swift */; };
 		440B3223CC9068684E18E197 /* DictationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE77E4EB884D2153CA08A895 /* DictationController.swift */; };
 		4E868E3636D7E457ADD0303E /* ContextVocabulary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 080B0B6B44543BB4052752BD /* ContextVocabulary.swift */; };
@@ -68,6 +69,7 @@
 		DB9EF218EA4651E15C47905F /* TextPipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0520699B45C02518BAA81BF5 /* TextPipelineTests.swift */; };
 		E418801CB5AD25148EC64A13 /* PTY.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64890A3F04ACB6E7BF086D88 /* PTY.swift */; };
 		EB6410071FBABD7E99511555 /* InspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E974BF37B348BD074F448190 /* InspectorView.swift */; };
+		EC9B61A31E4A0580C639F983 /* ClaudeSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = A282903B9056A87BE022B22A /* ClaudeSDK.swift */; };
 		EE57450227154A9F8FF4DE35 /* DictationIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DAAFA268342A12586EEAEBE /* DictationIndicator.swift */; };
 		F05E7AF8BA36E71A38111FF3 /* Workspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92F0C051C134C0C9C597BCFD /* Workspace.swift */; };
 		F3EDEAA0B2C742A331699A9C /* SpeechEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C4288BD8F8A0E1BC06EB85 /* SpeechEngine.swift */; };
@@ -125,6 +127,7 @@
 		59A391E422005AC05F0585B6 /* GhosttyVt.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = GhosttyVt.xcframework; path = Vendor/GhosttyVt.xcframework; sourceTree = "<group>"; };
 		5C51FB87F905EF29B4ECF92F /* MainMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenu.swift; sourceTree = "<group>"; };
 		5DAAFA268342A12586EEAEBE /* DictationIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationIndicator.swift; sourceTree = "<group>"; };
+		5FE3BEB622EF1F6E34C0F08C /* ClaudeSDKTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSDKTests.swift; sourceTree = "<group>"; };
 		64890A3F04ACB6E7BF086D88 /* PTY.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTY.swift; sourceTree = "<group>"; };
 		64C449C667888064F9F12A10 /* VT.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VT.swift; sourceTree = "<group>"; };
 		64C4D1DA3C7A21F286EE8D53 /* KeyCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyCodes.swift; sourceTree = "<group>"; };
@@ -144,6 +147,7 @@
 		938002554F60AC3FFC1B8C75 /* TriggerMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TriggerMonitor.swift; sourceTree = "<group>"; };
 		953B4EC2E8F32D9B902082DE /* TextPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextPipeline.swift; sourceTree = "<group>"; };
 		9CCEEDDC3B6D5A771D67C9DC /* ClaudeRequestCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeRequestCard.swift; sourceTree = "<group>"; };
+		A282903B9056A87BE022B22A /* ClaudeSDK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSDK.swift; sourceTree = "<group>"; };
 		A2C6D266A74900B7BBDA8064 /* VocabularyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VocabularyTests.swift; sourceTree = "<group>"; };
 		A392D7CD9154E4ADC8244C28 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		A4F699DD786C95D272697F9D /* Worktrees.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Worktrees.swift; sourceTree = "<group>"; };
@@ -247,6 +251,7 @@
 			isa = PBXGroup;
 			children = (
 				6F3A8B4B872E5EC65743891C /* Fixtures */,
+				D9F90855F68DA8DB28341B62 /* ClaudeTests */,
 				C6DD56F891F4B9E034A4D746 /* DictationTests */,
 			);
 			path = Tests;
@@ -269,6 +274,7 @@
 				AEF18C42EDAF14F5AFAD03EE /* ClaudeConversationView.swift */,
 				DFFBD1A7316E98A070F3E2BE /* ClaudeMarkdown.swift */,
 				9CCEEDDC3B6D5A771D67C9DC /* ClaudeRequestCard.swift */,
+				A282903B9056A87BE022B22A /* ClaudeSDK.swift */,
 				3F85C0CF7B802A8107EAC802 /* ClaudeStyle.swift */,
 				1DB1DB6F9D1A2A6132740C20 /* ClaudeTextViews.swift */,
 				FA6ECF9E267AAEB50DBBCB05 /* ClaudeToolViews.swift */,
@@ -346,6 +352,14 @@
 				07E44FEF143B34DDB7720C70 /* Vocabulary.swift */,
 			);
 			path = Dictation;
+			sourceTree = "<group>";
+		};
+		D9F90855F68DA8DB28341B62 /* ClaudeTests */ = {
+			isa = PBXGroup;
+			children = (
+				5FE3BEB622EF1F6E34C0F08C /* ClaudeSDKTests.swift */,
+			);
+			path = ClaudeTests;
 			sourceTree = "<group>";
 		};
 		E5996C4FF896C534B47DFE04 /* App */ = {
@@ -507,6 +521,7 @@
 				32C56AFA5E5541CBCFF3CF0D /* ClaudeDebug.swift in Sources */,
 				2E201587160057E35BDB263E /* ClaudeMarkdown.swift in Sources */,
 				6132779EEA82B2C34C56CDE9 /* ClaudeRequestCard.swift in Sources */,
+				EC9B61A31E4A0580C639F983 /* ClaudeSDK.swift in Sources */,
 				3FEABD3A753F771169A42D82 /* ClaudeStyle.swift in Sources */,
 				8AE462A6E941126BC4202A81 /* ClaudeTextViews.swift in Sources */,
 				F6A93F0D93822C4E1C46E036 /* ClaudeToolViews.swift in Sources */,
@@ -561,6 +576,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0F30004D432418E82D43BAD6 /* CaptureTests.swift in Sources */,
+				3C7A12F4E8E396CA83D229F1 /* ClaudeSDKTests.swift in Sources */,
 				F4C17D44C12AE3718AAED793 /* RepoPathsTests.swift in Sources */,
 				CC8328BFDDF5F840A632E2EA /* SpeechEngineTests.swift in Sources */,
 				DB9EF218EA4651E15C47905F /* TextPipelineTests.swift in Sources */,

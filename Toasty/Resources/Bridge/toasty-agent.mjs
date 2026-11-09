@@ -13,10 +13,26 @@
 // `node toasty-agent.mjs fork '<json>'` instead forks a saved session with
 // the SDK's forkSession ({sessionId, upToMessageId, title, dir}), prints
 // {"sessionId": …} or {"error": …} and exits. No query is started.
+//
+// `node toasty-agent.mjs selftest` loads the SDK, checks the functions this
+// bridge calls exist, prints {"ok": …} and exits. No query, no tokens.
+//
+// The SDK is the bundled copy unless TOASTY_SDK_PATH names another sdk.mjs
+// (one Toasty downloaded to match the installed `claude`; see ClaudeSDK.swift).
 import { createInterface } from "node:readline";
-import { query, forkSession } from "./claude-agent-sdk.mjs";
+import { pathToFileURL } from "node:url";
 
 const out = (msg) => process.stdout.write(JSON.stringify(msg) + "\n");
+
+const sdkPath = process.env.TOASTY_SDK_PATH;
+delete process.env.TOASTY_SDK_PATH; // Toasty's own; not for Claude Code.
+const { query, forkSession } = await import(sdkPath ? pathToFileURL(sdkPath).href : "./claude-agent-sdk.mjs");
+
+if (process.argv[2] === "selftest") {
+  const ok = typeof query === "function" && typeof forkSession === "function";
+  out({ ok });
+  process.exit(ok ? 0 : 1);
+}
 
 if (process.argv[2] === "fork") {
   try {
