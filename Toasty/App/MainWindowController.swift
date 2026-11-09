@@ -237,7 +237,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     @objc func renameWorkspace(_ sender: Any?) { store.renameActive() }
     @objc func selectNextWorkspace(_ sender: Any?) { store.activateRelative(1) }
     @objc func selectPreviousWorkspace(_ sender: Any?) { store.activateRelative(-1) }
-    @objc func selectWorkspaceByNumber(_ sender: NSMenuItem) { store.activate(index: sender.tag - 1) }
     @objc func jumpToAttention(_ sender: Any?) { store.jumpToAttention() }
     /// ⌘1–9: open the nth notification in the sidebar's list.
     @objc func openNotification(_ sender: NSMenuItem) {
@@ -289,8 +288,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             return true
         case #selector(closeTab(_:)):
             return terminalFocused ? w?.selectedTerminal != nil : w?.selected != nil
-        case #selector(selectWorkspaceByNumber(_:)):
-            return store.workspaces.indices.contains(item.tag - 1)
         case #selector(newTerminal(_:)), #selector(renameWorkspace(_:)),
              #selector(openWorkspaceInFinder(_:)), #selector(closeWorkspace(_:)):
             return w != nil

@@ -4,6 +4,30 @@ Features discussed but not built yet. Remove items as they ship. The
 principles in `BUILD_PLAN.md` §1 still apply: Toasty renders and collects
 input; Claude Code (via its own features) decides what Claude does.
 
+## Claude Code / SDK version drift (soon)
+
+Toasty runs the installed `claude` (terminal tabs and the bridge's
+`pathToClaudeCodeExecutable`), so Claude Code updates reach Toasty on their
+own. The Agent SDK is vendored and pinned
+(`Resources/Bridge/claude-agent-sdk-VERSION.txt`: 0.3.319, built for
+Claude Code 2.1.319, matching the install as of 2026-11-08). As Claude Code
+moves ahead, the bridge can fall behind: new stream fields and options go
+missing or break silently.
+
+### Next
+
+- **Mismatch check at launch.** Compare `claude --version` with the Claude
+  Code version in `claude-agent-sdk-VERSION.txt` (run off the main thread;
+  reuse the env lookup in `ClaudeAgent.swift`). If the installed `claude`
+  is newer, say so quietly (one line in Settings/About, or a single
+  dismissible notice per version), not a modal. Older-than-built is worth
+  a note too, since the bridge may send options the CLI doesn't know.
+- **Decide what counts as drift.** Patch-level gaps are usually harmless;
+  pick a threshold (e.g. minor version) so the notice isn't noise.
+- **Update routine.** `scripts/update-claude-agent-sdk.sh` → rebuild →
+  smoke-test a conversation tab (send, tool permission, fork, @ message).
+  Write the steps in the script header or `docs/` so it's a 2-minute job.
+
 ## Messaging between tabs
 
 Built so far: Fork (from any reply), tab names = Claude Code session names,
@@ -86,8 +110,8 @@ tab is seen or dismissed.
 - **Slimmer workspace rows.** The status subtitle on workspace rows now
   partly repeats the list; rows could drop to the status icon only.
 - **Notification shortcut (trial).** ⌘1–9 open the nth row of the
-  Notifications list (2026-11-08); workspaces moved back to ⌥1–9 and tabs
-  have no number keys (⌥⌘←/→ instead). Watch for: the list reorders, so a
+  Notifications list (2026-11-08); workspaces and tabs have no number
+  keys (⌥⌘↑/↓ and ⌥⌘←/→ instead; ⌥1–9 removed 2026-11-09). Watch for: the list reorders, so a
   number doesn't keep pointing at the same item. If that bites, fall back
   to ⌘1–9 = workspaces and an easier "next needing me" key.
 - **Crash rows.** "Claude Code stopped unexpectedly" (agent exit) doesn't

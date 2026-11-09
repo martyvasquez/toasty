@@ -31,7 +31,7 @@ struct WorkspaceSidebarView: View {
             ScrollView {
                 VStack(spacing: 2) {
                     ForEach(Array(store.workspaces.enumerated()), id: \.element.id) { i, w in
-                        WorkspaceRow(workspace: w, index: i, store: store)
+                        WorkspaceRow(workspace: w, store: store)
                             .opacity(store.draggingID.map { $0 == w.id || $0 == w.parentID } == true ? 0.35 : 1)
                             .onDrag {
                                 // A worktree drags its parent (they move together).
@@ -102,7 +102,6 @@ private struct PendingWorktreeRow: View {
 
 private struct WorkspaceRow: View {
     @ObservedObject var workspace: Workspace
-    let index: Int
     @ObservedObject var store: WorkspaceStore
     @ObservedObject private var activity: Activity = .shared
 
@@ -141,11 +140,7 @@ private struct WorkspaceRow: View {
                         .truncationMode(.tail)
                 }
                 Spacer(minLength: 0)
-                if hovering && index < 9 && !isRenaming {
-                    Text("⌥\(index + 1)")
-                        .font(.system(size: 10.5, weight: .medium))
-                        .foregroundStyle(.tertiary)
-                } else if working && !waiting {
+                if working && !waiting {
                     // How long Claude has been at it, once it's a minute.
                     TimelineView(.periodic(from: .now, by: 30)) { context in
                         if let minutes = workingMinutes(now: context.date), minutes > 0 {

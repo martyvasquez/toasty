@@ -89,15 +89,7 @@ enum MainMenu {
             workspace.addItem(hidden(i))
         }
         workspace.addItem(.separator())
-        for n in 1...9 {
-            // Titled with the workspace's name when the menu opens.
-            let i = item("Workspace \(n)", #selector(W.selectWorkspaceByNumber(_:)), "\(n)", .option)
-            i.tag = n
-            workspace.addItem(i)
-        }
-        workspace.addItem(.separator())
         workspace.addItem(item("Close Workspace", #selector(W.closeWorkspace(_:)), ""))
-        workspace.delegate = WorkspaceMenuDelegate.shared
         add(workspace, to: main)
 
         let window = NSMenu(title: "Window")
@@ -138,25 +130,6 @@ enum MainMenu {
         let i = NSMenuItem(title: menu.title, action: nil, keyEquivalent: "")
         i.submenu = menu
         main.addItem(i)
-    }
-}
-
-/// Shows one ⌥1–9 item per existing workspace, titled with its name.
-final class WorkspaceMenuDelegate: NSObject, NSMenuDelegate {
-    static let shared = WorkspaceMenuDelegate()
-
-    func menuNeedsUpdate(_ menu: NSMenu) {
-        let store = WorkspaceStore.shared
-        for item in menu.items where item.action == #selector(MainWindowController.selectWorkspaceByNumber(_:)) {
-            let i = item.tag - 1
-            let exists = store.workspaces.indices.contains(i)
-            item.isHidden = !exists
-            item.allowsKeyEquivalentWhenHidden = true
-            if exists {
-                item.title = store.workspaces[i].displayName
-                item.state = store.workspaces[i].id == store.activeID ? .on : .off
-            }
-        }
     }
 }
 

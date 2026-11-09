@@ -169,11 +169,6 @@ final class WorkspaceStore: ObservableObject {
         setNeedsSave()
     }
 
-    func activate(index: Int) {
-        guard workspaces.indices.contains(index) else { return }
-        activate(workspaces[index].id)
-    }
-
     func activateRelative(_ delta: Int) {
         guard !workspaces.isEmpty else { return }
         let i = workspaces.firstIndex { $0.id == activeID } ?? 0
