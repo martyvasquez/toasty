@@ -36,6 +36,13 @@ enum ClaudeDebug {
             try conv().setPermissionMode(cmd["mode"] as? String ?? "default")
             return nil
         }
+        // The default model setting: {"cmd":"defaultModel","model":"sonnet"}
+        // (a model Claude Code doesn't offer tests the fallback).
+        DebugControl.register("defaultModel") { cmd in
+            if let m = cmd["model"] as? String { DefaultModel.shared.value = m }
+            return ["value": DefaultModel.shared.value, "removed": DefaultModel.shared.removed ?? "",
+                    "models": DefaultModel.shared.models.map { ["value": $0.value, "name": $0.name, "detail": $0.detail] }]
+        }
         DebugControl.register("model") { cmd in
             guard let m = cmd["model"] as? String else { throw E("model=") }
             try conv().setModel(m)

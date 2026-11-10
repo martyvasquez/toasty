@@ -153,7 +153,9 @@ async function start(msg) {
   q = query({ prompt: prompts(), options });
   out({ type: "ready" });
   // Claude Code's own model list (what /model offers), for the picker.
-  q.supportedModels().then((models) => out({ type: "models", models }), () => {});
+  // Always answered (empty if it failed): Toasty holds a conversation that
+  // starts on another model than Claude Code's default until it arrives.
+  q.supportedModels().then((models) => out({ type: "models", models }), () => out({ type: "models", models: [] }));
   // Claude Code's slash commands in this session (what typing / offers).
   q.supportedCommands().then((commands) => out({ type: "commands", commands }), () => {});
   // Whether Claude Code says Remote Control should start with the session

@@ -2,19 +2,21 @@ import AppKit
 import SwiftUI
 
 /// Toasty ▸ Settings… (⌘,): a standard Mac settings window with a
-/// preference-style toolbar: Dictation, Screenshots (⇧⌘0 from any app), and
-/// Preview (the experimental preview browser's on/off switch).
+/// preference-style toolbar: General (the default model), Dictation,
+/// Screenshots (⇧⌘0 from any app), and Preview (the experimental preview
+/// browser's on/off switch).
 @MainActor
 final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
     static let shared = SettingsWindowController()
 
     private enum Pane: String, CaseIterable {
-        case dictation, screenshots, preview
+        case general, dictation, screenshots, preview
 
         var id: NSToolbarItem.Identifier { .init(rawValue) }
 
         var title: String {
             switch self {
+            case .general: "General"
             case .dictation: "Dictation"
             case .screenshots: "Screenshots"
             case .preview: "Preview"
@@ -23,6 +25,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
 
         var symbol: String {
             switch self {
+            case .general: "gearshape"
             case .dictation: "mic"
             case .screenshots: "camera.viewfinder"
             case .preview: "safari"
@@ -31,6 +34,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
 
         @MainActor func makeController() -> NSViewController {
             switch self {
+            case .general: NSHostingController(rootView: GeneralSettingsView())
             case .dictation: NSHostingController(rootView: DictationSettingsView())
             case .screenshots: NSHostingController(rootView: ScreenshotSettingsView())
             case .preview: NSHostingController(rootView: PreviewSettingsView())
@@ -38,11 +42,11 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         }
     }
 
-    private var pane = Pane.dictation
+    private var pane = Pane.general
 
     private init() {
-        let window = NSWindow(contentViewController: Pane.dictation.makeController())
-        window.title = Pane.dictation.title
+        let window = NSWindow(contentViewController: Pane.general.makeController())
+        window.title = Pane.general.title
         window.styleMask = [.titled, .closable, .miniaturizable]
         window.toolbarStyle = .preference
         window.isReleasedWhenClosed = false
@@ -51,7 +55,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         let toolbar = NSToolbar(identifier: "ToastySettings")
         toolbar.delegate = self
         toolbar.displayMode = .iconAndLabel
-        toolbar.selectedItemIdentifier = Pane.dictation.id
+        toolbar.selectedItemIdentifier = Pane.general.id
         window.toolbar = toolbar
     }
 
@@ -92,8 +96,14 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         if let pane = Pane(rawValue: sender.itemIdentifier.rawValue) { select(pane) }
     }
 
+    /// Show the window on a pane, by name ("general", "dictation", …).
+    func show(pane name: String) {
+        if let pane = Pane(rawValue: name) { select(pane) }
+        show(nil)
+    }
+
     #if DEBUG
-    /// Debug: show a pane by name ("dictation", "screenshots", "preview").
+    /// Debug: show a pane by name ("general", "dictation", "screenshots", "preview").
     func debugSelect(_ name: String) {
         if let pane = Pane(rawValue: name) { select(pane) }
     }

@@ -44,6 +44,7 @@
 		6131DD0CF970A46E4FE1AC30 /* KeyCodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64C4D1DA3C7A21F286EE8D53 /* KeyCodes.swift */; };
 		6132779EEA82B2C34C56CDE9 /* ClaudeRequestCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CCEEDDC3B6D5A771D67C9DC /* ClaudeRequestCard.swift */; };
 		661A4A0A4B1CF64A4E83E929 /* Fixtures in Resources */ = {isa = PBXBuildFile; fileRef = 6F3A8B4B872E5EC65743891C /* Fixtures */; };
+		68B7770353365C56E35652A2 /* DefaultModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA579EC5BB11ED8507AF049E /* DefaultModel.swift */; };
 		6994304483A69665EDCE8BCE /* PreviewSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76C9837CB5F4EE3CD6954410 /* PreviewSession.swift */; };
 		6CBCBC44A0E7D23F1974174F /* Vocabulary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07E44FEF143B34DDB7720C70 /* Vocabulary.swift */; };
 		72B35C923E6E7BBD19F19BC3 /* ServiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E0AF94EDDB841E22D8DEAA /* ServiceProvider.swift */; };
@@ -172,6 +173,7 @@
 		A4F699DD786C95D272697F9D /* Worktrees.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Worktrees.swift; sourceTree = "<group>"; };
 		A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStore.swift; sourceTree = "<group>"; };
 		A8A10A7F8DA308A1B9259A36 /* MainSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainSplitViewController.swift; sourceTree = "<group>"; };
+		AA579EC5BB11ED8507AF049E /* DefaultModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultModel.swift; sourceTree = "<group>"; };
 		AAFDD6D5C02551210E270F85 /* SpeechModels */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SpeechModels; path = Toasty/Resources/SpeechModels; sourceTree = SOURCE_ROOT; };
 		ADBCB0D878A12E401FE41DCD /* NotificationsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsSection.swift; sourceTree = "<group>"; };
 		AEF18C42EDAF14F5AFAD03EE /* ClaudeConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeConversationView.swift; sourceTree = "<group>"; };
@@ -313,6 +315,7 @@
 				1DB1DB6F9D1A2A6132740C20 /* ClaudeTextViews.swift */,
 				FA6ECF9E267AAEB50DBBCB05 /* ClaudeToolViews.swift */,
 				1A5B8F16A6E5B2987A97AD1D /* ClaudeTypography.swift */,
+				AA579EC5BB11ED8507AF049E /* DefaultModel.swift */,
 			);
 			path = Claude;
 			sourceTree = "<group>";
@@ -587,6 +590,7 @@
 				4E868E3636D7E457ADD0303E /* ContextVocabulary.swift in Sources */,
 				B7EC6B42A1BE5F57121E7511 /* ConversationColumn.swift in Sources */,
 				C43DE4B1B520DE08BA08379B /* DebugControl.swift in Sources */,
+				68B7770353365C56E35652A2 /* DefaultModel.swift in Sources */,
 				C4ECA874EF533720FB11A782 /* DevVocabulary.swift in Sources */,
 				15EB038EA82F8DE862AA8137 /* DictationConfig.swift in Sources */,
 				440B3223CC9068684E18E197 /* DictationController.swift in Sources */,

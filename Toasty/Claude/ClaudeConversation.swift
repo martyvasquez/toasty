@@ -513,7 +513,8 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
     /// A readable name for the current model ("Opus 5.5").
     var modelName: String? {
-        guard let model else {
+        // Not started yet: the model it will start with.
+        guard let model = model ?? (agent == nil && !launching ? DefaultModel.shared.startModel : nil) else {
             // Before the first turn: Claude Code's default, as /model shows it.
             // Claude Code's default entry names its model first
             // ("Opus 5.5 · Best for everyday, complex tasks").
@@ -522,7 +523,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             }
         }
         if let m = models.first(where: { $0.value == model }) { return m.name }
-        return Self.prettyModel(model)
+        return DefaultModel.shared.name(of: model)
     }
 
     static func prettyModel(_ id: String) -> String {
@@ -535,8 +536,20 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         return [family.capitalized, version, extra].filter { !$0.isEmpty }.joined(separator: " ")
     }
 
+    /// The model chosen in this tab's menu; it outlives agent restarts.
+    private var pickedModel: String?
+    /// The model the starting agent switches to (the one picked in this
+    /// tab, else the default from Settings ▸ General) once Claude Code's
+    /// model list has arrived. Until then nothing is sent to the agent, so
+    /// the first prompt never runs on another model. Claude Code adds a
+    /// model it's started with to its own list, so the session starts on
+    /// Claude Code's default: only that list says whether the default from
+    /// Settings is still offered.
+    private var startModel: String?
+
     func setModel(_ value: String) {
         model = value
+        pickedModel = value
         send(["type": "set_model", "model": value])
     }
 
@@ -707,6 +720,10 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                     onExit: { [weak self] status, err in self?.agentExited(status, stderr: err) })
                 var options: [String: Any] = ["cwd": self.cwd]
                 if let id = self.sessionID { options["resume"] = id }
+                // The model picked in this tab, else the default from
+                // Settings; neither leaves it to Claude Code.
+                self.startModel = self.pickedModel ?? DefaultModel.shared.startModel
+                if let model = self.startModel { self.model = model }
                 // The preview's tools, only while the user has it turned on.
                 let servers = PreviewTools.servers()
                 if !servers.isEmpty { options["mcpServers"] = servers }
@@ -758,6 +775,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         turnRunning = false
         waitingPrompts.removeAll()
         launching = false
+        startModel = nil
         queued.removeAll()
         requests.removeAll()
         if phase != .idle || status != 0 {
@@ -782,22 +800,30 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         append(.notice, "Claude Agent SDK \(suspect) couldn't start Claude Code, so this tab restarted with \(sdk.version). Toasty won't use \(suspect) again.")
     }
 
+    /// The agent takes messages now: send what was waiting for it.
+    private func agentReady() {
+        launching = false
+        // The level is per process: a new CLI starts with none.
+        backgroundTasks = []
+        sessionRunning = true
+        let pending = queued
+        queued.removeAll()
+        setPhase(pending.contains { $0["type"] as? String == "user" } ? .working : .idle)
+        if !agentAlive { sentBeforeAlive += pending }
+        pending.forEach { agent?.send($0) }
+        refreshContextUsage()
+        sendPendingName()
+    }
+
     private func handle(_ message: [String: Any]) {
         let type = message["type"] as? String
-        if !agentAlive, type == "sdk" || type == "models" || type == "commands" { noteAlive() }
+        // (An empty model list is the bridge saying it couldn't get one.)
+        if !agentAlive, type == "sdk" || type == "commands"
+            || (type == "models" && (message["models"] as? [Any])?.isEmpty == false) { noteAlive() }
         switch type {
         case "ready":
-            launching = false
-            // The level is per process: a new CLI starts with none.
-            backgroundTasks = []
-            sessionRunning = true
-            let pending = queued
-            queued.removeAll()
-            setPhase(pending.contains { $0["type"] as? String == "user" } ? .working : .idle)
-            if !agentAlive { sentBeforeAlive += pending }
-            pending.forEach { agent?.send($0) }
-            refreshContextUsage()
-            sendPendingName()
+            // With a model to start on, ready once the model list is in.
+            if startModel == nil { agentReady() }
         case "sdk":
             if let m = message["message"] as? [String: Any] {
                 #if DEBUG
@@ -819,6 +845,15 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 return ModelOption(value: value,
                                    name: m["displayName"] as? String ?? Self.prettyModel(value),
                                    detail: m["description"] as? String ?? "")
+            }
+            DefaultModel.shared.update(models)
+            if startModel != nil {
+                startModel = nil
+                // The default from Settings as it is now: `update` put it
+                // back to Claude Code's if the model isn't offered anymore.
+                model = pickedModel ?? DefaultModel.shared.startModel
+                if let model { agent?.send(["type": "set_model", "model": model]) }
+                agentReady()
             }
         case "commands":
             setCommands(message["commands"])

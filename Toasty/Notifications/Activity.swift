@@ -33,6 +33,8 @@ final class Activity: NSObject, ObservableObject {
         /// Its status color (see `StatusColor`).
         let color: Color
         weak var conversation: ClaudeConversation?
+        /// What clicking it does when it isn't about a conversation.
+        var action: (() -> Void)?
 
         static func == (a: Toast, b: Toast) -> Bool { a.id == b.id }
     }
@@ -181,15 +183,7 @@ final class Activity: NSObject, ObservableObject {
         if !visible {
             let color = !conversation.requests.isEmpty ? StatusColor.needsInput
                 : stopped ? StatusColor.stopped : StatusColor.ready
-            let toast = Toast(title: title, body: body, location: location, color: color, conversation: conversation)
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { self.toast = toast }
-            dismissWork?.cancel()
-            let work = DispatchWorkItem { [weak self] in
-                guard self?.toast?.id == toast.id else { return }
-                withAnimation(.easeOut(duration: 0.25)) { self?.toast = nil }
-            }
-            dismissWork = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 6, execute: work)
+            present(Toast(title: title, body: body, location: location, color: color, conversation: conversation))
         }
 
         // 4. A macOS notification when Toasty isn't frontmost.
@@ -198,16 +192,37 @@ final class Activity: NSObject, ObservableObject {
         }
     }
 
+    /// Something about Toasty itself the user should know (a setting that
+    /// changed by itself): a toast, and a macOS notification when Toasty
+    /// isn't frontmost. Clicking the toast runs `action`.
+    func announce(title: String, body: String, action: (() -> Void)? = nil) {
+        present(Toast(title: title, body: body, location: "", color: StatusColor.needsInput, action: action),
+                seconds: 10)
+        if !NSApp.isActive { postSystemNotification(nil, title: title, body: body, location: "") }
+    }
+
+    private func present(_ toast: Toast, seconds: Double = 6) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { self.toast = toast }
+        dismissWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard self?.toast?.id == toast.id else { return }
+            withAnimation(.easeOut(duration: 0.25)) { self?.toast = nil }
+        }
+        dismissWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: work)
+    }
+
     func dismissToast() {
         withAnimation(.easeOut(duration: 0.2)) { toast = nil }
     }
 
     func open(_ toast: Toast) {
         dismissToast()
-        if let c = toast.conversation { show(c) }
+        if let c = toast.conversation { show(c) } else { toast.action?() }
     }
 
-    private func postSystemNotification(_ c: ClaudeConversation, title: String, body: String, location: String) {
+    private func postSystemNotification(_ c: ClaudeConversation?, title: String, body: String, location: String) {
+        let id = c?.id.uuidString
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
             guard granted else { return }
             let center = UNUserNotificationCenter.current()
@@ -215,8 +230,10 @@ final class Activity: NSObject, ObservableObject {
             content.title = title
             content.subtitle = location
             content.body = String(body.prefix(300))
-            content.userInfo = ["conversation": c.id.uuidString]
-            content.threadIdentifier = c.id.uuidString
+            if let id {
+                content.userInfo = ["conversation": id]
+                content.threadIdentifier = id
+            }
             // Toasty plays its own sound.
             let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
             center.add(request)
