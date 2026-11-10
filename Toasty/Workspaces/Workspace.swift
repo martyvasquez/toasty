@@ -16,6 +16,10 @@ final class Workspace: ObservableObject, Identifiable {
     /// The inspector: the top of the right column.
     @Published var inspectorVisible = false
     @Published var inspectorTab: InspectorTab = .changes
+    /// The preview browser has the right column (experimental; see
+    /// `previewShowing`). The inspector and terminal keep their own state
+    /// underneath and come back when the preview closes.
+    @Published var previewVisible = false
     /// A changed file whose diff fills the conversation column.
     @Published var diffFile: GitChanges.File?
     /// The workspace this one is a git worktree of (shown nested under it).
@@ -235,6 +239,7 @@ final class Workspace: ObservableObject, Identifiable {
 
     /// Show the terminal sidebar (starting a shell if there's none).
     func showTerminal() {
+        previewVisible = false
         if terminals.isEmpty { newTerminal() }
         if selectedTerminalID == nil { selectedTerminalID = terminals.first?.id }
         terminalVisible = true
@@ -262,6 +267,7 @@ final class Workspace: ObservableObject, Identifiable {
 
     /// Show the inspector, on `tab` if given.
     func showInspector(_ tab: InspectorTab? = nil) {
+        previewVisible = false
         if let tab { inspectorTab = tab }
         inspectorVisible = true
         changed()
@@ -272,13 +278,31 @@ final class Workspace: ObservableObject, Identifiable {
         changed()
     }
 
-    /// The right column (inspector and/or terminal) is showing.
-    var rightColumnVisible: Bool { inspectorVisible || terminalVisible }
+    /// The right column (inspector and/or terminal, or the preview) is showing.
+    var rightColumnVisible: Bool { inspectorVisible || terminalVisible || previewShowing }
+
+    /// The preview has the right column: asked for, and its setting is on.
+    /// It and the inspector/terminal are never shown together.
+    var previewShowing: Bool { previewVisible && PreviewSettings.shared.enabled }
+
+    func showPreview() {
+        guard PreviewSettings.shared.enabled, !previewVisible else { return }
+        previewVisible = true
+    }
+
+    /// Close the preview: the inspector and terminal are back as they were
+    /// (or the column closes, if neither was showing).
+    func hidePreview() {
+        if previewVisible { previewVisible = false }
+    }
 
     /// The titlebar's column toggle: hide both halves, or bring the
-    /// inspector back.
+    /// inspector back. From the preview, it swaps to the inspector.
     func toggleRightColumn() {
-        if rightColumnVisible {
+        if previewShowing {
+            previewVisible = false
+            if !terminalVisible { inspectorVisible = true }
+        } else if rightColumnVisible {
             inspectorVisible = false
             terminalVisible = false
         } else {

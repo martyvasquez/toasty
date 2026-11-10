@@ -2,17 +2,44 @@ import AppKit
 import SwiftUI
 
 /// Toasty ▸ Settings… (⌘,): a standard Mac settings window with a
-/// preference-style toolbar. One pane today (Dictation); the toolbar is
-/// ready for more.
+/// preference-style toolbar: Dictation, and Preview (the experimental
+/// preview browser's on/off switch).
 @MainActor
 final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
     static let shared = SettingsWindowController()
 
-    private static let dictation = NSToolbarItem.Identifier("dictation")
+    private enum Pane: String, CaseIterable {
+        case dictation, preview
+
+        var id: NSToolbarItem.Identifier { .init(rawValue) }
+
+        var title: String {
+            switch self {
+            case .dictation: "Dictation"
+            case .preview: "Preview"
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .dictation: "mic"
+            case .preview: "safari"
+            }
+        }
+
+        @MainActor func makeController() -> NSViewController {
+            switch self {
+            case .dictation: NSHostingController(rootView: DictationSettingsView())
+            case .preview: NSHostingController(rootView: PreviewSettingsView())
+            }
+        }
+    }
+
+    private var pane = Pane.dictation
 
     private init() {
-        let window = NSWindow(contentViewController: NSHostingController(rootView: DictationSettingsView()))
-        window.title = "Dictation"
+        let window = NSWindow(contentViewController: Pane.dictation.makeController())
+        window.title = Pane.dictation.title
         window.styleMask = [.titled, .closable, .miniaturizable]
         window.toolbarStyle = .preference
         window.isReleasedWhenClosed = false
@@ -21,7 +48,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         let toolbar = NSToolbar(identifier: "ToastySettings")
         toolbar.delegate = self
         toolbar.displayMode = .iconAndLabel
-        toolbar.selectedItemIdentifier = Self.dictation
+        toolbar.selectedItemIdentifier = Pane.dictation.id
         window.toolbar = toolbar
     }
 
@@ -34,19 +61,42 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         NSApp.activate()
     }
 
+    /// Show a pane, keeping the window's top edge where it is.
+    private func select(_ new: Pane) {
+        guard new != pane, let window else { return }
+        pane = new
+        let top = window.frame.maxY
+        window.contentViewController = new.makeController()
+        window.title = new.title
+        window.toolbar?.selectedItemIdentifier = new.id
+        var frame = window.frame
+        frame.origin.y = top - frame.height
+        window.setFrame(frame, display: true)
+    }
+
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier,
                  willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        guard let pane = Pane(rawValue: id.rawValue) else { return nil }
         let item = NSToolbarItem(itemIdentifier: id)
-        item.label = "Dictation"
-        item.image = NSImage(systemSymbolName: "mic", accessibilityDescription: "Dictation")
+        item.label = pane.title
+        item.image = NSImage(systemSymbolName: pane.symbol, accessibilityDescription: pane.title)
         item.target = self
         item.action = #selector(selectPane(_:))
         return item
     }
 
-    @objc private func selectPane(_ sender: Any?) {}
+    @objc private func selectPane(_ sender: NSToolbarItem) {
+        if let pane = Pane(rawValue: sender.itemIdentifier.rawValue) { select(pane) }
+    }
 
-    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [Self.dictation] }
-    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [Self.dictation] }
-    func toolbarSelectableItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [Self.dictation] }
+    #if DEBUG
+    /// Debug: show a pane by name ("dictation", "preview").
+    func debugSelect(_ name: String) {
+        if let pane = Pane(rawValue: name) { select(pane) }
+    }
+    #endif
+
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { Pane.allCases.map(\.id) }
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { Pane.allCases.map(\.id) }
+    func toolbarSelectableItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { Pane.allCases.map(\.id) }
 }

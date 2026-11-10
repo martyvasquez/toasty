@@ -572,9 +572,15 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         let images = attachments
         let attachedFiles = files
         draft = ""
-        suggestion = nil
         attachments = []
         files = []
+        post(typed, images: images, files: attachedFiles)
+    }
+
+    /// Send a prompt. `submit` sends the composer's; a preview comment is
+    /// sent on its own, leaving whatever is being typed in the composer.
+    func post(_ typed: String, images: [NSImage], files attachedFiles: [URL] = []) {
+        suggestion = nil
 
         let item = ClaudeItem(kind: .user, text: typed)
         item.images = images
@@ -690,6 +696,9 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                     onExit: { [weak self] status, err in self?.agentExited(status, stderr: err) })
                 var options: [String: Any] = ["cwd": self.cwd]
                 if let id = self.sessionID { options["resume"] = id }
+                // The preview's tools, only while the user has it turned on.
+                let servers = PreviewTools.servers()
+                if !servers.isEmpty { options["mcpServers"] = servers }
                 do {
                     try agent.start(environment: env, options: options, sdk: sdk)
                     self.agent = agent
@@ -786,6 +795,12 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             }
         case "permission_request":
             permissionRequest(message)
+        case "mcp_call":
+            // A tool of Toasty's own MCP server (the preview).
+            let id = message["id"] as? String ?? ""
+            PreviewTools.handle(message, from: self) { [weak self] result in
+                self?.agent?.send(["type": "mcp_result", "id": id, "result": result])
+            }
         case "models":
             models = (message["models"] as? [[String: Any]] ?? []).compactMap { m in
                 guard let value = m["value"] as? String else { return nil }
@@ -1080,6 +1095,8 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             markTurnEnd(at: Date(), duration: turnStarted.map { max(1, Int(Date().timeIntervalSince($0))) })
             refreshBranch()
             workspace?.changes.refresh()
+            // The preview (if it's on and showing a page) shows the result.
+            if let workspace { PreviewStore.shared.turnEnded(in: workspace) }
             turnStarted = nil
             interrupted = false
             requests.removeAll()

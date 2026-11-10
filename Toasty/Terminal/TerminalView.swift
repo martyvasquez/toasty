@@ -555,7 +555,7 @@ final class TerminalView: NSView, NSTextInputClient, NSMenuItemValidation, Obser
 
     private func openLink(col: Int, row: Int) {
         if let link = vt.hyperlink(col: col, row: row), let url = URL(string: link) {
-            NSWorkspace.shared.open(url)
+            open(url)
             return
         }
         // Detect a URL in the row's text around the clicked column.
@@ -574,10 +574,17 @@ final class TerminalView: NSView, NSTextInputClient, NSMenuItemValidation, Obser
             guard r.location < columnAt.count else { continue }
             let start = columnAt[r.location], end = columnAt[min(columnAt.count - 1, NSMaxRange(r) - 1)]
             if (start...end).contains(col), let url = match.url {
-                NSWorkspace.shared.open(url)
+                open(url)
                 return
             }
         }
+    }
+
+    /// A clicked link: the default browser, except a local address (a dev
+    /// server) while the preview is turned on, which opens there.
+    private func open(_ url: URL) {
+        if PreviewStore.shared.open(url, fromTerminal: self) { return }
+        NSWorkspace.shared.open(url)
     }
 
     // MARK: Edit actions

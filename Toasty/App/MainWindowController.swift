@@ -196,7 +196,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     /// ⌃⌘T: show and focus the terminal; hide it when it already has focus.
     @objc func toggleTerminal(_ sender: Any?) {
         guard let w = store.active else { return }
-        if !w.terminalVisible {
+        if !w.terminalVisible || w.previewShowing {
             w.showTerminal()
             DispatchQueue.main.async { self.focusTerminal() }
         } else if !terminalFocused, sender is NSMenuItem {
@@ -211,7 +211,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     /// ⌃⌘I: show or hide the inspector (the top of the right column).
     @objc func toggleInspector(_ sender: Any?) {
         guard let w = store.active else { return }
-        if w.inspectorVisible { w.hideInspector() } else { w.showInspector() }
+        if w.inspectorVisible, !w.previewShowing { w.hideInspector() } else { w.showInspector() }
+    }
+
+    /// ⌃⌘P and the titlebar button: the preview takes the right column, or
+    /// gives it back. (Experimental; no menu item while it's turned off.)
+    @objc func togglePreview(_ sender: Any?) {
+        guard let w = store.active, PreviewSettings.shared.enabled else { return }
+        let hadTerminalFocus = terminalFocused
+        if w.previewShowing { w.hidePreview() } else { w.showPreview() }
+        if hadTerminalFocus, w.previewShowing { window?.makeFirstResponder(nil) }
     }
 
     /// ⌃⌘1…3: show an inspector tab.
@@ -229,6 +238,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     }
 
     @objc func toggleWorkspaces(_ sender: Any?) {
+        // Beside the preview the sidebar is out of the way: float it over
+        // the conversation instead, until something is picked.
+        if split.sidebarHiddenForPreview, let window {
+            PreviewSidebarPanel.shared.toggle(in: window, store: store)
+            return
+        }
         store.sidebarVisible.toggle()
         store.setNeedsSave()
     }
@@ -271,20 +286,28 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         let w = store.active
         switch item.action {
         case #selector(toggleTerminal(_:)):
-            item.title = w?.terminalVisible == true ? "Hide Terminal" : "Show Terminal"
+            item.title = w?.terminalVisible == true && w?.previewShowing != true ? "Hide Terminal" : "Show Terminal"
             return w != nil
         case #selector(toggleInspector(_:)):
-            item.title = w?.inspectorVisible == true ? "Hide Inspector" : "Show Inspector"
+            item.title = w?.inspectorVisible == true && w?.previewShowing != true ? "Hide Inspector" : "Show Inspector"
             return w != nil
+        case #selector(togglePreview(_:)):
+            // No menu item or shortcut while the preview is turned off.
+            item.isHidden = !PreviewSettings.shared.enabled
+            item.title = w?.previewShowing == true ? "Hide Preview" : "Show Preview"
+            return w != nil && !item.isHidden
         case #selector(showInspectorTab(_:)):
-            item.state = w?.inspectorVisible == true && InspectorTab.allCases.indices.contains(item.tag)
+            item.state = w?.inspectorVisible == true && w?.previewShowing != true && InspectorTab.allCases.indices.contains(item.tag)
                 && w?.inspectorTab == InspectorTab.allCases[item.tag] ? .on : .off
             return w != nil
         case #selector(toggleRightColumn(_:)):
-            item.title = w?.rightColumnVisible == true ? "Hide Inspector and Terminal" : "Show Inspector and Terminal"
+            item.title = w?.rightColumnVisible == true && w?.previewShowing != true
+                ? "Hide Inspector and Terminal" : "Show Inspector and Terminal"
             return w != nil
         case #selector(toggleWorkspaces(_:)):
-            item.title = store.sidebarVisible ? "Hide Workspaces" : "Show Workspaces"
+            item.title = split.sidebarHiddenForPreview
+                ? (PreviewSidebarPanel.shared.isShown ? "Hide Workspaces" : "Show Workspaces")
+                : store.sidebarVisible ? "Hide Workspaces" : "Show Workspaces"
             return true
         case #selector(closeTab(_:)):
             return terminalFocused ? w?.selectedTerminal != nil : w?.selected != nil

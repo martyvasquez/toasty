@@ -22,9 +22,16 @@ terminal**; don't build the rest of the app on it until it passes.
    settings. Never write a system prompt, tool, or agent loop. Never add
    instructions to change Claude's behavior. If something can't be done
    faithfully, say so instead of substituting.
+   One exception (added 2026-11-10 at the user's request): the experimental
+   preview browser gives Claude an MCP server, `preview`, to drive that
+   pane. It is allowed only because Settings ▸ Preview turns the whole
+   feature off as if it didn't exist (the default): no tools, no pane, no
+   menu item. With it off this principle holds without exception.
 2. **Native means native.** Swift, SwiftUI for structure, AppKit where it is
    better (text, menus, split views). No Electron, no web views, no
-   browser-based editors.
+   browser-based editors. This is about Toasty's own interface. The preview
+   browser's web view shows the site the user is developing, which is
+   content, not interface (clarified 2026-11-10).
 3. **The UI renders events and collects input; it never decides what Claude
    does.**
 4. **Simple.** A personal tool. No speculative features, no abstractions

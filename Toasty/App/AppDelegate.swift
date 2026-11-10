@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         WorkspaceDebug.install()
         ClaudeDebug.install()
         DictationDebug.install()
+        PreviewDebug.install()
         #endif
         store.load()
         Activity.shared.start()

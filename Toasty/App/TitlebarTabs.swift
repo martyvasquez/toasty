@@ -18,8 +18,12 @@ final class WindowLayout: ObservableObject {
 struct TitlebarRow: View {
     @ObservedObject var store: WorkspaceStore
     @ObservedObject var layout: WindowLayout
+    /// The preview's button comes and goes with its setting.
+    @ObservedObject private var preview = PreviewSettings.shared
 
     static let toggleWidth: CGFloat = 40
+    /// The preview's button, left of the column toggle (when it's turned on).
+    static let previewToggleWidth: CGFloat = 30
 
     var body: some View {
         HStack(spacing: 0) {
@@ -29,9 +33,11 @@ struct TitlebarRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if layout.terminalWidth > 0 {
                     Rectangle().fill(Color.claudeSeparator).frame(width: 0.5)
-                    InspectorTabBar(workspace: workspace)
-                        .frame(width: max(0, layout.terminalWidth - 0.5 - Self.toggleWidth))
+                    RightColumnBar(workspace: workspace)
+                        .frame(width: max(0, layout.terminalWidth - 0.5 - Self.toggleWidth
+                                             - (preview.enabled ? Self.previewToggleWidth : 0)))
                 }
+                if preview.enabled { PreviewToggle(workspace: workspace) }
                 ColumnToggle(workspace: workspace)
             } else {
                 Spacer()
@@ -43,22 +49,57 @@ struct TitlebarRow: View {
     }
 }
 
-/// Shows or hides the whole right column.
+/// Over the right column: the inspector's tabs, or the preview's controls
+/// while the preview has the column.
+private struct RightColumnBar: View {
+    @ObservedObject var workspace: Workspace
+
+    var body: some View {
+        if workspace.previewShowing {
+            PreviewToolbar(session: PreviewStore.shared.session(for: workspace))
+                .id(workspace.id)
+        } else {
+            InspectorTabBar(workspace: workspace)
+        }
+    }
+}
+
+/// Shows or hides the inspector and terminal (from the preview: swaps to them).
 private struct ColumnToggle: View {
     @ObservedObject var workspace: Workspace
 
     var body: some View {
+        let shown = workspace.rightColumnVisible && !workspace.previewShowing
         Button { AppDelegate.shared.windowController?.toggleRightColumn(nil) } label: {
             Image(systemName: "sidebar.right")
                 .font(.system(size: 14))
-                .foregroundStyle(workspace.rightColumnVisible ? Color.accentColor : Color.secondary)
+                .foregroundStyle(shown ? Color.accentColor : Color.secondary)
                 .frame(width: 30, height: 26)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .frame(width: TitlebarRow.toggleWidth)
-        .help(workspace.rightColumnVisible ? "Hide Inspector and Terminal (⌥⌘0)" : "Show Inspector (⌥⌘0)")
-        .accessibilityLabel(workspace.rightColumnVisible ? "Hide Inspector and Terminal" : "Show Inspector")
+        .help(shown ? "Hide Inspector and Terminal (⌥⌘0)" : "Show Inspector (⌥⌘0)")
+        .accessibilityLabel(shown ? "Hide Inspector and Terminal" : "Show Inspector")
+    }
+}
+
+/// Shows or hides the preview (experimental; only while it's turned on).
+private struct PreviewToggle: View {
+    @ObservedObject var workspace: Workspace
+
+    var body: some View {
+        Button { AppDelegate.shared.windowController?.togglePreview(nil) } label: {
+            Image(systemName: "safari")
+                .font(.system(size: 14))
+                .foregroundStyle(workspace.previewShowing ? Color.accentColor : Color.secondary)
+                .frame(width: 30, height: 26)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .frame(width: TitlebarRow.previewToggleWidth)
+        .help(workspace.previewShowing ? "Hide Preview (⌃⌘P)" : "Show Preview (⌃⌘P)")
+        .accessibilityLabel(workspace.previewShowing ? "Hide Preview" : "Show Preview")
     }
 }
 

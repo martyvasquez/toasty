@@ -57,6 +57,8 @@ enum MainMenu {
         view.addItem(item("Show Terminal", #selector(W.toggleTerminal(_:)), "t", [.command, .control]))
         view.addItem(item("Show Inspector", #selector(W.toggleInspector(_:)), "i", [.command, .control]))
         view.addItem(item("Hide Inspector and Terminal", #selector(W.toggleRightColumn(_:)), "0", [.command, .option]))
+        // Hidden (shortcut and all) while the preview is turned off.
+        view.addItem(item("Show Preview", #selector(W.togglePreview(_:)), "p", [.command, .control]))
         view.addItem(.separator())
         for (i, tab) in InspectorTab.allCases.enumerated() {
             let t = item(tab.title, #selector(W.showInspectorTab(_:)), tab.shortcut, [.command, .control])

@@ -53,6 +53,12 @@ targets:
         NSHumanReadableCopyright: "Copyright © 2026 Marty Vasquez. All rights reserved."
         # Dictation: speech is transcribed on this Mac; audio never leaves it.
         NSMicrophoneUsageDescription: "Toasty listens while you hold Right Option to dictate. Speech is transcribed on this Mac and never leaves it."
+        # The preview browser (experimental, Settings ▸ Preview) shows the
+        # site being developed, which is plain http on localhost or a LAN
+        # name. Only web views get the exception.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+          NSAllowsArbitraryLoadsInWebContent: true
         # Folders can be opened with Toasty (Finder, Dock, `open -a Toasty <dir>`).
         # Finder > Services: a new tab in the folder's workspace, or a new one.
         NSServices:
@@ -107,6 +113,7 @@ targets:
     sources:
       - path: Tests/DictationTests
       - path: Tests/ClaudeTests
+      - path: Tests/PreviewTests
       - path: Tests/Fixtures
         type: folder
         buildPhase: resources

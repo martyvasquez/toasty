@@ -147,6 +147,57 @@ Later:
   from the lockfile (npm/pnpm/yarn/bun, uv/poetry, bundler, SwiftPM) and run
   the install in the worktree's terminal tab so the output is visible.
 
+## Preview browser (experimental)
+
+Built 2026-11-10 (`Toasty/Preview/`), off by default in Settings ▸ Preview.
+The user may remove it again: everything outside that folder is listed at
+the top of `PreviewSettings.swift`. Principles 1 and 2 in `BUILD_PLAN.md`
+§1 carry the exceptions it needed.
+
+What it is: a WKWebView in a right-hand panel of its own (⌃⌘P, or the
+compass button in the titlebar), one per workspace with its own cookies,
+for the site being developed. It and the inspector/terminal column are
+never open together: showing one swaps the other out, and closing the
+preview brings back what was there. It always opens at full width, with the
+conversation at its minimum, and its controls sit in the titlebar row above
+it (the user's layout, 2026-11-10; it began as an inspector tab).
+While it's open the workspaces sidebar collapses to give the page its room
+(Settings ▸ Preview can turn that off), and ⌃⌘S floats the sidebar over
+the conversation until a workspace or conversation is picked, Esc, or a
+click elsewhere (`PreviewSidebarPanel`). Resting the pointer on the window's
+left edge (0.15 s) slides it out too, and then it also leaves when the
+pointer does. Discussed and left for later: moving the activity toast to
+the upper-left while the preview is open. Phone (390×844,
+iPhone user agent) or desktop (1280 wide) size; the page is always laid out
+at its real width and drawn smaller in a narrow column. Comment mode: click
+an element or drag an area, type a note, and a screenshot plus one line
+(selector, viewport, URL) go to the open conversation. Return sends it at
+once as its own prompt (the user's choice 2026-11-10, "experiment with it");
+Shift-Return adds it to the composer instead, to send several together.
+The page reloads whenever Claude finishes a turn in the workspace.
+Claude gets an MCP server `preview` (navigate, screenshot, read_console,
+set_viewport, evaluate, click, type) in conversations started while it's
+on, relayed through the bridge. "Open in <default browser>" in the toolbar.
+The start screen offers local addresses the workspace's terminals printed,
+and a local link (localhost, an IP address, `.local`) clicked in a terminal
+opens in the preview; named sites still go to the default browser.
+
+Not done / to decide after living with it:
+- Turning the setting on or off reaches running conversations only when
+  they restart (the SDK's `setMcpServers` could do it live).
+- No console view for the user (Claude has `read_console`; right-click ▸
+  Inspect Element opens Safari's Web Inspector if that's enabled).
+- Whether the preview is showing isn't remembered across launches.
+- Claude's `navigate` opens the panel (and so narrows the conversation) in
+  the workspace on screen; may want to be less forceful.
+- No touch emulation, no back/forward buttons (two-finger swipe works), no
+  shortcut for comment mode.
+- A page in a workspace that isn't on screen runs as a hidden page (timers
+  slow down); screenshots and scripts still work.
+- Chromium-only bugs: "Open in Chrome" is the answer for now. A headless
+  Chrome over CDP was considered and left out.
+- Comments carry a selector, not source file and line.
+
 ## SDK hooks & callbacks (considerations)
 
 Not committed: options worth weighing, checked against the SDK docs for

@@ -6,9 +6,9 @@
 // JSON lines over stdio. It makes no decisions of its own.
 //
 // stdin  (from Toasty): start | user | interrupt | permission_response | set_permission_mode | set_model
-//                       | remote_control | context_usage
+//                       | remote_control | context_usage | mcp_result
 // stdout (to Toasty):   ready | sdk | models | commands | permission_request | permission_cancel | error | end
-//                       | remote_control_init | remote_control | context_usage
+//                       | remote_control_init | remote_control | context_usage | mcp_call
 //
 // `node toasty-agent.mjs fork '<json>'` instead forks a saved session with
 // the SDK's forkSession ({sessionId, upToMessageId, title, dir}), prints
@@ -82,6 +82,48 @@ async function canUseTool(toolName, input, opts) {
   });
 }
 
+// MCP servers Toasty serves itself (the preview browser, only while the
+// user has it turned on in Settings; `start` then lists it in `mcpServers`).
+// The tools and what they do are Toasty's: this only relays. Each is an
+// in-process server for the SDK, speaking the three MCP requests Claude
+// Code makes; a tool call goes to Toasty as `mcp_call` and its answer comes
+// back as `mcp_result`.
+const mcpCalls = new Map(); // call id -> reply
+function relayServer(def) {
+  const connect = async (transport) => {
+    transport.onmessage = (m) => {
+      if (m?.id === undefined || m.id === null) return; // a notification
+      const reply = (result) => transport.send({ jsonrpc: "2.0", id: m.id, result }).catch(() => {});
+      switch (m.method) {
+        case "initialize":
+          reply({
+            protocolVersion: m.params?.protocolVersion ?? "2025-06-18",
+            capabilities: { tools: {} },
+            serverInfo: { name: def.name, version: "1" },
+            ...(def.instructions ? { instructions: def.instructions } : {}),
+          });
+          break;
+        case "tools/list":
+          reply({ tools: def.tools ?? [] });
+          break;
+        case "tools/call": {
+          const id = String(nextId++);
+          mcpCalls.set(id, reply);
+          out({ type: "mcp_call", id, server: def.name, tool: m.params?.name, input: m.params?.arguments ?? {} });
+          break;
+        }
+        case "ping":
+          reply({});
+          break;
+        default:
+          transport.send({ jsonrpc: "2.0", id: m.id, error: { code: -32601, message: "Method not found" } }).catch(() => {});
+      }
+    };
+    await transport.start?.();
+  };
+  return { type: "sdk", name: def.name, instance: { connect } };
+}
+
 async function start(msg) {
   const options = {
     cwd: msg.cwd,
@@ -106,6 +148,7 @@ async function start(msg) {
   if (msg.pathToClaudeCodeExecutable) options.pathToClaudeCodeExecutable = msg.pathToClaudeCodeExecutable;
   if (msg.resume) options.resume = msg.resume;
   if (Array.isArray(msg.plugins) && msg.plugins.length) options.plugins = msg.plugins;
+  for (const def of msg.mcpServers ?? []) (options.mcpServers ??= {})[def.name] = relayServer(def);
 
   q = query({ prompt: prompts(), options });
   out({ type: "ready" });
@@ -163,6 +206,11 @@ rl.on("line", async (line) => {
       case "permission_response": {
         const resolve = pending.get(msg.id);
         if (resolve) { pending.delete(msg.id); resolve(msg.response); }
+        break;
+      }
+      case "mcp_result": {
+        const reply = mcpCalls.get(msg.id);
+        if (reply) { mcpCalls.delete(msg.id); reply(msg.result); }
         break;
       }
       case "set_model":
