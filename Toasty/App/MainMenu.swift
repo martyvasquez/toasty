@@ -34,6 +34,11 @@ enum MainMenu {
         file.addItem(item("New Workspace…", #selector(W.newWorkspace(_:)), "n"))
         file.addItem(item("Import from mostty…", #selector(W.importFromMostty(_:)), ""))
         file.addItem(.separator())
+        // Also a system-wide shortcut (ScreenshotCapture), unless that's turned off.
+        let screenshot = item("Attach Screenshot", #selector(ScreenshotCapture.capture(_:)), "0", [.command, .shift])
+        screenshot.target = ScreenshotCapture.shared
+        file.addItem(screenshot)
+        file.addItem(.separator())
         file.addItem(item("Close Tab", #selector(W.closeTab(_:)), "w"))
         file.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "W")
         add(file, to: main)

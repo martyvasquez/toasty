@@ -2,20 +2,21 @@ import AppKit
 import SwiftUI
 
 /// Toasty ▸ Settings… (⌘,): a standard Mac settings window with a
-/// preference-style toolbar: Dictation, and Preview (the experimental
-/// preview browser's on/off switch).
+/// preference-style toolbar: Dictation, Screenshots (⇧⌘0 from any app), and
+/// Preview (the experimental preview browser's on/off switch).
 @MainActor
 final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
     static let shared = SettingsWindowController()
 
     private enum Pane: String, CaseIterable {
-        case dictation, preview
+        case dictation, screenshots, preview
 
         var id: NSToolbarItem.Identifier { .init(rawValue) }
 
         var title: String {
             switch self {
             case .dictation: "Dictation"
+            case .screenshots: "Screenshots"
             case .preview: "Preview"
             }
         }
@@ -23,6 +24,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         var symbol: String {
             switch self {
             case .dictation: "mic"
+            case .screenshots: "camera.viewfinder"
             case .preview: "safari"
             }
         }
@@ -30,6 +32,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         @MainActor func makeController() -> NSViewController {
             switch self {
             case .dictation: NSHostingController(rootView: DictationSettingsView())
+            case .screenshots: NSHostingController(rootView: ScreenshotSettingsView())
             case .preview: NSHostingController(rootView: PreviewSettingsView())
             }
         }
@@ -90,7 +93,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
     }
 
     #if DEBUG
-    /// Debug: show a pane by name ("dictation", "preview").
+    /// Debug: show a pane by name ("dictation", "screenshots", "preview").
     func debugSelect(_ name: String) {
         if let pane = Pane(rawValue: name) { select(pane) }
     }

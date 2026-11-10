@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ClaudeDebug.install()
         DictationDebug.install()
         PreviewDebug.install()
+        ScreenshotDebug.install()
         #endif
         store.load()
         Activity.shared.start()
@@ -40,6 +41,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         SpeechEngine.shared.preload()
         DictationController.shared.start()
         Vocabulary.preload()
+        // ⇧⌘0 in any app: a screenshot into the open conversation.
+        ScreenshotCapture.shared.start()
         // Claude conversations need Claude Code and Node: say so if either
         // is missing (quiet when both are there).
         ClaudeSetup.checkAtLaunch()

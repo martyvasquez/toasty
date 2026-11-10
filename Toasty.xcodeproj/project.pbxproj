@@ -17,10 +17,12 @@
 		17AEE60631D8A36D8B7D6BA3 /* CTranscribe.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F8C8A579882F85EF3293A41D /* CTranscribe.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		1A8E421209B30F795BE5BBD5 /* PreviewTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FDEDA73E441426DFF2253CD /* PreviewTools.swift */; };
 		1ACC8FE2272EB5760687D654 /* WorkspaceSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6927A423E7E99E5F0D72EB08 /* WorkspaceSidebarView.swift */; };
+		20269D1700BC605AB731984E /* ScreenshotDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40C6D34EE079744D4A4A2A5 /* ScreenshotDebug.swift */; };
 		229AA2E1849A5A346C4A74E8 /* NotificationsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADBCB0D878A12E401FE41DCD /* NotificationsSection.swift */; };
 		2D64BC5DEBA0FAD3E38A9F5A /* ClaudeSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DF8B11F0CF51797223AF23B /* ClaudeSetup.swift */; };
 		2E201587160057E35BDB263E /* ClaudeMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFFBD1A7316E98A070F3E2BE /* ClaudeMarkdown.swift */; };
 		308C0EB67B57D5743742E49F /* ClaudeAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E376E9D81389D2BAC3DC077 /* ClaudeAgent.swift */; };
+		31DD0F88FF877FD79D5C7876 /* ScreenshotCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CC459AB59289630D91E6695 /* ScreenshotCapture.swift */; };
 		32C56AFA5E5541CBCFF3CF0D /* ClaudeDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCDD12CBF2473066A7A74A44 /* ClaudeDebug.swift */; };
 		339EEDB6041B8A87C4C92758 /* VT.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64C449C667888064F9F12A10 /* VT.swift */; };
 		346191052BC0573C556FAE23 /* MainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FBCBE999788997C12380B2D /* MainWindowController.swift */; };
@@ -139,6 +141,7 @@
 		51858B1B05CCCBC863B4BC45 /* Toasty.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Toasty.entitlements; sourceTree = "<group>"; };
 		59A391E422005AC05F0585B6 /* GhosttyVt.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = GhosttyVt.xcframework; path = Vendor/GhosttyVt.xcframework; sourceTree = "<group>"; };
 		5C51FB87F905EF29B4ECF92F /* MainMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenu.swift; sourceTree = "<group>"; };
+		5CC459AB59289630D91E6695 /* ScreenshotCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotCapture.swift; sourceTree = "<group>"; };
 		5DAAFA268342A12586EEAEBE /* DictationIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationIndicator.swift; sourceTree = "<group>"; };
 		5FE3BEB622EF1F6E34C0F08C /* ClaudeSDKTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSDKTests.swift; sourceTree = "<group>"; };
 		64890A3F04ACB6E7BF086D88 /* PTY.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTY.swift; sourceTree = "<group>"; };
@@ -173,6 +176,7 @@
 		ADBCB0D878A12E401FE41DCD /* NotificationsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsSection.swift; sourceTree = "<group>"; };
 		AEF18C42EDAF14F5AFAD03EE /* ClaudeConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeConversationView.swift; sourceTree = "<group>"; };
 		B0AB472102F6E81ECE753B0B /* CaptureClip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureClip.swift; sourceTree = "<group>"; };
+		B40C6D34EE079744D4A4A2A5 /* ScreenshotDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotDebug.swift; sourceTree = "<group>"; };
 		B40EFFB45D939304276D7148 /* TriggerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TriggerTests.swift; sourceTree = "<group>"; };
 		B522B1F4E328C3F351D75754 /* GitChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitChanges.swift; sourceTree = "<group>"; };
 		BCDD12CBF2473066A7A74A44 /* ClaudeDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeDebug.swift; sourceTree = "<group>"; };
@@ -230,6 +234,7 @@
 				C7C279FCF3F11C0D07DF1B5B /* DebugControl.swift */,
 				662BABDF0CE9D1BACB40CDDF /* DictationDebug.swift */,
 				19CED90B88C38C1A6B695B76 /* PreviewDebug.swift */,
+				B40C6D34EE079744D4A4A2A5 /* ScreenshotDebug.swift */,
 				BDA9BD4515BD6FE72B5BCEAF /* TerminalDebug.swift */,
 				33D68D9E3E776F9E606A7682 /* WorkspaceDebug.swift */,
 			);
@@ -284,6 +289,14 @@
 				E974BF37B348BD074F448190 /* InspectorView.swift */,
 			);
 			path = Inspector;
+			sourceTree = "<group>";
+		};
+		781D67FCB35BC136C8494624 /* Screenshot */ = {
+			isa = PBXGroup;
+			children = (
+				5CC459AB59289630D91E6695 /* ScreenshotCapture.swift */,
+			);
+			path = Screenshot;
 			sourceTree = "<group>";
 		};
 		863D243ADE46861294BC0EF9 /* Claude */ = {
@@ -433,6 +446,7 @@
 				1CD6ED451020EC9BA2BD5A08 /* Notifications */,
 				C81762C0175C95EBA586EDE5 /* Preview */,
 				28E5D759548A89D7AFC70550 /* Resources */,
+				781D67FCB35BC136C8494624 /* Screenshot */,
 				A18C1811396D36145BA3042B /* Terminal */,
 				C02E06E6B0BB99FC94E442D8 /* Workspaces */,
 			);
@@ -598,6 +612,8 @@
 				8D653A6796C437D37F18E550 /* PreviewSidebarPanel.swift in Sources */,
 				1A8E421209B30F795BE5BBD5 /* PreviewTools.swift in Sources */,
 				FB9070ABB9CFF93B6A152A50 /* RepoPaths.swift in Sources */,
+				31DD0F88FF877FD79D5C7876 /* ScreenshotCapture.swift in Sources */,
+				20269D1700BC605AB731984E /* ScreenshotDebug.swift in Sources */,
 				72B35C923E6E7BBD19F19BC3 /* ServiceProvider.swift in Sources */,
 				74AD96205B972C48FB67E2B3 /* SettingsWindow.swift in Sources */,
 				F3EDEAA0B2C742A331699A9C /* SpeechEngine.swift in Sources */,

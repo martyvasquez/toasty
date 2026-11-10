@@ -198,6 +198,24 @@ Not done / to decide after living with it:
   Chrome over CDP was considered and left out.
 - Comments carry a selector, not source file and line.
 
+## Screenshots from any app (⇧⌘0)
+
+Built 2026-11-10 (`Toasty/Screenshot/`): ⇧⌘0 in any app runs the system's
+area/window picker and attaches the picture to the open conversation's
+composer. It doesn't send, and Toasty stays in the background so several
+can be taken (the user's choices). Nothing is saved: the file
+`screencapture` writes is read and deleted at once. Settings ▸ Screenshots
+turns the any-app shortcut off (then it works only in Toasty). Needs Screen
+Recording permission.
+
+Not done / to decide after living with it:
+- The real capture (drag, permission prompt) has only been tried by the
+  user, not by a test; `mctl screenshotAttach path=…` covers delivery.
+- The shortcut can't be changed (no shortcut recorder in Settings).
+- No sign in Toasty that a screenshot arrived while it's in the background,
+  beyond the system's shutter sound.
+- Whether macOS asks again for Screen Recording every so often.
+
 ## SDK hooks & callbacks (considerations)
 
 Not committed: options worth weighing, checked against the SDK docs for
