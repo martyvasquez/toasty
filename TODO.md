@@ -215,6 +215,13 @@ Not done / to decide after living with it:
 - No sign in Toasty that a screenshot arrived while it's in the background,
   beyond the system's shutter sound.
 - Whether macOS asks again for Screen Recording every so often.
+- Reliability (2026-11-10): Toasty Debug's shortcut is ⌃⇧⌘0, because two
+  apps registering the same one both succeed and only one gets the press.
+  Every step is logged (`/usr/bin/log show --last 10m --predicate
+  'category == "screenshot"'`). Screen Recording is granted per app: Toasty
+  and Toasty Debug each need it, and a relaunch after granting. Still open:
+  the first press after granting without relaunching, and a press with no
+  conversation open only beeps.
 
 ## SDK hooks & callbacks (considerations)
 

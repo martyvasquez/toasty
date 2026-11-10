@@ -35,7 +35,7 @@ enum MainMenu {
         file.addItem(item("Import from mostty…", #selector(W.importFromMostty(_:)), ""))
         file.addItem(.separator())
         // Also a system-wide shortcut (ScreenshotCapture), unless that's turned off.
-        let screenshot = item("Attach Screenshot", #selector(ScreenshotCapture.capture(_:)), "0", [.command, .shift])
+        let screenshot = item("Attach Screenshot", #selector(ScreenshotCapture.capture(_:)), "0", ScreenshotCapture.menuModifiers)
         screenshot.target = ScreenshotCapture.shared
         file.addItem(screenshot)
         file.addItem(.separator())

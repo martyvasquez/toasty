@@ -1,5 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
+import os
 import SwiftUI
 
 /// ⇧⌘0, in any app: drag an area (or Space for a window) exactly as with
@@ -14,7 +15,26 @@ final class ScreenshotCapture: NSObject {
 
     private var hotKey: EventHotKeyRef?
     private var handlerInstalled = false
-    private var capturing = false
+    /// The picker that's on screen now, if any.
+    private var running: Process?
+
+    /// Every step is logged, so a press that did nothing can be explained:
+    /// `/usr/bin/log show --last 10m --predicate 'category == "screenshot"'`
+    nonisolated static let log = Logger(subsystem: "com.martyvasquez.toasty", category: "screenshot")
+
+    /// Toasty Debug has a shortcut of its own (⌃⇧⌘0). Two apps can both
+    /// register the same system-wide shortcut without an error and only one
+    /// is told about the press, so with the same one the screenshot went to
+    /// whichever copy of Toasty the system chose.
+    #if DEBUG
+    static let shortcutLabel = "⌃⇧⌘0"
+    static let menuModifiers: NSEvent.ModifierFlags = [.control, .shift, .command]
+    private static let carbonModifiers = UInt32(controlKey | shiftKey | cmdKey)
+    #else
+    static let shortcutLabel = "⇧⌘0"
+    static let menuModifiers: NSEvent.ModifierFlags = [.shift, .command]
+    private static let carbonModifiers = UInt32(shiftKey | cmdKey)
+    #endif
 
     private static let folder = FileManager.default.temporaryDirectory
         .appendingPathComponent("ToastyScreenshots", isDirectory: true)
@@ -37,40 +57,70 @@ final class ScreenshotCapture: NSObject {
             guard hotKey == nil else { return }
             installHandler()
             let id = EventHotKeyID(signature: 0x54535459 /* TSTY */, id: 1)
-            RegisterEventHotKey(UInt32(kVK_ANSI_0), UInt32(cmdKey | shiftKey), id,
-                                GetApplicationEventTarget(), 0, &hotKey)
+            let status = RegisterEventHotKey(UInt32(kVK_ANSI_0), Self.carbonModifiers, id,
+                                             GetApplicationEventTarget(), 0, &hotKey)
+            if status != noErr { hotKey = nil }
+            Self.log.notice("register \(Self.shortcutLabel, privacy: .public): status \(status)")
         } else if let key = hotKey {
             UnregisterEventHotKey(key)
             hotKey = nil
+            Self.log.notice("unregistered")
         }
+    }
+
+    /// Registering failed at launch (it's tried again whenever Toasty comes
+    /// forward, and before Settings says so).
+    func retryHotKeyIfNeeded() {
+        if hotKey == nil { updateHotKey() }
     }
 
     private func installHandler() {
         guard !handlerInstalled else { return }
         handlerInstalled = true
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        InstallEventHandler(GetApplicationEventTarget(), screenshotHotKeyPressed, 1, &spec, nil, nil)
+        let status = InstallEventHandler(GetApplicationEventTarget(), screenshotHotKeyPressed, 1, &spec, nil, nil)
+        if status != noErr { Self.log.error("install handler: status \(status)") }
+        NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification,
+                                               object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { ScreenshotCapture.shared.retryHotKeyIfNeeded() }
+        }
     }
 
     // MARK: Capture
 
     @objc func capture(_ sender: Any?) {
-        guard !capturing else { return }
-        guard target != nil else { NSSound.beep(); return }
-        guard hasPermission() else { return }
+        // The picker is already up. (Asked of the process itself, not a flag
+        // that one missed callback would leave set until Toasty is reopened.)
+        if let running, running.isRunning {
+            Self.log.notice("pressed: picker already on screen")
+            return
+        }
+        running = nil
+        guard target != nil else {
+            Self.log.notice("pressed: no conversation open")
+            NSSound.beep()
+            return
+        }
+        guard hasPermission() else {
+            Self.log.notice("pressed: no Screen Recording permission")
+            return
+        }
         let folder = Self.folder
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let file = folder.appendingPathComponent(UUID().uuidString + ".png")
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
         process.arguments = ["-i", "-t", "png", file.path]
-        process.terminationHandler = { _ in
-            DispatchQueue.main.async { MainActor.assumeIsolated { self.finished(file) } }
+        process.terminationHandler = { process in
+            let status = process.terminationStatus
+            DispatchQueue.main.async { MainActor.assumeIsolated { self.finished(file, status: status) } }
         }
         do {
             try process.run()
-            capturing = true
+            running = process
+            Self.log.notice("pressed: picker started")
         } catch {
+            Self.log.error("screencapture didn't start: \(error.localizedDescription, privacy: .public)")
             NSSound.beep()
         }
     }
@@ -78,12 +128,16 @@ final class ScreenshotCapture: NSObject {
     /// The conversation on screen in Toasty.
     private var target: ClaudeConversation? { AppDelegate.shared.store.active?.selected }
 
-    private func finished(_ file: URL) {
-        capturing = false
+    private func finished(_ file: URL, status: Int32) {
+        running = nil
         // No file: Esc cancelled the capture.
-        guard let data = try? Data(contentsOf: file) else { return }
+        guard let data = try? Data(contentsOf: file) else {
+            Self.log.notice("picker ended with no picture (status \(status))")
+            return
+        }
         try? FileManager.default.removeItem(at: file)
-        attach(data)
+        let attached = attach(data)
+        Self.log.notice("picture of \(data.count) bytes, attached: \(attached)")
     }
 
     /// Add a picture to the open conversation's composer. False when there's
@@ -115,6 +169,9 @@ final class ScreenshotCapture: NSObject {
         alert.informativeText = "Turn on Toasty in System Settings ▸ Privacy & Security ▸ Screen & System Audio Recording, then quit and reopen Toasty."
         alert.addButton(withTitle: "Open System Settings")
         alert.addButton(withTitle: "Cancel")
+        // The shortcut was pressed in another app, which macOS may not let
+        // Toasty come in front of: the alert goes above everything by itself.
+        alert.window.level = .floating
         NSApp.activate()
         if alert.runModal() == .alertFirstButtonReturn,
            let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
@@ -127,6 +184,7 @@ final class ScreenshotCapture: NSObject {
 /// Carbon calls this on the main thread when ⇧⌘0 is pressed in any app.
 private nonisolated func screenshotHotKeyPressed(_ next: EventHandlerCallRef?, _ event: EventRef?,
                                                  _ context: UnsafeMutableRawPointer?) -> OSStatus {
+    ScreenshotCapture.log.notice("hot key pressed")
     DispatchQueue.main.async { MainActor.assumeIsolated { ScreenshotCapture.shared.capture(nil) } }
     return noErr
 }
@@ -152,6 +210,7 @@ final class ScreenshotSettings: ObservableObject {
 
 struct ScreenshotSettingsView: View {
     @ObservedObject private var settings = ScreenshotSettings.shared
+    @State private var registered = true
 
     var body: some View {
         Form {
@@ -159,14 +218,23 @@ struct ScreenshotSettingsView: View {
                 Toggle("Take screenshots from any app", isOn: $settings.global)
             } footer: {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Press ⇧⌘0 in any app, then drag over an area, or press Space to pick a window. The screenshot is attached to the conversation you have open in Toasty and isn't saved anywhere else.")
-                    Text("Toasty stays in the background, so you can take several before coming back. While this is off, ⇧⌘0 works only in Toasty.")
+                    if settings.global, !registered {
+                        Text("\(ScreenshotCapture.shortcutLabel) couldn't be set up as a shortcut for every app. It still works in Toasty.")
+                            .foregroundStyle(.orange)
+                    }
+                    Text("Press \(ScreenshotCapture.shortcutLabel) in any app, then drag over an area, or press Space to pick a window. The screenshot is attached to the conversation you have open in Toasty and isn't saved anywhere else.")
+                    Text("Toasty stays in the background, so you can take several before coming back. While this is off, \(ScreenshotCapture.shortcutLabel) works only in Toasty.")
                 }
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             }
         }
         .formStyle(.grouped)
-        .frame(width: 600, height: 172)
+        .frame(width: 600, height: registered || !settings.global ? 172 : 200)
+        .onAppear {
+            ScreenshotCapture.shared.retryHotKeyIfNeeded()
+            registered = ScreenshotCapture.shared.isHotKeyRegistered
+        }
+        .onChange(of: settings.global) { registered = ScreenshotCapture.shared.isHotKeyRegistered }
     }
 }
