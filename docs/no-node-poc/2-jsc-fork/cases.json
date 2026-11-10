@@ -1,0 +1,62 @@
+[
+ {
+  "name": "1daaf8a2/before-compaction",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "dir": "/Users/martyvasquez/Development/Toasty",
+  "upToMessageId": "a77d08f9-2ca9-4260-a969-dccb7a2f2fba"
+ },
+ {
+  "name": "1daaf8a2/after-compaction-1",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "dir": "/Users/martyvasquez/Development/Toasty",
+  "upToMessageId": "48553205-06d7-4d2a-92c6-9359484c97ac"
+ },
+ {
+  "name": "1daaf8a2/after-compaction-2",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "dir": "/Users/martyvasquez/Development/Toasty",
+  "upToMessageId": "39ea7e9e-bd07-4059-bbf1-0c7b9edcf394"
+ },
+ {
+  "name": "1daaf8a2/near-end",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "dir": "/Users/martyvasquez/Development/Toasty",
+  "upToMessageId": "5fd365df-9883-4622-a2c2-343754d94a78"
+ },
+ {
+  "name": "a02f388a/before-compaction",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "dir": "/Users/martyvasquez/Development/Toasty",
+  "upToMessageId": "c48b38db-cd04-430a-9861-e3a94569eec9"
+ },
+ {
+  "name": "a02f388a/after-compaction-1",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "dir": "/Users/martyvasquez/Development/Toasty",
+  "upToMessageId": "47a00d00-8ec5-4bb4-9462-9ec9d665d78e"
+ },
+ {
+  "name": "a02f388a/near-end",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "dir": "/Users/martyvasquez/Development/Toasty",
+  "upToMessageId": "3a647615-ca9a-4f89-b98e-a2b5bc5c5ab1"
+ },
+ {
+  "name": "b510a685/before-compaction",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "dir": "/Users/martyvasquez/Development/time-and-todo",
+  "upToMessageId": "1b4d356b-672a-4e67-8e49-e781b55e94dd"
+ },
+ {
+  "name": "b510a685/after-compaction-1",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "dir": "/Users/martyvasquez/Development/time-and-todo",
+  "upToMessageId": "a661123e-9c1b-4b69-8ed4-2f016b1364ee"
+ },
+ {
+  "name": "b510a685/near-end",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "dir": "/Users/martyvasquez/Development/time-and-todo",
+  "upToMessageId": "bdc1b3df-109c-4aca-b4cc-f5b9f8ff0c12"
+ }
+]

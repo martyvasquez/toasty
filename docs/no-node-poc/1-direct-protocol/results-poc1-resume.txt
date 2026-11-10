@@ -1,0 +1,16 @@
+# poc run 2: resume the poc1 session in a NEW claude process (`--resume 60c82ae1-…`)
+     1ms  spawned claude pid 89340
+   465ms  ✓ set_model haiku: ok
+   468ms  ✓ set_permission_mode default: ok
+   530ms  ● init  session=60c82ae1-47b6-4f67-8847-79fe607cfc82  model=claude-haiku-5-5  tools=30
+  2603ms  ● first streamed text token
+  2636ms  ● assistant: toasted          ← remembered the word written in run 1
+  2667ms  ● result  success  stop=end_turn  cost=$0.00434357
+  2688ms  ✓ get_context_usage ok  28653/1000000 (3%)
+  5731ms  ● prompt suggestion: continue counting from 65
+  6227ms  claude exited status 0  permission-asked=false
+
+# Startup comparison, Node bridge (spawn → "models" ready), 3 runs: 570ms, 580ms, 568ms
+# Swift direct (spawn → initialize answered): 491ms (run 1), ~465ms (run 2)
+# Run 1 exited with status 1 right after an interrupt; run 2 exited 0. Not yet checked whether
+# the Node path shows the same status after an interrupt.

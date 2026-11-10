@@ -1,0 +1,37 @@
+     3ms  spawned claude pid 89187
+   491ms  ✓ initialize ok  commands=71  models=14  keys=["account", "agents", "analytics_disabled", "available_output_styles", "capabilities", "claude_code_version", "commands", "current_permission_mode", "fast_mode_disabled_reason", "fast_mode_state", "feedback_mode", "hook_on_failure_supported", "ide_rc_auto_enable_gate", "models", "other_hook_ask_outranks_host", "output_style", "pid", "remote_control_auto_connect_default", "remote_control_auto_enable", "remote_control_auto_on_by_default", "remote_control_available", "session_state", "user_output_styles_dir"]
+   495ms  ✓ set_model haiku: ok
+   501ms  ✓ set_permission_mode default: ok
+   712ms  ● init  session=60c82ae1-47b6-4f67-8847-79fe607cfc82  model=claude-haiku-5-5  tools=30
+  2667ms  ● tool_use Write
+  2678ms  ◆ PERMISSION ASK  tool=Write  input={
+    content = toasted;
+    "file_path" = "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/0f62cc0d-ae2c-48bf-8bd6-5218d10dc697/scratchpad/poc/proj/poc.txt";
+}
+  2678ms    → answering: allow
+  4250ms  ● first streamed text token
+  4262ms  ● assistant: DONE
+  4292ms  ● result  success  stop=end_turn  cost=$0.0033802
+  4318ms  ✓ get_context_usage ok  26848/1000000 (3%)
+  4335ms  ● init  session=60c82ae1-47b6-4f67-8847-79fe607cfc82  model=claude-haiku-5-5  tools=109
+  8347ms  → interrupt
+  8360ms  ✓ interrupt: ok
+  8365ms  ● assistant: ```
+1 apple
+2 river
+3 stone
+4 cloud
+5 maple
+6 ember
+7 tiger
+8 comet
+9 lantern
+10 garden
+11 apple
+12 river
+13 stone
+14 cl
+  8371ms  ● result  error_during_execution  stop=<null>  cost=$0.0033802
+ 10991ms  claude exited status 1  permission-asked=true
+
+SESSION 60c82ae1-47b6-4f67-8847-79fe607cfc82

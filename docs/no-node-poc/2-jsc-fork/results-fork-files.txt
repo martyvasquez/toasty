@@ -1,0 +1,11 @@
+case                           src lines fork lines forkedFrom compact_boundary custom-title  record types
+1daaf8a2/after-compaction-1         5895        392        389                1            1  {'assistant': 218, 'user': 105, 'attachment': 61, 'system': 5, 'atis-latch': 1, 'tools-used': 1}
+1daaf8a2/after-compaction-2         5895       1477       1474                2            1  {'assistant': 888, 'user': 442, 'attachment': 121, 'system': 23, 'atis-latch': 1, 'tools-used': 1}
+1daaf8a2/before-compaction          5895        191        188                0            1  {'assistant': 107, 'user': 53, 'attachment': 28, 'atis-latch': 1, 'tools-used': 1, 'custom-title': 1}
+1daaf8a2/near-end                   5895       2685       2682                2            1  {'assistant': 1588, 'user': 792, 'attachment': 205, 'system': 97, 'atis-latch': 1, 'tools-used': 1}
+a02f388a/after-compaction-1         3158        341        338                1            1  {'assistant': 188, 'user': 83, 'attachment': 57, 'system': 10, 'atis-latch': 1, 'tools-used': 1}
+a02f388a/before-compaction          3158        158        155                0            1  {'assistant': 92, 'user': 42, 'attachment': 21, 'atis-latch': 1, 'tools-used': 1, 'custom-title': 1}
+a02f388a/near-end                   3158       1398       1395                1            1  {'assistant': 861, 'user': 391, 'attachment': 93, 'system': 50, 'atis-latch': 1, 'tools-used': 1}
+b510a685/after-compaction-1          733        321        318                1            1  {'assistant': 164, 'user': 80, 'attachment': 59, 'system': 15, 'atis-latch': 1, 'tools-used': 1}
+b510a685/before-compaction           733        169        166                0            1  {'assistant': 82, 'attachment': 44, 'user': 40, 'atis-latch': 1, 'tools-used': 1, 'custom-title': 1}
+b510a685/near-end                    733        315        312                0            1  {'assistant': 163, 'user': 79, 'attachment': 59, 'system': 11, 'atis-latch': 1, 'tools-used': 1}

@@ -1,0 +1,2341 @@
+[
+ {
+  "name": "orig:1daaf8a2/before-compaction",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "a77d08f9-2ca9-4260-a969-dccb7a2f2fba",
+   "title": "POC fork"
+  }
+ },
+ {
+  "name": "orig:1daaf8a2/after-compaction-1",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "48553205-06d7-4d2a-92c6-9359484c97ac",
+   "title": "POC fork"
+  }
+ },
+ {
+  "name": "orig:1daaf8a2/after-compaction-2",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "39ea7e9e-bd07-4059-bbf1-0c7b9edcf394",
+   "title": "POC fork"
+  }
+ },
+ {
+  "name": "orig:1daaf8a2/near-end",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "5fd365df-9883-4622-a2c2-343754d94a78",
+   "title": "POC fork"
+  }
+ },
+ {
+  "name": "orig:a02f388a/before-compaction",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "c48b38db-cd04-430a-9861-e3a94569eec9",
+   "title": "POC fork"
+  }
+ },
+ {
+  "name": "orig:a02f388a/after-compaction-1",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "47a00d00-8ec5-4bb4-9462-9ec9d665d78e",
+   "title": "POC fork"
+  }
+ },
+ {
+  "name": "orig:a02f388a/near-end",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "3a647615-ca9a-4f89-b98e-a2b5bc5c5ab1",
+   "title": "POC fork"
+  }
+ },
+ {
+  "name": "orig:b510a685/before-compaction",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "1b4d356b-672a-4e67-8e49-e781b55e94dd",
+   "title": "POC fork"
+  }
+ },
+ {
+  "name": "orig:b510a685/after-compaction-1",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "a661123e-9c1b-4b69-8ed4-2f016b1364ee",
+   "title": "POC fork"
+  }
+ },
+ {
+  "name": "orig:b510a685/near-end",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "bdc1b3df-109c-4aca-b4cc-f5b9f8ff0c12",
+   "title": "POC fork"
+  }
+ },
+ {
+  "name": "1daaf8a2:full-no-cut-no-title",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty"
+  }
+ },
+ {
+  "name": "1daaf8a2:first",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "6475843d-9da9-4b49-9698-c1317138034f",
+   "title": "t"
+  }
+ },
+ {
+  "name": "1daaf8a2:last",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "4538065a-8141-40c0-8c1f-1ab29a97141d",
+   "title": "  spaced title  "
+  }
+ },
+ {
+  "name": "1daaf8a2:bad-id",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "00000000-0000-4000-8000-000000000000",
+   "title": "t"
+  }
+ },
+ {
+  "name": "1daaf8a2:unicode-title",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "d9bdacf2-a6dd-4c59-bb19-41e72d162c9b",
+   "title": "Fork \u2014 \u201cquotes\u201d \ud83c\udf5e \u2028 \u00e9"
+  }
+ },
+ {
+  "name": "1daaf8a2:att-deferred_tools_record:bbf5fa",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "bbf5fa34-85a2-4613-952c-5c6ec2accb49",
+   "title": "k"
+  }
+ },
+ {
+  "name": "1daaf8a2:att-deferred_tools_record:3cac61",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "3cac6183-0cfb-48b1-b9cb-76115a757807",
+   "title": "k"
+  }
+ },
+ {
+  "name": "1daaf8a2:compact@362-2",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "c36062c7-914b-4e40-9d89-2bb59b257a8e",
+   "title": "c"
+  }
+ },
+ {
+  "name": "1daaf8a2:compact@362-1",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "9d706342-6b0e-4284-ae94-3ee6e02a338d",
+   "title": "c"
+  }
+ },
+ {
+  "name": "1daaf8a2:compact@362+0",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "fea4ab6a-9e9c-4d9b-861b-f9c1b051cc64",
+   "title": "c"
+  }
+ },
+ {
+  "name": "1daaf8a2:compact@362+1",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "d718d62e-5015-4ec8-a5c1-c019801139f6",
+   "title": "c"
+  }
+ },
+ {
+  "name": "1daaf8a2:compact@362+2",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "47853ca8-7f64-4bc5-b21e-fb627520b015",
+   "title": "c"
+  }
+ },
+ {
+  "name": "1daaf8a2:compact@362+3",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "24c40e03-da00-4a05-a0c8-667ce66bc7f9",
+   "title": "c"
+  }
+ },
+ {
+  "name": "1daaf8a2:compact@1447-2",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "82fdb986-4196-46b4-a4ae-aeb29cae3901",
+   "title": "c"
+  }
+ },
+ {
+  "name": "1daaf8a2:compact@1447-1",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "27f5d75d-6e20-43c3-a916-b703bf187623",
+   "title": "c"
+  }
+ },
+ {
+  "name": "1daaf8a2:compact@1447+0",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "1704a914-5d37-47b8-843e-7e128632ea73",
+   "title": "c"
+  }
+ },
+ {
+  "name": "1daaf8a2:compact@1447+1",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "132d9125-2691-414b-a67c-43cd04213e9e",
+   "title": "c"
+  }
+ },
+ {
+  "name": "1daaf8a2:compact@1447+2",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "76d1b036-e48f-4449-93a4-22b2c2651886",
+   "title": "c"
+  }
+ },
+ {
+  "name": "1daaf8a2:compact@1447+3",
+  "sessionId": "1daaf8a2-acd4-4cf0-bee0-c1941c702d9b",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "3476b1c9-d6f9-4d83-a9fc-64ef62179e5e",
+   "title": "c"
+  }
+ },
+ {
+  "name": "a02f388a:full-no-cut-no-title",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty"
+  }
+ },
+ {
+  "name": "a02f388a:first",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "081ffe80-beb4-4d7f-8b25-3b6d8c4c2029",
+   "title": "t"
+  }
+ },
+ {
+  "name": "a02f388a:last",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "2ecf0624-8926-46a8-80bf-05eca184fe38",
+   "title": "  spaced title  "
+  }
+ },
+ {
+  "name": "a02f388a:bad-id",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "00000000-0000-4000-8000-000000000000",
+   "title": "t"
+  }
+ },
+ {
+  "name": "a02f388a:unicode-title",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "368c9301-5000-438e-82f9-bc2158d7ce02",
+   "title": "Fork \u2014 \u201cquotes\u201d \ud83c\udf5e \u2028 \u00e9"
+  }
+ },
+ {
+  "name": "a02f388a:assistant-text:7c95e9",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "7c95e9b0-32b0-4f3e-88b7-a6c17cb7efde",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:assistant-text:e62bd7",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "e62bd736-0759-45af-b8fa-08ab416b51b5",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:assistant-tooluse:4ea840",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "4ea84014-7497-491b-afe9-7050bad88f30",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:assistant-tooluse:4f2367",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "4f23679a-e654-4bde-a1cb-4d2af8310390",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-agent_listing_delta:f75a42",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "f75a421a-fb9b-4717-b88e-c7ac27f80471",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-agent_listing_delta:f2f778",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "f2f7782c-bb49-4290-81c2-fd37cbc157fc",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-auto_mode:cc66fa",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "cc66fa74-3d0c-4c66-960d-021e2b59b650",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-auto_mode:58a04a",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "58a04a5d-421a-4b12-b94a-e2add04e6a53",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-compact_file_reference:c1a0b7",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "c1a0b7eb-e61c-486b-a5a3-e57e2d7bf59a",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-credential_org:c229be",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "c229be97-5001-4d1c-9fbf-2e24f983adac",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-credential_org:8f929f",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "8f929fdd-9772-41ff-8d49-5a353c0c345e",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-date:4664b0",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "4664b005-8a1e-4833-9637-caf060069eb0",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-date:dc627d",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "dc627d9a-1714-4633-b727-7d6df589302a",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-deferred_tools_delta:298a57",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "298a575e-074d-4225-9d53-e620a5c3e290",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-deferred_tools_delta:28dcab",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "28dcab82-7764-4293-9628-0a0f18495806",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-deferred_tools_record:42f459",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "42f459a9-75a8-4048-8d3f-dbf7982028ff",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-deferred_tools_record:fc30cb",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "fc30cb2f-774b-4f35-baee-205c9360692a",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-diagnostics:1e042b",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "1e042bb6-2b2b-4e91-8f59-652c9b760ffd",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-diagnostics:b0d4e5",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "b0d4e5be-5aca-4404-a992-19ee196d1d22",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-edited_text_file:b519cb",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "b519cb87-8042-45ba-b3aa-7121458eff31",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-edited_text_file:1657cb",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "1657cb80-1a6c-4d3d-99b6-414be66fef90",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-environment:5be5d0",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "5be5d035-71bc-4344-bb6a-7d033f2ff224",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-environment:89c31f",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "89c31f3f-c50c-43e1-a19c-3006d6469e80",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-file:9f359e",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "9f359e9f-6d99-4c52-bc96-3256ae603b51",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-file:725526",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "7255269b-5908-47af-9e32-4e146b15ab8f",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-hook_success:6b5788",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "6b57884e-ec7f-42d4-9277-bfe747de4a5c",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-hook_success:081ffe",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "081ffe80-beb4-4d7f-8b25-3b6d8c4c2029",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-instructions:72404c",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "72404cec-0104-448a-b28e-5e9619ec4273",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-instructions:58ffc3",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "58ffc3ae-e56f-4aea-b968-61418d77a618",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-mcp_instructions_delta:48e374",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "48e374c2-254d-4169-978d-4f61ebc43f05",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-mcp_instructions_delta:9d8335",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "9d833502-2102-4310-a5de-32cd32672e01",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-model:8dd3d1",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "8dd3d1f0-b39f-4503-bab6-ce58d850c9b5",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-model:72dbbe",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "72dbbe58-cca4-477b-9e9a-7d38bd7594da",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-prompt_snapshot:e69b27",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "e69b272c-5021-4da1-b23b-b0d1d5fc413f",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-prompt_snapshot:57b13b",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "57b13b52-08b9-4ce5-bba7-864d8674b634",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-queued_command:a8b52b",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "a8b52b14-97e6-414e-af13-6581fa68eb23",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-queued_command:278821",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "27882103-1074-4de1-9a6c-7a87176e0e79",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-remote_session_change:dc9ce6",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "dc9ce67b-2a6b-4104-93f0-dc46c923a766",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-remote_session_change:664426",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "664426c6-438f-47bc-833b-22f09540248a",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-session_context:4e93a2",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "4e93a2b6-e1c1-4a0e-be8b-e1ade66c7e7e",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-session_context:99ea4e",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "99ea4e54-cb9a-4439-b4ab-8ba1e9c5d6d5",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-silent_turn_reminder:e83504",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "e83504f9-c670-40fb-a540-723ed8b83ba2",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-silent_turn_reminder:a18a2c",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "a18a2cc2-6e09-4f62-9d89-9205c596a9db",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-skill_listing:f79d33",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "f79d3305-5344-46d6-a28f-e3bfa4ba6f40",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-skill_listing:278550",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "27855052-a961-4dc8-83cd-0891e9dd6477",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:att-thinking_drop:f96aef",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "f96aefe6-cb7d-4e89-9f21-d6a6141a555a",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:system-away_summary:8810d2",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "8810d216-d601-420c-8477-74a5f6a70568",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:system-away_summary:0399f1",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "0399f13d-3f21-4b42-8881-11856a304384",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:system-compact_boundary:284533",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "28453365-a1e2-42df-9426-93030e5369b1",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:system-informational:a7b19f",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "a7b19f28-bf54-47a1-8e27-814c19e9a3fe",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:system-stop_hook_summary:c5aabd",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "c5aabd6c-eb03-44af-a437-b0d0e510fcba",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:system-stop_hook_summary:6ac930",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "6ac9305c-bf8d-405c-a757-c20fff3d5386",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:system-turn_duration:a0629e",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "a0629e60-9703-43f0-b991-eb91b828969e",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:system-turn_duration:cb8027",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "cb802785-0430-4315-a4e2-2ba6c9ad3347",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:user-prompt:7f2ad5",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "7f2ad5ee-a8a5-4c66-8fc3-661cc887a895",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:user-prompt:b31be8",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "b31be8c8-04e7-4537-a92d-2c4e8a40d7d4",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:user-toolresult:58476d",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "58476d3b-5650-429b-bb66-653e7d8527c2",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:user-toolresult:b19b83",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "b19b83ab-6627-4351-873f-4f9f8be0007e",
+   "title": "k"
+  }
+ },
+ {
+  "name": "a02f388a:compact@311-2",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "a0629e60-9703-43f0-b991-eb91b828969e",
+   "title": "c"
+  }
+ },
+ {
+  "name": "a02f388a:compact@311-1",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "0399f13d-3f21-4b42-8881-11856a304384",
+   "title": "c"
+  }
+ },
+ {
+  "name": "a02f388a:compact@311+0",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "28453365-a1e2-42df-9426-93030e5369b1",
+   "title": "c"
+  }
+ },
+ {
+  "name": "a02f388a:compact@311+1",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "5a5c4165-b8c0-4c36-8e97-4b72ca86b93f",
+   "title": "c"
+  }
+ },
+ {
+  "name": "a02f388a:compact@311+2",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "d1d72579-c8f2-4e6e-8779-c86cbc6a5d62",
+   "title": "c"
+  }
+ },
+ {
+  "name": "a02f388a:compact@311+3",
+  "sessionId": "a02f388a-796a-4d8d-8ccc-d5f1008f09f4",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/Toasty",
+   "upToMessageId": "8a6cb3e6-91a7-474f-bffc-611febb0a406",
+   "title": "c"
+  }
+ },
+ {
+  "name": "f90a9907:full-no-cut-no-title",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios"
+  }
+ },
+ {
+  "name": "f90a9907:first",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "7cbb4727-01c8-4598-acd1-1c1fc26feb13",
+   "title": "t"
+  }
+ },
+ {
+  "name": "f90a9907:last",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "7cc2ebd4-b440-4359-9276-9c373a6fa1f2",
+   "title": "  spaced title  "
+  }
+ },
+ {
+  "name": "f90a9907:bad-id",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "00000000-0000-4000-8000-000000000000",
+   "title": "t"
+  }
+ },
+ {
+  "name": "f90a9907:unicode-title",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "fc60574e-a9f8-4e39-a07c-ca294be3328b",
+   "title": "Fork \u2014 \u201cquotes\u201d \ud83c\udf5e \u2028 \u00e9"
+  }
+ },
+ {
+  "name": "f90a9907:assistant-text:e60f96",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "e60f9612-eb18-4308-a663-1f98a9298058",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:assistant-text:daf56c",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "daf56c47-1bad-4369-8bfc-49bbd5b13092",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:assistant-tooluse:81cdc6",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "81cdc639-6a92-4a30-9a10-8875e3ad1c67",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:assistant-tooluse:8322c9",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "8322c98c-efd8-410c-926c-50e61ded8cd6",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-agent_listing_delta:e771c9",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "e771c9ce-a7a2-4c23-a347-0deffef5b9b9",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-agent_listing_delta:3ee6c2",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "3ee6c299-0253-4fd9-b67b-792c95a27b15",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-auto_mode:fd3abc",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "fd3abc42-ecaa-4bd5-8e82-48859eac6e52",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-auto_mode:cd19c4",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "cd19c40a-95a0-4a2c-8d38-ac035d0870cc",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-compact_file_reference:c0c883",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "c0c8833f-05a3-42b7-8455-b750e2f28e17",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-compact_file_reference:99ba3d",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "99ba3d9d-c5ea-4124-839c-8a23a748afac",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-credential_org:330e37",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "330e3703-fab1-4e44-8db7-068512993f31",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-credential_org:e6afef",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "e6afef3c-0786-4ce2-9e67-7a7106050122",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-date:b1a41c",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "b1a41cca-37f1-4911-aeda-8351cfb4195b",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-date:61cc32",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "61cc323c-67c5-4808-afd1-087b98fac41d",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-deferred_tools_delta:c905d4",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "c905d4b1-3a8f-4c4a-88fb-da2449b4fd0f",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-deferred_tools_delta:f61deb",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "f61debc6-7825-499f-8374-93805f906901",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-deferred_tools_record:04fbde",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "04fbde97-e3dc-4c00-a4f5-1e26a7bc50a7",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-deferred_tools_record:fb171c",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "fb171cc7-e2c6-46af-b09b-a05196b54973",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-diagnostics:31a220",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "31a22032-8879-41de-a02a-4267c44f7ce2",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-diagnostics:3f21c2",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "3f21c2c3-1eb2-4ced-aefc-3aaaa2c04a26",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-edited_text_file:2c0685",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "2c0685ad-6b01-47a0-9186-1a2fb55f02d9",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-edited_text_file:fe3c9b",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "fe3c9bf4-2525-4313-bf83-9a71ad277d09",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-environment:5490de",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "5490de7d-2d8b-403b-9ce1-232065ea9e0c",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-environment:c18163",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "c18163fa-d6b6-45da-b4c9-575d74f70440",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-file:84228f",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "84228f1c-0fc2-4b23-9159-8addef4230a0",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-file:a6b69d",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "a6b69de9-bc8b-4f2d-8460-27bf9003c97d",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-hook_success:fa8c36",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "fa8c369f-2ad1-47ea-b78b-47b962247aa8",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-hook_success:7cbb47",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "7cbb4727-01c8-4598-acd1-1c1fc26feb13",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-mcp_instructions_delta:00429e",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "00429ec5-f518-4f23-84e9-b90b2692d757",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-mcp_instructions_delta:2130dd",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "2130ddac-efe0-434e-ad5b-a3d73a0c7296",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-model:f26878",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "f2687889-be59-4593-a2af-2837518b00e3",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-model:4a1df0",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "4a1df0d7-4806-4851-9e4f-f05a66a6088a",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-prompt_snapshot:c287a1",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "c287a1e1-2929-4965-a58d-d0e01b579f8c",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-prompt_snapshot:2ef0af",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "2ef0af5d-1d51-42f3-8431-b3383f309f04",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-queued_command:be698a",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "be698afc-cd49-4b33-8f68-9aaab1f99c34",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-queued_command:d88926",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "d88926eb-811f-47a7-835e-85f6f7aa6c14",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-remote_session_change:20bae1",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "20bae183-40de-448c-a417-82f860b8bab1",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-remote_session_change:48d05f",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "48d05fb0-fbc4-416f-b913-32dc49716ccc",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-session_context:f40e56",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "f40e56a9-1de1-4627-b5a7-c292e1f97df1",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-session_context:ae7b59",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "ae7b59c4-42db-4212-a782-8b6ee68ee8d9",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-silent_turn_reminder:a565e1",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "a565e17a-476d-4306-be2d-870899c81891",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-silent_turn_reminder:33de38",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "33de387f-62ff-4dba-b8c4-6342691d0c1c",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-skill_listing:4f9213",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "4f921329-25c5-4199-9efc-4cb7f579413c",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-skill_listing:82cee1",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "82cee157-a0ed-4b9a-bd5c-f8252f4d203e",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:att-thinking_drop:21a339",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "21a339bd-ce29-41f5-9110-d6c7cd74acb4",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:system-away_summary:5f55bc",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "5f55bc50-32a4-4588-bf02-4e44d611e3a0",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:system-away_summary:25ee71",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "25ee71bb-7e8e-4e4e-acb3-fc8bc5ab34bf",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:system-compact_boundary:3d1ab3",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "3d1ab3e5-fe4f-4e0c-8182-f90ff8064591",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:system-informational:8661dd",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "8661ddfa-4441-41cf-bc73-ae9ddeec66eb",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:system-stop_hook_summary:38c797",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "38c79750-896d-4068-ac45-871f6fc2d762",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:system-stop_hook_summary:55d865",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "55d86536-1bf7-4847-a4d6-b692e4ae9cf0",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:system-turn_duration:cc9638",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "cc9638df-3d0a-4b2f-a954-da147a464f3b",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:system-turn_duration:7db57d",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "7db57d25-b547-47af-ae37-54a3980afb15",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:user-prompt:9e2526",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "9e252601-ec2f-4eb5-aa40-052b5b04ec5e",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:user-prompt:7a6a90",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "7a6a905f-2a86-40cf-841a-de9322e7ef29",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:user-toolresult:baef8c",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "baef8c73-6d73-4fbf-a495-e393149639f8",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:user-toolresult:1e176e",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "1e176e9c-410c-4e97-a722-0c3f2932e2d7",
+   "title": "k"
+  }
+ },
+ {
+  "name": "f90a9907:compact@284-2",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "a102fa1b-041a-43c2-9fcb-5db199bdd4f1",
+   "title": "c"
+  }
+ },
+ {
+  "name": "f90a9907:compact@284-1",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "9d80ed49-f7e0-4c3a-9c49-dfa38d0b0c9f",
+   "title": "c"
+  }
+ },
+ {
+  "name": "f90a9907:compact@284+0",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "3d1ab3e5-fe4f-4e0c-8182-f90ff8064591",
+   "title": "c"
+  }
+ },
+ {
+  "name": "f90a9907:compact@284+1",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "0911b1db-48d8-429d-bdbc-9f4b9e1a2d87",
+   "title": "c"
+  }
+ },
+ {
+  "name": "f90a9907:compact@284+2",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "c0c8833f-05a3-42b7-8455-b750e2f28e17",
+   "title": "c"
+  }
+ },
+ {
+  "name": "f90a9907:compact@284+3",
+  "sessionId": "f90a9907-9747-449c-bd64-c580c0125d7c",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/tag-ai-ios",
+   "upToMessageId": "84228f1c-0fc2-4b23-9159-8addef4230a0",
+   "title": "c"
+  }
+ },
+ {
+  "name": "b510a685:full-no-cut-no-title",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo"
+  }
+ },
+ {
+  "name": "b510a685:first",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "3136b4b7-8dca-4322-bb34-d9d74d52f241",
+   "title": "t"
+  }
+ },
+ {
+  "name": "b510a685:last",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "0c5f34c7-c792-4aa9-9d52-9d4a49b5ed1a",
+   "title": "  spaced title  "
+  }
+ },
+ {
+  "name": "b510a685:bad-id",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "00000000-0000-4000-8000-000000000000",
+   "title": "t"
+  }
+ },
+ {
+  "name": "b510a685:unicode-title",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "1b4d356b-672a-4e67-8e49-e781b55e94dd",
+   "title": "Fork \u2014 \u201cquotes\u201d \ud83c\udf5e \u2028 \u00e9"
+  }
+ },
+ {
+  "name": "b510a685:assistant-text:b67ed1",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "b67ed194-dfbc-4547-aaa1-cf49065caedc",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:assistant-text:68d6e5",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "68d6e5b5-309e-48c8-b996-965f3bf8b93c",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:assistant-tooluse:0e0231",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "0e0231a5-288f-4ef2-8fe5-ff94c8e635ad",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:assistant-tooluse:ce6c0b",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "ce6c0b26-a421-4bf1-8f11-3fca7fd107b4",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-agent_listing_delta:c53edf",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "c53edf27-33ec-4065-b40b-1542d7132495",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-agent_listing_delta:4fac0d",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "4fac0d4e-b771-440a-b013-6848b685b990",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-auto_mode:9d7030",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "9d7030f8-192e-4fb5-bd8e-d0d79f0792f0",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-compact_file_reference:69092b",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "69092b09-0cac-4d57-9adf-f6453df014c5",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-compact_file_reference:f8a2de",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "f8a2decf-955d-4f34-9dfe-6f7c16dcec57",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-credential_org:3cd102",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "3cd10271-63e5-44c7-82cd-4555c0055342",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-date:394097",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "3940977b-80cc-4a84-afe7-8ec80ecf2782",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-date:7382c9",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "7382c9ad-06e7-47f3-a629-99f9a48fa1d6",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-deferred_tools_delta:00018d",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "00018d9c-9f9a-46e2-977d-8cf8059f5d01",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-deferred_tools_delta:fdd769",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "fdd7693f-9b5e-4408-b080-96a23ec1fee0",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-deferred_tools_record:c104d2",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "c104d26b-3119-4aa0-9426-66e62ee2734a",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-deferred_tools_record:be49ea",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "be49ea1e-f26f-4221-bab1-87c2ffeef240",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-diagnostics:e50d35",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "e50d3513-5d44-4e3d-8659-95f73fbc97f6",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-edited_text_file:8aa34a",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "8aa34a27-8d7c-48b1-9380-edee9003fa2d",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-edited_text_file:3a04a5",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "3a04a5bc-958f-49e3-89e0-4ce1efdf2c83",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-environment:792db5",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "792db5be-8f10-4433-b89b-ab320569da4c",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-environment:e52b53",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "e52b539b-e814-45bb-b1e1-98d4f822688d",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-file:db332d",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "db332d4e-eb72-4ac4-8190-f7fe61da7f32",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-file:ac97cb",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "ac97cb64-e29f-49d5-bfc9-7c0cc5578ae3",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-hook_success:2ba9ac",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "2ba9aca5-d4f4-4c7f-b6f2-7e1069a58d07",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-hook_success:3136b4",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "3136b4b7-8dca-4322-bb34-d9d74d52f241",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-instructions:0c1eaf",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "0c1eafba-47de-401c-a0dd-9125d9875ddd",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-mcp_instructions_delta:0e8e59",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "0e8e5959-ac0f-4deb-b767-8aa63a710a2a",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-mcp_instructions_delta:e4507c",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "e4507c47-fa34-422b-9771-ce44e0b5dd33",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-model:9f5184",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "9f51845c-d770-43ee-86b1-73a696d69783",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-model:167577",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "167577a4-5234-4cd3-8364-f4c93a0faab1",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-prompt_snapshot:0abc01",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "0abc01be-cd8f-44af-a2e8-d7b81a374efd",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-prompt_snapshot:fb5c7b",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "fb5c7b08-9c94-4943-93a3-12521310297b",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-remote_session_change:b3ea26",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "b3ea262e-b024-48fe-a840-b9a4e3150a22",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-session_context:4787a5",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "4787a58b-4e39-4f5b-8de2-cb60f89f8a41",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-silent_turn_reminder:ce61e1",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "ce61e1fd-e706-41bb-b9a9-bd6edea1c5e9",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-skill_listing:3a7b54",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "3a7b54f3-344b-4940-aa78-9ab2232a6f72",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:att-skill_listing:4a4173",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "4a4173a2-43cc-44ef-94f9-fad009c52b31",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:system-away_summary:8a0289",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "8a0289b7-89d6-4d34-a69d-cf0ca1c65bb8",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:system-away_summary:e5ffd3",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "e5ffd3bc-492d-4f3a-91d1-b9ccadf0e169",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:system-compact_boundary:d5ab01",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "d5ab0178-e805-489e-8d78-a3485fc6bf65",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:system-informational:0c5f34",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "0c5f34c7-c792-4aa9-9d52-9d4a49b5ed1a",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:system-stop_hook_summary:7c7e34",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "7c7e346c-0893-4a34-80d7-cce3f84db436",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:system-stop_hook_summary:81b24a",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "81b24a45-a3a9-4dee-8d5a-0362b0b4b8dc",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:system-turn_duration:eac0ae",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "eac0ae6e-41a5-4d42-bfdb-cdd3cb11710d",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:system-turn_duration:381862",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "3818627e-0a57-4a2b-8104-e50fe4679c9a",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:user-prompt:a66112",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "a661123e-9c1b-4b69-8ed4-2f016b1364ee",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:user-prompt:34eca4",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "34eca4c0-7e22-446c-aeab-c23a7fc70a11",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:user-toolresult:54f90a",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "54f90a13-a036-4e42-9636-e7323684ef9d",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:user-toolresult:14fc13",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "14fc13fb-2334-4618-bbe3-8dea9690fc07",
+   "title": "k"
+  }
+ },
+ {
+  "name": "b510a685:compact@316-2",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "817320a3-5579-48fe-b3e3-1f2627cfd11a",
+   "title": "c"
+  }
+ },
+ {
+  "name": "b510a685:compact@316-1",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "8a0289b7-89d6-4d34-a69d-cf0ca1c65bb8",
+   "title": "c"
+  }
+ },
+ {
+  "name": "b510a685:compact@316+0",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "d5ab0178-e805-489e-8d78-a3485fc6bf65",
+   "title": "c"
+  }
+ },
+ {
+  "name": "b510a685:compact@316+1",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "a661123e-9c1b-4b69-8ed4-2f016b1364ee",
+   "title": "c"
+  }
+ },
+ {
+  "name": "b510a685:compact@316+2",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "db332d4e-eb72-4ac4-8190-f7fe61da7f32",
+   "title": "c"
+  }
+ },
+ {
+  "name": "b510a685:compact@316+3",
+  "sessionId": "b510a685-016e-4717-8d09-813938e8fb63",
+  "opts": {
+   "dir": "/Users/martyvasquez/Development/time-and-todo",
+   "upToMessageId": "bbaee044-e46d-4b73-b9d9-3af3e2afff18",
+   "title": "c"
+  }
+ },
+ {
+  "name": "e7739607:full-no-cut-no-title",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test"
+  }
+ },
+ {
+  "name": "e7739607:first",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "5b5e1f5d-5657-4673-8c26-f3e8ca4cb7e8",
+   "title": "t"
+  }
+ },
+ {
+  "name": "e7739607:last",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "e2e0d62e-9bd4-4867-b590-ae026770b041",
+   "title": "  spaced title  "
+  }
+ },
+ {
+  "name": "e7739607:bad-id",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "00000000-0000-4000-8000-000000000000",
+   "title": "t"
+  }
+ },
+ {
+  "name": "e7739607:unicode-title",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "5a5bc709-d5c9-4105-9e5c-9d472ef34b33",
+   "title": "Fork \u2014 \u201cquotes\u201d \ud83c\udf5e \u2028 \u00e9"
+  }
+ },
+ {
+  "name": "e7739607:assistant-text:f8ae77",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "f8ae775a-9b53-42a8-bdda-84636411aac7",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:assistant-text:e2e0d6",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "e2e0d62e-9bd4-4867-b590-ae026770b041",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:assistant-tooluse:d1b067",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "d1b067fb-2e08-40e6-b657-ca77fab9119d",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:assistant-tooluse:5e2fd9",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "5e2fd9cb-3616-4037-a6ef-32cfee351321",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-agent_listing_delta:aeb6f2",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "aeb6f2a4-6ad5-4627-b291-fcd7db6a99bf",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-auto_mode:227fd1",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "227fd16d-c82b-4ef9-b9b5-fb0fcd3c8213",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-auto_mode:027d53",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "027d53b4-63ad-433e-9481-a9e4aaf7c0b8",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-auto_mode_exit:471461",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "47146111-73f3-4a21-af1e-bd5c44bd79a5",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-credential_org:7b26d2",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "7b26d267-cf02-4e9c-901e-52879539f4a1",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-date:6adfe9",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "6adfe94b-c72e-48d3-98c2-aab92b3e5dda",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-date:00d7db",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "00d7db73-54e2-4de4-a9b6-19b23b03830c",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-deferred_tools_delta:f747bc",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "f747bc49-3829-4818-b5ae-aa6e80b1c324",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-deferred_tools_delta:01eaf7",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "01eaf7d4-19f1-43a0-9f27-d129a7bc225b",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-environment:bf6780",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "bf67804f-c9f6-4628-8410-a03134a7238f",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-environment:3f0c9a",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "3f0c9a32-4836-414b-b17f-0553093a8d1a",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-hook_success:5b5e1f",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "5b5e1f5d-5657-4673-8c26-f3e8ca4cb7e8",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-mcp_instructions_delta:dfbbe4",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "dfbbe454-d7fd-46e7-a82e-e06477f12090",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-model:23f811",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "23f811de-85aa-460d-9295-e8546224c0a7",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-prompt_snapshot:15a82e",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "15a82e9a-00e2-49f2-9911-54106dc1bda1",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-prompt_snapshot:0077ad",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "0077adfe-9d9d-4604-a9a3-afb32505b308",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-remote_session_change:a852f9",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "a852f906-1e4b-4a73-bb62-5824db483e2c",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-remote_session_change:6302e9",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "6302e93f-7115-4171-9d08-e84dc04122fc",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-session_context:78e51f",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "78e51fc5-85d5-4e66-8d5d-b18bcf1ba15e",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:att-skill_listing:7a0bf1",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "7a0bf1bd-64d8-4c74-8692-084f5d56c6bd",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:system-stop_hook_summary:257ee8",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "257ee87b-26cd-4790-b639-8049ae07b420",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:system-stop_hook_summary:3ab51a",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "3ab51a90-6be5-45c2-85ea-6409e5463399",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:user-prompt:d8d15a",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "d8d15abe-91c5-4918-9a47-11e8b7990c56",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:user-prompt:9eeeb5",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "9eeeb5f6-ea85-4658-a505-9684b62d1f0d",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:user-toolresult:e38a34",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "e38a340f-59ba-47d9-a4f0-cad6b2b1d118",
+   "title": "k"
+  }
+ },
+ {
+  "name": "e7739607:user-toolresult:7af34e",
+  "sessionId": "e7739607-3bf5-4e14-94b1-fd875e69d67f",
+  "opts": {
+   "dir": "/private/tmp/claude-501/-Users-martyvasquez-Development-Toasty/1daaf8a2-acd4-4cf0-bee0-c1941c702d9b/scratchpad/toasty-test",
+   "upToMessageId": "7af34e48-7dd8-451a-8e69-a4f9871a4097",
+   "title": "k"
+  }
+ }
+]

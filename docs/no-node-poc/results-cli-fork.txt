@@ -1,0 +1,18 @@
+# Option B test: claude forking by itself (no SDK)
+# Source: poc1 session 60c82ae1-…  Turns: (1) Write poc.txt → "DONE"  (2) count 1..300, interrupted  (3) "what word?" → "toasted"
+# Cut at 88439a67-… (the "DONE" message, end of turn 1).
+
+$ claude -p --model haiku --output-format json --resume 60c82ae1-47b6-4f67-8847-79fe607cfc82 \
+    --fork-session --resume-session-at 88439a67-05b0-4bca-a2d8-19f89f7efd29 \
+    "List every request I (the user) made in this conversation before this one, briefly."
+new session: b940fc14-4a50-45e7-941a-6af70fd2c81b
+answer: You made one earlier request: create `poc.txt` containing the word "toasted" using the Write tool, then reply with exactly "DONE." I did both.
+original unchanged: yes   (md5 of the source transcript before == after)
+→ cut point honored: turns 2 and 3 are not in the fork.
+
+# Same flags in stream-json mode with NO user message, then `rename_session`:
+initialize → success; rename_session {"title":"POC fork"} → success, emits system/session_title_changed
+new session id assigned (c4ffca52-…), but NO transcript file is written until a user message is sent.
+
+# The fork file claude wrote (b940fc14) contains no `forkedFrom` fields (Toasty's "Forked from" line needs them).
+# `claude --help` lists --fork-session but not --resume-session-at (hidden flag; the SDK passes it for `resumeSessionAt`).

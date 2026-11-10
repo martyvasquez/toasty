@@ -1,0 +1,1 @@
+--output-format stream-json --verbose --input-format stream-json --permission-prompt-tool=stdio --tools=default --setting-sources=user,project,local --include-partial-messages --replay-user-messages

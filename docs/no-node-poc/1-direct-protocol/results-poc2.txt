@@ -1,0 +1,25 @@
+# poc2: image attachment, background task + stop_task, Remote Control, full SDK env vars
+# Run 2026-11-09 against claude 2.1.321 (output copied verbatim; "keys=" line omitted)
+     2ms  spawned claude pid 91648
+   469ms  ✓ set_model haiku: ok
+   473ms  ✓ set_permission_mode default: ok
+   475ms  ✓ set_permission_mode bypassPermissions: FAILED Cannot set permission mode to bypassPermissions because the session was not launched with --dangerously-skip-permissions
+   543ms  ● init  session=3bc0716d-b8a7-4600-959b-beacb60758d8  model=claude-haiku-5-5  tools=30
+  1524ms  ● first streamed text token
+  1526ms  ● assistant: Blue.
+  1550ms  ● result  success  stop=end_turn  cost=$0.0023885200000000003
+  1564ms  ● init  session=3bc0716d-b8a7-4600-959b-beacb60758d8  model=claude-haiku-5-5  tools=109
+  3224ms  ● tool_use Bash
+  3740ms  ● system.task_started  task_id=b1sp1desu  status=-
+  4511ms  ● assistant: STARTED
+  4530ms  ● result  success  stop=end_turn  cost=$0.00525782
+  4530ms  → stop_task b1sp1desu
+  4542ms  ● system.task_updated  task_id=b1sp1desu  status=-
+  4543ms  ● system.task_notification  task_id=b1sp1desu  status=stopped
+  4543ms  ✓ stop_task: ok
+  7157ms  ✓ remote_control on: ok  session_url=present  connect_url=present
+  7890ms  ✓ remote_control off: ok
+  8357ms  claude exited status 0  permission-asked=false
+# After the run: `pgrep -f 'sleep 120'` → 0 processes (the stopped task left nothing behind).
+# The bypassPermissions failure is expected: the test asked for a mode that requires a launch flag,
+# and the SDK path refuses it the same way. Not a protocol problem.

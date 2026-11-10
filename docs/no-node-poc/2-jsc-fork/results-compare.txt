@@ -1,0 +1,11 @@
+IDENTICAL  1daaf8a2/after-compaction-1    392 lines    15.1 MB  node 165ms / jsc 172ms
+IDENTICAL  1daaf8a2/after-compaction-2   1477 lines    52.9 MB  node 275ms / jsc 240ms
+IDENTICAL  1daaf8a2/before-compaction     191 lines     1.5 MB  node 150ms / jsc 166ms
+IDENTICAL  1daaf8a2/near-end             2685 lines    77.6 MB  node 356ms / jsc 280ms
+IDENTICAL  a02f388a/after-compaction-1    341 lines     2.0 MB  node 41ms / jsc 77ms
+IDENTICAL  a02f388a/before-compaction     158 lines     1.3 MB  node 41ms / jsc 78ms
+IDENTICAL  a02f388a/near-end             1398 lines    12.1 MB  node 78ms / jsc 122ms
+IDENTICAL  b510a685/after-compaction-1    321 lines     1.6 MB  node 15ms / jsc 26ms
+IDENTICAL  b510a685/before-compaction     169 lines     0.9 MB  node 14ms / jsc 24ms
+IDENTICAL  b510a685/near-end              315 lines     1.6 MB  node 15ms / jsc 27ms
+ALL IDENTICAL
