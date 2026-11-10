@@ -9,6 +9,7 @@ enum ClaudeDebug {
     static var conversation: ClaudeConversation? { WorkspaceStore.shared.active?.selected }
 
     static func install() {
+        ClaudeSetup.installDebug()
         func conv() throws -> ClaudeConversation {
             guard let c = conversation else { throw E("no conversation") }
             return c

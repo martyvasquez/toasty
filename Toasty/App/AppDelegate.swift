@@ -39,6 +39,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         SpeechEngine.shared.preload()
         DictationController.shared.start()
         Vocabulary.preload()
+        // Claude conversations need Claude Code and Node: say so if either
+        // is missing (quiet when both are there).
+        ClaudeSetup.checkAtLaunch()
         // First launch: offer to bring over mostty's workspaces.
         if store.isFirstLaunch, MosttyImport.isAvailable,
            !UserDefaults.standard.bool(forKey: "ToastyImportedFromMostty") {

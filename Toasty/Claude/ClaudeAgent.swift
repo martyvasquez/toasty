@@ -196,32 +196,52 @@ nonisolated enum ClaudeEnvironment {
         let claude: String?
     }
 
-    @MainActor private static var cached: Resolved?
-    @MainActor private static var waiters: [(Result<Resolved, Error>) -> Void] = []
-    @MainActor private static var resolving = false
+    /// What the login shell has: its variables and where `node` and
+    /// `claude` are, each nil when missing.
+    struct Lookup: Sendable {
+        let variables: [String: String]
+        let node: String?
+        let claude: String?
+    }
+
+    /// Kept only once `node` is found (as before): until then each new tab
+    /// looks again, so installing Node doesn't need a relaunch.
+    @MainActor private static var cached: Lookup?
+    @MainActor private static var waiters: [(Lookup) -> Void] = []
+    @MainActor private static var looking = false
 
     @MainActor
     static func resolve(_ completion: @escaping (Result<Resolved, Error>) -> Void) {
-        if let cached { completion(.success(cached)); return }
+        lookup { found in
+            if let node = found.node {
+                completion(.success(Resolved(variables: found.variables, node: node, claude: found.claude)))
+            } else {
+                completion(.failure(ClaudeAgentError.noNode))
+            }
+        }
+    }
+
+    /// The login shell's environment and tools. `fresh` asks the shell again
+    /// (the setup check's Check Again, after the user installed something);
+    /// tabs already running keep the environment they started with.
+    @MainActor
+    static func lookup(fresh: Bool = false, _ completion: @escaping (Lookup) -> Void) {
+        if fresh, !looking { cached = nil }
+        if let cached { completion(cached); return }
         waiters.append(completion)
-        guard !resolving else { return }
-        resolving = true
+        guard !looking else { return }
+        looking = true
 
         DispatchQueue.global(qos: .userInitiated).async {
             let vars = loginShellEnvironment()
-            let result: Result<Resolved, Error>
-            if let node = find("node", in: vars) {
-                result = .success(Resolved(variables: vars, node: node, claude: find("claude", in: vars)))
-            } else {
-                result = .failure(ClaudeAgentError.noNode)
-            }
+            let found = Lookup(variables: vars, node: find("node", in: vars), claude: find("claude", in: vars))
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
-                    if case .success(let r) = result { cached = r }
-                    resolving = false
+                    if found.node != nil { cached = found }
+                    looking = false
                     let w = waiters
                     waiters = []
-                    w.forEach { $0(result) }
+                    w.forEach { $0(found) }
                 }
             }
         }

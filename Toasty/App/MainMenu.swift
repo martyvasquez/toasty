@@ -105,6 +105,9 @@ enum MainMenu {
         NSApp.windowsMenu = window
 
         let help = NSMenu(title: "Help")
+        let setup = item("Check Claude Setup…", #selector(ClaudeSetupMenu.show(_:)), "")
+        setup.target = ClaudeSetupMenu.shared
+        help.addItem(setup)
         add(help, to: main)
         NSApp.helpMenu = help
         return main
