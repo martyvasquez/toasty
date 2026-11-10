@@ -455,7 +455,17 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     private var silentCommands = 0
     private var queued: [[String: Any]] = []
     private var interrupted = false
-    private var turnsInFlight = 0
+    /// Claude is working on a turn (from the first prompt sent until the
+    /// result with nothing left waiting).
+    private var turnRunning = false
+    /// Prompts sent that Claude Code hasn't taken up yet, by their id. One
+    /// sent while Claude works either joins the running turn (at its next
+    /// tool call; no result of its own) or runs as the next turn, so results
+    /// can't be counted against prompts: a turn's result ends the work
+    /// unless a prompt is still waiting here.
+    private var waitingPrompts: Set<String> = []
+    /// Counts results, for the check that a waiting prompt did start.
+    private var resultCount = 0
     private var lastAssistantText = ""
     /// Tool items by tool_use id (top level and subagents).
     private var tools: [String: ClaudeItem] = [:]
@@ -603,14 +613,15 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 return ["media_type": "image/png", "data": png.base64EncodedString()]
             }
         }
-        if turnsInFlight == 0 {
+        if !turnRunning {
             interrupted = false
             turnStarted = Date()
             activity.reset()
         }
-        // A message sent while Claude works is queued by Claude Code and
-        // runs as its own turn, with its own result.
-        turnsInFlight += 1
+        // A message sent while Claude works is queued by Claude Code: see
+        // `waitingPrompts`.
+        turnRunning = true
+        waitingPrompts.insert(promptID)
         setPhase(.working)
         send(message)
     }
@@ -744,7 +755,8 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         agent = nil
         sessionRunning = false
         remoteControl = .off
-        turnsInFlight = 0
+        turnRunning = false
+        waitingPrompts.removeAll()
         launching = false
         queued.removeAll()
         requests.removeAll()
@@ -930,14 +942,14 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
         // A turn Toasty didn't start (a prompt sent through Remote Control):
         // show it as working, like one typed here.
-        if live, phase != .working, turnsInFlight == 0,
+        if live, phase != .working, !turnRunning,
            ["stream_event", "assistant"].contains(m["type"] as? String ?? ""),
            (m["message"] as? [String: Any])?["model"] as? String != "<synthetic>" {
             interrupted = false
             turnStarted = Date()
             activity.reset()
             suggestion = nil
-            turnsInFlight = 1
+            turnRunning = true
             setPhase(.working)
         }
 
@@ -1012,7 +1024,10 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             guard let message = m["message"] as? [String: Any] else { return }
             if live, m["isReplay"] as? Bool == true {
                 // The echo of a prompt typed here: already shown.
-                if let id = m["uuid"] as? String, sentPrompts.remove(id) != nil { return }
+                if let id = m["uuid"] as? String, sentPrompts.remove(id) != nil {
+                    waitingPrompts.remove(id)
+                    return
+                }
                 if silentCommands > 0, (message["content"] as? String)?.contains("<command-name>/rename</command-name>") == true { return }
             }
             if let peer = Self.peerMessage(m) {
@@ -1064,6 +1079,11 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             list.append(limit)
             rateLimits = list.sorted { $0.type < $1.type }
 
+        case "command_lifecycle":
+            // Claude Code took a prompt up (or dropped it): no longer waiting.
+            guard live, let id = m["command_uuid"] as? String, m["state"] as? String != "queued" else { return }
+            waitingPrompts.remove(id)
+
         case "tool_progress":
             if let id = m["tool_use_id"] as? String { tools[id]?.elapsed = m["elapsed_time_seconds"] as? Double }
 
@@ -1085,13 +1105,17 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 append(.error, detail.isEmpty ? "Claude Code stopped with an error." : detail)
             }
             let wasInterrupted = interrupted
-            turnsInFlight = wasInterrupted ? 0 : max(0, turnsInFlight - 1)
-            if turnsInFlight > 0 {
+            resultCount += 1
+            // Pending prompts are cancelled by an interrupt.
+            if wasInterrupted { waitingPrompts.removeAll() }
+            if !waitingPrompts.isEmpty {
                 // The next queued message is starting.
                 turnStarted = Date()
                 activity.reset()
+                confirmNextTurn(waiting: waitingPrompts, after: resultCount)
                 return
             }
+            turnRunning = false
             markTurnEnd(at: Date(), duration: turnStarted.map { max(1, Int(Date().timeIntervalSince($0))) })
             refreshBranch()
             workspace?.changes.refresh()
@@ -1448,7 +1472,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
     private func sendPendingName() {
         guard let name = pendingName, let agent, agent.isRunning, !launching,
-              phase == .idle, turnsInFlight == 0, requests.isEmpty else { return }
+              phase == .idle, !turnRunning, requests.isEmpty else { return }
         pendingName = nil
         let id = UUID().uuidString.lowercased()
         sentPrompts.insert(id)
@@ -1456,6 +1480,26 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         // Names are one line.
         let clean = name.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces)
         agent.send(["type": "user", "text": "/rename \(clean)", "uuid": id])
+    }
+
+    /// After a result that left prompts waiting: they start at once, so if
+    /// none has a little later (and nothing else finished), Claude Code
+    /// isn't going to run them. Say the turn is over rather than show
+    /// "working" for good.
+    private func confirmNextTurn(waiting: Set<String>, after count: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.turnRunning, self.resultCount == count,
+                      self.waitingPrompts == waiting, self.requests.isEmpty else { return }
+                self.waitingPrompts.removeAll()
+                self.turnRunning = false
+                self.finishStreaming()
+                self.markTurnEnd(at: Date(), duration: nil)
+                self.turnStarted = nil
+                self.setPhase(.idle)
+                self.refreshContextUsage()
+            }
+        }
     }
 
     // MARK: State reporting (sidebar, tab, dock, sounds, keep awake)
