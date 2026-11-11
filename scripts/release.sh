@@ -143,6 +143,11 @@ if (( PUBLISH )); then
     --embed-release-notes \
     --maximum-versions 3 --maximum-deltas 3 \
     -o "$UPDATES/appcast.xml" "$UPDATES"
+  # generate_appcast points every entry at this release; older entries'
+  # files are in their own releases.
+  sed -i '' -E \
+    -e 's#/download/[^/"]*/Toasty-([0-9.]+)\.zip#/download/v\1/Toasty-\1.zip#g' \
+    -e "s#/download/[^/\"]*/Toasty([0-9]+)-#/download/v$BASE.\\1/Toasty\\1-#g" "$UPDATES/appcast.xml"
   grep -q "sparkle:version>$BUILD<" "$UPDATES/appcast.xml" || { echo "The feed doesn't list build $BUILD"; exit 1; }
   grep -q 'sparkle:edSignature' "$UPDATES/appcast.xml" || { echo "The feed is missing its EdDSA signature"; exit 1; }
   # Zips the feed no longer lists are moved here; they're published already.
