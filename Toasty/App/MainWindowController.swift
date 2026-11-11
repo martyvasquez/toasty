@@ -242,6 +242,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         session.setViewport(session.viewport == .mobile ? .desktop : .mobile)
     }
 
+    /// ⇧⌘L: a desktop page beside the conversation, or across the window
+    /// with the conversation a drawer over it (`PreviewDrawer`).
+    @objc func togglePreviewLayout(_ sender: Any?) {
+        guard let w = store.active, w.previewShowing,
+              PreviewStore.shared.session(for: w).viewport == .desktop else { return }
+        PreviewSettings.shared.desktopBeside.toggle()
+    }
+
     /// ⇧⌘C: start or stop commenting on the page (while the preview shows one).
     @objc func togglePreviewComment(_ sender: Any?) {
         guard let w = store.active, w.previewShowing else { return }
@@ -330,6 +338,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             let phone = showing && w.map { PreviewStore.shared.session(for: $0).viewport == .mobile } == true
             item.title = phone ? "Show at Desktop Size" : "Show at Phone Size"
             return showing && !item.isHidden
+        case #selector(togglePreviewLayout(_:)):
+            item.isHidden = !PreviewSettings.shared.enabled
+            item.title = PreviewSettings.shared.desktopBeside ? "Show Page Across the Window" : "Show Page Beside the Conversation"
+            return !item.isHidden && w.map { $0.previewShowing && PreviewStore.shared.session(for: $0).viewport == .desktop } == true
         case #selector(togglePreviewComment(_:)):
             item.isHidden = !PreviewSettings.shared.enabled
             guard let w, w.previewShowing, !item.isHidden else { return false }

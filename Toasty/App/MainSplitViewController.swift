@@ -309,8 +309,8 @@ final class MainSplitViewController: NSSplitViewController {
         var width = terminalItem.isCollapsed ? 0 : rightColumn.view.frame.width
         if drawerMode, let total = view.superview?.bounds.width {
             // The preview's controls sit over the page: what shows of it
-            // right of the drawer, or all of it.
-            width = PreviewDrawer.shared.open ? max(0, total - view.frame.width) : total
+            // right of the drawer and its edge, or all of it.
+            width = PreviewDrawer.shared.open ? max(0, total - view.frame.width - PreviewDrawerEdge.width) : total
         }
         if abs(layout.terminalWidth - width) > 0.25 { layout.terminalWidth = width }
         onLayout?()

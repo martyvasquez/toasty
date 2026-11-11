@@ -5,17 +5,20 @@ import SwiftUI
 /// The window's content: the split view (workspaces · conversation · right
 /// column), filling it.
 ///
-/// It's a view of its own for the preview's sake (`PreviewDrawer`): when a
-/// desktop page hasn't room beside the conversation, the page is shown here
+/// It's a view of its own for the preview's sake (`PreviewDrawer`): a
+/// desktop page (unless the user wants it beside the conversation) is shown here
 /// across the whole window, and the split view (by then only the workspaces
 /// and the conversation) becomes a drawer over the page's left side that
-/// slides off the window's left edge.
+/// slides off the window's left edge, all but its own right edge
+/// (`PreviewDrawerEdge`), which is the button that brings it back.
 final class MainContainerController: NSViewController {
     let store: WorkspaceStore
     let split: MainSplitViewController
     private let drawer = PreviewDrawer.shared
     private var page: NSView!
-    private let edge = PreviewDrawerEdge()
+    /// The drawer's right edge, which opens and closes it. Away, the drawer
+    /// leaves this much of itself at the window's left edge.
+    private var edge: NSView!
     /// Under the split view, in the window's own color: over the page, the
     /// workspaces' material shows this through and not the page's colors,
     /// so the sidebar looks as it does everywhere else.
@@ -40,6 +43,9 @@ final class MainContainerController: NSViewController {
         let host = NSHostingView(rootView: PreviewDrawerPage(store: store))
         host.sizingOptions = []
         page = host
+        let edgeHost = NSHostingView(rootView: PreviewDrawerEdge())
+        edgeHost.sizingOptions = []
+        edge = edgeHost
         edge.isHidden = true
 
         addChild(split)
@@ -58,8 +64,9 @@ final class MainContainerController: NSViewController {
             backing.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             split.view.topAnchor.constraint(equalTo: view.topAnchor),
             split.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            // The page, below the titlebar row.
-            host.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            // The page, below the titlebar row, and right of where the
+            // drawer's edge stays while the drawer is away.
+            host.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: PreviewDrawerEdge.width),
             host.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             host.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             host.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -71,7 +78,7 @@ final class MainContainerController: NSViewController {
 
         // Whatever decides between beside and over: the workspace and what
         // it shows (asked by the split view just before it lays out the
-        // right column), the page's size, the window's width (`viewDidLayout`).
+        // right column), the page's size, the user's choice of the two.
         split.resolveDrawer = { [weak self] in self?.updateMode() }
         drawer.changed
             .receive(on: DispatchQueue.main)
@@ -112,11 +119,11 @@ final class MainContainerController: NSViewController {
 
     private func updateMode() {
         guard isViewLoaded, view.window != nil, view.bounds.width > 0 else { return }
-        let on = PreviewDrawer.wanted(for: store.active, width: view.bounds.width, sidebar: sidebarWidth)
+        let on = PreviewDrawer.wanted(for: store.active)
         if on, drawer.active, abs(width.constant - drawerWidth) > 0.5 {
             // The workspaces were made wider or narrower.
             width.constant = drawerWidth
-            if !drawer.open { leading.constant = -(drawerWidth + PreviewDrawerEdge.width) }
+            if !drawer.open { leading.constant = -drawerWidth }
         }
         guard on != drawer.active else { return }
         if on {
@@ -150,11 +157,11 @@ final class MainContainerController: NSViewController {
     private func applyOpen(animated: Bool) {
         guard drawer.active else { return }
         let open = drawer.open
-        let away = -(drawerWidth + PreviewDrawerEdge.width)
+        let away = -drawerWidth
         let window = view.window
+        edge.isHidden = false
         if open {
             split.view.isHidden = false
-            edge.isHidden = false
         } else if let window, let responder = window.firstResponder as? NSView, responder.isDescendant(of: split.view) {
             // Typing goes to the page, not to a composer nobody can see.
             let web = store.active.flatMap { PreviewStore.shared.session(for: $0).webView }
@@ -182,12 +189,11 @@ final class MainContainerController: NSViewController {
         }
     }
 
-    /// The drawer has stopped moving: away, it isn't drawn at all.
+    /// The drawer has stopped moving: away, only its edge is drawn.
     private func settled() {
         guard drawer.active else { return }
         if !drawer.open {
             split.view.isHidden = true
-            edge.isHidden = true
         }
         split.noteLayout()
     }

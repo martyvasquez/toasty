@@ -82,6 +82,7 @@ private struct LoadingLine: View {
 struct PreviewToolbar: View {
     let workspace: Workspace
     @ObservedObject var session: PreviewSession
+    @ObservedObject private var settings = PreviewSettings.shared
     @FocusState private var addressFocused: Bool
 
     var body: some View {
@@ -113,6 +114,13 @@ struct PreviewToolbar: View {
                     session.setViewport(viewport)
                 }
             }
+            PreviewIconButton(symbol: "rectangle.split.2x1",
+                              help: settings.desktopBeside ? "Page Across the Window (⇧⌘L)"
+                                                           : "Page Beside the Conversation (⇧⌘L)",
+                              selected: settings.desktopBeside && session.viewport == .desktop) {
+                settings.desktopBeside.toggle()
+            }
+            .disabled(session.viewport != .desktop)
             PreviewIconButton(symbol: session.commenting ? "plus.bubble.fill" : "plus.bubble",
                               help: session.commenting ? "Done Commenting (⇧⌘C or esc)" : "Comment on the Page (⇧⌘C)",
                               tint: session.commenting ? .accentColor : nil) {

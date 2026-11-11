@@ -94,6 +94,7 @@ final class KeyboardShortcuts: NSObject {
             groups.append(Group(title: "Preview", rows: [
                 menu("Show or hide the preview", #selector(W.togglePreview(_:))),
                 menu("Phone or desktop size", #selector(W.togglePreviewSize(_:))),
+                menu("Desktop page beside the conversation, or across the window", #selector(W.togglePreviewLayout(_:))),
                 menu("Comment on the page", #selector(W.togglePreviewComment(_:))),
                 plain("Send a comment to Claude", "↩"),
                 plain("Add a comment to the message instead", "⇧↩"),

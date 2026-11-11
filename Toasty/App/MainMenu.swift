@@ -71,6 +71,7 @@ enum MainMenu {
         // Hidden (shortcut and all) while the preview is turned off.
         view.addItem(item("Show Preview", #selector(W.togglePreview(_:)), "b", [.command, .shift]))
         view.addItem(item("Show at Phone Size", #selector(W.togglePreviewSize(_:)), "m", [.command, .shift]))
+        view.addItem(item("Show Page Beside the Conversation", #selector(W.togglePreviewLayout(_:)), "l", [.command, .shift]))
         view.addItem(item("Comment on the Page", #selector(W.togglePreviewComment(_:)), "c", [.command, .shift]))
         view.addItem(.separator())
         for (i, tab) in InspectorTab.allCases.enumerated() {

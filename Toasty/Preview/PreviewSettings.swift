@@ -34,6 +34,19 @@ final class PreviewSettings: ObservableObject {
         }
     }
 
+    /// A desktop page beside the conversation, in the room that's left
+    /// (drawn smaller in less than 1280 points), and not across the whole
+    /// window with the conversation a drawer over it (`PreviewDrawer`). One
+    /// choice for every workspace, made from the preview's controls or ⇧⌘L.
+    @Published var desktopBeside: Bool {
+        didSet {
+            guard desktopBeside != oldValue else { return }
+            UserDefaults.standard.set(desktopBeside, forKey: Self.besideKey)
+            PreviewDrawer.shared.changed.send()
+        }
+    }
+    private static let besideKey = "PreviewDesktopBeside"
+
     /// The preview's column at phone size: the phone and a little room
     /// either side, until the user drags it to another width. (A desktop
     /// page takes all the room there is instead.)
@@ -46,6 +59,7 @@ final class PreviewSettings: ObservableObject {
 
     private init() {
         enabled = UserDefaults.standard.bool(forKey: Self.key)
+        desktopBeside = UserDefaults.standard.bool(forKey: Self.besideKey)
     }
 }
 
@@ -60,7 +74,7 @@ struct PreviewSettingsView: View {
             } footer: {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Experimental. A browser beside the conversation (⇧⌘B) for the site you're developing, at phone or desktop size (⇧⌘M switches). Comment on anything in the page to send it to the conversation you have open, and Claude can open pages, take screenshots and read the console there instead of in your own browser.")
-                    Text("A desktop page is shown at its real size. In a window too narrow for that beside the conversation, the page takes the whole window and ⇧⌘S slides your workspaces and the conversation over it.")
+                    Text("A desktop page takes the whole window, and its left edge (or ⇧⌘S) slides your workspaces and the conversation over it. ⇧⌘L puts the page beside the conversation instead, drawn smaller when there isn't room for it.")
                     Text("Claude gets the preview's tools in conversations started after you turn this on. While it's off, the preview isn't in Toasty at all and Claude Code runs exactly as it does by itself.")
                 }
                 .foregroundStyle(.secondary)

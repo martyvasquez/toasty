@@ -162,16 +162,23 @@ conversation at its minimum, and its controls sit in the titlebar row above
 it (the user's layout, 2026-11-10; it began as an inspector tab).
 A desktop page is drawn at its real size (the user's call, 2026-11-10: a
 shrunken page isn't a preview, and hiding the sidebar wasn't enough on a
-16" screen). When the window hasn't room for workspaces + conversation +
-1280 points, the page takes the whole window and the workspaces and
+16" screen). So a desktop page takes the whole window, whatever the
+window's width, and the workspaces and
 conversation become a drawer over its left side (`PreviewDrawer`,
-`MainContainerController`): ⇧⌘S or the button at the left of the preview's
-controls slides it out or puts it away, and nothing else does (no hover,
+`MainContainerController`): ⇧⌘S or the drawer's own right edge (a flush
+strip with a chevron, the whole of it a button, which stays at the window's
+left edge while the drawer is away; the user, 2026-11-11, in place of a
+button among the preview's controls) slides it out or puts it away, and nothing else does (no hover,
 no timer, clicking the page leaves it). While it's away the titlebar shows
 the open conversation as its tab would (name and status; click to bring
 the drawer out), and that conversation gets no toast. A new tab, switching
-tabs, or opening a notification brings the drawer out. In a wide window,
-and at phone size, the page stays beside the conversation.
+tabs, or opening a notification brings the drawer out. The other way is a
+toggle (⇧⌘L, or the split button in the preview's controls; one choice for
+every workspace, kept): the page beside the conversation in the room that's
+left, drawn smaller under 1280 points. The user, 2026-11-11: a shrunken
+page is fine when it's chosen and the drawer is the default; and nothing
+switches between the two by itself any more (the window's width used to,
+at 1970 points). At phone size the page is always beside the conversation.
 At phone size the preview is a sidebar of its own width (430 by default:
 the phone and a little room; dragging its edge sets another, kept apart
 from the inspector's) and the conversation gets the rest. A phone is never
