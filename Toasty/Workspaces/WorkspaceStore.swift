@@ -10,7 +10,6 @@ final class WorkspaceStore: ObservableObject {
     @Published private(set) var activeID: UUID?
     @Published var sidebarVisible = true
     /// Width of the workspaces sidebar (kept when the user drags it).
-    var sidebarWidth: CGFloat = 250
     /// Width of the right column and the inspector's share of its height:
     /// the same for every workspace, so switching never resizes anything.
     var rightColumnWidth: CGFloat = 400
@@ -34,7 +33,6 @@ final class WorkspaceStore: ObservableObject {
         var workspaces: [Workspace.Saved]
         var activeWorkspace: UUID?
         var sidebarVisible: Bool
-        var sidebarWidth: Double?
         var rightColumnWidth: Double?
         var inspectorFraction: Double?
         var windowFrame: String?
@@ -69,7 +67,6 @@ final class WorkspaceStore: ObservableObject {
             activeID = s.activeWorkspace.flatMap { id in workspaces.contains { $0.id == id } ? id : nil }
                 ?? workspaces.first?.id
             sidebarVisible = s.sidebarVisible
-            sidebarWidth = s.sidebarWidth.map { CGFloat($0) } ?? sidebarWidth
             // Older state kept these per workspace: start from the active one's.
             let activeSaved = s.workspaces.first { $0.id == activeID } ?? s.workspaces.first
             rightColumnWidth = CGFloat(s.rightColumnWidth ?? activeSaved?.terminalWidth ?? Double(rightColumnWidth))
@@ -100,7 +97,6 @@ final class WorkspaceStore: ObservableObject {
     func save() {
         let s = Saved(workspaces: workspaces.map(\.saved), activeWorkspace: activeID,
                       sidebarVisible: sidebarVisible,
-                      sidebarWidth: Double(sidebarWidth),
                       rightColumnWidth: Double(rightColumnWidth),
                       inspectorFraction: Double(inspectorFraction),
                       windowFrame: windowFrame.map(NSStringFromRect))

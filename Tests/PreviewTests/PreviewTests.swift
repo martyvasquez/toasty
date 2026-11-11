@@ -70,15 +70,13 @@ struct PreviewTests {
     /// window and makes the conversation a drawer.
     @Test func desktopPageTakesTheWindowWhenItCantFitBeside() {
         // A 16-inch MacBook Pro's whole screen, and the window in the report.
-        #expect(!PreviewDrawer.fits(width: 1728, sidebar: 190))
-        #expect(!PreviewDrawer.fits(width: 1620, sidebar: 190))
+        #expect(!PreviewDrawer.fits(width: 1728, sidebar: 250))
+        #expect(!PreviewDrawer.fits(width: 1620, sidebar: 250))
         // A window on a 27-inch display.
-        #expect(PreviewDrawer.fits(width: 2072, sidebar: 190))
-        // Exactly enough: 190 + 440 + 1280, and the two hairlines.
-        #expect(PreviewDrawer.fits(width: 1911, sidebar: 190))
-        #expect(!PreviewDrawer.fits(width: 1910, sidebar: 190))
-        // Wider workspaces need a wider window.
-        #expect(!PreviewDrawer.fits(width: 2000, sidebar: 320))
+        #expect(PreviewDrawer.fits(width: 2072, sidebar: 250))
+        // Exactly enough: 250 + 440 + 1280, and the two hairlines.
+        #expect(PreviewDrawer.fits(width: 1971, sidebar: 250))
+        #expect(!PreviewDrawer.fits(width: 1970, sidebar: 250))
     }
 
     @Test func commentSaysWhatWhereAndAtWhichSize() {

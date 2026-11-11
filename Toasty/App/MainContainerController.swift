@@ -102,7 +102,7 @@ final class MainContainerController: NSViewController {
     // MARK: Beside or over
 
     private var sidebarWidth: CGFloat {
-        min(max(store.sidebarWidth, split.sidebarItem.minimumThickness), split.sidebarItem.maximumThickness)
+        MainSplitViewController.sidebarWidth
     }
 
     /// The drawer: the workspaces and the conversation at its narrowest.

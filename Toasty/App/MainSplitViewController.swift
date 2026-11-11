@@ -17,6 +17,10 @@ final class MainSplitViewController: NSSplitViewController {
     /// Column frames changed (the titlebar row follows them).
     var onLayout: (() -> Void)?
 
+    /// The workspaces sidebar is one width, always: nothing resizes it, not
+    /// the user (its edge can't be dragged) and not the columns beside it
+    /// (the user, 2026-11-10: "It should be the same size no matter what").
+    static let sidebarWidth: CGFloat = 250
     static let minConversation: CGFloat = 440
     static let minTerminal: CGFloat = 280
 
@@ -53,8 +57,8 @@ final class MainSplitViewController: NSSplitViewController {
         let sidebar = NSHostingController(rootView: WorkspaceSidebarView(store: store))
         sidebar.sizingOptions = []
         sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebar)
-        sidebarItem.minimumThickness = 190
-        sidebarItem.maximumThickness = 320
+        sidebarItem.minimumThickness = Self.sidebarWidth
+        sidebarItem.maximumThickness = Self.sidebarWidth
         sidebarItem.canCollapse = true
         sidebarItem.isCollapsed = !store.sidebarVisible
 
@@ -137,13 +141,11 @@ final class MainSplitViewController: NSSplitViewController {
         showActiveWorkspace()
     }
 
-    /// The workspaces at the width the user gave them. The split view
-    /// brings a collapsed sidebar back narrower, and squeezes it when the
-    /// columns beside it change, so this follows every such change: only
-    /// the user dragging its edge makes it another width.
+    /// The workspaces at their width, after anything that may have let the
+    /// split view bring them back at another.
     func applySidebarWidth() {
         guard isViewLoaded, !sidebarItem.isCollapsed, !sidebarAnimating, view.window?.inLiveResize != true else { return }
-        let w = min(max(store.sidebarWidth, sidebarItem.minimumThickness), sidebarItem.maximumThickness)
+        let w = Self.sidebarWidth
         guard abs(sidebarItem.viewController.view.frame.width - w) > 0.5 else { return }
         let was = applying
         applying = true
@@ -285,39 +287,12 @@ final class MainSplitViewController: NSSplitViewController {
                 PreviewSettings.shared.phoneColumnWidth = width
             }
         }
-        // The user dragged the sidebar's edge: remember its width. Not a
-        // drag of anything else (the window's edge, the other divider),
-        // which can squeeze the sidebar without being asked to.
-        if !sidebarAnimating, !sidebarItem.isCollapsed, draggingSidebarEdge {
-            let width = sidebarItem.viewController.view.frame.width
-            if abs(width - store.sidebarWidth) > 0.5 {
-                store.sidebarWidth = width
-                store.setNeedsSave()
-                // The drawer is as wide as what's in it.
-                if drawerMode { resolveDrawer?() }
-            }
-        }
         // The user collapsed the sidebar by dragging it closed.
         let sidebarShown = !sidebarItem.isCollapsed
         if !sidebarAnimating, !drawerMode, sidebarShown != store.sidebarVisible {
             store.sidebarVisible = sidebarShown
             store.setNeedsSave()
         }
-    }
-
-    /// The mouse is down and at the sidebar's edge: the user is dragging
-    /// it. (Asked of the mouse itself, not of the event or the split view's
-    /// notification, which differ between kinds of sidebar.) Held past its
-    /// narrowest or widest, the pointer is beyond the edge on that side.
-    private var draggingSidebarEdge: Bool {
-        guard NSEvent.pressedMouseButtons & 1 != 0, let window = view.window else { return false }
-        let side = sidebarItem.viewController.view
-        let edge = side.convert(side.bounds, to: nil).maxX
-        let x = window.mouseLocationOutsideOfEventStream.x
-        if abs(x - edge) <= 16 { return true }
-        let width = side.frame.width
-        return (x < edge && width <= sidebarItem.minimumThickness + 0.5)
-            || (x > edge && width >= sidebarItem.maximumThickness - 0.5 && x < edge + 200)
     }
 
     /// The mouse is down at the right column's edge.
@@ -357,6 +332,8 @@ final class HairlineSplitView: NSSplitView {
 extension MainSplitViewController {
     override func splitView(_ splitView: NSSplitView, effectiveRect proposedEffectiveRect: NSRect,
                             forDrawnRect drawnRect: NSRect, ofDividerAt dividerIndex: Int) -> NSRect {
+        // The sidebar's edge isn't a handle: its width is fixed.
+        if dividerIndex == 0 { return .zero }
         let r = super.splitView(splitView, effectiveRect: proposedEffectiveRect, forDrawnRect: drawnRect, ofDividerAt: dividerIndex)
         return r.insetBy(dx: -4, dy: 0)
     }
