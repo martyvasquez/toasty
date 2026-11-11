@@ -22,8 +22,8 @@
 #   • App Store Connect API key:
 #       export TOASTY_ASC_KEY_ID=…  TOASTY_ASC_ISSUER_ID=…
 #     with the key at ~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8
-#   • or a notarytool keychain profile (default "toasty-notary"):
-#       xcrun notarytool store-credentials toasty-notary
+#   • or a notarytool keychain profile (default "Toasty"):
+#       xcrun notarytool store-credentials Toasty
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -32,7 +32,7 @@ KEY_ACCOUNT="toasty"
 # GitHub releases kept; older ones (and their tags) are deleted on publish.
 # The feed only ever points at the newest few.
 KEEP_RELEASES=5
-PROFILE="${TOASTY_NOTARY_PROFILE:-toasty-notary}"
+PROFILE="${TOASTY_NOTARY_PROFILE:-Toasty}"
 OUT=build/release
 ARCHIVE="$OUT/Toasty.xcarchive"
 APP="$OUT/export/Toasty.app"
