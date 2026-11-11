@@ -72,6 +72,16 @@
 			</array>
 		</dict>
 	</array>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/martyvasquez/toasty/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>1LZxQShjLyHS7/xrQLfG0nrVH+Ypw48uJ5qQBzBCpw8=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>3600</integer>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>

@@ -49,6 +49,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Claude conversations need Claude Code and Node: say so if either
         // is missing (quiet when both are there).
         ClaudeSetup.checkAtLaunch()
+        // Updates: an hourly check; one installs when Toasty quits.
+        Updater.shared.start()
         // First launch: offer to bring over mostty's workspaces.
         if store.isFirstLaunch, MosttyImport.isAvailable,
            !UserDefaults.standard.bool(forKey: "ToastyImportedFromMostty") {

@@ -10,6 +10,12 @@ enum MainMenu {
         let about = NSMenuItem(title: "About \(name)", action: #selector(AboutPanel.show(_:)), keyEquivalent: "")
         about.target = AboutPanel.shared
         app.addItem(about)
+        // Only where Toasty updates itself (not Toasty Debug; see Updater).
+        if Updater.isAvailable {
+            let update = NSMenuItem(title: "Check for Updates…", action: #selector(Updater.checkForUpdates(_:)), keyEquivalent: "")
+            update.target = Updater.shared
+            app.addItem(update)
+        }
         app.addItem(.separator())
         let settings = NSMenuItem(title: "Settings…", action: #selector(SettingsWindowController.show(_:)), keyEquivalent: ",")
         settings.target = SettingsWindowController.shared

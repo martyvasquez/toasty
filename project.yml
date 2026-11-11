@@ -15,6 +15,13 @@ settings:
     MARKETING_VERSION: "0.1"
     CURRENT_PROJECT_VERSION: "1"
 
+packages:
+  # Updates (Toasty/App/Updater.swift). Its tools (generate_appcast) are
+  # what scripts/release.sh --publish signs the update feed with.
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.10.1"
+
 targets:
   Toasty:
     type: application
@@ -41,6 +48,7 @@ targets:
       - framework: Vendor/CTranscribe.xcframework
         embed: true
         codeSign: true
+      - package: Sparkle
     info:
       path: Toasty/Info.plist
       properties:
@@ -51,6 +59,15 @@ targets:
         LSApplicationCategoryType: public.app-category.developer-tools
         NSPrincipalClass: NSApplication
         NSHumanReadableCopyright: "Copyright © 2026 Marty Vasquez. All rights reserved."
+        # Updates (Sparkle): the feed is the newest GitHub release's
+        # appcast.xml, published by scripts/release.sh --publish. Checked
+        # hourly; an update downloads quietly and installs when Toasty quits
+        # (both can be turned off in Settings ▸ General).
+        SUFeedURL: https://github.com/martyvasquez/toasty/releases/latest/download/appcast.xml
+        SUPublicEDKey: 1LZxQShjLyHS7/xrQLfG0nrVH+Ypw48uJ5qQBzBCpw8=
+        SUEnableAutomaticChecks: true
+        SUAutomaticallyUpdate: true
+        SUScheduledCheckInterval: 3600
         # Dictation: speech is transcribed on this Mac; audio never leaves it.
         NSMicrophoneUsageDescription: "Toasty listens while you hold Right Option to dictate. Speech is transcribed on this Mac and never leaves it."
         # The preview browser (experimental, Settings ▸ Preview) shows the

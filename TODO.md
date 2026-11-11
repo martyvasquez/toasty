@@ -97,8 +97,7 @@ Shipped on `main`; documented in `docs/DICTATION.md`.
 
 - **Key-press clock check** with real Right Option presses (needs the
   user: compare `lastPressHandledAfterMs` in `dictationState`).
-- **Notarize** the release (needs the `toasty-notary` keychain profile),
-  then launch-test the Release build.
+- **Launch-test** a notarized Release build's dictation.
 - **Large repos:** spoken-path matching scans every file and folder per
   dictation; index by last segment if a monorepo feels slow.
 - **About panel (pre-existing):** the dark-mode icon is a placeholder in the

@@ -1,0 +1,16 @@
+#!/bin/zsh
+# Every push to main publishes a Toasty update (scripts/publish-on-push.sh),
+# in the background: the push itself isn't held up.
+#
+# Hooks aren't part of a clone; turn these on once with
+#   git config core.hooksPath scripts/hooks
+[[ "$1" == origin ]] || exit 0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [[ "$remote_ref" == refs/heads/main ]] || continue
+  [[ "$local_sha" =~ '^0+$' ]] && continue   # deleting the branch
+  root="$(git rev-parse --show-toplevel)"
+  mkdir -p "$root/build/publish"
+  nohup "$root/scripts/publish-on-push.sh" "$local_sha" >/dev/null 2>&1 </dev/null &!
+  echo "Toasty: publishing an update for ${local_sha[1,9]} in the background (build/publish/publish.log)."
+done
+exit 0
