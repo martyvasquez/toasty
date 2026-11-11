@@ -28,14 +28,14 @@ here is referenced by `project.yml`. Every test ran outside the app.
                              refuses writes outside TOASTY_WRITE_ROOT
   run-node.mjs               the baseline: same forks through real Node + the SDK
   compare.py                 parity check (normalizes only newly created UUIDs and timestamps)
-  cases.json                 the 10 fork points (session id, project dir, upToMessageId)
+  cases.json                 the 10 fork points (session id, project dir, upToMessageId); not in the repo
   results-node.json          Node: new session id + time per case
   results-jsc.json           JavaScriptCore: new session id + time per case
   results-compare.txt        parity output: 10/10 IDENTICAL
   results-fork-files.txt     what each fork file contains (line counts, forkedFrom, compactions, record types)
 
 3-review/                  Independent review, written up in ../NO_NODE_REVIEW.md
-  cases.json                 261 fork cases across 5 sessions
+  cases.json                 261 fork cases across 5 sessions; not in the repo
   run-node.mjs               Node baseline that passes each case's options through
   probe.py                   no-token protocol probe against a scratch config
 
@@ -44,8 +44,9 @@ results-bun-attempt.txt    Attempt to run JS through the claude binary's embedde
 ```
 
 The session transcripts used for the fork tests are the user's private
-conversations and are **not** included. To rerun the fork test, use any
-sessions from your own `~/.claude/projects` and regenerate `cases.json` (see
+conversations and are **not** included, and neither are the `cases.json`
+files that list them (gitignored). To rerun the fork test, use any sessions
+from your own `~/.claude/projects` and write your own `cases.json` (see
 below).
 
 ## Running

@@ -10,3 +10,6 @@ Vendor/TRANSCRIBE_VERSION
 # Fetched by scripts/fetch-speech-models.sh (pinned revision + sha256)
 Toasty/Resources/SpeechModels/*.gguf
 Toasty/Resources/SpeechModels/*.partial
+# Lists of your own Claude sessions (paths, session ids): made per machine,
+# see docs/no-node-poc/README.md.
+docs/no-node-poc/*/cases.json
