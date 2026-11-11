@@ -180,7 +180,7 @@ drawn smaller for a short window: its page is shorter and scrolls.
 Discussed and left for later: moving the activity toast to
 the upper-left while the preview is open. Phone (390×844,
 iPhone user agent) or desktop (1280 wide) size, ⇧⌘M to switch; the page is always laid out
-at its real width and drawn smaller in a narrow column. Comment mode: click
+at its real width and drawn smaller in a narrow column. Comment mode (⇧⌘C): click
 an element or drag an area, type a note, and a screenshot plus one line
 (selector, viewport, URL) go to the open conversation. Return sends it at
 once as its own prompt (the user's choice 2026-11-10, "experiment with it");
@@ -206,8 +206,7 @@ Not done / to decide after living with it:
 - Whether the preview is showing isn't remembered across launches.
 - Claude's `navigate` opens the panel (and so narrows the conversation) in
   the workspace on screen; may want to be less forceful.
-- No touch emulation, no back/forward buttons (two-finger swipe works), no
-  shortcut for comment mode.
+- No touch emulation, no back/forward buttons (two-finger swipe works).
 - A page in a workspace that isn't on screen runs as a hidden page (timers
   slow down); screenshots and scripts still work.
 - Chromium-only bugs: "Open in Chrome" is the answer for now. A headless

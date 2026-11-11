@@ -114,7 +114,7 @@ struct PreviewToolbar: View {
                 }
             }
             PreviewIconButton(symbol: session.commenting ? "plus.bubble.fill" : "plus.bubble",
-                              help: session.commenting ? "Done Commenting (esc)" : "Comment on the Page",
+                              help: session.commenting ? "Done Commenting (⇧⌘C or esc)" : "Comment on the Page (⇧⌘C)",
                               tint: session.commenting ? .accentColor : nil) {
                 session.setCommenting(!session.commenting)
             }

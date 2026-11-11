@@ -242,6 +242,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         session.setViewport(session.viewport == .mobile ? .desktop : .mobile)
     }
 
+    /// ⇧⌘C: start or stop commenting on the page (while the preview shows one).
+    @objc func togglePreviewComment(_ sender: Any?) {
+        guard let w = store.active, w.previewShowing else { return }
+        let session = PreviewStore.shared.session(for: w)
+        guard session.commenting || (session.url != nil && session.failure == nil) else { return }
+        session.setCommenting(!session.commenting)
+    }
+
     /// ⌃⌘1…3: show an inspector tab.
     @objc func showInspectorTab(_ sender: NSMenuItem) {
         guard let w = store.active, InspectorTab.allCases.indices.contains(sender.tag) else { return }
@@ -322,6 +330,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             let phone = showing && w.map { PreviewStore.shared.session(for: $0).viewport == .mobile } == true
             item.title = phone ? "Show at Desktop Size" : "Show at Phone Size"
             return showing && !item.isHidden
+        case #selector(togglePreviewComment(_:)):
+            item.isHidden = !PreviewSettings.shared.enabled
+            guard let w, w.previewShowing, !item.isHidden else { return false }
+            let session = PreviewStore.shared.session(for: w)
+            item.title = session.commenting ? "Done Commenting" : "Comment on the Page"
+            return session.commenting || (session.url != nil && session.failure == nil)
         case #selector(showInspectorTab(_:)):
             item.state = w?.inspectorVisible == true && w?.previewShowing != true && InspectorTab.allCases.indices.contains(item.tag)
                 && w?.inspectorTab == InspectorTab.allCases[item.tag] ? .on : .off

@@ -65,6 +65,7 @@ enum MainMenu {
         // Hidden (shortcut and all) while the preview is turned off.
         view.addItem(item("Show Preview", #selector(W.togglePreview(_:)), "b", [.command, .shift]))
         view.addItem(item("Show at Phone Size", #selector(W.togglePreviewSize(_:)), "m", [.command, .shift]))
+        view.addItem(item("Comment on the Page", #selector(W.togglePreviewComment(_:)), "c", [.command, .shift]))
         view.addItem(.separator())
         for (i, tab) in InspectorTab.allCases.enumerated() {
             let t = item(tab.title, #selector(W.showInspectorTab(_:)), tab.shortcut, [.command, .control])
@@ -113,6 +114,10 @@ enum MainMenu {
         NSApp.windowsMenu = window
 
         let help = NSMenu(title: "Help")
+        let shortcuts = item("Keyboard Shortcuts", #selector(KeyboardShortcuts.showKeyboardShortcuts(_:)), "/")
+        shortcuts.target = KeyboardShortcuts.shared
+        help.addItem(shortcuts)
+        help.addItem(.separator())
         let setup = item("Check Claude Setup…", #selector(ClaudeSetupMenu.show(_:)), "")
         setup.target = ClaudeSetupMenu.shared
         help.addItem(setup)

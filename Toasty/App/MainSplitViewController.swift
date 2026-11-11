@@ -279,8 +279,7 @@ final class MainSplitViewController: NSSplitViewController {
         }
         // The user dragged the edge of the preview's column at phone size:
         // that width is its own.
-        if !terminalAnimating, !drawerMode, !terminalItem.isCollapsed, previewIsPhone(w),
-           NSApp.currentEvent?.type == .leftMouseDragged, view.window?.inLiveResize != true {
+        if !terminalAnimating, !drawerMode, !terminalItem.isCollapsed, previewIsPhone(w), draggingColumnEdge {
             let width = rightColumn.view.frame.width
             if abs(width - PreviewSettings.shared.phoneColumnWidth) > 0.5, width >= Self.minTerminal {
                 PreviewSettings.shared.phoneColumnWidth = width
@@ -289,9 +288,7 @@ final class MainSplitViewController: NSSplitViewController {
         // The user dragged the sidebar's edge: remember its width. Not a
         // drag of anything else (the window's edge, the other divider),
         // which can squeeze the sidebar without being asked to.
-        let divider = notification.userInfo?["NSSplitViewDividerIndex"] as? Int
-        if !sidebarAnimating, !sidebarItem.isCollapsed, NSApp.currentEvent?.type == .leftMouseDragged,
-           view.window?.inLiveResize != true, divider == nil || divider == 0 {
+        if !sidebarAnimating, !sidebarItem.isCollapsed, draggingSidebarEdge {
             let width = sidebarItem.viewController.view.frame.width
             if abs(width - store.sidebarWidth) > 0.5 {
                 store.sidebarWidth = width
@@ -306,6 +303,28 @@ final class MainSplitViewController: NSSplitViewController {
             store.sidebarVisible = sidebarShown
             store.setNeedsSave()
         }
+    }
+
+    /// The mouse is down and at the sidebar's edge: the user is dragging
+    /// it. (Asked of the mouse itself, not of the event or the split view's
+    /// notification, which differ between kinds of sidebar.) Held past its
+    /// narrowest or widest, the pointer is beyond the edge on that side.
+    private var draggingSidebarEdge: Bool {
+        guard NSEvent.pressedMouseButtons & 1 != 0, let window = view.window else { return false }
+        let side = sidebarItem.viewController.view
+        let edge = side.convert(side.bounds, to: nil).maxX
+        let x = window.mouseLocationOutsideOfEventStream.x
+        if abs(x - edge) <= 16 { return true }
+        let width = side.frame.width
+        return (x < edge && width <= sidebarItem.minimumThickness + 0.5)
+            || (x > edge && width >= sidebarItem.maximumThickness - 0.5 && x < edge + 200)
+    }
+
+    /// The mouse is down at the right column's edge.
+    private var draggingColumnEdge: Bool {
+        guard NSEvent.pressedMouseButtons & 1 != 0, let window = view.window else { return false }
+        let edge = rightColumn.view.convert(rightColumn.view.bounds, to: nil).minX
+        return abs(window.mouseLocationOutsideOfEventStream.x - edge) <= 16
     }
 
     /// Something outside the split view moved what the titlebar row follows.

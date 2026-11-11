@@ -52,6 +52,7 @@
 		72B35C923E6E7BBD19F19BC3 /* ServiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E0AF94EDDB841E22D8DEAA /* ServiceProvider.swift */; };
 		74AD96205B972C48FB67E2B3 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A784151685B16B9E4F4EC6E /* SettingsWindow.swift */; };
 		78A6CA1B4CA929C128407E33 /* WorkspaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */; };
+		810F05E5628D52043ACA62B8 /* KeyboardShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = A97DF3CFA988D518C8A2490B /* KeyboardShortcuts.swift */; };
 		8564E49059338213553F5F29 /* DictationDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 662BABDF0CE9D1BACB40CDDF /* DictationDebug.swift */; };
 		88B35CC67C795C3CAA432EA4 /* DictationSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 044EC2205DB30FAFEDB1F70B /* DictationSettings.swift */; };
 		8905A680FA47042672972DFD /* ClaudeConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEF18C42EDAF14F5AFAD03EE /* ClaudeConversationView.swift */; };
@@ -175,6 +176,7 @@
 		A4F699DD786C95D272697F9D /* Worktrees.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Worktrees.swift; sourceTree = "<group>"; };
 		A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStore.swift; sourceTree = "<group>"; };
 		A8A10A7F8DA308A1B9259A36 /* MainSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainSplitViewController.swift; sourceTree = "<group>"; };
+		A97DF3CFA988D518C8A2490B /* KeyboardShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcuts.swift; sourceTree = "<group>"; };
 		AA579EC5BB11ED8507AF049E /* DefaultModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultModel.swift; sourceTree = "<group>"; };
 		AAFDD6D5C02551210E270F85 /* SpeechModels */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SpeechModels; path = Toasty/Resources/SpeechModels; sourceTree = SOURCE_ROOT; };
 		ADBCB0D878A12E401FE41DCD /* NotificationsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsSection.swift; sourceTree = "<group>"; };
@@ -427,6 +429,7 @@
 			children = (
 				DB24559E15BED10BF20F7121 /* AppDelegate.swift */,
 				0A1AC4F2009B67034788F88E /* ConversationColumn.swift */,
+				A97DF3CFA988D518C8A2490B /* KeyboardShortcuts.swift */,
 				A392D7CD9154E4ADC8244C28 /* main.swift */,
 				68416E84FB4CDE7D7C92D8DA /* MainContainerController.swift */,
 				5C51FB87F905EF29B4ECF92F /* MainMenu.swift */,
@@ -604,6 +607,7 @@
 				9872B09FC2AF652524111032 /* GitChanges.swift in Sources */,
 				EB6410071FBABD7E99511555 /* InspectorView.swift in Sources */,
 				6131DD0CF970A46E4FE1AC30 /* KeyCodes.swift in Sources */,
+				810F05E5628D52043ACA62B8 /* KeyboardShortcuts.swift in Sources */,
 				36319E454D908F628822D20A /* MainContainerController.swift in Sources */,
 				C4C4D6FECA7C3F59FBB1EBD6 /* MainMenu.swift in Sources */,
 				53B908DF422B0A0DA826C6F1 /* MainSplitViewController.swift in Sources */,
