@@ -102,7 +102,7 @@ terminal**; don't build the rest of the app on it until it passes.
 ```
 
 - Use **`NSSplitViewController`** with a sidebar item (workspaces, native
-  sidebar material, collapsible ⌃⌘S), a content item (conversation), and an
+  sidebar material, collapsible ⇧⌘S), a content item (conversation), and an
   inspector item (terminal, collapsible ⌃⌘T, resizable, full height). This
   gives real macOS sidebar behavior instead of mostty's hand-rolled HStack.
 - **Toolbar / titlebar row**: `NSToolbar` (`.unifiedCompact`) whose items
@@ -424,7 +424,7 @@ A standalone `TerminalView` (NSView) in the app:
 - Window + `NSSplitViewController` (sidebar / content / inspector),
   toolbar tab rows (§4.1), workspace store + persistence (§4.4),
   workspace sidebar (§7), main menu with all shortcuts (⌘T new tab, ⌘W close
-  tab or focused terminal, ⌘1–9, ⌘⇧[ ], ⌃⌘T, ⌃⌘S, ⌘N, ⌥1–9, ⌃⌘R, ⌃⌘U).
+  tab or focused terminal, ⌘1–9, ⌘⇧[ ], ⌃⌘T, ⇧⌘S, ⌘N, ⌥1–9, ⌃⌘R, ⌃⌘U).
 - **Accept:** create/switch/rename/reorder workspaces; tabs render per §5;
   state survives quit + relaunch.
 

@@ -17,10 +17,11 @@ struct PreviewColumn: View {
 
 private struct PreviewColumnWorkspace: View {
     @ObservedObject var workspace: Workspace
-    @ObservedObject private var settings = PreviewSettings.shared
+    /// While the page has the whole window it's shown by `PreviewDrawerPage`.
+    @ObservedObject private var drawer = PreviewDrawer.shared
 
     var body: some View {
-        if workspace.previewShowing { PreviewPane(workspace: workspace) }
+        if workspace.previewShowing, !drawer.active { PreviewPane(workspace: workspace, overWindow: false) }
     }
 }
 
@@ -28,9 +29,12 @@ private struct PreviewColumnWorkspace: View {
 /// titlebar row above the column.
 struct PreviewPane: View {
     @ObservedObject var workspace: Workspace
+    /// Which of the page's two places this is: across the window under the
+    /// drawer (`PreviewDrawerPage`), or the right column.
+    let overWindow: Bool
 
     var body: some View {
-        PreviewContent(workspace: workspace, session: PreviewStore.shared.session(for: workspace))
+        PreviewContent(workspace: workspace, session: PreviewStore.shared.session(for: workspace), overWindow: overWindow)
             .id(workspace.id)
     }
 }
@@ -38,12 +42,13 @@ struct PreviewPane: View {
 private struct PreviewContent: View {
     @ObservedObject var workspace: Workspace
     @ObservedObject var session: PreviewSession
+    let overWindow: Bool
 
     var body: some View {
         VStack(spacing: 0) {
             LoadingLine(session: session)
             if session.started {
-                PreviewPage(workspace: workspace, session: session)
+                PreviewPage(workspace: workspace, session: session, overWindow: overWindow)
             } else {
                 PreviewStart(workspace: workspace, session: session)
             }
@@ -75,11 +80,13 @@ private struct LoadingLine: View {
 
 /// The preview's controls, shown in the titlebar row over its column.
 struct PreviewToolbar: View {
+    let workspace: Workspace
     @ObservedObject var session: PreviewSession
     @FocusState private var addressFocused: Bool
 
     var body: some View {
         HStack(spacing: 2) {
+            PreviewDrawerControls(workspace: workspace)
             PreviewIconButton(symbol: session.isLoading ? "xmark" : "arrow.clockwise",
                               help: session.isLoading ? "Stop" : "Reload") {
                 if session.isLoading { session.stopLoading() } else { session.reload() }
@@ -101,7 +108,7 @@ struct PreviewToolbar: View {
                 .accessibilityLabel("Address")
 
             ForEach(PreviewViewport.allCases) { viewport in
-                PreviewIconButton(symbol: viewport.symbol, help: "\(viewport.title) Size",
+                PreviewIconButton(symbol: viewport.symbol, help: "\(viewport.title) Size (⇧⌘M switches)",
                                   selected: session.viewport == viewport) {
                     session.setViewport(viewport)
                 }
@@ -130,7 +137,7 @@ private enum PreviewBrowser {
 }
 
 /// A toolbar button like the inspector's and the terminal strip's.
-private struct PreviewIconButton: View {
+struct PreviewIconButton: View {
     let symbol: String
     let help: String
     var selected = false
@@ -197,13 +204,14 @@ private struct PreviewStart: View {
 private struct PreviewPage: View {
     let workspace: Workspace
     @ObservedObject var session: PreviewSession
+    let overWindow: Bool
 
     var body: some View {
         GeometryReader { geo in
             let fit = session.viewport.fit(in: geo.size)
             ZStack(alignment: .topLeading) {
                 Color.claudeChrome
-                PreviewWebHost(session: session, page: fit.page)
+                PreviewWebHost(session: session, page: fit.page, overWindow: overWindow)
                     .frame(width: fit.display.width, height: fit.display.height)
                     .overlay(Rectangle().strokeBorder(Color.claudeSeparator, lineWidth: 0.5)
                         .opacity(fit.display.width < geo.size.width - 1 || fit.display.height < geo.size.height - 1 ? 1 : 0))
@@ -297,10 +305,14 @@ private struct CommentField: View {
 private struct PreviewWebHost: NSViewRepresentable {
     let session: PreviewSession
     let page: CGSize
+    let overWindow: Bool
 
     func makeNSView(context: Context) -> PreviewStage { PreviewStage() }
 
     func updateNSView(_ stage: PreviewStage, context: Context) {
+        // The page changes places (window or column) a moment before the
+        // place it left is taken down: that one mustn't take the web view back.
+        guard PreviewDrawer.shared.active == overWindow else { return }
         stage.show(session, page: page)
     }
 

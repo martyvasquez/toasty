@@ -58,12 +58,13 @@ enum MainMenu {
         add(edit, to: main)
 
         let view = NSMenu(title: "View")
-        view.addItem(item("Hide Workspaces", #selector(W.toggleWorkspaces(_:)), "s", [.command, .control]))
+        view.addItem(item("Hide Workspaces", #selector(W.toggleWorkspaces(_:)), "s", [.command, .shift]))
         view.addItem(item("Show Terminal", #selector(W.toggleTerminal(_:)), "t", [.command, .control]))
         view.addItem(item("Show Inspector", #selector(W.toggleInspector(_:)), "i", [.command, .control]))
-        view.addItem(item("Hide Inspector and Terminal", #selector(W.toggleRightColumn(_:)), "0", [.command, .option]))
+        view.addItem(item("Hide Inspector and Terminal", #selector(W.toggleRightColumn(_:)), "d", [.command, .shift]))
         // Hidden (shortcut and all) while the preview is turned off.
-        view.addItem(item("Show Preview", #selector(W.togglePreview(_:)), "p", [.command, .control]))
+        view.addItem(item("Show Preview", #selector(W.togglePreview(_:)), "b", [.command, .shift]))
+        view.addItem(item("Show at Phone Size", #selector(W.togglePreviewSize(_:)), "m", [.command, .shift]))
         view.addItem(.separator())
         for (i, tab) in InspectorTab.allCases.enumerated() {
             let t = item(tab.title, #selector(W.showInspectorTab(_:)), tab.shortcut, [.command, .control])

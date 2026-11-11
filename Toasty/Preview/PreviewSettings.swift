@@ -11,8 +11,11 @@ import SwiftUI
 /// delete that folder, `Debug/PreviewDebug.swift` and `Tests/PreviewTests`,
 /// then what's outside them: the preview's turn in the right column
 /// (`previewVisible` in `Workspace.swift`, `MainSplitViewController`,
-/// `TitlebarTabs`, `MainWindowController`, `MainMenu`; `applySidebar` and
-/// `sidebarHiddenForPreview` there hide the workspaces sidebar), local links clicked
+/// `TitlebarTabs`, `MainWindowController`, `MainMenu`), the drawer the
+/// conversation becomes when a desktop page needs the whole window
+/// (`PreviewDrawer`: `MainContainerController`, `drawerMode` in
+/// `MainSplitViewController`, and its uses in `TitlebarTabs`,
+/// `MainWindowController` and `Activity`), local links clicked
 /// in a terminal (`TerminalView.open`), the settings pane
 /// (`SettingsWindow`), the bridge's MCP relay
 /// (`toasty-agent.mjs`; `ClaudeConversation`: `mcpServers`, `mcp_call`),
@@ -31,16 +34,18 @@ final class PreviewSettings: ObservableObject {
         }
     }
 
-    /// While the preview is open, the workspaces sidebar gets out of its way
-    /// (on unless the user turned it off).
-    @Published var collapsesSidebar: Bool {
-        didSet { UserDefaults.standard.set(collapsesSidebar, forKey: Self.sidebarKey) }
+    /// The preview's column at phone size: the phone and a little room
+    /// either side, until the user drags it to another width. (A desktop
+    /// page takes all the room there is instead.)
+    var phoneColumnWidth: CGFloat {
+        get { (UserDefaults.standard.object(forKey: Self.phoneWidthKey) as? Double).map { CGFloat($0) } ?? Self.defaultPhoneColumnWidth }
+        set { UserDefaults.standard.set(Double(newValue), forKey: Self.phoneWidthKey) }
     }
-    private static let sidebarKey = "PreviewCollapsesSidebar"
+    static let defaultPhoneColumnWidth: CGFloat = 430
+    private static let phoneWidthKey = "PreviewPhoneColumnWidth"
 
     private init() {
         enabled = UserDefaults.standard.bool(forKey: Self.key)
-        collapsesSidebar = UserDefaults.standard.object(forKey: Self.sidebarKey) as? Bool ?? true
     }
 }
 
@@ -54,23 +59,15 @@ struct PreviewSettingsView: View {
                 Toggle("Preview browser", isOn: $settings.enabled)
             } footer: {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Experimental. A browser beside the conversation (⌃⌘P) for the site you're developing, at phone or desktop size. Comment on anything in the page to send it to the conversation you have open, and Claude can open pages, take screenshots and read the console there instead of in your own browser.")
+                    Text("Experimental. A browser beside the conversation (⇧⌘B) for the site you're developing, at phone or desktop size (⇧⌘M switches). Comment on anything in the page to send it to the conversation you have open, and Claude can open pages, take screenshots and read the console there instead of in your own browser.")
+                    Text("A desktop page is shown at its real size. In a window too narrow for that beside the conversation, the page takes the whole window and ⇧⌘S slides your workspaces and the conversation over it.")
                     Text("Claude gets the preview's tools in conversations started after you turn this on. While it's off, the preview isn't in Toasty at all and Claude Code runs exactly as it does by itself.")
                 }
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             }
-
-            Section {
-                Toggle("Hide the workspaces sidebar while the preview is open", isOn: $settings.collapsesSidebar)
-                    .disabled(!settings.enabled)
-            } footer: {
-                Text("Gives the page the sidebar's room, which matters most for the desktop size on a small screen. ⌃⌘S shows your workspaces over the conversation until you pick one or press Esc.")
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
         }
         .formStyle(.grouped)
-        .frame(width: 600, height: 325)
+        .frame(width: 600, height: 265)
     }
 }

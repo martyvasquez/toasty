@@ -277,6 +277,8 @@ final class PreviewSession: NSObject, ObservableObject {
         guard v != viewport else { return }
         viewport = v
         PreviewStore.shared.remember(self)
+        // A desktop page may need the whole window (and a phone never does).
+        PreviewDrawer.shared.changed.send()
         guard let web = webView else { return }
         web.customUserAgent = v.userAgent
         if let stage { stage.needsLayout = true } else { web.setFrameSize(v.nominal) }
@@ -425,9 +427,11 @@ final class PreviewSession: NSObject, ObservableObject {
         }
     }
 
-    /// Esc in the page: done commenting, back to the composer.
+    /// Esc in the page: done commenting, back to the composer (unless the
+    /// conversation is put away: then the page keeps the keyboard).
     func leaveCommenting() {
         setCommenting(false)
+        guard !PreviewDrawer.shared.hidesConversation else { return }
         WorkspaceStore.shared.workspaces.first { $0.id == workspaceID }?.selected?.focusComposer()
     }
 }

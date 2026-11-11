@@ -8,7 +8,9 @@ enum PreviewDebug {
         // {"cmd":"preview"} says what the active workspace's preview shows.
         DebugControl.register("preview") { cmd in
             if let on = cmd["enabled"] as? Bool { PreviewSettings.shared.enabled = on }
-            if let on = cmd["collapsesSidebar"] as? Bool { PreviewSettings.shared.collapsesSidebar = on }
+            // {"drawer":false} puts the conversation away (while a desktop
+            // page has the whole window); true slides it out.
+            if let open = cmd["drawer"] as? Bool { PreviewDrawer.shared.setOpen(open) }
             if let pane = cmd["settings"] as? String {
                 SettingsWindowController.shared.show(nil)
                 SettingsWindowController.shared.debugSelect(pane)
@@ -34,6 +36,13 @@ enum PreviewDebug {
             out["hosted"] = s.stage != nil
             if let web = s.webView { out["frame"] = NSStringFromRect(web.convert(web.bounds, to: nil)) }
             out["titlebarWidth"] = AppDelegate.shared.windowController?.layout.terminalWidth ?? -1
+            if let w = cmd["phoneWidth"] as? Double ?? (cmd["phoneWidth"] as? Int).map(Double.init) {
+                PreviewSettings.shared.phoneColumnWidth = CGFloat(w)
+                AppDelegate.shared.windowController?.split.applyColumn()
+            }
+            out["phoneWidth"] = Double(PreviewSettings.shared.phoneColumnWidth)
+            out["drawerActive"] = PreviewDrawer.shared.active
+            out["drawerOpen"] = PreviewDrawer.shared.open
             out["tools"] = PreviewTools.servers().count
             out["draft"] = w.selected?.draft ?? ""
             out["attachments"] = w.selected?.attachments.count ?? 0

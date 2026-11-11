@@ -118,11 +118,19 @@ final class Activity: NSObject, ObservableObject {
     /// workspace, and Toasty's window is key.
     func isVisible(_ conversation: ClaudeConversation) -> Bool {
         guard NSApp.isActive, AppDelegate.shared.windowController?.window?.isKeyWindow == true,
-              let w = conversation.workspace else { return false }
+              !PreviewDrawer.shared.hidesConversation else { return false }
+        return isShown(conversation)
+    }
+
+    /// Its tab is selected in the shown workspace.
+    private func isShown(_ conversation: ClaudeConversation) -> Bool {
+        guard let w = conversation.workspace else { return false }
         return w.store?.activeID == w.id && w.selectedID == conversation.id
     }
 
     func markShownAsSeen() {
+        // Put away for the preview's page: not seen until it's out again.
+        guard !PreviewDrawer.shared.hidesConversation else { return }
         if let c = WorkspaceStore.shared.active?.selected, c.attention { c.attention = false }
         syncDockBadge()
     }
@@ -147,6 +155,7 @@ final class Activity: NSObject, ObservableObject {
         store.activate(w.id)
         w.select(conversation)
         AppDelegate.shared.windowController?.showWindow(nil)
+        PreviewDrawer.shared.reveal()
         conversation.focusComposer()
     }
 
@@ -179,8 +188,10 @@ final class Activity: NSObject, ObservableObject {
         let location = [conversation.workspace?.displayName, conversation.title]
             .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " › ")
 
-        // 3. In-window toast (not for the conversation on screen).
-        if !visible {
+        // 3. In-window toast (not for the conversation on screen, nor for
+        // the one put away for the preview's page: the titlebar shows its
+        // status there).
+        if !visible, !(PreviewDrawer.shared.hidesConversation && isShown(conversation) && NSApp.isActive) {
             let color = !conversation.requests.isEmpty ? StatusColor.needsInput
                 : stopped ? StatusColor.stopped : StatusColor.ready
             present(Toast(title: title, body: body, location: location, color: color, conversation: conversation))

@@ -65,6 +65,22 @@ struct PreviewTests {
         #expect(fit.scale == 1)
     }
 
+    /// A desktop page beside the workspaces and the conversation needs
+    /// 1280 points of its own; a window without them gives it the whole
+    /// window and makes the conversation a drawer.
+    @Test func desktopPageTakesTheWindowWhenItCantFitBeside() {
+        // A 16-inch MacBook Pro's whole screen, and the window in the report.
+        #expect(!PreviewDrawer.fits(width: 1728, sidebar: 190))
+        #expect(!PreviewDrawer.fits(width: 1620, sidebar: 190))
+        // A window on a 27-inch display.
+        #expect(PreviewDrawer.fits(width: 2072, sidebar: 190))
+        // Exactly enough: 190 + 440 + 1280, and the two hairlines.
+        #expect(PreviewDrawer.fits(width: 1911, sidebar: 190))
+        #expect(!PreviewDrawer.fits(width: 1910, sidebar: 190))
+        // Wider workspaces need a wider window.
+        #expect(!PreviewDrawer.fits(width: 2000, sidebar: 320))
+    }
+
     @Test func commentSaysWhatWhereAndAtWhichSize() {
         let pick = PreviewSession.Pick(kind: .element, selector: "button.cta", text: "Start free trial",
                                        rect: .zero, viewport: CGSize(width: 390, height: 844),

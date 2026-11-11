@@ -8,6 +8,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     let store: WorkspaceStore
     let layout = WindowLayout()
     private(set) var split: MainSplitViewController!
+    private var container: MainContainerController!
     private var titlebarHost: NSView?
     private var titlebarLeading: NSLayoutConstraint?
     private var cancellables: Set<AnyCancellable> = []
@@ -35,8 +36,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         split.onLayout = { [weak self] in self?.updateTitlebar() }
         // Size the content before handing it to the window, which otherwise
         // shrinks to the split view's fitting size.
-        split.view.setFrameSize(NSSize(width: 1280, height: 820))
-        window.contentViewController = split
+        container = MainContainerController(store: store, split: split)
+        container.view.setFrameSize(NSSize(width: 1280, height: 820))
+        window.contentViewController = container
 
         if let frame = store.windowFrame, NSScreen.screens.contains(where: { $0.visibleFrame.intersects(frame) }) {
             window.setFrame(frame, display: false)
@@ -103,7 +105,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     }
 
     private func updateTitlebar() {
-        let minX = split.contentMinX
+        // With the conversation put away for the page (`PreviewDrawer`),
+        // the row runs from the window's edge.
+        let minX = PreviewDrawer.shared.hidesConversation ? 0 : split.contentMinX
         if let titlebarLeading, abs(titlebarLeading.constant - minX) > 0.25 { titlebarLeading.constant = minX }
         // The window buttons sit over the conversation when the sidebar is hidden.
         let inset: CGFloat = minX < 60 ? 76 - minX : 0
@@ -135,6 +139,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     }
 
     func windowDidResize(_ notification: Notification) { frameChanged() }
+    /// A narrow window squeezes the workspaces; with room again they're
+    /// back at their width.
+    func windowDidEndLiveResize(_ notification: Notification) { split.applySidebarWidth() }
     func windowDidMove(_ notification: Notification) { frameChanged() }
 
     private func frameChanged() {
@@ -161,6 +168,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             focusTerminal()
         } else {
             w.newConversation()
+            PreviewDrawer.shared.reveal()
         }
     }
 
@@ -190,7 +198,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     private func selectRelativeTab(_ delta: Int) {
         guard let w = store.active else { return }
-        if terminalFocused { w.selectTerminalRelative(delta) } else { w.selectRelative(delta) }
+        if terminalFocused { w.selectTerminalRelative(delta) } else {
+            w.selectRelative(delta)
+            PreviewDrawer.shared.reveal()
+        }
     }
 
     /// ⌃⌘T: show and focus the terminal; hide it when it already has focus.
@@ -214,7 +225,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         if w.inspectorVisible, !w.previewShowing { w.hideInspector() } else { w.showInspector() }
     }
 
-    /// ⌃⌘P and the titlebar button: the preview takes the right column, or
+    /// ⇧⌘B and the titlebar button: the preview takes the right column, or
     /// gives it back. (Experimental; no menu item while it's turned off.)
     @objc func togglePreview(_ sender: Any?) {
         guard let w = store.active, PreviewSettings.shared.enabled else { return }
@@ -223,13 +234,21 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         if hadTerminalFocus, w.previewShowing { window?.makeFirstResponder(nil) }
     }
 
+    /// ⇧⌘M: the page at the other size, phone or desktop (while the
+    /// preview is showing).
+    @objc func togglePreviewSize(_ sender: Any?) {
+        guard let w = store.active, w.previewShowing else { return }
+        let session = PreviewStore.shared.session(for: w)
+        session.setViewport(session.viewport == .mobile ? .desktop : .mobile)
+    }
+
     /// ⌃⌘1…3: show an inspector tab.
     @objc func showInspectorTab(_ sender: NSMenuItem) {
         guard let w = store.active, InspectorTab.allCases.indices.contains(sender.tag) else { return }
         w.showInspector(InspectorTab.allCases[sender.tag])
     }
 
-    /// ⌥⌘0 and the titlebar button: the whole right column.
+    /// ⇧⌘D and the titlebar button: the whole right column.
     @objc func toggleRightColumn(_ sender: Any?) {
         guard let w = store.active else { return }
         let hadTerminalFocus = terminalFocused
@@ -238,10 +257,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     }
 
     @objc func toggleWorkspaces(_ sender: Any?) {
-        // Beside the preview the sidebar is out of the way: float it over
-        // the conversation instead, until something is picked.
-        if split.sidebarHiddenForPreview, let window {
-            PreviewSidebarPanel.shared.toggle(in: window, store: store)
+        // A desktop page has the whole window: the workspaces and the
+        // conversation are a drawer over it, slid out or put away together.
+        let drawer = PreviewDrawer.shared
+        if drawer.active {
+            drawer.setOpen(!drawer.open)
             return
         }
         store.sidebarVisible.toggle()
@@ -296,6 +316,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             item.isHidden = !PreviewSettings.shared.enabled
             item.title = w?.previewShowing == true ? "Hide Preview" : "Show Preview"
             return w != nil && !item.isHidden
+        case #selector(togglePreviewSize(_:)):
+            item.isHidden = !PreviewSettings.shared.enabled
+            let showing = w?.previewShowing == true
+            let phone = showing && w.map { PreviewStore.shared.session(for: $0).viewport == .mobile } == true
+            item.title = phone ? "Show at Desktop Size" : "Show at Phone Size"
+            return showing && !item.isHidden
         case #selector(showInspectorTab(_:)):
             item.state = w?.inspectorVisible == true && w?.previewShowing != true && InspectorTab.allCases.indices.contains(item.tag)
                 && w?.inspectorTab == InspectorTab.allCases[item.tag] ? .on : .off
@@ -305,8 +331,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
                 ? "Hide Inspector and Terminal" : "Show Inspector and Terminal"
             return w != nil
         case #selector(toggleWorkspaces(_:)):
-            item.title = split.sidebarHiddenForPreview
-                ? (PreviewSidebarPanel.shared.isShown ? "Hide Workspaces" : "Show Workspaces")
+            let drawer = PreviewDrawer.shared
+            item.title = drawer.active
+                ? (drawer.open ? "Hide Workspaces and Conversation" : "Show Workspaces and Conversation")
                 : store.sidebarVisible ? "Hide Workspaces" : "Show Workspaces"
             return true
         case #selector(closeTab(_:)):

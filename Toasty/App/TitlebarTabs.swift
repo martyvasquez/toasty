@@ -20,6 +20,9 @@ struct TitlebarRow: View {
     @ObservedObject var layout: WindowLayout
     /// The preview's button comes and goes with its setting.
     @ObservedObject private var preview = PreviewSettings.shared
+    /// While the conversation is put away for the page (`PreviewDrawer`),
+    /// the preview's controls have the whole row.
+    @ObservedObject private var drawer = PreviewDrawer.shared
 
     static let toggleWidth: CGFloat = 40
     /// The preview's button, left of the column toggle (when it's turned on).
@@ -27,7 +30,13 @@ struct TitlebarRow: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            if let workspace = store.active {
+            if let workspace = store.active, drawer.hidesConversation {
+                RightColumnBar(workspace: workspace)
+                    .padding(.leading, layout.leadingInset)
+                    .frame(maxWidth: .infinity)
+                PreviewToggle(workspace: workspace)
+                ColumnToggle(workspace: workspace)
+            } else if let workspace = store.active {
                 ConversationTabBar(workspace: workspace)
                     .padding(.leading, layout.leadingInset)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -56,7 +65,7 @@ private struct RightColumnBar: View {
 
     var body: some View {
         if workspace.previewShowing {
-            PreviewToolbar(session: PreviewStore.shared.session(for: workspace))
+            PreviewToolbar(workspace: workspace, session: PreviewStore.shared.session(for: workspace))
                 .id(workspace.id)
         } else {
             InspectorTabBar(workspace: workspace)
@@ -79,7 +88,7 @@ private struct ColumnToggle: View {
         }
         .buttonStyle(.plain)
         .frame(width: TitlebarRow.toggleWidth)
-        .help(shown ? "Hide Inspector and Terminal (⌥⌘0)" : "Show Inspector (⌥⌘0)")
+        .help(shown ? "Hide Inspector and Terminal (⇧⌘D)" : "Show Inspector (⇧⌘D)")
         .accessibilityLabel(shown ? "Hide Inspector and Terminal" : "Show Inspector")
     }
 }
@@ -98,7 +107,7 @@ private struct PreviewToggle: View {
         }
         .buttonStyle(.plain)
         .frame(width: TitlebarRow.previewToggleWidth)
-        .help(workspace.previewShowing ? "Hide Preview (⌃⌘P)" : "Show Preview (⌃⌘P)")
+        .help(workspace.previewShowing ? "Hide Preview (⇧⌘B)" : "Show Preview (⇧⌘B)")
         .accessibilityLabel(workspace.previewShowing ? "Hide Preview" : "Show Preview")
     }
 }
@@ -309,7 +318,7 @@ private struct ConversationTabItem: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            status.frame(width: 12)
+            ConversationStatusIcon(conversation: conversation, selected: selected).frame(width: 12)
             if renaming {
                 TextField("Name", text: $draft)
                     .textFieldStyle(.plain)
@@ -349,11 +358,23 @@ private struct ConversationTabItem: View {
         .accessibilityLabel(conversation.title)
     }
 
-    /// Status (see `StatusColor`): orange dot waiting for you, spinner
-    /// working, blue/red dot finished/stopped while you weren't looking.
-    /// Otherwise a gray sparkle, or a branch for a fork (its title,
-    /// "… (fork)", is usually cut off).
-    @ViewBuilder private var status: some View {
+    private func commit() {
+        let t = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        conversation.customTitle = t.isEmpty ? nil : t
+        renaming = false
+        workspace.renamed()
+    }
+}
+
+/// A conversation's status (see `StatusColor`): orange dot waiting for you,
+/// spinner working, blue/red dot finished/stopped while you weren't looking.
+/// Otherwise a gray sparkle, or a branch for a fork (its title,
+/// "… (fork)", is usually cut off).
+struct ConversationStatusIcon: View {
+    @ObservedObject var conversation: ClaudeConversation
+    let selected: Bool
+
+    var body: some View {
         if !conversation.requests.isEmpty {
             StatusDot(color: StatusColor.needsInput)
         } else if conversation.phase != .idle {
@@ -365,13 +386,6 @@ private struct ConversationTabItem: View {
                 .font(.system(size: 9.5, weight: .semibold))
                 .foregroundStyle(selected ? Color.secondary : Color.secondary.opacity(0.6))
         }
-    }
-
-    private func commit() {
-        let t = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        conversation.customTitle = t.isEmpty ? nil : t
-        renaming = false
-        workspace.renamed()
     }
 }
 

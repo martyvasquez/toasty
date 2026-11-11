@@ -154,21 +154,32 @@ The user may remove it again: everything outside that folder is listed at
 the top of `PreviewSettings.swift`. Principles 1 and 2 in `BUILD_PLAN.md`
 §1 carry the exceptions it needed.
 
-What it is: a WKWebView in a right-hand panel of its own (⌃⌘P, or the
+What it is: a WKWebView in a right-hand panel of its own (⇧⌘B, or the
 compass button in the titlebar), one per workspace with its own cookies,
 for the site being developed. It and the inspector/terminal column are
 never open together: showing one swaps the other out, and closing the
 preview brings back what was there. It always opens at full width, with the
 conversation at its minimum, and its controls sit in the titlebar row above
 it (the user's layout, 2026-11-10; it began as an inspector tab).
-While it's open the workspaces sidebar collapses to give the page its room
-(Settings ▸ Preview can turn that off), and ⌃⌘S floats the sidebar over
-the conversation until a workspace or conversation is picked, Esc, or a
-click elsewhere (`PreviewSidebarPanel`). Resting the pointer on the window's
-left edge (0.15 s) slides it out too, and then it also leaves when the
-pointer does. Discussed and left for later: moving the activity toast to
+A desktop page is drawn at its real size (the user's call, 2026-11-10: a
+shrunken page isn't a preview, and hiding the sidebar wasn't enough on a
+16" screen). When the window hasn't room for workspaces + conversation +
+1280 points, the page takes the whole window and the workspaces and
+conversation become a drawer over its left side (`PreviewDrawer`,
+`MainContainerController`): ⇧⌘S or the button at the left of the preview's
+controls slides it out or puts it away, and nothing else does (no hover,
+no timer, clicking the page leaves it). While it's away the titlebar shows
+the open conversation as its tab would (name and status; click to bring
+the drawer out), and that conversation gets no toast. A new tab, switching
+tabs, or opening a notification brings the drawer out. In a wide window,
+and at phone size, the page stays beside the conversation.
+At phone size the preview is a sidebar of its own width (430 by default:
+the phone and a little room; dragging its edge sets another, kept apart
+from the inspector's) and the conversation gets the rest. A phone is never
+drawn smaller for a short window: its page is shorter and scrolls.
+Discussed and left for later: moving the activity toast to
 the upper-left while the preview is open. Phone (390×844,
-iPhone user agent) or desktop (1280 wide) size; the page is always laid out
+iPhone user agent) or desktop (1280 wide) size, ⇧⌘M to switch; the page is always laid out
 at its real width and drawn smaller in a narrow column. Comment mode: click
 an element or drag an area, type a note, and a screenshot plus one line
 (selector, viewport, URL) go to the open conversation. Return sends it at
@@ -183,6 +194,11 @@ and a local link (localhost, an IP address, `.local`) clicked in a terminal
 opens in the preview; named sites still go to the default browser.
 
 Not done / to decide after living with it:
+- The drawer: Esc doesn't put it away (in the conversation Esc interrupts
+  Claude). Its width is fixed (workspaces + the conversation's minimum).
+  The titlebar row changes at once while the drawer slides. Whether the
+  status in the titlebar is enough for permission prompts, or the drawer
+  should come out for them (the user: "try a status pill and see").
 - Turning the setting on or off reaches running conversations only when
   they restart (the SDK's `setMcpServers` could do it live).
 - No console view for the user (Claude has `read_console`; right-click ▸

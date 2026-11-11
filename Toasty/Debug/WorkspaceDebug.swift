@@ -159,6 +159,12 @@ enum WorkspaceDebug {
         }
 
         DebugControl.register("sidebar") { cmd in
+            // {"width":250} sets the width the user gave it (no toggle).
+            if let w = cmd["width"] as? Double ?? (cmd["width"] as? Int).map(Double.init) {
+                store.sidebarWidth = CGFloat(w)
+                AppDelegate.shared.windowController?.split.applySidebarWidth()
+                return state()
+            }
             store.sidebarVisible = cmd["visible"] as? Bool ?? !store.sidebarVisible
             return state()
         }
@@ -339,6 +345,7 @@ enum WorkspaceDebug {
         return [
             "active": store.workspaces.firstIndex { $0.id == store.activeID } ?? -1,
             "sidebarVisible": store.sidebarVisible,
+            "sidebarWidth": "\(Int(store.sidebarWidth)) wanted, \(Int(AppDelegate.shared.windowController?.split.sidebarItem.viewController.view.frame.width ?? -1)) shown",
             "renaming": store.renamingID.flatMap { id in store.workspaces.firstIndex { $0.id == id } } ?? -1,
             "windowTitle": wc?.window?.title ?? "",
             "windowFrame": wc?.window.map { NSStringFromRect($0.frame) } ?? "",
