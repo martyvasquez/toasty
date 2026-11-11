@@ -105,6 +105,11 @@ enum MainMenu {
         window.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         window.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
         window.addItem(.separator())
+        // Every dev server running on this Mac, each with a Stop button.
+        let servers = item("Local Servers", #selector(LocalServersWindowController.show(_:)), "")
+        servers.target = LocalServersWindowController.shared
+        window.addItem(servers)
+        window.addItem(.separator())
         window.addItem(item("Show Next Tab", #selector(W.selectNextTab(_:)), arrow(NSRightArrowFunctionKey), [.command, .option]))
         window.addItem(item("Show Previous Tab", #selector(W.selectPreviousTab(_:)), arrow(NSLeftArrowFunctionKey), [.command, .option]))
         // ⌘} / ⌘{: the macOS-standard tab shortcuts, kept as hidden alternates.

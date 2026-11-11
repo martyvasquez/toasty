@@ -114,6 +114,7 @@ targets:
       - path: Tests/DictationTests
       - path: Tests/ClaudeTests
       - path: Tests/PreviewTests
+      - path: Tests/ProcessTests
       - path: Tests/Fixtures
         type: folder
         buildPhase: resources

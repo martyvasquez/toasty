@@ -135,6 +135,8 @@ Toasty/
                   UNUserNotifications
   Dictation/      local voice dictation (§13): engine, mic, trigger,
                   text pipeline, vocabulary
+  Processes/      what conversations leave running: the process table,
+                  stopping it on close (§7), Window ▸ Local Servers
   Debug/          DEBUG-only control channel + in-app screenshot (§9)
   Resources/      Bridge/ (mostty-agent.mjs, claude-agent-sdk.mjs),
                   Assets.xcassets, SpeechModels/ (fetched, gitignored),
@@ -385,6 +387,36 @@ Re-implement mostty's behavior (`mostty/.../Workspaces/` +
     conversation is working.
   - Close/quit confirmation when a conversation is working/waiting or a
     terminal has a running process.
+- What Claude starts stops with its conversation (2026-11-10). A program
+  Claude runs can detach (`nohup`, a dev server that backgrounds itself)
+  and outlive Claude Code; it loses its parent, so it can't be found from
+  the conversation's process. It keeps its environment, so each
+  conversation's bridge starts with
+  `TOASTY_CONVERSATION=<bundle id>:<Toasty's pid>:<conversation id>`, which
+  everything Claude starts inherits (`ProcessReaper`):
+  - Closing a tab or a workspace: once Claude Code has ended (or 3 s),
+    every process with that conversation's tag gets SIGTERM, then SIGKILL
+    if it's still there 2 s later.
+  - Quitting: the same for every conversation, without holding up the quit
+    (the bridges and `claude` end on their own when Toasty's pipes close;
+    a small `sh` left behind kills what ignored SIGTERM).
+  - Launch: anything tagged by a run of this app that's gone (a crash, a
+    force quit) is stopped.
+  - Only tagged processes are touched: never a server the user runs in a
+    terminal (Toasty's or any other), whatever folder it's in. An app
+    Claude launched by its binary (not with `open`) carries the tag too and
+    closes with the conversation.
+- Window ▸ Local Servers (2026-11-10): a utility window listing every
+  program listening on a TCP port from a folder in the user's home folder
+  (not `~/Library`), whoever started it. Read from the kernel (libproc,
+  `KERN_PROCARGS2`; ~20 ms a pass), every 2 s while the window is open,
+  nothing otherwise. A row: the folder's name; `localhost:<port>`, the
+  command in two words ("astro dev"), "started 5 days ago", and
+  "Claude Code" when the process has `CLAUDECODE=1`; Open (the browser)
+  and Stop. Stop ends the server, its children, and the commands that ran
+  it in the same process group (`npm run dev` → `next dev` → the server),
+  since some restart it; the walk up ends at a shell, an app, or Claude
+  Code. No Stop All and no confirmation.
 
 ## 8. Phases
 

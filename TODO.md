@@ -252,11 +252,17 @@ of them. Rough order of value:
 - **`session_state_changed`** (idle / running / requires_action) as the
   source for sidebar status instead of inferring it. Needs
   `CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS=1`.
-- **Background tasks panel.** `task_started` / `task_progress` /
-  `task_notification` + `background_tasks_changed` (full live set; replace
-  the cache), `agentProgressSummaries` for one-line progress,
-  `stopTask(id)` per row, `backgroundTasks()` to move a running Bash or
-  subagent to the background (the CLI's Ctrl-B).
+- **Background tasks panel.** Built so far: the line above the composer
+  (`background_tasks_changed`, click to `stopTask`), and what Claude leaves
+  running stops when its conversation closes (BUILD_PLAN §7). Not built: a
+  list in the inspector (discussed 2026-11-10 and dropped in favor of
+  Window ▸ Local Servers; bring it back if servers running unseen while a
+  workspace is open turn out to bite), the line staying up during a turn,
+  `agentProgressSummaries` for one-line progress, `backgroundTasks()` to
+  move a running Bash or subagent to the background (the CLI's Ctrl-B).
+- **Local Servers follow-ups.** The preview's address field could offer the
+  ports found; a row could name the Toasty workspace or conversation that
+  started its server (the tag says which).
 - **Undo Claude's edits.** `enableFileCheckpointing` + `rewindFiles(uuid)`;
   pairs with Fork. The `replay-user-messages` prerequisite is already on.
   Only reverts Write/Edit/NotebookEdit: not Bash changes, most subagent

@@ -30,15 +30,23 @@ final class ClaudeAgentProcess {
         self.onExit = onExit
     }
 
+    /// The bridge's process, while it runs.
+    var pid: pid_t? { isRunning ? process.processIdentifier : nil }
+
     /// Start the bridge. `options` are passed to the bridge's `start`
-    /// message (cwd, resume, …); `sdk` is the Agent SDK it loads.
-    func start(environment env: ClaudeEnvironment.Resolved, options: [String: Any], sdk: ClaudeSDK.Option) throws {
+    /// message (cwd, resume, …); `sdk` is the Agent SDK it loads. `tag`
+    /// marks the bridge, Claude Code and everything Claude starts as this
+    /// conversation's (see `ProcessReaper`).
+    func start(environment env: ClaudeEnvironment.Resolved, options: [String: Any], sdk: ClaudeSDK.Option,
+               tag: ProcessReaper.Tag) throws {
         guard let script = Bundle.main.url(forResource: "toasty-agent", withExtension: "mjs", subdirectory: "Bridge") else {
             throw ClaudeAgentError.missingBridge
         }
         process.executableURL = URL(fileURLWithPath: env.node)
         process.arguments = [script.path]
-        process.environment = Self.environment(env, sdk: sdk)
+        var variables = Self.environment(env, sdk: sdk)
+        variables[ProcessReaper.variable] = tag.value
+        process.environment = variables
         process.currentDirectoryURL = URL(fileURLWithPath: options["cwd"] as? String ?? NSHomeDirectory())
         process.standardInput = stdin
         process.standardOutput = stdout
@@ -254,6 +262,7 @@ nonisolated enum ClaudeEnvironment {
         "GHOSTTY_RESOURCES_DIR", "GHOSTTY_BIN_DIR", "GHOSTTY_SHELL_FEATURES", "GHOSTTY_SHELL_INTEGRATION_NO_SUDO",
         "SHLVL", "_", "OLDPWD", "PWD", "XPC_SERVICE_NAME", "XPC_FLAGS",
         "__CF_USER_TEXT_ENCODING", "CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SSE_PORT",
+        ProcessReaper.variable,
     ]
 
     private static func loginShellEnvironment() -> [String: String] {

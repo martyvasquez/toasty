@@ -27,8 +27,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DictationDebug.install()
         PreviewDebug.install()
         ScreenshotDebug.install()
+        ProcessDebug.install()
         #endif
         store.load()
+        // Anything a crashed or force-quit run left running stops now.
+        ProcessReaper.sweepLeftovers()
         Activity.shared.start()
         let controller = MainWindowController(store: store)
         windowController = controller
@@ -109,6 +112,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         store.save()
+        // What Claude started in any conversation stops with Toasty.
+        if !Self.isRunningTests {
+            ProcessReaper.reapAtQuit(agents: store.workspaces.flatMap(\.conversations).compactMap(\.agentPID))
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }

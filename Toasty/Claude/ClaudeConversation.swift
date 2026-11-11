@@ -728,7 +728,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 let servers = PreviewTools.servers()
                 if !servers.isEmpty { options["mcpServers"] = servers }
                 do {
-                    try agent.start(environment: env, options: options, sdk: sdk)
+                    try agent.start(environment: env, options: options, sdk: sdk, tag: ProcessReaper.tag(for: self.id))
                     self.agent = agent
                     self.sdk = sdk
                     self.agentAlive = false
@@ -746,11 +746,19 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         startAgent()
     }
 
+    /// The tab or its workspace is closing: end Claude Code, and stop
+    /// whatever it started that's still running (a dev server it left in
+    /// the background, say).
     func stop() {
+        let pid = agent?.pid
         agent?.terminate()
         agent = nil
         sessionRunning = false
+        ProcessReaper.reap(conversation: id, after: pid)
     }
+
+    /// The bridge's process, while Claude Code runs for this tab.
+    var agentPID: pid_t? { agent?.pid }
 
     private func agentExited(_ status: Int32, stderr: String) {
         // A downloaded SDK that died before Claude Code said anything:
