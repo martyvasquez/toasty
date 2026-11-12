@@ -136,7 +136,10 @@ async function start(msg) {
     // honors the user's promptSuggestionEnabled setting).
     promptSuggestions: true,
     canUseTool,
-    env: { ...process.env, CLAUDE_AGENT_SDK_CLIENT_APP: "toasty" },
+    // Claude Code leaves its Artifact tools out of SDK sessions unless asked
+    // (the interactive CLI has them), and without them a claude.ai artifact
+    // link can't be read. The user's own environment still decides.
+    env: { CLAUDE_CODE_ARTIFACT: "1", ...process.env, CLAUDE_AGENT_SDK_CLIENT_APP: "toasty" },
     stderr: (data) => process.stderr.write(data),
     // Echo user messages on the stream, like `--replay-user-messages`: how
     // messages that didn't come from Toasty's composer (another session's
