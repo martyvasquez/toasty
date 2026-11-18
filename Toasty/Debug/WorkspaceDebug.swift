@@ -99,7 +99,8 @@ enum WorkspaceDebug {
         }
 
         // {"cmd":"teeup","action":"add","text":"…","files":"/a.png,/b.pdf"} ·
-        // send|delete|edit|move (with "to") by "index" · done · new · drop with "files".
+        // send|delete|edit|move (with "to") by "index" · done · new · drop with "files" ·
+        // feed · pause · feedState · hold with "index" and "on".
         DebugControl.register("teeup") { cmd in
             guard let w = store.active else { throw E("no active workspace") }
             let action = cmd["action"] as? String ?? "list"
@@ -116,6 +117,13 @@ enum WorkspaceDebug {
                 w.addTeeUp(item)
             case "new": w.newTeeUp(with: files)
             case "drop": w.attachToTeeUp(files)
+            case "feed": cmd["ask"] as? Bool == true ? w.requestTeeUpFeed() : w.startTeeUpFeed()
+            case "pause": w.stopTeeUpFeed()
+            case "hold": w.setTeeUpHeld(try target().id, cmd["on"] as? Bool ?? true)
+            case "feedState":
+                return ["feeding": w.teeUpFeed != nil, "tab": w.teeUpFeedTab?.title ?? "",
+                        "countingDown": w.teeUpFeed?.nextAt != nil, "note": w.teeUpFeedNote ?? "",
+                        "left": w.teeUps.filter { !$0.isHeld }.count] as [String: Any]
             case "edit": w.editTeeUp(try target().id)
             case "done": w.endTeeUpEdit()
             case "send": if !w.sendTeeUp(try target().id) { throw E("no tab to send to") }
@@ -125,7 +133,7 @@ enum WorkspaceDebug {
                 w.moveTeeUp(try target().id, to: to)
             default: throw E("unknown action \(action)")
             }
-            return w.teeUps.map { ["text": $0.text, "images": $0.images.count, "files": $0.files] as [String: Any] }
+            return w.teeUps.map { ["text": $0.text, "images": $0.images.count, "files": $0.files, "held": $0.isHeld] as [String: Any] }
         }
 
         // {"cmd":"tab","action":"new"} · select|close|rename|status with "index".

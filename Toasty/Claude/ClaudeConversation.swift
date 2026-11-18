@@ -600,6 +600,8 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         draft = ""
         attachments = []
         files = []
+        // The user is steering this tab themselves now.
+        workspace?.pauseTeeUpFeed(for: self, because: "Paused: you sent a message")
         post(typed, images: images, files: attachedFiles)
     }
 
@@ -648,6 +650,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         interrupted = true
         // Pending prompts are cancelled by the interrupt itself.
         requests.removeAll()
+        workspace?.pauseTeeUpFeed(for: self, because: "Paused: interrupted")
         agent?.send(["type": "interrupt"])
     }
 
@@ -789,6 +792,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         startModel = nil
         queued.removeAll()
         requests.removeAll()
+        workspace?.pauseTeeUpFeed(for: self, because: "Paused: Claude Code stopped")
         if phase != .idle || status != 0 {
             let detail = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             if status != 0 || phase == .working {
@@ -1174,6 +1178,8 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             refreshContextUsage()
             sendPendingName()
             adoptClaudeTitle()
+            workspace?.teeUpTurnEnded(self, cleanly: !wasInterrupted && subtype == "success" && !isError,
+                                      interrupted: wasInterrupted)
             if wasInterrupted {
                 append(.notice, "Interrupted · What should Claude do instead?")
             } else if subtype == "success" && !isError {
@@ -1345,6 +1351,9 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
     private func append(_ kind: ClaudeItem.Kind, _ text: String) {
         items.append(ClaudeItem(kind: kind, text: text))
+        // Any error here (a turn's, or Claude Code not starting) stops
+        // prompts being sent to this tab automatically.
+        if kind == .error { workspace?.pauseTeeUpFeed(for: self, because: "Paused: Claude stopped with an error") }
     }
 
     static func resultText(_ content: Any?) -> String {

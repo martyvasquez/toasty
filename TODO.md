@@ -146,6 +146,18 @@ the context menu. The list is saved with the workspace; pictures are PNGs in `Ap
 
 ### To decide after using it
 
+- **Auto-Send (trial, 2026-11-18).** A bar under the
+  list turns it on for the open tab, after a confirmation that names the
+  tab, the count and its permission mode; it stays with that tab while you
+  move around. Each prompt is sent when Claude
+  finishes the one before, after a 5 s countdown, top to bottom. It stops
+  by itself on an error, an interrupt, a pending permission/question, a
+  message typed in that tab, the next prompt being open for editing, the
+  tab closing, or a relaunch. A card's menu holds it back ("Hold Back from
+  Auto-Send"). Known gaps: Claude ending on a plain-text question looks
+  like a clean finish (the countdown is the only guard); every turn still
+  notifies. A draggable "stop here" line was the alternative to Hold.
+
 - **Screenshots follow the cursor (trial, 2026-11-18).** ⇧⌘0 attaches to
   the prompt field that last had the text cursor: the composer or an open
   tee-up card (else the open conversation). Watch

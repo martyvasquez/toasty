@@ -23,6 +23,13 @@ final class Workspace: ObservableObject, Identifiable {
     /// Prompts teed up for later (the inspector's Tee-Up tab): the
     /// workspace's, shared by all of its tabs.
     @Published private(set) var teeUps: [TeeUp] = []
+    /// Auto-Send: teed-up prompts are being sent to one tab, each when
+    /// Claude finishes the one before. Never saved: after a relaunch it's
+    /// off until turned on again.
+    @Published private(set) var teeUpFeed: TeeUpFeed?
+    /// Why Auto-Send last stopped by itself (shown until it's started again).
+    @Published private(set) var teeUpFeedNote: String?
+    private var teeUpFeedTimer: DispatchWorkItem?
     /// The teed-up prompt open for editing in place.
     @Published private(set) var teeUpEditingID: UUID?
     /// A changed file whose diff fills the conversation column.
@@ -164,6 +171,7 @@ final class Workspace: ObservableObject, Identifiable {
     func close(_ conversation: ClaudeConversation) {
         guard let i = conversations.firstIndex(where: { $0.id == conversation.id }) else { return }
         conversation.stop()
+        if teeUpFeed?.conversationID == conversation.id { stopTeeUpFeed() }
         Activity.shared.forget(conversation)
         statusObservers[conversation.id] = nil
         var list = conversations
@@ -361,19 +369,128 @@ final class Workspace: ObservableObject, Identifiable {
         changed()
     }
 
-    /// Send a teed-up prompt to the open tab, as if typed there: it leaves
-    /// the list. False if there's no tab to send it to.
+    /// Send a teed-up prompt to the open tab (or `tab`), as if typed there:
+    /// it leaves the list. False if there's no tab to send it to.
     @discardableResult
-    func sendTeeUp(_ id: UUID) -> Bool {
-        guard let conversation = selected, let i = teeUps.firstIndex(where: { $0.id == id }) else { return false }
+    func sendTeeUp(_ id: UUID, to tab: ClaudeConversation? = nil) -> Bool {
+        guard let conversation = tab ?? selected, let i = teeUps.firstIndex(where: { $0.id == id }) else { return false }
         if teeUpEditingID == id { teeUpEditingID = nil }
         let item = teeUps.remove(at: i)
-        diffFile = nil  // show the conversation it went to
+        if tab == nil { diffFile = nil }  // show the conversation it went to
         conversation.post(item.text, images: item.images.compactMap(TeeUpImages.image),
                           files: item.files.map { URL(fileURLWithPath: $0) })
         TeeUpImages.delete(item.images)
         changed()
         return true
+    }
+
+    func setTeeUpHeld(_ id: UUID, _ held: Bool) {
+        guard let i = teeUps.firstIndex(where: { $0.id == id }), teeUps[i].isHeld != held else { return }
+        teeUps[i].held = held ? true : nil
+        changed()
+    }
+
+    // MARK: Tee-Up Auto-Send
+
+    /// Seconds between Claude finishing and the next prompt going out:
+    /// time to read the reply and pause.
+    static let teeUpFeedDelay: TimeInterval = 5
+
+    /// The prompt Auto-Send would send next: the first that isn't held.
+    var nextTeeUpToFeed: TeeUp? { teeUps.first { !$0.isHeld } }
+
+    /// The tab Auto-Send is sending to.
+    var teeUpFeedTab: ClaudeConversation? {
+        teeUpFeed.flatMap { feed in conversations.first { $0.id == feed.conversationID } }
+    }
+
+    /// The Auto-Send button: say what's about to happen, and where, before
+    /// anything is sent. A slip here would send a whole list of prompts.
+    func requestTeeUpFeed() {
+        guard let conversation = selected, nextTeeUpToFeed != nil else { return }
+        let count = teeUps.filter { !$0.isHeld }.count
+        let mode: String
+        switch conversation.permissionMode {
+        case "default": mode = "That tab is in Ask Before Edits, so it will wait whenever Claude needs your permission."
+        case "plan": mode = "That tab is in Plan Mode, so it will wait when Claude has a plan to review."
+        case "acceptEdits": mode = "That tab is in Accept Edits, so Claude will edit files without asking."
+        default: mode = "That tab is in \(ClaudeModeMenu.label(conversation.permissionMode)), so Claude will make changes without asking."
+        }
+        // Which tab, unmistakably: its name, where it is in the row, and
+        // the workspace (several tabs can be called "New Chat").
+        let position = (conversations.firstIndex { $0.id == conversation.id } ?? 0) + 1
+        let place = conversations.count > 1 ? "tab \(position) of \(conversations.count) in \(displayName)" : "the only tab in \(displayName)"
+        let what = count == 1 ? "1 prompt goes" : "\(count) prompts go"
+        let first = conversation.isBusy ? "The first is sent when Claude finishes what it's doing"
+                                        : "The first is sent now"
+        let rest = count == 1 ? "." : ", and each of the others when Claude finishes the one before."
+        Activity.shared.confirm("""
+            \(what) to “\(conversation.title)”, \(place): the tab that's open now. Only that tab, even after you switch to another.
+
+            \(first)\(rest) \(mode)
+
+            It stops if Claude hits an error or you send a message in that tab, and Pause stops it at any time.
+            """,
+            title: "Auto-Send to “\(conversation.title)”?",
+            button: "Start Auto-Send") { [weak self, weak conversation] in
+            // Still the tab that was asked about.
+            guard let self, let conversation, self.selected?.id == conversation.id else { return }
+            self.startTeeUpFeed()
+        }
+    }
+
+    /// Turn Auto-Send on for the open tab. If Claude is idle there the
+    /// first prompt goes now; otherwise when the turn under way finishes.
+    func startTeeUpFeed() {
+        guard let conversation = selected, nextTeeUpToFeed != nil else { return }
+        teeUpFeedTimer?.cancel()
+        teeUpFeedNote = nil
+        teeUpFeed = TeeUpFeed(conversationID: conversation.id)
+        if !conversation.isBusy { feedNextTeeUp() }
+    }
+
+    /// Turn Auto-Send off (the Pause button). Claude finishes what it has.
+    func stopTeeUpFeed() {
+        teeUpFeedTimer?.cancel()
+        teeUpFeed = nil
+        teeUpFeedNote = nil
+    }
+
+    /// Auto-Send stops by itself, saying why, if it's sending to `conversation`.
+    func pauseTeeUpFeed(for conversation: ClaudeConversation, because note: String) {
+        guard teeUpFeed?.conversationID == conversation.id else { return }
+        teeUpFeedTimer?.cancel()
+        teeUpFeed = nil
+        teeUpFeedNote = note
+    }
+
+    /// A turn ended in `conversation`. Only a clean finish feeds the next
+    /// prompt (after a pause): later prompts usually build on this one.
+    func teeUpTurnEnded(_ conversation: ClaudeConversation, cleanly: Bool, interrupted: Bool) {
+        guard teeUpFeed?.conversationID == conversation.id else { return }
+        guard cleanly else {
+            return pauseTeeUpFeed(for: conversation, because: interrupted ? "Paused: interrupted" : "Paused: Claude stopped with an error")
+        }
+        guard nextTeeUpToFeed != nil else { return stopTeeUpFeed() }
+        teeUpFeed?.nextAt = Date().addingTimeInterval(Self.teeUpFeedDelay)
+        let work = DispatchWorkItem { [weak self] in self?.feedNextTeeUp() }
+        teeUpFeedTimer?.cancel()
+        teeUpFeedTimer = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.teeUpFeedDelay, execute: work)
+    }
+
+    private func feedNextTeeUp() {
+        guard let conversation = teeUpFeedTab else { return stopTeeUpFeed() }
+        teeUpFeed?.nextAt = nil
+        guard let next = nextTeeUpToFeed else { return stopTeeUpFeed() }
+        // Claude is busy or waiting on the user after all: not now.
+        guard !conversation.isBusy else {
+            return pauseTeeUpFeed(for: conversation, because: "Paused: Claude is waiting for you")
+        }
+        guard teeUpEditingID != next.id else {
+            return pauseTeeUpFeed(for: conversation, because: "Paused: the next prompt is being edited")
+        }
+        sendTeeUp(next.id, to: conversation)
     }
 
     /// Every picture this workspace's teed-up prompts still use.
@@ -506,6 +623,14 @@ final class Workspace: ObservableObject, Identifiable {
         // (Not a new prompt that was still empty when Toasty quit.)
         teeUps = (s.teeUps ?? []).filter { !$0.isEmpty }
     }
+}
+
+/// Auto-Send under way (see `Workspace.startTeeUpFeed`).
+struct TeeUpFeed: Equatable {
+    /// The tab the prompts go to: the one that was open when it was started.
+    let conversationID: UUID
+    /// When the next prompt goes out, while counting down to it.
+    var nextAt: Date?
 }
 
 /// The inspector's tabs.

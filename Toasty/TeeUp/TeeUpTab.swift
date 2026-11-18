@@ -21,6 +21,9 @@ struct TeeUpTab: View {
                 InspectorEmpty(symbol: InspectorTab.teeUp.symbol, title: "Nothing Teed Up",
                                detail: "Write prompts ahead of time, then send each one to the open tab when you're ready.")
             }
+            if !workspace.teeUps.isEmpty || workspace.teeUpFeed != nil || workspace.teeUpFeedNote != nil {
+                TeeUpFeedBar(workspace: workspace)
+            }
         }
         // Files dropped anywhere on the tab go on the open prompt, or
         // start a new one.
@@ -55,6 +58,7 @@ struct TeeUpTab: View {
                                   edit: { workspace.editTeeUp(item.id) },
                                   close: { if workspace.teeUpEditingID == item.id { close() } },
                                   move: { workspace.moveTeeUp(item.id, to: i + $0) },
+                                  hold: { workspace.setTeeUpHeld(item.id, !item.isHeld) },
                                   delete: { workspace.removeTeeUp(item.id) },
                                   filesTargeted: $filesOverText)
                             .id(item.id)
@@ -129,6 +133,7 @@ private struct TeeUpCard: View {
     let edit: () -> Void
     let close: () -> Void
     let move: (Int) -> Void
+    let hold: () -> Void
     let delete: () -> Void
     @Binding var filesTargeted: Bool
     @State private var hovering = false
@@ -169,6 +174,8 @@ private struct TeeUpCard: View {
             Button("Move Up") { move(-1) }.disabled(!canMoveUp)
             Button("Move Down") { move(1) }.disabled(!canMoveDown)
             Divider()
+            Toggle("Hold Back from Auto-Send", isOn: Binding(get: { item.isHeld }, set: { _ in hold() }))
+            Divider()
             Button("Delete", action: delete)
         }
         .accessibilityElement(children: .contain)
@@ -178,10 +185,17 @@ private struct TeeUpCard: View {
         HStack(spacing: 8) {
             Text(title)
                 .font(.system(size: TeeUpStyle.fontSize))
-                .foregroundStyle(item.text.isEmpty ? .secondary : .primary)
+                .foregroundStyle(item.text.isEmpty || item.isHeld ? .secondary : .primary)
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
+            if item.isHeld {
+                Image(systemName: "pause.fill")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.tertiary)
+                    .help("Held back from Auto-Send")
+                    .accessibilityLabel("Held back from Auto-Send")
+            }
             if attachmentCount > 0 {
                 HStack(spacing: 2) {
                     Image(systemName: "paperclip").font(.system(size: 10.5, weight: .medium))
@@ -263,6 +277,81 @@ private struct ClickOutside: NSViewRepresentable {
 
         // Only watches: clicks on the card go to the card.
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    }
+}
+
+/// Under the list: Auto-Send's switch and what it's doing. Off, it's one
+/// quiet button; on, it names the tab, counts down to the next prompt, and
+/// is where to pause. (Laid out like the inspector's Terminal footer.)
+private struct TeeUpFeedBar: View {
+    @ObservedObject var workspace: Workspace
+    @State private var hovering = false
+
+    var body: some View {
+        let feed = workspace.teeUpFeed
+        let left = workspace.teeUps.filter { !$0.isHeld }.count
+        HStack(spacing: 6) {
+            if let feed {
+                Image(systemName: "play.fill").font(.system(size: 9)).foregroundStyle(Color.accentColor)
+                Group {
+                    if let at = feed.nextAt {
+                        TimelineView(.periodic(from: .now, by: 0.25)) { context in
+                            Text("Next in \(max(1, Int(at.timeIntervalSince(context.date).rounded(.up))))s")
+                                .monospacedDigit()
+                        }
+                    } else {
+                        Text("Sending to “\(workspace.teeUpFeedTab?.title ?? "")”")
+                    }
+                }
+                .font(.system(size: 12))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                Text("· \(left) left").font(.system(size: 12)).foregroundStyle(.tertiary).fixedSize()
+                Spacer(minLength: 8)
+                barButton("Pause", help: "Stop sending automatically. Claude finishes what it has.") {
+                    workspace.stopTeeUpFeed()
+                }
+            } else {
+                Button { workspace.requestTeeUpFeed() } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "play").font(.system(size: 10))
+                        Text("Auto-Send…").font(.system(size: 12))
+                    }
+                    .foregroundStyle(hovering && canStart ? .primary : .secondary)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!canStart)
+                .onHover { hovering = $0 }
+                .help(startHelp)
+                if let note = workspace.teeUpFeedNote {
+                    Text(note)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 32)
+        .overlay(alignment: .top) { Rectangle().fill(Color.claudeSeparator).frame(height: 0.5) }
+        .animation(.easeOut(duration: 0.15), value: feed)
+    }
+
+    private var canStart: Bool { workspace.selected != nil && workspace.nextTeeUpToFeed != nil }
+
+    private var startHelp: String {
+        guard let tab = workspace.selected else { return "Open a tab to send prompts to" }
+        guard workspace.nextTeeUpToFeed != nil else { return "Every prompt is held back" }
+        return "Send these to “\(tab.title)” one after another, each when Claude finishes the one before"
+    }
+
+    private func barButton(_ title: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .controlSize(.small)
+            .help(help)
     }
 }
 

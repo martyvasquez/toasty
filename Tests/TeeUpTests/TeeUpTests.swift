@@ -142,6 +142,28 @@ struct TeeUpTests {
         #expect(layout.clamped(30, from: 1) == 26)
     }
 
+    @Test func autoSendSkipsHeldPromptsAndNeedsATab() {
+        let w = workspace(["a", "b", "c"])
+        w.setTeeUpHeld(w.teeUps[0].id, true)
+        #expect(w.nextTeeUpToFeed?.text == "b")
+        w.setTeeUpHeld(w.teeUps[0].id, false)
+        #expect(w.nextTeeUpToFeed?.text == "a")
+        // No tab to send to: it doesn't start.
+        w.startTeeUpFeed()
+        #expect(w.teeUpFeed == nil)
+    }
+
+    @Test func heldIsSavedAndOlderListsStillLoad() throws {
+        let w = workspace(["a", "b"])
+        w.setTeeUpHeld(w.teeUps[1].id, true)
+        let data = try JSONEncoder().encode(w.saved)
+        let restored = Workspace(saved: try JSONDecoder().decode(Workspace.Saved.self, from: data))
+        #expect(restored.teeUps.map(\.isHeld) == [false, true])
+        // A prompt saved before "held" existed.
+        let old = #"{"id":"\#(UUID().uuidString)","text":"x","images":[],"files":[]}"#
+        #expect(try JSONDecoder().decode(TeeUp.self, from: Data(old.utf8)).isHeld == false)
+    }
+
     @Test func sendingNeedsATab() {
         let w = workspace(["a"])
         #expect(!w.sendTeeUp(w.teeUps[0].id))

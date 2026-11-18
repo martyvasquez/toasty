@@ -10,6 +10,11 @@ struct TeeUp: Identifiable, Codable, Equatable {
     var images: [String] = []
     /// Other files, by path: Claude reads them itself.
     var files: [String] = []
+    /// Skipped by Auto-Send: it waits to be sent by hand. (Optional, so
+    /// lists saved before it existed still load.)
+    var held: Bool?
+
+    var isHeld: Bool { held == true }
 
     var isEmpty: Bool {
         text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && images.isEmpty && files.isEmpty
