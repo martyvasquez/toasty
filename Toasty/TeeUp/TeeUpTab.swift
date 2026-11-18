@@ -21,7 +21,7 @@ struct TeeUpTab: View {
                 InspectorEmpty(symbol: InspectorTab.teeUp.symbol, title: "Nothing Teed Up",
                                detail: "Write prompts ahead of time, then send each one to the open tab when you're ready.")
             }
-            if !workspace.teeUps.isEmpty || workspace.teeUpFeed != nil || workspace.teeUpFeedNote != nil {
+            if !workspace.teeUps.isEmpty || workspace.teeUpFeed != nil {
                 TeeUpFeedBar(workspace: workspace)
             }
         }
@@ -289,28 +289,35 @@ private struct TeeUpFeedBar: View {
 
     var body: some View {
         let feed = workspace.teeUpFeed
-        let left = workspace.teeUps.filter { !$0.isHeld }.count
+        // Why it paused, or what the reply check decided: a line of its
+        // own, so it can be read in full.
+        let detail = feed.flatMap { $0.paused ?? $0.verdict }.flatMap { $0.isEmpty ? nil : $0 }
+        VStack(alignment: .leading, spacing: 3) {
+            row(feed)
+            if let detail {
+                Text(detail)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 15)
+                    .transition(.opacity)
+            }
+        }
+        .controlSize(.small)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 5)
+        .frame(minHeight: 32)
+        .overlay(alignment: .top) { Rectangle().fill(Color.claudeSeparator).frame(height: 0.5) }
+        .animation(.easeOut(duration: 0.15), value: feed)
+    }
+
+    private func row(_ feed: TeeUpFeed?) -> some View {
         HStack(spacing: 6) {
-            if let feed {
-                Image(systemName: "play.fill").font(.system(size: 9)).foregroundStyle(Color.accentColor)
-                Group {
-                    if let at = feed.nextAt {
-                        TimelineView(.periodic(from: .now, by: 0.25)) { context in
-                            Text("Next in \(max(1, Int(at.timeIntervalSince(context.date).rounded(.up))))s")
-                                .monospacedDigit()
-                        }
-                    } else {
-                        Text("Sending to “\(workspace.teeUpFeedTab?.title ?? "")”")
-                    }
-                }
-                .font(.system(size: 12))
-                .lineLimit(1)
-                .truncationMode(.tail)
-                Text("· \(left) left").font(.system(size: 12)).foregroundStyle(.tertiary).fixedSize()
-                Spacer(minLength: 8)
-                barButton("Pause", help: "Stop sending automatically. Claude finishes what it has.") {
-                    workspace.stopTeeUpFeed()
-                }
+            if let feed, feed.paused != nil {
+                paused
+            } else if let feed {
+                running(feed)
             } else {
                 Button { workspace.requestTeeUpFeed() } label: {
                     HStack(spacing: 6) {
@@ -324,21 +331,56 @@ private struct TeeUpFeedBar: View {
                 .disabled(!canStart)
                 .onHover { hovering = $0 }
                 .help(startHelp)
-                if let note = workspace.teeUpFeedNote {
-                    Text(note)
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                }
                 Spacer(minLength: 0)
             }
         }
-        .padding(.horizontal, 14)
-        .frame(height: 32)
-        .overlay(alignment: .top) { Rectangle().fill(Color.claudeSeparator).frame(height: 0.5) }
-        .animation(.easeOut(duration: 0.15), value: feed)
+        .frame(height: 22)
     }
+
+    /// Sending: what it's doing now, then Pause and Stop.
+    @ViewBuilder private func running(_ feed: TeeUpFeed) -> some View {
+        let left = workspace.teeUps.filter { !$0.isHeld }.count
+        Image(systemName: "play.fill").font(.system(size: 9)).foregroundStyle(Color.accentColor)
+        Group {
+            if let at = feed.nextAt {
+                TimelineView(.periodic(from: .now, by: 0.25)) { context in
+                    Text("Next in \(max(1, Int(at.timeIntervalSince(context.date).rounded(.up))))s")
+                        .monospacedDigit()
+                }
+                .fixedSize()
+            } else if feed.checking != nil {
+                Text("Checking Claude's reply…")
+            } else {
+                Text("Sending to “\(tab)”")
+            }
+        }
+        .font(.system(size: 12))
+        .lineLimit(1)
+        .truncationMode(.tail)
+        Text("· \(left) left").font(.system(size: 12)).foregroundStyle(.tertiary).fixedSize()
+        Spacer(minLength: 8)
+        Button("Pause") { workspace.pauseTeeUpFeed() }
+            .help("Send nothing more to “\(tab)” until you resume. Claude finishes what it has.")
+        stopButton
+    }
+
+    /// Paused (the reason is on the line below), then Resume and Stop.
+    @ViewBuilder private var paused: some View {
+        Image(systemName: "pause.fill").font(.system(size: 9)).foregroundStyle(.secondary)
+        Text("Paused").font(.system(size: 12)).fixedSize()
+        Spacer(minLength: 8)
+        Button("Resume") { workspace.resumeTeeUpFeed() }
+            .disabled(workspace.nextTeeUpToFeed == nil)
+            .help("Carry on sending to “\(tab)”")
+        stopButton
+    }
+
+    private var stopButton: some View {
+        Button("Stop") { workspace.stopTeeUpFeed() }
+            .help("Turn Auto-Send off. The prompts that are left stay teed up.")
+    }
+
+    private var tab: String { workspace.teeUpFeedTab?.title ?? "" }
 
     private var canStart: Bool { workspace.selected != nil && workspace.nextTeeUpToFeed != nil }
 
@@ -346,12 +388,6 @@ private struct TeeUpFeedBar: View {
         guard let tab = workspace.selected else { return "Open a tab to send prompts to" }
         guard workspace.nextTeeUpToFeed != nil else { return "Every prompt is held back" }
         return "Send these to “\(tab.title)” one after another, each when Claude finishes the one before"
-    }
-
-    private func barButton(_ title: String, help: String, action: @escaping () -> Void) -> some View {
-        Button(title, action: action)
-            .controlSize(.small)
-            .help(help)
     }
 }
 

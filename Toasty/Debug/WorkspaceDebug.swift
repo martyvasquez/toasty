@@ -100,7 +100,7 @@ enum WorkspaceDebug {
 
         // {"cmd":"teeup","action":"add","text":"…","files":"/a.png,/b.pdf"} ·
         // send|delete|edit|move (with "to") by "index" · done · new · drop with "files" ·
-        // feed · pause · feedState · hold with "index" and "on".
+        // feed · pause · resume · stop · feedState · hold with "index" and "on" · check with "mode".
         DebugControl.register("teeup") { cmd in
             guard let w = store.active else { throw E("no active workspace") }
             let action = cmd["action"] as? String ?? "list"
@@ -118,11 +118,17 @@ enum WorkspaceDebug {
             case "new": w.newTeeUp(with: files)
             case "drop": w.attachToTeeUp(files)
             case "feed": cmd["ask"] as? Bool == true ? w.requestTeeUpFeed() : w.startTeeUpFeed()
-            case "pause": w.stopTeeUpFeed()
+            case "pause": w.pauseTeeUpFeed()
+            case "resume": w.resumeTeeUpFeed()
+            case "stop": w.stopTeeUpFeed()
+            case "check":
+                guard let c = (cmd["mode"] as? String).flatMap(TeeUpSettings.QuestionCheck.init(rawValue:)) else { throw E("mode=off|anyQuestion|smallModel") }
+                TeeUpSettings.shared.questionCheck = c
             case "hold": w.setTeeUpHeld(try target().id, cmd["on"] as? Bool ?? true)
             case "feedState":
                 return ["feeding": w.teeUpFeed != nil, "tab": w.teeUpFeedTab?.title ?? "",
-                        "countingDown": w.teeUpFeed?.nextAt != nil, "note": w.teeUpFeedNote ?? "",
+                        "countingDown": w.teeUpFeed?.nextAt != nil, "checking": w.teeUpFeed?.checking != nil,
+                        "check": TeeUpSettings.shared.questionCheck.rawValue, "paused": w.teeUpFeed?.paused as Any? ?? NSNull(), "verdict": w.teeUpFeed?.verdict ?? "",
                         "left": w.teeUps.filter { !$0.isHeld }.count] as [String: Any]
             case "edit": w.editTeeUp(try target().id)
             case "done": w.endTeeUpEdit()
@@ -134,6 +140,20 @@ enum WorkspaceDebug {
             default: throw E("unknown action \(action)")
             }
             return w.teeUps.map { ["text": $0.text, "images": $0.images.count, "files": $0.files, "held": $0.isHeld] as [String: Any] }
+        }
+
+        // What Auto-Send would make of a reply: {"cmd":"teeupJudge","asked":"…","reply":"…"}
+        DebugControl.registerAsync("teeupJudge") { cmd in
+            let reply = cmd["reply"] as? String ?? ""
+            guard TeeUpQuestion.mightAsk(reply) else { return "no question: goes on without asking" }
+            let result = await withCheckedContinuation { c in
+                ClaudeAgentProcess.ask(TeeUpQuestion.prompt(asked: cmd["asked"] as? String ?? "", reply: reply),
+                                       system: TeeUpQuestion.system, cwd: store.active?.folder ?? NSHomeDirectory()) { c.resume(returning: $0) }
+            }
+            switch result {
+            case .success(let text): return "\(TeeUpQuestion.verdict(text)) ← \(text)"
+            case .failure(let error): return "failed: \(error.localizedDescription)"
+            }
         }
 
         // {"cmd":"tab","action":"new"} · select|close|rename|status with "index".

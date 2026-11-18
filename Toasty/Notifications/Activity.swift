@@ -24,6 +24,8 @@ final class Activity: NSObject, ObservableObject {
         var date: Date
         /// The turn ended with an error rather than finishing.
         var stopped = false
+        /// Auto-Send paused here and is waiting for the user.
+        var paused = false
     }
 
     struct Toast: Identifiable, Equatable {
@@ -219,12 +221,13 @@ final class Activity: NSObject, ObservableObject {
 
     /// Something happened in a conversation the user should know about
     /// (finished, stopped, needs them): sound, attention, toast, banner.
-    func present(source conversation: ClaudeConversation, title: String, body rawBody: String, stopped: Bool = false) {
+    func present(source conversation: ClaudeConversation, title: String, body rawBody: String,
+                 stopped: Bool = false, paused: Bool = false) {
         // One line of text for the sidebar, toast and banner.
         let body = rawBody.split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
             .joined(separator: " ")
-        messages[conversation.id] = Message(text: body.isEmpty ? title : body, date: Date(), stopped: stopped)
+        messages[conversation.id] = Message(text: body.isEmpty ? title : body, date: Date(), stopped: stopped, paused: paused)
 
         // 1. Sound
         if soundName.lowercased() != "none", let sound = NSSound(named: NSSound.Name(soundName)) {
@@ -248,7 +251,7 @@ final class Activity: NSObject, ObservableObject {
         // the one put away for the preview's page: the titlebar shows its
         // status there).
         if !visible, !(PreviewDrawer.shared.hidesConversation && isShown(conversation) && NSApp.isActive) {
-            let color = !conversation.requests.isEmpty ? StatusColor.needsInput
+            let color = !conversation.requests.isEmpty || paused ? StatusColor.needsInput
                 : stopped ? StatusColor.stopped : StatusColor.ready
             present(Toast(title: title, body: body, location: location, color: color, conversation: conversation))
         }
@@ -314,7 +317,7 @@ final class Activity: NSObject, ObservableObject {
     /// A conversation that needs the user, for the sidebar's list. Derived
     /// from live state, so it goes away by itself once answered or seen.
     struct Notice: Identifiable {
-        enum Kind { case permission, question, plan, stopped, finished }
+        enum Kind { case permission, question, plan, paused, stopped, finished }
         let conversation: ClaudeConversation
         let kind: Kind
         let text: String
@@ -338,7 +341,7 @@ final class Activity: NSObject, ObservableObject {
             }
             guard c.attention else { return nil }
             let m = messages[c.id]
-            return Notice(conversation: c, kind: m?.stopped == true ? .stopped : .finished,
+            return Notice(conversation: c, kind: m?.paused == true ? .paused : m?.stopped == true ? .stopped : .finished,
                           text: m?.text ?? "", date: date)
         }
         func rank(_ k: Notice.Kind) -> Int { k == .finished ? 2 : (k == .stopped ? 1 : 0) }

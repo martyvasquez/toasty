@@ -3,14 +3,14 @@ import SwiftUI
 
 /// Toasty ▸ Settings… (⌘,): a standard Mac settings window with a
 /// preference-style toolbar: General (the default model), Dictation,
-/// Screenshots (⇧⌘0 from any app), and Preview (the experimental preview
+/// Screenshots (⇧⌘0 from any app), Tee-Up (Auto-Send), and Preview (the experimental preview
 /// browser's on/off switch).
 @MainActor
 final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
     static let shared = SettingsWindowController()
 
     private enum Pane: String, CaseIterable {
-        case general, dictation, screenshots, preview
+        case general, dictation, screenshots, teeUp, preview
 
         var id: NSToolbarItem.Identifier { .init(rawValue) }
 
@@ -19,6 +19,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
             case .general: "General"
             case .dictation: "Dictation"
             case .screenshots: "Screenshots"
+            case .teeUp: "Tee-Up"
             case .preview: "Preview"
             }
         }
@@ -28,6 +29,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
             case .general: "gearshape"
             case .dictation: "mic"
             case .screenshots: "camera.viewfinder"
+            case .teeUp: InspectorTab.teeUp.symbol
             case .preview: "safari"
             }
         }
@@ -37,6 +39,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
             case .general: NSHostingController(rootView: GeneralSettingsView())
             case .dictation: NSHostingController(rootView: DictationSettingsView())
             case .screenshots: NSHostingController(rootView: ScreenshotSettingsView())
+            case .teeUp: NSHostingController(rootView: TeeUpSettingsView())
             case .preview: NSHostingController(rootView: PreviewSettingsView())
             }
         }
@@ -103,7 +106,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
     }
 
     #if DEBUG
-    /// Debug: show a pane by name ("general", "dictation", "screenshots", "preview").
+    /// Debug: show a pane by name ("general", "dictation", "screenshots", "teeUp", "preview").
     func debugSelect(_ name: String) {
         if let pane = Pane(rawValue: name) { select(pane) }
     }

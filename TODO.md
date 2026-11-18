@@ -150,13 +150,29 @@ the context menu. The list is saved with the workspace; pictures are PNGs in `Ap
   list turns it on for the open tab, after a confirmation that names the
   tab, the count and its permission mode; it stays with that tab while you
   move around. Each prompt is sent when Claude
-  finishes the one before, after a 5 s countdown, top to bottom. It stops
+  finishes the one before, after a 5 s countdown, top to bottom. It pauses
   by itself on an error, an interrupt, a pending permission/question, a
   message typed in that tab, the next prompt being open for editing, the
   tab closing, or a relaunch. A card's menu holds it back ("Hold Back from
-  Auto-Send"). Known gaps: Claude ending on a plain-text question looks
-  like a clean finish (the countdown is the only guard); every turn still
-  notifies. A draggable "stop here" line was the alternative to Hold.
+  Auto-Send"). While it has more to send, the tab it's feeding doesn't
+  notify after each turn: only when it pauses ("Auto-Send paused", with
+  the reason) and when the last prompt is done ("Auto-Send finished").
+  Other tabs notify as usual.
+- **Reply check (trial, 2026-11-18).** When a reply's
+  last paragraph has a question, Auto-Send asks Claude Haiku (a one-turn,
+  tool-less, unsaved query: the bridge's `ask`) whether Claude is waiting
+  for an answer or only offering more, and pauses with what it needs.
+  Settings ▸ Tee-Up: ask the small model (default), always pause, or keep
+  sending. A failed or unclear check pauses. 36/36 on twelve sample
+  replies ×3 once the instructions had examples (without them it flipped
+  on wording changes). Takes 4–5 s, inside the countdown. Untested: a
+  provider where the `haiku` alias doesn't resolve (it would pause).
+- **Pause, Resume, Stop (2026-11-18).** Auto-Send is
+  off, sending or paused. A pause (its own, or the Pause button) keeps the
+  tab: Resume carries on without asking again, Stop turns it off. The
+  reason for a pause, and what the reply check decided ("Claude's question
+  was only an offer", shown through the countdown), have a line of their
+  own under the bar. Decisions are logged (`category == "teeup"`). A draggable "stop here" line was the alternative to Hold.
 
 - **Screenshots follow the cursor (trial, 2026-11-18).** ⇧⌘0 attaches to
   the prompt field that last had the text cursor: the composer or an open

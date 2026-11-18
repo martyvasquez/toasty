@@ -154,6 +154,58 @@ final class ClaudeAgentProcess {
         }
     }
 
+    /// One question to a small model, in a query of its own (the bridge's
+    /// `ask`): no tools, one turn, nothing saved. Calls back with its
+    /// answer, or an error (also when it takes longer than `timeout`).
+    static func ask(_ prompt: String, system: String, cwd: String, timeout: TimeInterval = 30,
+                    completion: @escaping @MainActor (Result<String, Error>) -> Void) {
+        ClaudeEnvironment.resolve { result in
+            let env: ClaudeEnvironment.Resolved
+            switch result {
+            case .failure(let error): completion(.failure(error)); return
+            case .success(let e): env = e
+            }
+            guard let script = Bundle.main.url(forResource: "toasty-agent", withExtension: "mjs", subdirectory: "Bridge") else {
+                completion(.failure(ClaudeAgentError.missingBridge)); return
+            }
+            var args: [String: Any] = ["prompt": prompt, "system": system, "dir": cwd]
+            if let claude = env.claude { args["pathToClaudeCodeExecutable"] = claude }
+            let variables = environment(env, sdk: ClaudeSDK.shared.choice())
+            guard let json = try? JSONSerialization.data(withJSONObject: args) else { return }
+            DispatchQueue.global(qos: .userInitiated).async {
+                let p = Process()
+                p.executableURL = URL(fileURLWithPath: env.node)
+                p.arguments = [script.path, "ask", String(decoding: json, as: UTF8.self)]
+                p.environment = variables
+                p.currentDirectoryURL = URL(fileURLWithPath: FileManager.default.fileExists(atPath: cwd) ? cwd : NSHomeDirectory())
+                let out = Pipe()
+                p.standardOutput = out
+                p.standardError = FileHandle.nullDevice
+                p.standardInput = FileHandle.nullDevice
+                let outcome: Result<String, Error>
+                do {
+                    try p.run()
+                    let kill = DispatchWorkItem { if p.isRunning { p.terminate() } }
+                    DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: kill)
+                    let data = out.fileHandleForReading.readDataToEndOfFile()
+                    p.waitUntilExit()
+                    kill.cancel()
+                    // The last line that's JSON (the SDK may print above it).
+                    let reply = String(decoding: data, as: UTF8.self).split(separator: "\n").reversed().lazy
+                        .compactMap { (try? JSONSerialization.jsonObject(with: Data($0.utf8))) as? [String: Any] }.first
+                    if let text = reply?["result"] as? String {
+                        outcome = .success(text)
+                    } else {
+                        outcome = .failure(ClaudeAgentError.ask(reply?["error"] as? String ?? "No answer."))
+                    }
+                } catch {
+                    outcome = .failure(error)
+                }
+                DispatchQueue.main.async { MainActor.assumeIsolated { completion(outcome) } }
+            }
+        }
+    }
+
     /// The bridge's environment: the user's, plus the SDK to load when it
     /// isn't the bundled one.
     private static func environment(_ env: ClaudeEnvironment.Resolved, sdk: ClaudeSDK.Option) -> [String: String] {
@@ -182,10 +234,12 @@ enum ClaudeAgentError: LocalizedError {
     case noNode
     case noClaude
     case fork(String)
+    case ask(String)
 
     var errorDescription: String? {
         switch self {
         case .fork(let detail): "Couldn't fork the conversation: \(detail)"
+        case .ask(let detail): "Couldn't ask Claude: \(detail)"
         case .missingBridge: "Toasty's Claude bridge is missing from the app bundle."
         case .noNode: "Couldn't find Node.js (needed by the Claude Agent SDK). Install it, or make sure `node` is on the PATH of your login shell."
         case .noClaude: "Couldn't find the `claude` command. Install Claude Code, or make sure `claude` is on the PATH of your login shell."

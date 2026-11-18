@@ -106,7 +106,7 @@ private struct NoticeRow: View {
     let number: Int?
     @State private var hovering = false
 
-    private var dismissable: Bool { notice.kind == .finished || notice.kind == .stopped }
+    private var dismissable: Bool { [.finished, .stopped, .paused].contains(notice.kind) }
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -178,6 +178,7 @@ private struct NoticeRow: View {
         case .permission: "Permission required"
         case .question: "Claude has a question"
         case .plan: "Plan ready for review"
+        case .paused: "Auto-Send paused"
         case .stopped: "Stopped"
         case .finished: "Finished"
         }
@@ -185,7 +186,7 @@ private struct NoticeRow: View {
 
     private var color: Color {
         switch notice.kind {
-        case .permission, .question, .plan: StatusColor.needsInput
+        case .permission, .question, .plan, .paused: StatusColor.needsInput
         case .stopped: StatusColor.stopped
         case .finished: StatusColor.ready
         }

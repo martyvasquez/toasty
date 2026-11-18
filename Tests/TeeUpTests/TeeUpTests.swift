@@ -164,6 +164,36 @@ struct TeeUpTests {
         #expect(try JSONDecoder().decode(TeeUp.self, from: Data(old.utf8)).isHeld == false)
     }
 
+    @Test func onlyAReplyEndingOnAQuestionIsChecked() {
+        #expect(TeeUpQuestion.mightAsk("Where are you located? Give me a city and I'll look it up."))
+        #expect(TeeUpQuestion.mightAsk("Done.\n\nWant me to add tests too?"))
+        #expect(!TeeUpQuestion.mightAsk("Done. All 12 tests pass."))
+        // A question earlier in the reply, answered by the end, isn't one.
+        #expect(!TeeUpQuestion.mightAsk("Why did it fail? The path was wrong.\n\nFixed it and the build passes."))
+        #expect(!TeeUpQuestion.mightAsk(""))
+    }
+
+    @Test func theSmallModelsAnswerIsReadStrictly() {
+        #expect(TeeUpQuestion.verdict("CONTINUE") == .goOn)
+        #expect(TeeUpQuestion.verdict("  continue\n") == .goOn)
+        #expect(TeeUpQuestion.verdict("BLOCKED: where you're located.") == .waiting("where you're located"))
+        #expect(TeeUpQuestion.verdict("BLOCKED") == .waiting(""))
+        #expect(TeeUpQuestion.verdict("BLOCKED: needs user's location") == .waiting("user's location"))
+        // It reconsidered out loud: the last verdict is the one it means.
+        #expect(TeeUpQuestion.verdict("BLOCKED: asks about a dialog, which is optional.\n\nCorrection:\n\nCONTINUE") == .goOn)
+        #expect(TeeUpQuestion.verdict("CONTINUE\nActually:\nBLOCKED: which path to use") == .waiting("which path to use"))
+        #expect(TeeUpQuestion.verdict("BLOCKED: " + String(repeating: "long ", count: 30)).self != .unclear)
+        // Anything else isn't a go-ahead.
+        #expect(TeeUpQuestion.verdict("I think it is probably fine") == .unclear)
+        #expect(TeeUpQuestion.verdict("") == .unclear)
+    }
+
+    @Test func aLongReplyIsCutToItsEnd() {
+        let prompt = TeeUpQuestion.prompt(asked: "Fix it", reply: String(repeating: "x", count: 9000) + " Which one?")
+        #expect(prompt.count < 4500)
+        #expect(prompt.hasSuffix("Which one?\n</reply>"))
+    }
+
     @Test func sendingNeedsATab() {
         let w = workspace(["a"])
         #expect(!w.sendTeeUp(w.teeUps[0].id))

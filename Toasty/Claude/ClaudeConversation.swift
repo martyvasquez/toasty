@@ -601,7 +601,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         attachments = []
         files = []
         // The user is steering this tab themselves now.
-        workspace?.pauseTeeUpFeed(for: self, because: "Paused: you sent a message")
+        workspace?.pauseTeeUpFeed(for: self, because: "You sent a message there")
         post(typed, images: images, files: attachedFiles)
     }
 
@@ -650,7 +650,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         interrupted = true
         // Pending prompts are cancelled by the interrupt itself.
         requests.removeAll()
-        workspace?.pauseTeeUpFeed(for: self, because: "Paused: interrupted")
+        workspace?.pauseTeeUpFeed(for: self, because: "Interrupted")
         agent?.send(["type": "interrupt"])
     }
 
@@ -792,7 +792,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         startModel = nil
         queued.removeAll()
         requests.removeAll()
-        workspace?.pauseTeeUpFeed(for: self, because: "Paused: Claude Code stopped")
+        workspace?.pauseTeeUpFeed(for: self, because: "Claude Code stopped")
         if phase != .idle || status != 0 {
             let detail = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             if status != 0 || phase == .working {
@@ -1178,14 +1178,18 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             refreshContextUsage()
             sendPendingName()
             adoptClaudeTitle()
-            workspace?.teeUpTurnEnded(self, cleanly: !wasInterrupted && subtype == "success" && !isError,
-                                      interrupted: wasInterrupted)
+            let summary = (m["result"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? lastAssistantText
+            // Auto-Send into this tab: it speaks up when it pauses or is
+            // done, not after every prompt.
+            let feed = workspace?.teeUpTurnEnded(self, cleanly: !wasInterrupted && subtype == "success" && !isError,
+                                                 interrupted: wasInterrupted, reply: summary) ?? .notFeeding
             if wasInterrupted {
                 append(.notice, "Interrupted · What should Claude do instead?")
             } else if subtype == "success" && !isError {
-                let summary = (m["result"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? lastAssistantText
-                notify(title: "Claude Code finished · \(projectName)",
-                       body: String(summary.prefix(600)).isEmpty ? "Done" : String(summary.prefix(600)))
+                if feed != .goingOn {
+                    notify(title: "\(feed == .done ? "Auto-Send finished" : "Claude Code finished") · \(projectName)",
+                           body: String(summary.prefix(600)).isEmpty ? "Done" : String(summary.prefix(600)))
+                }
             } else {
                 notify(title: "Claude Code stopped · \(projectName)", body: (m["result"] as? String) ?? subtype, stopped: true)
             }
@@ -1353,7 +1357,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         items.append(ClaudeItem(kind: kind, text: text))
         // Any error here (a turn's, or Claude Code not starting) stops
         // prompts being sent to this tab automatically.
-        if kind == .error { workspace?.pauseTeeUpFeed(for: self, because: "Paused: Claude stopped with an error") }
+        if kind == .error { workspace?.pauseTeeUpFeed(for: self, because: "Claude stopped with an error") }
     }
 
     static func resultText(_ content: Any?) -> String {
@@ -1574,6 +1578,12 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         guard state != reportedState || state == "working" else { return }
         reportedState = state
         Activity.shared.setAgentState(self, state)
+    }
+
+    /// Auto-Send paused by itself in this tab, between turns (nothing
+    /// else would say so).
+    func notifyTeeUpPaused(_ reason: String) {
+        Activity.shared.present(source: self, title: "Auto-Send paused · \(projectName)", body: reason, paused: true)
     }
 
     private func notify(title: String, body rawBody: String, stopped: Bool = false) {

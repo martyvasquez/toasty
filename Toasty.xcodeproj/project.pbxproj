@@ -92,6 +92,7 @@
 		D85CB4EE647ED61981C904D6 /* Worktrees.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4F699DD786C95D272697F9D /* Worktrees.swift */; };
 		D9F77D560C3635E6D7AD25E2 /* SpeechModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38E532463352FE1FCDD0BAFF /* SpeechModels.swift */; };
 		DB9EF218EA4651E15C47905F /* TextPipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0520699B45C02518BAA81BF5 /* TextPipelineTests.swift */; };
+		E13C8B4B7EE7B6FBBD4F54FE /* TeeUpQuestion.swift in Sources */ = {isa = PBXBuildFile; fileRef = E45115F43715FA90DD5CB7C1 /* TeeUpQuestion.swift */; };
 		E418801CB5AD25148EC64A13 /* PTY.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64890A3F04ACB6E7BF086D88 /* PTY.swift */; };
 		EB6410071FBABD7E99511555 /* InspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E974BF37B348BD074F448190 /* InspectorView.swift */; };
 		EC9B61A31E4A0580C639F983 /* ClaudeSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = A282903B9056A87BE022B22A /* ClaudeSDK.swift */; };
@@ -219,6 +220,7 @@
 		DFFBD1A7316E98A070F3E2BE /* ClaudeMarkdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeMarkdown.swift; sourceTree = "<group>"; };
 		E1539C03BDAC3DB442928940 /* MicCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicCapture.swift; sourceTree = "<group>"; };
 		E1C4288BD8F8A0E1BC06EB85 /* SpeechEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechEngine.swift; sourceTree = "<group>"; };
+		E45115F43715FA90DD5CB7C1 /* TeeUpQuestion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeeUpQuestion.swift; sourceTree = "<group>"; };
 		E6DF957BA5BE2D33ABAAE422 /* Toasty.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Toasty.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E974BF37B348BD074F448190 /* InspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorView.swift; sourceTree = "<group>"; };
 		ECA042843FEF43774DB0414C /* TitlebarTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitlebarTabs.swift; sourceTree = "<group>"; };
@@ -480,6 +482,7 @@
 			isa = PBXGroup;
 			children = (
 				5CE9F5C6D66F52699F8558DC /* TeeUp.swift */,
+				E45115F43715FA90DD5CB7C1 /* TeeUpQuestion.swift */,
 				5D661119D726B8E0E3DD6411 /* TeeUpTab.swift */,
 			);
 			path = TeeUp;
@@ -704,6 +707,7 @@
 				F3EDEAA0B2C742A331699A9C /* SpeechEngine.swift in Sources */,
 				D9F77D560C3635E6D7AD25E2 /* SpeechModels.swift in Sources */,
 				AC946F3D12C8AAF3BB8D8BF1 /* TeeUp.swift in Sources */,
+				E13C8B4B7EE7B6FBBD4F54FE /* TeeUpQuestion.swift in Sources */,
 				74ACC74A36424EC519A104A8 /* TeeUpTab.swift in Sources */,
 				021E23FC56ACD71AC24B461D /* TerminalDebug.swift in Sources */,
 				500B9ECC5A22E8386FBB831D /* TerminalRenderer.swift in Sources */,

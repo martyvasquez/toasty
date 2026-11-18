@@ -1,4 +1,5 @@
 import AppKit
+import os
 import Combine
 
 /// A project: its Claude conversations (tabs) and its terminals.
@@ -27,8 +28,6 @@ final class Workspace: ObservableObject, Identifiable {
     /// Claude finishes the one before. Never saved: after a relaunch it's
     /// off until turned on again.
     @Published private(set) var teeUpFeed: TeeUpFeed?
-    /// Why Auto-Send last stopped by itself (shown until it's started again).
-    @Published private(set) var teeUpFeedNote: String?
     private var teeUpFeedTimer: DispatchWorkItem?
     /// The teed-up prompt open for editing in place.
     @Published private(set) var teeUpEditingID: UUID?
@@ -429,7 +428,7 @@ final class Workspace: ObservableObject, Identifiable {
 
             \(first)\(rest) \(mode)
 
-            It stops if Claude hits an error or you send a message in that tab, and Pause stops it at any time.
+            It pauses if Claude hits an error, needs an answer, or you send a message in that tab. Pause and Stop are under the list the whole time.
             """,
             title: "Auto-Send to “\(conversation.title)”?",
             button: "Start Auto-Send") { [weak self, weak conversation] in
@@ -444,39 +443,114 @@ final class Workspace: ObservableObject, Identifiable {
     func startTeeUpFeed() {
         guard let conversation = selected, nextTeeUpToFeed != nil else { return }
         teeUpFeedTimer?.cancel()
-        teeUpFeedNote = nil
         teeUpFeed = TeeUpFeed(conversationID: conversation.id)
         if !conversation.isBusy { feedNextTeeUp() }
     }
 
-    /// Turn Auto-Send off (the Pause button). Claude finishes what it has.
+    /// Turn Auto-Send off (the Stop button, always there while it's on or
+    /// paused). Claude finishes what it has; the prompts left stay teed up.
     func stopTeeUpFeed() {
         teeUpFeedTimer?.cancel()
         teeUpFeed = nil
-        teeUpFeedNote = nil
     }
 
-    /// Auto-Send stops by itself, saying why, if it's sending to `conversation`.
-    func pauseTeeUpFeed(for conversation: ClaudeConversation, because note: String) {
-        guard teeUpFeed?.conversationID == conversation.id else { return }
-        teeUpFeedTimer?.cancel()
-        teeUpFeed = nil
-        teeUpFeedNote = note
+    /// The Pause button: nothing more is sent until Resume. It keeps its tab.
+    func pauseTeeUpFeed() {
+        guard let conversation = teeUpFeedTab else { return stopTeeUpFeed() }
+        pauseTeeUpFeed(for: conversation, because: "")
     }
+
+    /// Auto-Send pauses by itself, saying why, if it's sending to
+    /// `conversation`. It stays with that tab: Resume carries on, Stop ends it.
+    /// `notify`: when nothing else tells the user (it happens between
+    /// turns; an error or their own interrupt they already know about).
+    func pauseTeeUpFeed(for conversation: ClaudeConversation, because reason: String, notify: Bool = false) {
+        // Already paused: the first reason is the one that matters.
+        guard teeUpFeed?.conversationID == conversation.id, teeUpFeed?.paused == nil else { return }
+        if notify { conversation.notifyTeeUpPaused(reason) }
+        teeUpFeedTimer?.cancel()
+        teeUpFeed?.nextAt = nil
+        teeUpFeed?.checking = nil
+        teeUpFeed?.verdict = nil
+        teeUpFeed?.paused = reason
+        if !reason.isEmpty { Self.teeUpLog.notice("paused: \(reason, privacy: .public)") }
+    }
+
+    /// The Resume button: carry on in the same tab. The next prompt goes
+    /// now if Claude is idle there, else when its turn finishes.
+    func resumeTeeUpFeed() {
+        guard teeUpFeed?.paused != nil, let conversation = teeUpFeedTab, nextTeeUpToFeed != nil else { return stopTeeUpFeed() }
+        teeUpFeed?.paused = nil
+        if !conversation.isBusy { feedNextTeeUp() }
+    }
+
+    /// What Auto-Send decides, for looking into a surprise afterwards:
+    /// `/usr/bin/log show --last 1h --predicate 'category == "teeup"'`
+    nonisolated static let teeUpLog = Logger(subsystem: "com.martyvasquez.toasty", category: "teeup")
 
     /// A turn ended in `conversation`. Only a clean finish feeds the next
-    /// prompt (after a pause): later prompts usually build on this one.
-    func teeUpTurnEnded(_ conversation: ClaudeConversation, cleanly: Bool, interrupted: Bool) {
-        guard teeUpFeed?.conversationID == conversation.id else { return }
+    /// prompt (after a pause): later prompts usually build on this one. And
+    /// not if Claude's reply is a question it needs answered (Settings ▸
+    /// Tee-Up says how that's judged).
+    /// Returns what it means for the turn's own "finished" notification.
+    @discardableResult
+    func teeUpTurnEnded(_ conversation: ClaudeConversation, cleanly: Bool, interrupted: Bool, reply: String = "") -> TeeUpFeed.TurnEnd {
+        guard teeUpFeed?.conversationID == conversation.id, teeUpFeed?.paused == nil else { return .notFeeding }
         guard cleanly else {
-            return pauseTeeUpFeed(for: conversation, because: interrupted ? "Paused: interrupted" : "Paused: Claude stopped with an error")
+            pauseTeeUpFeed(for: conversation, because: interrupted ? "Interrupted" : "Claude stopped with an error")
+            return .notFeeding
         }
-        guard nextTeeUpToFeed != nil else { return stopTeeUpFeed() }
-        teeUpFeed?.nextAt = Date().addingTimeInterval(Self.teeUpFeedDelay)
+        teeUpFeed?.verdict = nil
+        guard nextTeeUpToFeed != nil else { stopTeeUpFeed(); return .done }
+        let finished = Date()
+        let asks = TeeUpQuestion.mightAsk(reply)
+        switch TeeUpSettings.shared.questionCheck {
+        case .off:
+            scheduleTeeUpFeed(at: finished)
+        case .anyQuestion:
+            if asks { pauseTeeUpFeed(for: conversation, because: "Claude asked a question", notify: true) }
+            else { scheduleTeeUpFeed(at: finished) }
+        case .smallModel:
+            guard asks else { scheduleTeeUpFeed(at: finished); return .goingOn }
+            // Ask a small model whether Claude is waiting for an answer
+            // or only offering more. Not sure counts as waiting.
+            let check = UUID()
+            teeUpFeed?.checking = check
+            let prompt = TeeUpQuestion.prompt(asked: teeUpFeed?.lastPrompt ?? "", reply: reply)
+            ClaudeAgentProcess.ask(prompt, system: TeeUpQuestion.system, cwd: conversation.cwd) { [weak self, weak conversation] result in
+                guard let self, let conversation, self.teeUpFeed?.checking == check else { return }
+                self.teeUpFeed?.checking = nil
+                switch result {
+                case .success(let answer): Self.teeUpLog.notice("reply check: \(answer, privacy: .public)")
+                case .failure(let error): Self.teeUpLog.error("reply check failed: \(error.localizedDescription, privacy: .public)")
+                }
+                switch result.map(TeeUpQuestion.verdict) {
+                case .success(.goOn):
+                    // Said in the bar through the countdown, so the
+                    // decision can be seen (and paused) before it acts.
+                    self.teeUpFeed?.verdict = "Claude's question was only an offer"
+                    self.scheduleTeeUpFeed(at: finished)
+                case .success(.waiting(let what)):
+                    self.pauseTeeUpFeed(for: conversation, because: what.isEmpty ? "Claude asked a question" : "Claude needs \(what)", notify: true)
+                case .success(.unclear), .failure:
+                    self.pauseTeeUpFeed(for: conversation, because: "Couldn't tell if Claude needs an answer", notify: true)
+                }
+            }
+        }
+        return .goingOn
+    }
+
+    /// Send the next prompt `teeUpFeedDelay` after the turn `finished`
+    /// (what's left of it, if checking the reply took a while).
+    private func scheduleTeeUpFeed(at finished: Date) {
+        // After a reply check, long enough to read what it decided.
+        let least: TimeInterval = teeUpFeed?.verdict == nil ? 1 : 4
+        let at = max(Date().addingTimeInterval(least), finished.addingTimeInterval(Self.teeUpFeedDelay))
+        teeUpFeed?.nextAt = at
         let work = DispatchWorkItem { [weak self] in self?.feedNextTeeUp() }
         teeUpFeedTimer?.cancel()
         teeUpFeedTimer = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.teeUpFeedDelay, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + at.timeIntervalSinceNow, execute: work)
     }
 
     private func feedNextTeeUp() {
@@ -485,11 +559,13 @@ final class Workspace: ObservableObject, Identifiable {
         guard let next = nextTeeUpToFeed else { return stopTeeUpFeed() }
         // Claude is busy or waiting on the user after all: not now.
         guard !conversation.isBusy else {
-            return pauseTeeUpFeed(for: conversation, because: "Paused: Claude is waiting for you")
+            return pauseTeeUpFeed(for: conversation, because: "Claude is waiting for you", notify: true)
         }
         guard teeUpEditingID != next.id else {
-            return pauseTeeUpFeed(for: conversation, because: "Paused: the next prompt is being edited")
+            return pauseTeeUpFeed(for: conversation, because: "The next prompt is being edited", notify: true)
         }
+        teeUpFeed?.verdict = nil
+        teeUpFeed?.lastPrompt = next.text
         sendTeeUp(next.id, to: conversation)
     }
 
@@ -627,10 +703,31 @@ final class Workspace: ObservableObject, Identifiable {
 
 /// Auto-Send under way (see `Workspace.startTeeUpFeed`).
 struct TeeUpFeed: Equatable {
+    /// What a finished turn means to Auto-Send, for the tab's own
+    /// "finished" notification.
+    enum TurnEnd {
+        /// Not its tab, or it stopped here for a reason the user is told
+        /// anyway: notify as usual.
+        case notFeeding
+        /// More to send (or a pause that says so itself): stay quiet.
+        case goingOn
+        /// That was the last prompt.
+        case done
+    }
+
     /// The tab the prompts go to: the one that was open when it was started.
     let conversationID: UUID
     /// When the next prompt goes out, while counting down to it.
     var nextAt: Date?
+    /// Claude's reply is being checked for a question it needs answered.
+    var checking: UUID?
+    /// The prompt it sent last (what Claude's reply answers).
+    var lastPrompt = ""
+    /// What the reply check decided, while counting down to the next prompt.
+    var verdict: String?
+    /// Paused, and why ("" when the user pressed Pause): nothing is sent
+    /// until Resume. It keeps its tab.
+    var paused: String?
 }
 
 /// The inspector's tabs.

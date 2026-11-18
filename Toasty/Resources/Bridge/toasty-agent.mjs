@@ -45,6 +45,41 @@ if (process.argv[2] === "fork") {
   process.exit(0);
 }
 
+// `node toasty-agent.mjs ask '<json>'`: one question to a small model, as a
+// query of its own ({prompt, system, dir, pathToClaudeCodeExecutable}):
+// no tools, one turn, nothing saved to disk, so it leaves no session
+// behind and never touches the conversation it's asked about. Prints
+// {"result": …} or {"error": …} and exits.
+if (process.argv[2] === "ask") {
+  try {
+    const a = JSON.parse(process.argv[3] ?? "{}");
+    const options = {
+      cwd: a.dir,
+      model: "haiku",
+      systemPrompt: a.system,
+      tools: [],
+      maxTurns: 1,
+      persistSession: false,
+      // The user's own settings only (how they sign in, which provider):
+      // not the project's instructions, hooks or servers.
+      settingSources: ["user"],
+      env: { ...process.env, CLAUDE_AGENT_SDK_CLIENT_APP: "toasty" },
+    };
+    if (a.pathToClaudeCodeExecutable) options.pathToClaudeCodeExecutable = a.pathToClaudeCodeExecutable;
+    let reply = null;
+    for await (const m of query({ prompt: a.prompt, options })) {
+      if (m.type !== "result") continue;
+      reply = m.subtype === "success" && !m.is_error
+        ? { result: String(m.result ?? "") }
+        : { error: String(m.result ?? m.subtype ?? "failed") };
+    }
+    out(reply ?? { error: "No answer." });
+  } catch (e) {
+    out({ error: String(e?.message ?? e) });
+  }
+  process.exit(0);
+}
+
 // Streaming input: user messages are queued here and pulled by the SDK.
 const inbox = [];
 let wake = null;
