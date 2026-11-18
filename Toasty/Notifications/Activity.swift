@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import IOKit.pwr_mgt
 import SwiftUI
 @preconcurrency import UserNotifications
@@ -43,6 +44,10 @@ final class Activity: NSObject, ObservableObject {
     @Published private var messages: [UUID: Message] = [:]
     @Published private(set) var toast: Toast?
     private var dismissWork: DispatchWorkItem?
+    /// The macOS notifications posted about each conversation, to take
+    /// them back once it's seen.
+    private var banners: [UUID: [String]] = [:]
+    private var cancellables: Set<AnyCancellable> = []
 
     /// A sound from /System/Library/Sounds or ~/Library/Sounds, or "none":
     /// `defaults write com.martyvasquez.toasty ToastySound Glass`.
@@ -57,11 +62,36 @@ final class Activity: NSObject, ObservableObject {
                                                object: nil, queue: .main) { _ in
             MainActor.assumeIsolated { Activity.shared.markShownAsSeen() }
         }
+        // Back in the main window from another of Toasty's (Settings, a
+        // sheet): the app was active all along, the conversation wasn't seen.
+        NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification,
+                                               object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated {
+                guard AppDelegate.shared.windowController?.window?.isKeyWindow == true else { return }
+                Activity.shared.markShownAsSeen()
+            }
+        }
         UNUserNotificationCenter.current().delegate = self
     }
 
     /// Call at launch.
-    func start() { syncDockBadge() }
+    func start() {
+        // Another workspace or tab is shown (however that came about: the
+        // sidebar, a shortcut, the one before it closing).
+        WorkspaceStore.shared.selectionChanged
+            .sink { [weak self] in self?.markShownAsSeenIfInFront() }
+            .store(in: &cancellables)
+        // The conversation is back from behind the preview's page.
+        let drawer = PreviewDrawer.shared
+        drawer.$active.combineLatest(drawer.$open)
+            .map { $0 && !$1 }
+            .removeDuplicates()
+            .filter { !$0 }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.markShownAsSeenIfInFront() }
+            .store(in: &cancellables)
+        syncDockBadge()
+    }
 
     // MARK: State
 
@@ -100,6 +130,7 @@ final class Activity: NSObject, ObservableObject {
     func forget(_ conversation: ClaudeConversation) {
         entries[conversation.id] = nil
         messages[conversation.id] = nil
+        retract(conversation)
         stateDidChange()
     }
 
@@ -135,7 +166,32 @@ final class Activity: NSObject, ObservableObject {
         syncDockBadge()
     }
 
-    func attentionChanged() { syncDockBadge() }
+    /// For changes that can happen while the user is elsewhere (a tab
+    /// renamed by Claude counts as a selection change): seen only if
+    /// Toasty's window is the one in front of them.
+    private func markShownAsSeenIfInFront() {
+        var inFront = NSApp.isActive && AppDelegate.shared.windowController?.window?.isKeyWindow == true
+        #if DEBUG
+        // Tests run while another app is frontmost.
+        if ActivityToastView.alwaysShow { inFront = true }
+        #endif
+        if inFront { markShownAsSeen() }
+    }
+
+    func attentionChanged(_ conversation: ClaudeConversation) {
+        if !conversation.attention { retract(conversation) }
+        syncDockBadge()
+    }
+
+    /// The conversation has been seen (or is gone): what was put up about
+    /// it comes down, the toast in the window and the banners in
+    /// Notification Center.
+    private func retract(_ conversation: ClaudeConversation) {
+        if toast?.conversation === conversation { dismissToast() }
+        if let ids = banners.removeValue(forKey: conversation.id) {
+            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ids)
+        }
+    }
 
     /// Jump to the latest conversation needing the user: waiting first,
     /// then finished unseen (⌃⌘U).
@@ -234,6 +290,8 @@ final class Activity: NSObject, ObservableObject {
 
     private func postSystemNotification(_ c: ClaudeConversation?, title: String, body: String, location: String) {
         let id = c?.id.uuidString
+        let requestID = UUID().uuidString
+        if let c { banners[c.id, default: []].append(requestID) }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
             guard granted else { return }
             let center = UNUserNotificationCenter.current()
@@ -246,7 +304,7 @@ final class Activity: NSObject, ObservableObject {
                 content.threadIdentifier = id
             }
             // Toasty plays its own sound.
-            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+            let request = UNNotificationRequest(identifier: requestID, content: content, trigger: nil)
             center.add(request)
         }
     }

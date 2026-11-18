@@ -241,14 +241,41 @@ struct NewTabButton: View {
 /// A row of tabs that never grows past the room it's given: tabs share the
 /// width evenly (up to `maxWidth`), shrink to `minWidth`, and past that the
 /// row scrolls sideways, keeping the selected tab in view. `trailing` (the
-/// + button) follows the last tab and always stays visible.
+/// + button) follows the last tab and always stays visible; with no tabs
+/// it's where the first one would be.
+///
+/// Tabs are dragged along the row to reorder them (`move`): the dragged tab
+/// follows the pointer, the others step aside, and the order changes when
+/// it's let go.
 struct FittingTabStrip<Item: Identifiable, Tab: View, Trailing: View>: View where Item.ID: Hashable {
     let items: [Item]
     let selectedID: Item.ID?
     let minWidth: CGFloat
     let maxWidth: CGFloat
+    /// A drag began on this tab (it becomes the selected one, as in Safari).
+    var pick: ((Item) -> Void)?
+    /// Put the tab at this index.
+    var move: ((Item.ID, Int) -> Void)?
     @ViewBuilder let tab: (Item) -> Tab
     @ViewBuilder let trailing: () -> Trailing
+
+    /// A tab being dragged along the row.
+    private struct Drag {
+        let id: Item.ID
+        /// Where it was picked up.
+        let from: Int
+        /// How far it is from its own place.
+        var x: CGFloat = 0
+        /// Let go: it has its new place, and is sliding the rest of the way.
+        var settling = false
+    }
+
+    @State private var dragState: Drag?
+
+    /// The drag, while its tab is still in the row.
+    private var drag: Drag? {
+        dragState.flatMap { d in items.contains { $0.id == d.id } ? d : nil }
+    }
 
     /// The + button's width plus its gap.
     private static var trailingRoom: CGFloat { 28 + TabStyle.gap }
@@ -256,26 +283,36 @@ struct FittingTabStrip<Item: Identifiable, Tab: View, Trailing: View>: View wher
     var body: some View {
         GeometryReader { geo in
             let room = max(0, geo.size.width - Self.trailingRoom)
-            let n = CGFloat(max(items.count, 1))
-            let width = min(maxWidth, max(minWidth, (room - TabStyle.gap * (n - 1)) / n))
-            let content = width * n + TabStyle.gap * (n - 1)
+            let n = CGFloat(items.count)
+            let width = n == 0 ? 0 : min(maxWidth, max(minWidth, (room - TabStyle.gap * (n - 1)) / n))
+            let content = n == 0 ? 0 : width * n + TabStyle.gap * (n - 1)
+            let step = width + TabStyle.gap
             HStack(spacing: TabStyle.gap) {
-                ScrollViewReader { proxy in
-                    ScrollView(.horizontal) {
-                        HStack(spacing: TabStyle.gap) {
-                            ForEach(items) { item in
-                                tab(item).frame(width: width).id(item.id)
+                if !items.isEmpty {
+                    ScrollViewReader { proxy in
+                        ScrollView(.horizontal) {
+                            HStack(spacing: TabStyle.gap) {
+                                ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
+                                    let dragged = drag?.id == item.id
+                                    tab(item).frame(width: width).id(item.id)
+                                        .offset(x: offset(of: i, step: step))
+                                        .zIndex(dragged ? 1 : 0)
+                                        // The dragged tab stays under the pointer
+                                        // while the others slide.
+                                        .transaction { if dragged, drag?.settling == false { $0.animation = nil } }
+                                        .gesture(reorder(item, at: i, step: step), including: move == nil ? .subviews : .all)
+                                }
                             }
+                            // Room for the selected tab's shadow.
+                            .padding(.vertical, 4)
                         }
-                        // Room for the selected tab's shadow.
-                        .padding(.vertical, 4)
+                        .scrollIndicators(.never)
+                        .scrollDisabled(content <= room)
+                        .frame(width: min(content, room))
+                        .onAppear { reveal(selectedID, proxy) }
+                        .onChange(of: selectedID) { _, id in reveal(id, proxy) }
+                        .onChange(of: items.count) { reveal(selectedID, proxy) }
                     }
-                    .scrollIndicators(.never)
-                    .scrollDisabled(content <= room)
-                    .frame(width: min(content, room))
-                    .onAppear { reveal(selectedID, proxy) }
-                    .onChange(of: selectedID) { _, id in reveal(id, proxy) }
-                    .onChange(of: items.count) { reveal(selectedID, proxy) }
                 }
                 trailing()
                 Spacer(minLength: 0)
@@ -285,8 +322,64 @@ struct FittingTabStrip<Item: Identifiable, Tab: View, Trailing: View>: View wher
     }
 
     private func reveal(_ id: Item.ID?, _ proxy: ScrollViewProxy) {
-        guard let id else { return }
+        guard let id, drag == nil else { return }
         DispatchQueue.main.async { withAnimation(.easeInOut(duration: 0.15)) { proxy.scrollTo(id) } }
+    }
+
+    // MARK: Reordering
+
+    /// The place the dragged tab would take if let go now.
+    private func target(_ drag: Drag, step: CGFloat) -> Int {
+        max(0, min(items.count - 1, drag.from + Int((drag.x / step).rounded())))
+    }
+
+    /// How far the tab at `i` is drawn from its place: the dragged tab by
+    /// the drag, the tabs it has passed by one place the other way.
+    private func offset(of i: Int, step: CGFloat) -> CGFloat {
+        guard let drag else { return 0 }
+        if items[i].id == drag.id { return drag.x }
+        guard !drag.settling else { return 0 }
+        let to = target(drag, step: step)
+        if drag.from < i, i <= to { return -step }
+        if to <= i, i < drag.from { return step }
+        return 0
+    }
+
+    private func reorder(_ item: Item, at i: Int, step: CGFloat) -> some Gesture {
+        // Global: the tab moves with the drag, so its own coordinates do too.
+        DragGesture(minimumDistance: 4, coordinateSpace: .global)
+            .onChanged { value in
+                var d = drag ?? Drag(id: item.id, from: i)
+                guard d.id == item.id, !d.settling else { return }
+                if drag == nil { pick?(item) }
+                let before = target(d, step: step)
+                // Never past either end of the row.
+                d.x = max(-CGFloat(d.from) * step,
+                          min(CGFloat(items.count - 1 - d.from) * step, value.translation.width))
+                if target(d, step: step) != before {
+                    withAnimation(.easeInOut(duration: 0.15)) { dragState = d }
+                } else {
+                    dragState = d
+                }
+            }
+            .onEnded { _ in
+                guard var d = drag, d.id == item.id, !d.settling else { return }
+                let to = target(d, step: step)
+                // The others are already drawn where the new order puts
+                // them, so that happens at once; the dragged tab slides
+                // from where it was let go.
+                d.x -= CGFloat(to - d.from) * step
+                d.settling = true
+                var now = Transaction()
+                now.disablesAnimations = true
+                withTransaction(now) {
+                    dragState = d
+                    move?(item.id, to)
+                }
+                DispatchQueue.main.async {
+                    withAnimation(.easeOut(duration: 0.15)) { dragState = nil }
+                }
+            }
     }
 }
 
@@ -297,7 +390,9 @@ private struct ConversationTabBar: View {
 
     var body: some View {
         FittingTabStrip(items: workspace.conversations, selectedID: workspace.selectedID,
-                        minWidth: 110, maxWidth: 240) { c in
+                        minWidth: 110, maxWidth: 240,
+                        pick: { if $0.id != workspace.selectedID { workspace.select($0) } },
+                        move: { workspace.moveConversation($0, to: $1) }) { c in
             ConversationTabItem(conversation: c, selected: c.id == workspace.selectedID, workspace: workspace)
         } trailing: {
             NewTabButton(help: "New Tab (⌘T)") { workspace.newConversation() }
@@ -348,7 +443,14 @@ private struct ConversationTabItem: View {
         .onHover { hovering = $0 }
         .help(conversation.title)
         .contextMenu {
+            let index = workspace.conversations.firstIndex { $0.id == conversation.id } ?? 0
             Button("Rename…") { renaming = true }
+            Divider()
+            Button("Move Left") { workspace.moveConversation(conversation.id, to: index - 1) }
+                .disabled(index == 0)
+            Button("Move Right") { workspace.moveConversation(conversation.id, to: index + 1) }
+                .disabled(index >= workspace.conversations.count - 1)
+            Divider()
             Button("Close Tab") { workspace.requestClose(conversation) }
             Button("Close Other Tabs") { workspace.requestCloseOthers(than: conversation) }
                 .disabled(workspace.conversations.count < 2)
@@ -396,7 +498,9 @@ struct TerminalTabBar: View {
 
     var body: some View {
         FittingTabStrip(items: workspace.terminals, selectedID: workspace.selectedTerminalID,
-                        minWidth: 90, maxWidth: 180) { t in
+                        minWidth: 90, maxWidth: 180,
+                        pick: { if $0.id != workspace.selectedTerminalID { workspace.selectTerminal($0.id) } },
+                        move: { workspace.moveTerminal($0, to: $1) }) { t in
             TerminalTabItem(session: t, selected: t.id == workspace.selectedTerminalID, workspace: workspace)
         } trailing: {
             NewTabButton(help: "New Terminal") {
@@ -441,6 +545,12 @@ private struct TerminalTabItem: View {
         .onHover { hovering = $0 }
         .help(session.directory)
         .contextMenu {
+            let index = workspace.terminals.firstIndex { $0.id == session.id } ?? 0
+            Button("Move Left") { workspace.moveTerminal(session.id, to: index - 1) }
+                .disabled(index == 0)
+            Button("Move Right") { workspace.moveTerminal(session.id, to: index + 1) }
+                .disabled(index >= workspace.terminals.count - 1)
+            Divider()
             Button("Close Terminal") { workspace.requestCloseTerminal(session.id) }
             Button("Close Other Terminals") {
                 workspace.terminals.filter { $0.id != session.id }.forEach { workspace.requestCloseTerminal($0.id) }

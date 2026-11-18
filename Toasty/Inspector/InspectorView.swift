@@ -280,12 +280,16 @@ private struct WorktreeBadge: View {
 
 /// Whether the branch's commits are on the remote, in words: "Pushed",
 /// "2 not pushed", "1 to pull", or "Not pushed" for a branch that has
-/// never been pushed.
+/// never been pushed; and "3 behind main" when the main branch has moved on.
 private struct SyncStatus: View {
     @ObservedObject var changes: GitChanges
 
     var body: some View {
         HStack(spacing: 4) {
+            if changes.branch != nil, changes.behindBase > 0, let base = changes.base {
+                pill("arrow.down", "\(changes.behindBase) behind \(GitChanges.shortName(base))",
+                     help: "\(commits(changes.behindBase)) on \(base) this branch doesn't have")
+            }
             if changes.branch == nil {
                 EmptyView()
             } else if changes.upstream == nil {

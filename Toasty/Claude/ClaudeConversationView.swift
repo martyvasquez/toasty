@@ -849,9 +849,56 @@ struct ClaudeEmptyState: View {
                     .multilineTextAlignment(.center)
                     .help(copied.joined(separator: "\n"))
             }
+            if let changes = conversation.workspace?.changes {
+                RemoteNotice(changes: changes, conversation: conversation)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 120)
+    }
+}
+
+/// On a new tab, before the first prompt: the remote has commits this
+/// branch doesn't (checked in the background as the tab opens; see
+/// `GitChanges.checkRemote`). The button writes the prompt and leaves
+/// sending it to the user.
+private struct RemoteNotice: View {
+    @ObservedObject var changes: GitChanges
+    @ObservedObject var conversation: ClaudeConversation
+
+    /// What's new and where, and whether taking it is a plain pull.
+    private var news: (count: Int, ref: String, pull: Bool)? {
+        // Only for the branch this tab is on.
+        guard changes.state == .loaded, let branch = changes.branch, branch == conversation.branch else { return nil }
+        if changes.behind > 0, let upstream = changes.upstream {
+            return (changes.behind, upstream, changes.ahead == 0)
+        }
+        if changes.behindBase > 0, let base = changes.base { return (changes.behindBase, base, false) }
+        return nil
+    }
+
+    var body: some View {
+        if let news {
+            HStack(spacing: 8) {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.down").font(.system(size: 9.5, weight: .bold))
+                    Text("\(news.count == 1 ? "1 new commit" : "\(news.count) new commits") on \(news.ref)")
+                        .monospacedDigit()
+                }
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                Button(news.pull ? "Ask Claude to Pull" : "Ask Claude to Rebase") {
+                    conversation.draft = news.pull
+                        ? "Pull the latest commits from \(news.ref)."
+                        : "Rebase this branch onto \(news.ref)."
+                    conversation.focusComposer()
+                }
+                .controlSize(.small)
+                .disabled(!conversation.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .padding(.top, 6)
+            .transition(.opacity)
+        }
     }
 }
 

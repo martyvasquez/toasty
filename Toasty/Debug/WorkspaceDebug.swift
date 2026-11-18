@@ -82,6 +82,7 @@ enum WorkspaceDebug {
             if let v = cmd["visible"] as? Bool { v ? w.showInspector() : w.hideInspector() }
             if let v = cmd["terminal"] as? Bool { v ? w.showTerminal() : w.hideTerminal() }
             if let f = cmd["fraction"] as? Double { store.inspectorFraction = f }
+            if cmd["checkRemote"] as? Bool == true { w.changes.checkRemote() }
             if let i = cmd["diff"] as? Int {
                 w.diffFile = w.changes.files.indices.contains(i) ? w.changes.files[i] : nil
             }
@@ -91,6 +92,7 @@ enum WorkspaceDebug {
                 "columnWidth": AppDelegate.shared.windowController.map { $0.split.terminalItem.isCollapsed ? 0 : $0.split.rightColumn.view.frame.width } ?? -1,
                 "inspectorHeight": AppDelegate.shared.windowController?.split.rightColumn.inspectorItem.viewController.view.frame.height ?? -1,
                 "git": "\(w.changes.state)", "branch": w.changes.branch ?? "", "ahead": w.changes.ahead, "behind": w.changes.behind,
+                "base": w.changes.base ?? "", "behindBase": w.changes.behindBase,
                 "files": w.changes.files.map { "\($0.status.rawValue) \($0.path) +\($0.added.map(String.init) ?? "-") -\($0.removed.map(String.init) ?? "-")" },
                 "diff": w.diffFile?.path ?? "",
             ] as [String: Any]
@@ -116,6 +118,9 @@ enum WorkspaceDebug {
                 let c = try target()
                 c.customTitle = cmd["name"] as? String
                 w.renamed()
+            case "move":
+                guard let to = cmd["to"] as? Int else { throw E("to=") }
+                w.moveConversation(try target().id, to: to)
             case "attention":
                 // Mark a tab as finished-unseen (checks the dot).
                 try target().attention = cmd["on"] as? Bool ?? true
@@ -145,6 +150,9 @@ enum WorkspaceDebug {
             case "select": w.selectTerminal(try target().id)
             case "close": w.closeTerminal(try target().id)
             case "focus": wc?.focusTerminal()
+            case "move":
+                guard let to = cmd["to"] as? Int else { throw E("to=") }
+                w.moveTerminal(try target().id, to: to)
             case "drag":
                 // Move the terminal divider like a drag would (a synthesized
                 // drag would block in NSSplitView's tracking loop).

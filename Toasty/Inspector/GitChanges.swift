@@ -2,8 +2,10 @@ import AppKit
 import Combine
 
 /// The workspace folder's git state for the inspector's Changes tab: the
-/// branch, how far it is from its upstream, and every uncommitted file
-/// with its line counts. Read-only: it never stages, commits or discards.
+/// branch, how far it is from its upstream and from the repository's main
+/// branch, and every uncommitted file with its line counts. Read-only: it
+/// never stages, commits or discards (the most it does is `git fetch`, for
+/// a new tab: `checkRemote`).
 final class GitChanges: ObservableObject {
     nonisolated struct File: Identifiable, Equatable {
         /// Path relative to the repository root.
@@ -71,15 +73,27 @@ final class GitChanges: ObservableObject {
     @Published private(set) var upstream: String?
     @Published private(set) var ahead = 0
     @Published private(set) var behind = 0
+    /// The remote's main branch ("origin/main"), when this branch doesn't
+    /// track it, and how many of its commits this branch doesn't have:
+    /// what a rebase would bring in.
+    @Published private(set) var base: String?
+    @Published private(set) var behindBase = 0
     @Published private(set) var files: [File] = []
     @Published private(set) var root: String?
 
     var folder: String
     private var running = false
     private var again = false
+    private var fetching = false
+    private var lastFetch = Date.distantPast
 
     init(folder: String) {
         self.folder = folder
+    }
+
+    /// "main" for "origin/main".
+    nonisolated static func shortName(_ ref: String) -> String {
+        ref.firstIndex(of: "/").map { String(ref[ref.index(after: $0)...]) } ?? ref
     }
 
     var totalAdded: Int { files.reduce(0) { $0 + ($1.added ?? 0) } }
@@ -96,6 +110,24 @@ final class GitChanges: ObservableObject {
         }
     }
 
+    /// Ask the remote what's new, then read the status again, so "behind"
+    /// is true now and not as of the last fetch. In the background, at
+    /// most every couple of minutes; a remote that can't be reached (or
+    /// wants a password) changes nothing.
+    func checkRemote() {
+        guard !fetching, Date().timeIntervalSince(lastFetch) > 120 else { refresh(); return }
+        fetching = true
+        lastFetch = Date()
+        let folder = folder
+        Task.detached(priority: .utility) {
+            Self.fetch(in: folder)
+            await MainActor.run {
+                self.fetching = false
+                self.refresh()
+            }
+        }
+    }
+
     private func apply(_ s: Snapshot) {
         running = false
         if state != s.state { state = s.state }
@@ -103,6 +135,8 @@ final class GitChanges: ObservableObject {
         if upstream != s.upstream { upstream = s.upstream }
         if ahead != s.ahead { ahead = s.ahead }
         if behind != s.behind { behind = s.behind }
+        if base != s.base { base = s.base }
+        if behindBase != s.behindBase { behindBase = s.behindBase }
         if root != s.root { root = s.root }
         if files != s.files { files = s.files }
         if again { again = false; refresh() }
@@ -116,6 +150,8 @@ final class GitChanges: ObservableObject {
         var upstream: String?
         var ahead = 0
         var behind = 0
+        var base: String?
+        var behindBase = 0
         var root: String?
         var files: [File] = []
     }
@@ -192,6 +228,17 @@ final class GitChanges: ObservableObject {
             }
         }
         s.files = files.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
+        // A branch that tracks something else (or nothing): how far the
+        // remote's main branch has moved on without it.
+        let main = git(["symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"], in: root)
+        let base = main.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if main.status == 0, !base.isEmpty, base != s.upstream, s.branch != nil, hasHead {
+            let count = git(["rev-list", "--count", "HEAD..\(base)"], in: root)
+            if count.status == 0 {
+                s.base = base
+                s.behindBase = Int(count.text.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+            }
+        }
         s.state = .loaded
         return s
     }
@@ -270,17 +317,40 @@ final class GitChanges: ObservableObject {
         let error: String
     }
 
+    /// Never take the index lock (a status poll mustn't block the user's
+    /// or Claude's git commands), and never prompt.
+    nonisolated private static var environment: [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        env["GIT_OPTIONAL_LOCKS"] = "0"
+        env["GIT_TERMINAL_PROMPT"] = "0"
+        return env
+    }
+
+    /// `git fetch`, quietly: only the remote-tracking branches move. It
+    /// starts no housekeeping, and is given up on after 20 seconds.
+    nonisolated private static func fetch(in dir: String) {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        p.arguments = ["-c", "gc.auto=0", "-c", "maintenance.auto=false",
+                       "fetch", "--quiet", "--no-recurse-submodules"]
+        p.currentDirectoryURL = URL(fileURLWithPath: dir)
+        p.environment = environment
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
+        p.standardInput = FileHandle.nullDevice
+        guard (try? p.run()) != nil else { return }
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 20) {
+            if p.isRunning { p.terminate() }
+        }
+        p.waitUntilExit()
+    }
+
     nonisolated static func git(_ args: [String], in dir: String) -> GitResult {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/git")
         p.arguments = ["-c", "core.quotepath=off"] + args
         p.currentDirectoryURL = URL(fileURLWithPath: dir)
-        var env = ProcessInfo.processInfo.environment
-        // Never take the index lock (a status poll mustn't block the
-        // user's or Claude's git commands), and never prompt.
-        env["GIT_OPTIONAL_LOCKS"] = "0"
-        env["GIT_TERMINAL_PROMPT"] = "0"
-        p.environment = env
+        p.environment = environment
         let out = Pipe(), err = Pipe()
         p.standardOutput = out
         p.standardError = err

@@ -201,19 +201,53 @@ enum DebugControl {
             // Synthesized drags aren't routed by AppKit without a physical
             // button down, so call the view under the start point directly.
             let start = NSPoint(x: x1, y: window.frame.height - y1)
-            guard let view = window.contentView?.hitTest(start) else { throw DebugError("no view") }
+            // From the window's frame view, so the titlebar's views count.
+            guard var view = (window.contentView?.superview ?? window.contentView)?.hitTest(start) else { throw DebugError("no view") }
+            // "host": SwiftUI's gestures are handled by the hosting view,
+            // not by the view it puts under the pointer.
+            if cmd["host"] as? Bool == true {
+                while !String(describing: type(of: view)).contains("HostingView"), let up = view.superview { view = up }
+            }
             func event(_ type: NSEvent.EventType, _ x: Double, _ y: Double) -> NSEvent {
                 NSEvent.mouseEvent(with: type, location: NSPoint(x: x, y: window.frame.height - y), modifierFlags: mods,
                                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
                                    context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
             }
-            view.mouseDown(with: event(.leftMouseDown, x1, y1))
+            if cmd["continue"] as? Bool != true { view.mouseDown(with: event(.leftMouseDown, x1, y1)) }
             for i in 1...steps {
                 let t = Double(i) / Double(steps)
                 view.mouseDragged(with: event(.leftMouseDragged, x1 + (x2 - x1) * t, y1 + (y2 - y1) * t))
             }
-            view.mouseUp(with: event(.leftMouseUp, x2, y2))
+            // "hold": leave the button down (to look at a drag under way);
+            // the same drag without it lets go.
+            if cmd["hold"] as? Bool != true { view.mouseUp(with: event(.leftMouseUp, x2, y2)) }
             return String(describing: type(of: view))
+        }
+
+        // A drag sent through the window, a step per frame, for SwiftUI's
+        // gestures (the tab row's reordering): {"cmd":"dragSend","x1":..,"y1":..,
+        // "x2":..,"y2":..}. "hold" leaves the button down; "continue" goes on
+        // from a held drag.
+        registerAsync("dragSend") { cmd in
+            guard let window else { throw DebugError("no window") }
+            let x1 = cmd["x1"] as? Double ?? 0, y1 = cmd["y1"] as? Double ?? 0
+            let x2 = cmd["x2"] as? Double ?? 0, y2 = cmd["y2"] as? Double ?? 0
+            let steps = cmd["steps"] as? Int ?? 12
+            @MainActor func send(_ type: NSEvent.EventType, _ x: Double, _ y: Double) async {
+                if let e = NSEvent.mouseEvent(with: type, location: NSPoint(x: x, y: window.frame.height - y), modifierFlags: [],
+                                              timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                                              context: nil, eventNumber: 0, clickCount: 1, pressure: type == .leftMouseUp ? 0 : 1) {
+                    window.sendEvent(e)
+                }
+                try? await Task.sleep(for: .milliseconds(16))
+            }
+            if cmd["continue"] as? Bool != true { await send(.leftMouseDown, x1, y1) }
+            for i in 1...steps {
+                let t = Double(i) / Double(steps)
+                await send(.leftMouseDragged, x1 + (x2 - x1) * t, y1 + (y2 - y1) * t)
+            }
+            if cmd["hold"] as? Bool != true { await send(.leftMouseUp, x2, y2) }
+            return nil
         }
 
         // A real scroll-wheel event at (x, y): {"cmd":"wheel","x":..,"y":..,"dy":-5}

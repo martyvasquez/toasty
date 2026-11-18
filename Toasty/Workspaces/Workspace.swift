@@ -63,6 +63,9 @@ final class Workspace: ObservableObject, Identifiable {
     func newConversation(cwd: String? = nil, resume sessionID: String? = nil, select: Bool = true) -> ClaudeConversation {
         let c = ClaudeConversation(cwd: cwd ?? folder, sessionID: sessionID)
         add(c, select: select)
+        // Before the first prompt: is the branch behind its remote? (The
+        // new tab's empty state says so.)
+        changes.checkRemote()
         return c
     }
 
@@ -174,6 +177,29 @@ final class Workspace: ObservableObject, Identifiable {
     }
 
     func renamed() { changed(); store?.workspaceSelectionChanged(self) }
+
+    /// Move a tab to `index` in the row (dragged there, or Move Left/Right).
+    func moveConversation(_ id: UUID, to index: Int) {
+        guard let moved = Self.moving(conversations, id, to: index) else { return }
+        conversations = moved
+        changed()
+    }
+
+    func moveTerminal(_ id: UUID, to index: Int) {
+        guard let moved = Self.moving(terminals, id, to: index) else { return }
+        terminals = moved
+        changed()
+    }
+
+    /// `list` with one item moved to `index`, or nil if that changes nothing.
+    private static func moving<T: Identifiable>(_ list: [T], _ id: T.ID, to index: Int) -> [T]? {
+        guard let from = list.firstIndex(where: { $0.id == id }) else { return nil }
+        let to = max(0, min(index, list.count - 1))
+        guard to != from else { return nil }
+        var list = list
+        list.insert(list.remove(at: from), at: to)
+        return list
+    }
 
     private func observe(_ c: ClaudeConversation) {
         statusObservers[c.id] = c.$phase.map { _ in () }
