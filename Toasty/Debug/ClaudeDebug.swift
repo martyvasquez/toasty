@@ -201,6 +201,26 @@ enum ClaudeDebug {
             return nil
         }
 
+        // What the Activity tab reads: {"cmd":"liveness"}. {"fake":"working"}
+        // makes up a running turn (also "stopped", "idle"); {"quiet":200}
+        // pretends Claude Code last spoke that many seconds ago.
+        DebugControl.register("liveness") { cmd in
+            let c = try conv()
+            if let fake = cmd["fake"] as? String { c.debugFakeActivity(fake) }
+            if let quiet = cmd["quiet"] as? Double ?? (cmd["quiet"] as? Int).map(Double.init) {
+                c.activity.debugSetLastHeard(Date().addingTimeInterval(-quiet))
+            }
+            return [
+                "phase": "\(c.phase)",
+                "silence": ActivityTab.silence(c, now: Date()),
+                "heardAgo": c.activity.lastHeard.map { Date().timeIntervalSince($0) } ?? -1,
+                "running": c.runningTools.map { ["tool": $0.toolName, "elapsed": $0.elapsed ?? -1,
+                                                 "since": $0.started.map { Date().timeIntervalSince($0) } ?? -1] },
+                "background": c.backgroundTasks.map { ["type": $0.type, "description": $0.description] },
+                "stopped": c.stopped.map { "exit \($0.status)" } ?? "",
+            ] as [String: Any]
+        }
+
         // The conversation's state; poll it to wait for a turn.
         DebugControl.register("conv") { cmd in
             let c = try conv()

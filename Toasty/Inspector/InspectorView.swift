@@ -31,6 +31,8 @@ private struct InspectorWorkspace: View {
                 if let c = workspace.selected { UsageTab(conversation: c).id(c.id) } else { NoConversation() }
             case .teeUp:
                 TeeUpTab(workspace: workspace).id(workspace.id)
+            case .activity:
+                if let c = workspace.selected { ActivityTab(conversation: c).id(c.id) } else { NoConversation(detail: "Open a tab to see what Claude is doing.") }
             }
             if !workspace.terminalVisible {
                 TerminalFooter(workspace: workspace)
@@ -69,8 +71,10 @@ private struct TerminalFooter: View {
 }
 
 private struct NoConversation: View {
+    var detail = "Open a tab to see its usage."
+
     var body: some View {
-        InspectorEmpty(symbol: "sparkle", title: "No Conversation", detail: "Open a tab to see its usage.")
+        InspectorEmpty(symbol: "sparkle", title: "No Conversation", detail: detail)
     }
 }
 
@@ -104,7 +108,7 @@ struct InspectorEmpty: View {
 }
 
 /// Small uppercase-free section title, like the sidebar's "Workspaces".
-private struct InspectorSection<Content: View, Accessory: View>: View {
+struct InspectorSection<Content: View, Accessory: View>: View {
     let title: String
     @ViewBuilder var accessory: () -> Accessory
     @ViewBuilder var content: () -> Content

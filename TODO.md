@@ -133,6 +133,34 @@ tab is seen or dismissed.
 - **Crash rows.** "Claude Code stopped unexpectedly" (agent exit) doesn't
   notify today, so it never gets a row.
 
+## Activity (inspector tab)
+
+Built (2026-11-18): the inspector's fourth tab (⌃⌘4,
+`Inspector/ActivityTab.swift`), for long runs where it's unclear whether
+Claude is still alive. It follows the selected conversation and reads only
+what Claude Code already sends (no tokens). Status: working / waiting for
+you / idle / "No Activity for Nm" / "Claude Code Stopped", with this turn's
+time, "Last heard from Claude" (any message from Claude Code, including
+streamed text and `tool_progress` heartbeats) and tokens written. Now: each
+running tool call with its clock, and a subagent's current step. In the
+Background: `backgroundTasks` with running times; hover a row to stop it.
+A `<task-notification>` in a resumed transcript now shows as a notice with
+its summary, not as raw markup.
+
+Not done:
+
+- **Check it against real long runs.** It was checked with a made-up turn
+  (`mctl liveness fake=working`, `quiet=`, `fake=stopped`), not a real long
+  one. The quiet warning starts at 3 minutes (`ActivityTab.quietAfter`),
+  a guess: confirm that long thinking, slow MCP tools and API retries
+  don't go quiet that long, and raise it if they do.
+- **Claude's to-do list** (`TodoWrite` / `TaskCreate`): "3 of 7 · current
+  item" under the step. Left out (2026-11-18): progress is a nice-to-have
+  next to liveness, and the tools may not exist for current models. Check
+  a live session's init `tools` first; costs no tokens to show.
+- **Stall and stopped in the conversation itself**, for when the inspector
+  is on another tab. Offered 2026-11-18; the user chose the tab alone.
+
 ## Tee-Up (inspector tab)
 
 Built (2026-11-18): the inspector's third tab (⌃⌘3, `TeeUp/`). Prompts
@@ -322,7 +350,8 @@ of them. Rough order of value:
   running stops when its conversation closes (BUILD_PLAN §7). Not built: a
   list in the inspector (discussed 2026-11-10 and dropped in favor of
   Window ▸ Local Servers; bring it back if servers running unseen while a
-  workspace is open turn out to bite), the line staying up during a turn,
+  workspace is open turn out to bite; the Activity tab now lists the
+  selected conversation's tasks), the line staying up during a turn,
   `agentProgressSummaries` for one-line progress, `backgroundTasks()` to
   move a running Bash or subagent to the background (the CLI's Ctrl-B).
 - **Local Servers follow-ups.** The preview's address field could offer the

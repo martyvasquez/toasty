@@ -56,6 +56,8 @@ final class ClaudeItem: ObservableObject, Identifiable {
     /// Structured result from Claude Code (e.g. an Edit's patch), if any.
     var toolUseResult: Any?
     @Published var elapsed: Double?
+    /// When the call began, if it ran in this app (the Activity tab's clock).
+    var started: Date?
     /// Tool calls made by a subagent this tool started (Task / Agent).
     @Published var children: [ClaudeItem] = []
 
@@ -88,6 +90,17 @@ final class ClaudeTurnActivity: ObservableObject {
     /// Output tokens this turn: the API's counts for finished messages,
     /// plus an estimate (characters / 4) for the one streaming now.
     @Published private(set) var outputTokens = 0
+
+    /// When Claude Code last sent anything (a streamed word, a running
+    /// tool's heartbeat, a request). Read on a timer by the Activity tab,
+    /// so it isn't published: it changes many times a second.
+    private(set) var lastHeard: Date?
+
+    func heard() { lastHeard = Date() }
+
+    #if DEBUG
+    func debugSetLastHeard(_ date: Date?) { lastHeard = date }
+    #endif
 
     private var finishedTokens = 0
     private var streamedChars = 0
@@ -262,6 +275,25 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         var started: Date
     }
     @Published private(set) var backgroundTasks: [BackgroundTask] = []
+
+    /// Claude Code's process ended when it shouldn't have (it crashed, or
+    /// was killed mid-turn); cleared when it starts again.
+    struct Stopped: Equatable {
+        let date: Date
+        let status: Int32
+    }
+    @Published private(set) var stopped: Stopped?
+
+    /// Tool calls still running in the current turn, oldest first.
+    var runningTools: [ClaudeItem] {
+        guard phase == .working else { return [] }
+        var running: [ClaudeItem] = []
+        for item in items.reversed() {
+            if item.startsTurn { break }
+            if item.kind == .tool, !item.finalized { running.append(item) }
+        }
+        return running.reversed()
+    }
 
     /// Claude Code's guess at the next prompt (its prompt suggestions),
     /// shown as ghost text in an empty composer; Tab takes it.
@@ -796,6 +828,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         if phase != .idle || status != 0 {
             let detail = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             if status != 0 || phase == .working {
+                stopped = Stopped(date: Date(), status: status)
                 append(.error, "Claude Code stopped unexpectedly\(status != 0 ? " (exit \(status))" : "").\(detail.isEmpty ? "" : "\n\n" + detail)")
             }
         }
@@ -818,6 +851,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     /// The agent takes messages now: send what was waiting for it.
     private func agentReady() {
         launching = false
+        stopped = nil
         // The level is per process: a new CLI starts with none.
         backgroundTasks = []
         sessionRunning = true
@@ -832,6 +866,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
     private func handle(_ message: [String: Any]) {
         let type = message["type"] as? String
+        activity.heard()
         // (An empty model list is the bridge saying it couldn't get one.)
         if !agentAlive, type == "sdk" || type == "commands"
             || (type == "models" && (message["models"] as? [Any])?.isEmpty == false) { noteAlive() }
@@ -1222,6 +1257,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             case "tool_use":
                 guard let id = block["id"] as? String else { return }
                 let item = ClaudeItem.tool(id: id, name: block["name"] as? String ?? "Tool", input: [:], finalized: false)
+                item.started = Date()
                 item.messageID = streamingMessageID
                 tools[id] = item
                 streaming[index] = item
@@ -1290,6 +1326,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 if item.toolName.isEmpty { item.toolName = name }
             } else {
                 let item = ClaudeItem.tool(id: id, name: name, input: input, finalized: false)
+                if phase == .working { item.started = Date() }
                 tools[id] = item
                 items.append(item)
             }
@@ -1305,6 +1342,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             let item = ClaudeItem.tool(
                 id: id, name: block["name"] as? String ?? "Tool",
                 input: block["input"] as? [String: Any] ?? [:], finalized: false)
+            if phase == .working { item.started = Date() }
             tools[id] = item
             parentItem.children.append(item)
         }
@@ -1327,6 +1365,12 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         }
         if let out = Self.tag("local-command-stdout", in: raw) {
             if !out.isEmpty { append(.notice, out) }
+            return
+        }
+        // Claude Code telling Claude how a background task ended; the user
+        // gets its one-line summary, not the markup.
+        if raw.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("<task-notification>") {
+            if let summary = Self.tag("summary", in: raw), !summary.isEmpty { append(.notice, summary) }
             return
         }
         if raw.hasPrefix("<") && (raw.contains("<system-reminder>") || raw.hasPrefix("<local-command") || raw.hasPrefix("<command-message>")) {
@@ -1642,6 +1686,51 @@ extension ClaudeConversation {
             requests = []
         }
         reportState()
+    }
+
+    /// Debug: a made-up turn for the Activity tab, with no agent behind
+    /// it. "working": a long turn with a shell command and a subagent
+    /// running and a server in the background; "stopped": as after a
+    /// crash; "idle": the made-up turn over.
+    func debugFakeActivity(_ state: String) {
+        let now = Date()
+        switch state {
+        case "working":
+            items.append(ClaudeItem(kind: .user, text: "Migrate the sync queue to the new schema and run the tests."))
+            let bash = ClaudeItem.tool(id: "debug-\(UUID().uuidString)", name: "Bash",
+                                       input: ["command": "npm run test:integration -- --runInBand"], finalized: false)
+            bash.started = now.addingTimeInterval(-134)
+            let agent = ClaudeItem.tool(id: "debug-\(UUID().uuidString)", name: "Agent",
+                                        input: ["description": "Audit callers of SyncQueue"], finalized: false)
+            agent.started = now.addingTimeInterval(-48)
+            let grep = ClaudeItem.tool(id: "debug-\(UUID().uuidString)", name: "Grep", input: ["pattern": "SyncQueue"], finalized: true)
+            let read = ClaudeItem.tool(id: "debug-\(UUID().uuidString)", name: "Read",
+                                       input: ["file_path": "\(cwd)/src/sync/queue.ts"], finalized: false)
+            agent.children = [grep, read]
+            items.append(contentsOf: [bash, agent])
+            turnStarted = now.addingTimeInterval(-725)
+            activity.reset()
+            activity.messageUsage(3840)
+            activity.heard()
+            backgroundTasks = [BackgroundTask(id: "debug-1", description: "npm run dev", type: "local_bash",
+                                              started: now.addingTimeInterval(-2460))]
+            stopped = nil
+            turnRunning = true
+            setPhase(.working)
+        case "stopped":
+            debugFakeActivity("idle")
+            stopped = Stopped(date: now.addingTimeInterval(-95), status: 1)
+        default:
+            for item in items where item.kind == .tool && item.id.hasPrefix("debug-") {
+                item.finalized = true
+                item.children.forEach { $0.finalized = true }
+            }
+            backgroundTasks = []
+            stopped = nil
+            turnStarted = nil
+            turnRunning = false
+            setPhase(.idle)
+        }
     }
 
     /// Debug: show Markdown as if Claude had replied with it.

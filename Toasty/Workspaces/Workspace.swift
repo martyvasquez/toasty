@@ -732,7 +732,7 @@ struct TeeUpFeed: Equatable {
 
 /// The inspector's tabs.
 enum InspectorTab: String, CaseIterable, Identifiable {
-    case changes, usage, teeUp
+    case changes, usage, teeUp, activity
 
     var id: String { rawValue }
 
@@ -741,6 +741,7 @@ enum InspectorTab: String, CaseIterable, Identifiable {
         case .changes: "Changes"
         case .usage: "Usage"
         case .teeUp: "Tee-Up"
+        case .activity: "Activity"
         }
     }
 
@@ -749,15 +750,17 @@ enum InspectorTab: String, CaseIterable, Identifiable {
         case .changes: "arrow.triangle.branch"
         case .usage: "gauge.with.dots.needle.50percent"
         case .teeUp: "text.line.first.and.arrowtriangle.forward"
+        case .activity: "waveform.path.ecg"
         }
     }
 
-    /// ⌃⌘1, ⌃⌘2, ⌃⌘3
+    /// ⌃⌘1, ⌃⌘2, ⌃⌘3, ⌃⌘4
     var shortcut: String {
         switch self {
         case .changes: "1"
         case .usage: "2"
         case .teeUp: "3"
+        case .activity: "4"
         }
     }
 }

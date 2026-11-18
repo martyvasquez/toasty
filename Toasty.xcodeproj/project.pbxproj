@@ -89,6 +89,7 @@
 		CC8328BFDDF5F840A632E2EA /* SpeechEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761A76E108C08A07F86040EB /* SpeechEngineTests.swift */; };
 		CEA980BF931C3BEA49856B8C /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 27EEFC3A6CB6CC9707747BDF /* Sparkle */; };
 		D11860668A820567204E26B2 /* ProcessDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8786E7228A22BC207D57DC3 /* ProcessDebug.swift */; };
+		D3118FED172FCEB87041C7C0 /* ActivityTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = D762E2195EF987EE587BDC4F /* ActivityTab.swift */; };
 		D85CB4EE647ED61981C904D6 /* Worktrees.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4F699DD786C95D272697F9D /* Worktrees.swift */; };
 		D9F77D560C3635E6D7AD25E2 /* SpeechModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38E532463352FE1FCDD0BAFF /* SpeechModels.swift */; };
 		DB9EF218EA4651E15C47905F /* TextPipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0520699B45C02518BAA81BF5 /* TextPipelineTests.swift */; };
@@ -215,6 +216,7 @@
 		CBBE64C6CC4ACF837A9C98E2 /* ProcessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessTests.swift; sourceTree = "<group>"; };
 		D1E0AF94EDDB841E22D8DEAA /* ServiceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceProvider.swift; sourceTree = "<group>"; };
 		D608974EF68852F5E90292F3 /* TerminalSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSession.swift; sourceTree = "<group>"; };
+		D762E2195EF987EE587BDC4F /* ActivityTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityTab.swift; sourceTree = "<group>"; };
 		DB24559E15BED10BF20F7121 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		DCE2DDFBE96109A93CF6E74D /* TeeUpTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeeUpTests.swift; sourceTree = "<group>"; };
 		DFFBD1A7316E98A070F3E2BE /* ClaudeMarkdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeMarkdown.swift; sourceTree = "<group>"; };
@@ -326,6 +328,7 @@
 		47BE5B242EE11E55D43B6BA7 /* Inspector */ = {
 			isa = PBXGroup;
 			children = (
+				D762E2195EF987EE587BDC4F /* ActivityTab.swift */,
 				B522B1F4E328C3F351D75754 /* GitChanges.swift */,
 				E974BF37B348BD074F448190 /* InspectorView.swift */,
 			);
@@ -650,6 +653,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				120D5D296EE4BA6C4E33E628 /* Activity.swift in Sources */,
+				D3118FED172FCEB87041C7C0 /* ActivityTab.swift in Sources */,
 				C83DB61BBC4E1B55D26FE8AB /* AppDelegate.swift in Sources */,
 				C377CAE6CF74EDB9ACFFE687 /* CaptureClip.swift in Sources */,
 				308C0EB67B57D5743742E49F /* ClaudeAgent.swift in Sources */,
