@@ -4,8 +4,10 @@ import os
 import SwiftUI
 
 /// ⇧⌘0, in any app: drag an area (or Space for a window) exactly as with
-/// ⇧⌘4, and the screenshot is attached to the conversation open in Toasty.
-/// Toasty stays in the background, so several can be taken in a row.
+/// ⇧⌘4, and the screenshot is attached to the prompt last typed in: the open
+/// conversation's composer, or a prompt in the Tee-Up tab (the new one, or
+/// one open for editing). Toasty stays in the background, so several can be
+/// taken in a row.
 ///
 /// The picture is taken by the system's `screencapture`, which writes a file;
 /// Toasty reads it into the composer and deletes it at once, so nothing is
@@ -96,8 +98,8 @@ final class ScreenshotCapture: NSObject {
             return
         }
         running = nil
-        guard target != nil else {
-            Self.log.notice("pressed: no conversation open")
+        guard focusedPrompt != nil || conversation != nil else {
+            Self.log.notice("pressed: no prompt to attach to")
             NSSound.beep()
             return
         }
@@ -111,9 +113,11 @@ final class ScreenshotCapture: NSObject {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
         process.arguments = ["-i", "-t", "png", file.path]
-        process.terminationHandler = { process in
+        // Where the cursor is as the shortcut is pressed is where it goes.
+        let prompt = focusedPrompt
+        process.terminationHandler = { [weak prompt] process in
             let status = process.terminationStatus
-            DispatchQueue.main.async { MainActor.assumeIsolated { self.finished(file, status: status) } }
+            DispatchQueue.main.async { MainActor.assumeIsolated { self.finished(file, status: status, prompt: prompt) } }
         }
         do {
             try process.run()
@@ -126,9 +130,17 @@ final class ScreenshotCapture: NSObject {
     }
 
     /// The conversation on screen in Toasty.
-    private var target: ClaudeConversation? { AppDelegate.shared.store.active?.selected }
+    private var conversation: ClaudeConversation? { AppDelegate.shared.store.active?.selected }
 
-    private func finished(_ file: URL, status: Int32) {
+    /// The prompt field with the text cursor in the main window (it keeps
+    /// it while Toasty is in the background), if it takes pictures: the
+    /// composer, or one of the Tee-Up tab's.
+    private var focusedPrompt: ComposerTextView? {
+        let view = AppDelegate.shared.windowController?.window?.firstResponder as? ComposerTextView
+        return view?.coordinator?.parent.onPasteImage == nil ? nil : view
+    }
+
+    private func finished(_ file: URL, status: Int32, prompt: ComposerTextView?) {
         running = nil
         // No file: Esc cancelled the capture.
         guard let data = try? Data(contentsOf: file) else {
@@ -136,15 +148,26 @@ final class ScreenshotCapture: NSObject {
             return
         }
         try? FileManager.default.removeItem(at: file)
-        let attached = attach(data)
+        let attached = attach(data, to: prompt)
         Self.log.notice("picture of \(data.count) bytes, attached: \(attached)")
     }
 
-    /// Add a picture to the open conversation's composer. False when there's
-    /// no conversation or the data isn't a picture.
+    /// Add a picture to `prompt` if it's still there (a Tee-Up card may have
+    /// been closed meanwhile), else to the prompt with the cursor now, else
+    /// to the open conversation's composer. False when there's nowhere to
+    /// put it or the data isn't a picture.
     @discardableResult
-    func attach(_ data: Data) -> Bool {
-        guard let conversation = target, let image = NSImage(data: data) else {
+    func attach(_ data: Data, to prompt: ComposerTextView? = nil) -> Bool {
+        guard let image = NSImage(data: data) else {
+            NSSound.beep()
+            return false
+        }
+        if let field = [prompt, focusedPrompt].compactMap({ $0 }).first(where: { $0.window != nil }),
+           let add = field.coordinator?.parent.onPasteImage {
+            add(image)
+            return true
+        }
+        guard let conversation else {
             NSSound.beep()
             return false
         }
@@ -222,7 +245,7 @@ struct ScreenshotSettingsView: View {
                         Text("\(ScreenshotCapture.shortcutLabel) couldn't be set up as a shortcut for every app. It still works in Toasty.")
                             .foregroundStyle(.orange)
                     }
-                    Text("Press \(ScreenshotCapture.shortcutLabel) in any app, then drag over an area, or press Space to pick a window. The screenshot is attached to the conversation you have open in Toasty and isn't saved anywhere else.")
+                    Text("Press \(ScreenshotCapture.shortcutLabel) in any app, then drag over an area, or press Space to pick a window. The screenshot is attached to the prompt you were last typing in Toasty (the open conversation's, or one in Tee-Up) and isn't saved anywhere else.")
                     Text("Toasty stays in the background, so you can take several before coming back. While this is off, \(ScreenshotCapture.shortcutLabel) works only in Toasty.")
                 }
                 .foregroundStyle(.secondary)

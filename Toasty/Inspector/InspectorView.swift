@@ -4,7 +4,7 @@ import SwiftUI
 // MARK: - Pane
 
 /// The top of the right column: the active workspace's selected inspector
-/// tab. Changes belong to the workspace; To-dos and Usage follow the
+/// tab. Changes and Tee-Up belong to the workspace; Usage follows the
 /// selected conversation tab.
 struct InspectorPane: View {
     @ObservedObject var store: WorkspaceStore
@@ -29,6 +29,8 @@ private struct InspectorWorkspace: View {
                 ChangesTab(workspace: workspace, changes: workspace.changes)
             case .usage:
                 if let c = workspace.selected { UsageTab(conversation: c).id(c.id) } else { NoConversation() }
+            case .teeUp:
+                TeeUpTab(workspace: workspace).id(workspace.id)
             }
             if !workspace.terminalVisible {
                 TerminalFooter(workspace: workspace)

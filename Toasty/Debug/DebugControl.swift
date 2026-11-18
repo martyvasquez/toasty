@@ -171,7 +171,7 @@ enum DebugControl {
         }
 
         // A real click through the window's event dispatch, at (x, y) in
-        // points from the window's top-left corner.
+        // points from the window's top-left corner ("via":"app" for the app's).
         register("click") { cmd in
             guard let window else { throw DebugError("no window") }
             let x = cmd["x"] as? Double ?? 0, y = cmd["y"] as? Double ?? 0
@@ -185,7 +185,8 @@ enum DebugControl {
                                               timestamp: ProcessInfo.processInfo.systemUptime,
                                               windowNumber: window.windowNumber, context: nil,
                                               eventNumber: 0, clickCount: count, pressure: 1) {
-                    window.sendEvent(e)
+                    // {"via":"app"}: through the app, where event monitors listen.
+                    if cmd["via"] as? String == "app" { NSApp.sendEvent(e) } else { window.sendEvent(e) }
                 }
             }
             return nil

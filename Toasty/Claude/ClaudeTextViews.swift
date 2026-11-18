@@ -170,6 +170,9 @@ struct ClaudeComposer: NSViewRepresentable {
     /// Files pasted or dropped on the composer, attached instead of
     /// inserted as paths.
     var onFiles: (([URL]) -> Void)?
+    /// Files are being dragged over the text (it takes drops itself, so a
+    /// SwiftUI drop target around it stops being targeted).
+    var onFilesTargeted: ((Bool) -> Void)?
     /// Gets keys first (e.g. the slash command menu): return true if handled.
     var onKeyCommand: ((Selector) -> Bool)?
     /// The conversation, so dictation can show its state on this composer.
@@ -178,6 +181,9 @@ struct ClaudeComposer: NSViewRepresentable {
     /// takes it.
     var suggestion: String? = nil
     var onAcceptSuggestion: () -> Void = {}
+    var fontSize: CGFloat = ClaudeStyle.bodySize
+    /// The text lost the keyboard (a click elsewhere).
+    var onBlur: (() -> Void)? = nil
 
     /// One line of text at rest; the box grows as you type.
     static var minHeight: CGFloat {
@@ -199,7 +205,7 @@ struct ClaudeComposer: NSViewRepresentable {
         view.importsGraphics = false
         view.allowsUndo = true
         view.drawsBackground = false
-        view.font = .systemFont(ofSize: ClaudeStyle.bodySize)
+        view.font = .systemFont(ofSize: fontSize)
         view.textColor = .labelColor
         view.insertionPointColor = .controlAccentColor
         view.textContainerInset = NSSize(width: 0, height: 3)
@@ -220,7 +226,7 @@ struct ClaudeComposer: NSViewRepresentable {
         // No Writing Tools / Apple Intelligence button beside the text.
         view.writingToolsBehavior = .none
         view.typingAttributes = [
-            .font: NSFont.systemFont(ofSize: ClaudeStyle.bodySize),
+            .font: NSFont.systemFont(ofSize: fontSize),
             .foregroundColor: NSColor.labelColor,
             .paragraphStyle: {
                 let p = NSMutableParagraphStyle()
@@ -281,6 +287,11 @@ struct ClaudeComposer: NSViewRepresentable {
         }
 
         func undoManager(for view: NSTextView) -> UndoManager? { undo }
+
+        func textDidEndEditing(_ notification: Notification) {
+            // After the click that took the keyboard has been handled.
+            DispatchQueue.main.async { [weak self] in self?.parent.onBlur?() }
+        }
 
         func textDidChange(_ notification: Notification) {
             guard let view = textView else { return }
@@ -497,8 +508,21 @@ final class ComposerTextView: NSTextView {
     }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        if coordinator?.parent.onFiles != nil, Self.fileURLs(sender.draggingPasteboard) != nil { return .copy }
+        if coordinator?.parent.onFiles != nil, Self.fileURLs(sender.draggingPasteboard) != nil {
+            coordinator?.parent.onFilesTargeted?(true)
+            return .copy
+        }
         return super.draggingEntered(sender)
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        coordinator?.parent.onFilesTargeted?(false)
+        super.draggingExited(sender)
+    }
+
+    override func draggingEnded(_ sender: NSDraggingInfo) {
+        coordinator?.parent.onFilesTargeted?(false)
+        super.draggingEnded(sender)
     }
 
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
@@ -508,6 +532,7 @@ final class ComposerTextView: NSTextView {
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         if let onFiles = coordinator?.parent.onFiles, let urls = Self.fileURLs(sender.draggingPasteboard) {
+            coordinator?.parent.onFilesTargeted?(false)
             onFiles(urls)
             return true
         }

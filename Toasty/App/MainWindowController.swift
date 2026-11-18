@@ -258,10 +258,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         session.setCommenting(!session.commenting)
     }
 
-    /// ⌃⌘1…3: show an inspector tab.
+    /// ⌃⌘1…3: show an inspector tab. Tee-Up by its shortcut is for typing
+    /// the next prompt: a new one opens (the tab's button only shows the list).
     @objc func showInspectorTab(_ sender: NSMenuItem) {
         guard let w = store.active, InspectorTab.allCases.indices.contains(sender.tag) else { return }
-        w.showInspector(InspectorTab.allCases[sender.tag])
+        let tab = InspectorTab.allCases[sender.tag]
+        w.showInspector(tab)
+        if tab == .teeUp { w.newTeeUp() }
     }
 
     /// ⇧⌘D and the titlebar button: the whole right column.

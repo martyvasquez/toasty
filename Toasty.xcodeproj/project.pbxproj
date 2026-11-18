@@ -54,6 +54,7 @@
 		6CBCBC44A0E7D23F1974174F /* Vocabulary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07E44FEF143B34DDB7720C70 /* Vocabulary.swift */; };
 		725D93DDEC5C347B0656BBA1 /* ProcessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBBE64C6CC4ACF837A9C98E2 /* ProcessTests.swift */; };
 		72B35C923E6E7BBD19F19BC3 /* ServiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E0AF94EDDB841E22D8DEAA /* ServiceProvider.swift */; };
+		74ACC74A36424EC519A104A8 /* TeeUpTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D661119D726B8E0E3DD6411 /* TeeUpTab.swift */; };
 		74AD96205B972C48FB67E2B3 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A784151685B16B9E4F4EC6E /* SettingsWindow.swift */; };
 		78A6CA1B4CA929C128407E33 /* WorkspaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */; };
 		810F05E5628D52043ACA62B8 /* KeyboardShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = A97DF3CFA988D518C8A2490B /* KeyboardShortcuts.swift */; };
@@ -68,11 +69,13 @@
 		9DDDDAA170037BD3E78B847C /* LocalServersWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D16EF1BA583C2893F7B6156 /* LocalServersWindow.swift */; };
 		A2EC71DB7AA8F9C82C143E0E /* MosttyImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCAA19127C213E06D0E3269E /* MosttyImport.swift */; };
 		A83035FF59935DFD66E04BAC /* PreviewDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19CED90B88C38C1A6B695B76 /* PreviewDebug.swift */; };
+		AC946F3D12C8AAF3BB8D8BF1 /* TeeUp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CE9F5C6D66F52699F8558DC /* TeeUp.swift */; };
 		AC9DFC4D667B3EF0DACDCE40 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FDD4FA67F476B51448A8EB66 /* Assets.xcassets */; };
 		B614E0D5DFBFC6A1EC6A58EB /* ClaudeConversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A3D72521ECFC5F5DC717828 /* ClaudeConversation.swift */; };
 		B7EC6B42A1BE5F57121E7511 /* ConversationColumn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A1AC4F2009B67034788F88E /* ConversationColumn.swift */; };
 		B7F0FB9F1258B0B03E206081 /* Acknowledgements.txt in Resources */ = {isa = PBXBuildFile; fileRef = 46AACC525014FD188E135CFC /* Acknowledgements.txt */; };
 		B8A7E2BEF7397740BED13E40 /* Bridge in Resources */ = {isa = PBXBuildFile; fileRef = 326FC85C18EB90E86334C2F6 /* Bridge */; };
+		BF8EEDD7848AA2C67CC528DE /* TeeUpTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCE2DDFBE96109A93CF6E74D /* TeeUpTests.swift */; };
 		BFDB2DD95D5520E548B85DCE /* DictationTones.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79622B16D0D2B6FA76F28539 /* DictationTones.swift */; };
 		C377CAE6CF74EDB9ACFFE687 /* CaptureClip.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0AB472102F6E81ECE753B0B /* CaptureClip.swift */; };
 		C43DE4B1B520DE08BA08379B /* DebugControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C279FCF3F11C0D07DF1B5B /* DebugControl.swift */; };
@@ -156,6 +159,8 @@
 		59A391E422005AC05F0585B6 /* GhosttyVt.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = GhosttyVt.xcframework; path = Vendor/GhosttyVt.xcframework; sourceTree = "<group>"; };
 		5C51FB87F905EF29B4ECF92F /* MainMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenu.swift; sourceTree = "<group>"; };
 		5CC459AB59289630D91E6695 /* ScreenshotCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotCapture.swift; sourceTree = "<group>"; };
+		5CE9F5C6D66F52699F8558DC /* TeeUp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeeUp.swift; sourceTree = "<group>"; };
+		5D661119D726B8E0E3DD6411 /* TeeUpTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeeUpTab.swift; sourceTree = "<group>"; };
 		5DAAFA268342A12586EEAEBE /* DictationIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationIndicator.swift; sourceTree = "<group>"; };
 		5FE3BEB622EF1F6E34C0F08C /* ClaudeSDKTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSDKTests.swift; sourceTree = "<group>"; };
 		64890A3F04ACB6E7BF086D88 /* PTY.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTY.swift; sourceTree = "<group>"; };
@@ -210,6 +215,7 @@
 		D1E0AF94EDDB841E22D8DEAA /* ServiceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceProvider.swift; sourceTree = "<group>"; };
 		D608974EF68852F5E90292F3 /* TerminalSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSession.swift; sourceTree = "<group>"; };
 		DB24559E15BED10BF20F7121 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		DCE2DDFBE96109A93CF6E74D /* TeeUpTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeeUpTests.swift; sourceTree = "<group>"; };
 		DFFBD1A7316E98A070F3E2BE /* ClaudeMarkdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeMarkdown.swift; sourceTree = "<group>"; };
 		E1539C03BDAC3DB442928940 /* MicCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicCapture.swift; sourceTree = "<group>"; };
 		E1C4288BD8F8A0E1BC06EB85 /* SpeechEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechEngine.swift; sourceTree = "<group>"; };
@@ -273,6 +279,14 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		199FD8A4D3E6BADEBC268A47 /* TeeUpTests */ = {
+			isa = PBXGroup;
+			children = (
+				DCE2DDFBE96109A93CF6E74D /* TeeUpTests.swift */,
+			);
+			path = TeeUpTests;
+			sourceTree = "<group>";
+		};
 		1CD6ED451020EC9BA2BD5A08 /* Notifications */ = {
 			isa = PBXGroup;
 			children = (
@@ -302,6 +316,7 @@
 				C6DD56F891F4B9E034A4D746 /* DictationTests */,
 				A71D206C8A4F945CE7FED373 /* PreviewTests */,
 				DC9EDE4DC0C6C941D1B784B2 /* ProcessTests */,
+				199FD8A4D3E6BADEBC268A47 /* TeeUpTests */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -461,6 +476,15 @@
 			path = ProcessTests;
 			sourceTree = "<group>";
 		};
+		E4A825797FDA537C81949C16 /* TeeUp */ = {
+			isa = PBXGroup;
+			children = (
+				5CE9F5C6D66F52699F8558DC /* TeeUp.swift */,
+				5D661119D726B8E0E3DD6411 /* TeeUpTab.swift */,
+			);
+			path = TeeUp;
+			sourceTree = "<group>";
+		};
 		E5996C4FF896C534B47DFE04 /* App */ = {
 			isa = PBXGroup;
 			children = (
@@ -495,6 +519,7 @@
 				DBD5686BFD64D689D3288DF6 /* Processes */,
 				28E5D759548A89D7AFC70550 /* Resources */,
 				781D67FCB35BC136C8494624 /* Screenshot */,
+				E4A825797FDA537C81949C16 /* TeeUp */,
 				A18C1811396D36145BA3042B /* Terminal */,
 				C02E06E6B0BB99FC94E442D8 /* Workspaces */,
 			);
@@ -678,6 +703,8 @@
 				74AD96205B972C48FB67E2B3 /* SettingsWindow.swift in Sources */,
 				F3EDEAA0B2C742A331699A9C /* SpeechEngine.swift in Sources */,
 				D9F77D560C3635E6D7AD25E2 /* SpeechModels.swift in Sources */,
+				AC946F3D12C8AAF3BB8D8BF1 /* TeeUp.swift in Sources */,
+				74ACC74A36424EC519A104A8 /* TeeUpTab.swift in Sources */,
 				021E23FC56ACD71AC24B461D /* TerminalDebug.swift in Sources */,
 				500B9ECC5A22E8386FBB831D /* TerminalRenderer.swift in Sources */,
 				97DE64296BB25F566553E931 /* TerminalSession.swift in Sources */,
@@ -709,6 +736,7 @@
 				725D93DDEC5C347B0656BBA1 /* ProcessTests.swift in Sources */,
 				F4C17D44C12AE3718AAED793 /* RepoPathsTests.swift in Sources */,
 				CC8328BFDDF5F840A632E2EA /* SpeechEngineTests.swift in Sources */,
+				BF8EEDD7848AA2C67CC528DE /* TeeUpTests.swift in Sources */,
 				DB9EF218EA4651E15C47905F /* TextPipelineTests.swift in Sources */,
 				F4AD53E268D6DD3A286BE7F8 /* TriggerTests.swift in Sources */,
 				C6B075DD73015D8393D48893 /* VocabularyTests.swift in Sources */,

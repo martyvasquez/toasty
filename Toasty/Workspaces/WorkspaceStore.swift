@@ -72,6 +72,7 @@ final class WorkspaceStore: ObservableObject {
             rightColumnWidth = CGFloat(s.rightColumnWidth ?? activeSaved?.terminalWidth ?? Double(rightColumnWidth))
             inspectorFraction = CGFloat(s.inspectorFraction ?? activeSaved?.inspectorFraction ?? Double(inspectorFraction))
             windowFrame = s.windowFrame.map(NSRectFromString)
+            TeeUpImages.sweep(keeping: Set(workspaces.flatMap(\.teeUpImageNames)))
         }
         if workspaces.isEmpty {
             create(folder: NSHomeDirectory(), name: "Home")

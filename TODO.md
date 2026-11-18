@@ -133,6 +133,37 @@ tab is seen or dismissed.
 - **Crash rows.** "Claude Code stopped unexpectedly" (agent exit) doesn't
   notify today, so it never gets a row.
 
+## Tee-Up (inspector tab)
+
+Built (2026-11-18): the inspector's third tab (⌃⌘3, `TeeUp/`). Prompts
+written ahead of time with pictures and files; each is sent to the open tab
+(as if typed there) and leaves the list. Like a to-do app: every prompt is
+a one-line card (a paperclip counts its attachments); clicking one opens it
+in place to edit, and Return, Esc or a click elsewhere closes it (edits are
+kept as typed; no save step). "New Prompt" under the cards, ⌃⌘3, or
+files dropped on the tab add a card, open (left empty, it goes away). Drag to reorder; delete from the open card or
+the context menu. The list is saved with the workspace; pictures are PNGs in `Application Support/<app>/TeeUps`.
+
+### To decide after using it
+
+- **Screenshots follow the cursor (trial, 2026-11-18).** ⇧⌘0 attaches to
+  the prompt field that last had the text cursor: the composer or an open
+  tee-up card (else the open conversation). Watch
+  for: a screenshot landing in Tee-Up when the conversation was meant,
+  because the cursor was left there.
+
+- **Per workspace or per tab?** Per workspace today, shared by its tabs
+  (worktrees have their own list, being workspaces).
+
+### Ideas (not committed)
+
+- **Tee up from the composer.** A key (⌥⏎?) that puts the composer's draft
+  on the list instead of sending it.
+- **Count on the tab button** while the list isn't empty and another
+  inspector tab is showing.
+- **Send the next one when Claude finishes** (a queue that runs itself).
+- **Drag a row onto a tab** to send it there instead of the open one.
+
 ## Git worktrees
 
 Built 2026-11-08 (`Workspaces/Worktrees.swift`): New Worktree… (workspace

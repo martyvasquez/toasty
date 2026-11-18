@@ -392,6 +392,9 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     /// Files that aren't images, attached by path: Claude reads them
     /// itself (Read handles PDFs; other formats it converts).
     @Published var files: [URL] = []
+    /// Files are being dragged over the composer's text (the conversation
+    /// shows "Drop to Attach" there too).
+    @Published var filesOverComposer = false
     /// Bumped to move keyboard focus to the composer.
     @Published var composerFocusToken = 0
 

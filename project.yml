@@ -132,6 +132,7 @@ targets:
       - path: Tests/ClaudeTests
       - path: Tests/PreviewTests
       - path: Tests/ProcessTests
+      - path: Tests/TeeUpTests
       - path: Tests/Fixtures
         type: folder
         buildPhase: resources

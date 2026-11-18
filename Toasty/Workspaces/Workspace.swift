@@ -20,6 +20,11 @@ final class Workspace: ObservableObject, Identifiable {
     /// `previewShowing`). The inspector and terminal keep their own state
     /// underneath and come back when the preview closes.
     @Published var previewVisible = false
+    /// Prompts teed up for later (the inspector's Tee-Up tab): the
+    /// workspace's, shared by all of its tabs.
+    @Published private(set) var teeUps: [TeeUp] = []
+    /// The teed-up prompt open for editing in place.
+    @Published private(set) var teeUpEditingID: UUID?
     /// A changed file whose diff fills the conversation column.
     @Published var diffFile: GitChanges.File?
     /// The workspace this one is a git worktree of (shown nested under it).
@@ -289,6 +294,91 @@ final class Workspace: ObservableObject, Identifiable {
         changed()
     }
 
+    // MARK: Tee-Up
+
+    /// Start a new prompt at the end of the list, open for typing (with
+    /// `files` attached, when it's started by dropping them). Left empty,
+    /// it goes away when it's closed.
+    func newTeeUp(with files: [URL] = []) {
+        endTeeUpEdit()
+        var item = TeeUp()
+        item.attach(files)
+        teeUps.append(item)
+        teeUpEditingID = item.id
+        changed()
+    }
+
+    /// Files dropped on the Tee-Up tab: onto the open prompt, or a new one.
+    func attachToTeeUp(_ files: [URL]) {
+        guard let i = teeUps.firstIndex(where: { $0.id == teeUpEditingID }) else { return newTeeUp(with: files) }
+        var item = teeUps[i]
+        item.attach(files)
+        updateTeeUp(item)
+    }
+
+    func addTeeUp(_ item: TeeUp) {
+        guard !item.isEmpty else { return }
+        teeUps.append(item)
+        changed()
+    }
+
+    /// Replace a teed-up prompt with its edited version (as it's typed:
+    /// there is no save step).
+    func updateTeeUp(_ item: TeeUp) {
+        guard let i = teeUps.firstIndex(where: { $0.id == item.id }), teeUps[i] != item else { return }
+        TeeUpImages.delete(teeUps[i].images.filter { !item.images.contains($0) })
+        teeUps[i] = item
+        changed()
+    }
+
+    /// Open a teed-up prompt for editing in place (closing any other).
+    func editTeeUp(_ id: UUID) {
+        guard teeUpEditingID != id else { return }
+        endTeeUpEdit()
+        if teeUps.contains(where: { $0.id == id }) { teeUpEditingID = id }
+    }
+
+    /// Close the prompt being edited. Edited down to nothing, it's deleted.
+    func endTeeUpEdit() {
+        guard let id = teeUpEditingID else { return }
+        teeUpEditingID = nil
+        guard let i = teeUps.firstIndex(where: { $0.id == id }) else { return }
+        if teeUps[i].isEmpty { return removeTeeUp(id) }
+        let trimmed = teeUps[i].text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed != teeUps[i].text { teeUps[i].text = trimmed; changed() }
+    }
+
+    func removeTeeUp(_ id: UUID) {
+        if teeUpEditingID == id { teeUpEditingID = nil }
+        guard let i = teeUps.firstIndex(where: { $0.id == id }) else { return }
+        TeeUpImages.delete(teeUps.remove(at: i).images)
+        changed()
+    }
+
+    func moveTeeUp(_ id: UUID, to index: Int) {
+        guard let moved = Self.moving(teeUps, id, to: index) else { return }
+        teeUps = moved
+        changed()
+    }
+
+    /// Send a teed-up prompt to the open tab, as if typed there: it leaves
+    /// the list. False if there's no tab to send it to.
+    @discardableResult
+    func sendTeeUp(_ id: UUID) -> Bool {
+        guard let conversation = selected, let i = teeUps.firstIndex(where: { $0.id == id }) else { return false }
+        if teeUpEditingID == id { teeUpEditingID = nil }
+        let item = teeUps.remove(at: i)
+        diffFile = nil  // show the conversation it went to
+        conversation.post(item.text, images: item.images.compactMap(TeeUpImages.image),
+                          files: item.files.map { URL(fileURLWithPath: $0) })
+        TeeUpImages.delete(item.images)
+        changed()
+        return true
+    }
+
+    /// Every picture this workspace's teed-up prompts still use.
+    var teeUpImageNames: [String] { teeUps.flatMap(\.images) }
+
     // MARK: Inspector
 
     /// Show the inspector, on `tab` if given.
@@ -363,6 +453,7 @@ final class Workspace: ObservableObject, Identifiable {
         var inspectorTab: String?
         var inspectorFraction: Double?
         var parentID: UUID?
+        var teeUps: [TeeUp]?
     }
 
     struct SavedConversation: Codable {
@@ -390,7 +481,8 @@ final class Workspace: ObservableObject, Identifiable {
               inspectorVisible: inspectorVisible,
               inspectorTab: inspectorTab.rawValue,
               inspectorFraction: nil,
-              parentID: parentID)
+              parentID: parentID,
+              teeUps: teeUps.isEmpty ? nil : teeUps)
     }
 
     convenience init(saved s: Saved) {
@@ -411,12 +503,14 @@ final class Workspace: ObservableObject, Identifiable {
         terminalVisible = s.terminalVisible && !terminals.isEmpty
         inspectorVisible = s.inspectorVisible ?? false
         inspectorTab = s.inspectorTab.flatMap(InspectorTab.init(rawValue:)) ?? .changes
+        // (Not a new prompt that was still empty when Toasty quit.)
+        teeUps = (s.teeUps ?? []).filter { !$0.isEmpty }
     }
 }
 
 /// The inspector's tabs.
 enum InspectorTab: String, CaseIterable, Identifiable {
-    case changes, usage
+    case changes, usage, teeUp
 
     var id: String { rawValue }
 
@@ -424,6 +518,7 @@ enum InspectorTab: String, CaseIterable, Identifiable {
         switch self {
         case .changes: "Changes"
         case .usage: "Usage"
+        case .teeUp: "Tee-Up"
         }
     }
 
@@ -431,14 +526,16 @@ enum InspectorTab: String, CaseIterable, Identifiable {
         switch self {
         case .changes: "arrow.triangle.branch"
         case .usage: "gauge.with.dots.needle.50percent"
+        case .teeUp: "text.line.first.and.arrowtriangle.forward"
         }
     }
 
-    /// ⌃⌘1, ⌃⌘2
+    /// ⌃⌘1, ⌃⌘2, ⌃⌘3
     var shortcut: String {
         switch self {
         case .changes: "1"
         case .usage: "2"
+        case .teeUp: "3"
         }
     }
 }

@@ -22,7 +22,7 @@ struct ClaudeConversationView: View {
                 loadFileURLs(providers) { conversation.attach($0) }
                 return true
             }
-            .overlay { if dropTargeted { DropTargetOverlay() } }
+            .overlay { if dropTargeted || conversation.filesOverComposer { DropTargetOverlay() } }
         .onAppear { conversation.focusComposer() }
         // Esc anywhere in the conversation: deny a pending prompt or
         // interrupt, like the CLI.
@@ -1165,6 +1165,7 @@ struct ClaudeComposerBox: View {
                 onShiftTab: { conversation.cyclePermissionMode() },
                 onPasteImage: { conversation.attachments.append($0) },
                 onFiles: { conversation.attach($0) },
+                onFilesTargeted: { conversation.filesOverComposer = $0 },
                 onKeyCommand: { commandKey($0) || mentionKey($0) },
                 dictationID: conversation.id,
                 suggestion: conversation.phase == .idle && conversation.requests.isEmpty
@@ -1310,7 +1311,7 @@ struct ClaudeComposerBox: View {
     }
 }
 
-private struct RemoveAttachmentButton: View {
+struct RemoveAttachmentButton: View {
     let label: String
     let action: () -> Void
 
@@ -1371,7 +1372,7 @@ struct AttachedFileChip: View {
 }
 
 /// Shown over the conversation while files are dragged over it.
-private struct DropTargetOverlay: View {
+struct DropTargetOverlay: View {
     var body: some View {
         ZStack {
             Color.claudeBackground.opacity(0.75)

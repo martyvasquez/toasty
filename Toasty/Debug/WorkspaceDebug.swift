@@ -98,6 +98,36 @@ enum WorkspaceDebug {
             ] as [String: Any]
         }
 
+        // {"cmd":"teeup","action":"add","text":"…","files":"/a.png,/b.pdf"} ·
+        // send|delete|edit|move (with "to") by "index" · done · new · drop with "files".
+        DebugControl.register("teeup") { cmd in
+            guard let w = store.active else { throw E("no active workspace") }
+            let action = cmd["action"] as? String ?? "list"
+            @MainActor func target() throws -> TeeUp {
+                guard let i = cmd["index"] as? Int, w.teeUps.indices.contains(i) else { throw E("index=") }
+                return w.teeUps[i]
+            }
+            let files = (cmd["files"] as? String)?.split(separator: ",").map { URL(fileURLWithPath: String($0)) } ?? []
+            switch action {
+            case "list": break
+            case "add":
+                var item = TeeUp(text: cmd["text"] as? String ?? "")
+                item.attach(files)
+                w.addTeeUp(item)
+            case "new": w.newTeeUp(with: files)
+            case "drop": w.attachToTeeUp(files)
+            case "edit": w.editTeeUp(try target().id)
+            case "done": w.endTeeUpEdit()
+            case "send": if !w.sendTeeUp(try target().id) { throw E("no tab to send to") }
+            case "delete": w.removeTeeUp(try target().id)
+            case "move":
+                guard let to = cmd["to"] as? Int else { throw E("to=") }
+                w.moveTeeUp(try target().id, to: to)
+            default: throw E("unknown action \(action)")
+            }
+            return w.teeUps.map { ["text": $0.text, "images": $0.images.count, "files": $0.files] as [String: Any] }
+        }
+
         // {"cmd":"tab","action":"new"} · select|close|rename|status with "index".
         DebugControl.register("tab") { cmd in
             guard let w = store.active else { throw E("no active workspace") }
