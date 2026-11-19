@@ -113,6 +113,9 @@ final class PreviewSession: NSObject, ObservableObject {
     @Published private(set) var console: [ConsoleEntry] = []
     @Published private(set) var commenting = false
     @Published private(set) var pick: Pick?
+    /// When a comment last went onto the Tee-Up list (the pane says so for
+    /// a moment, since the list itself isn't in view).
+    @Published private(set) var teedUpAt: Date?
     /// A page has been asked for (the start screen is over).
     @Published private(set) var started = false
 
@@ -351,25 +354,24 @@ final class PreviewSession: NSObject, ObservableObject {
         if on, let web = webView { web.window?.makeFirstResponder(web) }
     }
 
-    /// Drop the current pick and keep picking.
+    /// Drop the current pick (or the one just commented on) and keep picking.
     func cancelPick() {
         pick = nil
         picker("resume")
         if let web = webView { web.window?.makeFirstResponder(web) }
     }
 
-    /// Give the pick, with the user's note, to the conversation that's open
-    /// in `workspace`: a picture of the page with the pick outlined, and a
-    /// line saying what and where it is.
+    /// Give the pick, with the user's note, to `workspace`: a picture of the
+    /// page with the pick outlined, and a line saying what and where it is.
     ///
-    /// Sent at once as its own prompt (Return; whatever is being typed in
-    /// the composer stays there), which ends commenting. With `send` false
-    /// (⇧Return) it's added to the composer instead and picking goes on, to
-    /// gather several comments and send them together.
-    func comment(_ note: String, in workspace: Workspace, send: Bool = true) async {
+    /// Return sends it where Settings ▸ Preview says, ⇧Return to the other
+    /// place (`to`). To the conversation: posted at once as its own prompt
+    /// (whatever is being typed in the composer stays there), which ends
+    /// commenting. To Tee-Up: a card on the workspace's list, and picking
+    /// goes on, to gather several.
+    func comment(_ note: String, in workspace: Workspace, to destination: PreviewSettings.CommentDestination) async {
         guard let pick else { return }
         let picture = try? await snapshot()
-        let conversation = workspace.selected ?? workspace.newConversation()
         var images: [NSImage] = []
         if let picture {
             let image = NSImage(size: picture.size)
@@ -377,17 +379,17 @@ final class PreviewSession: NSObject, ObservableObject {
             images.append(image)
         }
         let line = Self.commentLine(pick, note: note, viewport: viewport)
-        if send {
-            conversation.post(line, images: images)
+        switch destination {
+        case .teeUp:
+            var item = TeeUp(text: line)
+            images.forEach { item.attach($0) }
+            workspace.addTeeUp(item)
+            teedUpAt = Date()
+            cancelPick()  // back in the page, for the next pick (or Esc to finish)
+        case .conversation:
+            (workspace.selected ?? workspace.newConversation()).post(line, images: images)
             leaveCommenting()
-            return
         }
-        conversation.attachments += images
-        conversation.draft = conversation.draft.isEmpty ? line : conversation.draft + "\n" + line
-        self.pick = nil
-        picker("resume")
-        // Back in the page, for the next pick (or Esc to finish).
-        if let web = webView { web.window?.makeFirstResponder(web) }
     }
 
     /// "Preview comment on `button.cta` "Start trial" (mobile 390×844,

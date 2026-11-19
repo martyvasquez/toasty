@@ -11,6 +11,9 @@ enum PreviewDebug {
             // {"drawer":false} puts the conversation away (while a desktop
             // page has the whole window); true slides it out.
             if let open = cmd["drawer"] as? Bool { PreviewDrawer.shared.setOpen(open) }
+            if let to = (cmd["commentsTo"] as? String).flatMap(PreviewSettings.CommentDestination.init(rawValue:)) {
+                PreviewSettings.shared.commentsTo = to
+            }
             if let pane = cmd["settings"] as? String {
                 SettingsWindowController.shared.show(nil)
                 SettingsWindowController.shared.debugSelect(pane)
@@ -85,11 +88,14 @@ enum PreviewDebug {
             return "\(value ?? "nil")"
         }
 
-        // Type a note for the current pick and add it to the composer.
+        // Type a note for the current pick and send it: {"to":"teeUp"} or
+        // "conversation" (default: where the setting says).
         DebugControl.registerAsync("previewComment") { cmd in
             guard let w = WorkspaceStore.shared.active else { throw DebugControl.DebugError("no workspace") }
-            await PreviewStore.shared.session(for: w).comment(cmd["note"] as? String ?? "", in: w, send: cmd["send"] as? Bool ?? true)
-            return ["draft": w.selected?.draft ?? "", "attachments": w.selected?.attachments.count ?? 0]
+            await PreviewStore.shared.session(for: w).comment(cmd["note"] as? String ?? "", in: w,
+                to: (cmd["to"] as? String).flatMap(PreviewSettings.CommentDestination.init(rawValue:)) ?? PreviewSettings.shared.commentsTo)
+            return ["draft": w.selected?.draft ?? "", "attachments": w.selected?.attachments.count ?? 0,
+                    "teeUps": w.teeUps.map { "\($0.text) [\($0.images.count) image(s)]" }]
         }
     }
 }

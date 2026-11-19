@@ -277,7 +277,12 @@ at its real width and drawn smaller in a narrow column. Comment mode (⇧⌘C): 
 an element or drag an area, type a note, and a screenshot plus one line
 (selector, viewport, URL) go to the open conversation. Return sends it at
 once as its own prompt (the user's choice 2026-11-10, "experiment with it");
-Shift-Return adds it to the composer instead, to send several together.
+Settings ▸ Preview ▸ Comments (2026-11-18, the user's idea: they want them
+teed up, others may want them sent): Return sends to the conversation
+(default) or adds a Tee-Up card with the screenshot and keeps picking;
+Shift-Return does the other one (the user's call, 2026-11-18; it used to add
+the comment to the composer, which Tee-Up replaces for gathering several). An
+"Added to Tee-Up" pill confirms, since the list isn't in view.
 The page reloads whenever Claude finishes a turn in the workspace.
 Claude gets an MCP server `preview` (navigate, screenshot, read_console,
 set_viewport, evaluate, click, type) in conversations started while it's

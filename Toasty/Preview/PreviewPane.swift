@@ -213,6 +213,8 @@ private struct PreviewPage: View {
     let workspace: Workspace
     @ObservedObject var session: PreviewSession
     let overWindow: Bool
+    @ObservedObject private var settings = PreviewSettings.shared
+    @State private var teedUp = false
 
     var body: some View {
         GeometryReader { geo in
@@ -230,8 +232,9 @@ private struct PreviewPage: View {
                         .background(Color.claudeChrome)
                 } else if let pick = session.pick {
                     let field = CommentField.frame(for: pick.rect, fit: fit, pane: geo.size)
-                    CommentField { note, send in
-                        Task { await session.comment(note, in: workspace, send: send) }
+                    CommentField(teeUp: settings.commentsTo == .teeUp) { note, other in
+                        let to = other ? settings.commentsTo.other : settings.commentsTo
+                        Task { await session.comment(note, in: workspace, to: to) }
                     } cancel: {
                         session.cancelPick()
                     }
@@ -240,8 +243,27 @@ private struct PreviewPage: View {
                     .id(pick)
                 }
             }
+            .overlay(alignment: .bottom) {
+                if teedUp {
+                    Label("Added to Tee-Up", systemImage: "checkmark")
+                        .font(.system(size: 12, weight: .medium))
+                        .padding(.horizontal, 12)
+                        .frame(height: 28)
+                        .background(Capsule().fill(Color.claudeField).shadow(color: .black.opacity(0.22), radius: 8, y: 2))
+                        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5))
+                        .padding(.bottom, 14)
+                        .transition(.opacity)
+                }
+            }
         }
         .clipped()
+        .task(id: session.teedUpAt) {
+            guard session.teedUpAt != nil else { return }
+            withAnimation(.easeOut(duration: 0.15)) { teedUp = true }
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeIn(duration: 0.3)) { teedUp = false }
+        }
     }
 }
 
@@ -262,15 +284,25 @@ private struct PreviewFailure: View {
 }
 
 /// Where a comment is typed: a small field by the thing that was picked.
-/// Return sends it to the conversation; ⇧Return adds it to the composer
-/// instead (to send several together); Esc drops the pick.
+/// Return sends it to the conversation or adds it to Tee-Up (Settings ▸
+/// Preview), ⇧Return to the other one; Esc drops the pick.
 private struct CommentField: View {
-    let submit: (_ note: String, _ send: Bool) -> Void
+    let teeUp: Bool
+    /// `other`: ⇧Return, the destination the setting didn't choose.
+    let submit: (_ note: String, _ other: Bool) -> Void
     let cancel: () -> Void
     @State private var note = ""
     @FocusState private var focused: Bool
 
     static let height: CGFloat = 34
+
+    /// Shift held for the Return just pressed: on the keyboard now, or on
+    /// the key event being handled.
+    private static var shiftHeld: Bool {
+        if NSEvent.modifierFlags.contains(.shift) { return true }
+        guard let event = NSApp.currentEvent, event.type == .keyDown else { return false }
+        return event.modifierFlags.contains(.shift)
+    }
 
     /// Under the pick when there's room, else above it; always in the pane.
     static func frame(for rect: CGRect, fit: PreviewViewport.Fit, pane: CGSize) -> CGRect {
@@ -289,14 +321,15 @@ private struct CommentField: View {
             Image(systemName: "plus.bubble")
                 .font(.system(size: 12))
                 .foregroundStyle(Color.accentColor)
-            TextField("Comment for Claude", text: $note)
+            TextField(teeUp ? "Comment for Tee-Up" : "Comment for Claude", text: $note)
                 .textFieldStyle(.plain)
                 .font(.system(size: 12.5))
                 .focused($focused)
-                .onSubmit { submit(note, !NSEvent.modifierFlags.contains(.shift)) }
+                .onSubmit { submit(note, Self.shiftHeld) }
                 .onExitCommand(perform: cancel)
             Text("↩").font(.system(size: 11)).foregroundStyle(.tertiary)
-                .help("Return sends the comment to Claude. Shift-Return adds it to the message box instead, to send several together.")
+                .help(teeUp ? "Return adds the comment to Tee-Up. Shift-Return sends it to Claude now."
+                            : "Return sends the comment to Claude. Shift-Return adds it to Tee-Up instead.")
         }
         .padding(.horizontal, 10)
         .frame(height: Self.height)
