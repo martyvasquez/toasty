@@ -41,7 +41,7 @@ private struct InspectorWorkspace: View {
 }
 
 /// Under the inspector while the terminal is hidden, laid out as the
-/// sidebar's footer: "+ New Terminal" at the left.
+/// sidebar's footer: "Terminal" at the left, which brings it back.
 private struct InspectorFooter: View {
     @ObservedObject var workspace: Workspace
 
@@ -57,13 +57,13 @@ private struct InspectorFooter: View {
         }
     }
 
-    // "+ New Terminal", as "+ New Prompt" and "+ New Workspace": it opens
-    // a new terminal and shows them (⌃⌘T shows the ones there are).
+    // "Terminal": shows the workspace's terminals (one is started if there
+    // are none), as ⌃⌘T does. New terminals are the strip's +.
     private var terminalButton: some View {
-        BarLabelButton(symbol: "plus", title: "New Terminal",
-                       tooltip: Tooltip(title: "New Terminal", shortcut: "⌥⌘T",
-                                        detail: "A shell in this workspace's folder, under the inspector. ⌃⌘T shows the terminals you have.")) {
-            AppDelegate.shared.windowController?.newTerminal(nil)
+        BarLabelButton(symbol: "terminal", title: "Terminal",
+                       tooltip: Tooltip(title: "Show Terminal", shortcut: "⌃⌘T",
+                                        detail: "A shell in this workspace's folder, under the inspector.")) {
+            AppDelegate.shared.windowController?.toggleTerminal(nil)
         }
         .padding(.leading, Theme.Inspector.edge - BarLabelButton.padding)
     }
