@@ -257,6 +257,12 @@ struct ClaudeTranscript: View {
                 // Nothing to show without visible thinking (while it runs,
                 // the working line says "Thinking…").
                 continue
+            case .error, .notice:
+                flush()
+                // The same note or error again, right after itself (a
+                // resume that fails the same way each time): shown once.
+                if case .item(let last)? = out.last, last.kind == item.kind, last.text == item.text { continue }
+                out.append(.item(item))
             default:
                 flush()
                 out.append(.item(item))
@@ -618,10 +624,12 @@ struct ClaudeUserMessage: View {
                 }
                 if !item.text.isEmpty {
                     ClaudeRichText(text: Self.attributed(item.text), hugs: true)
+                        // Solid blue with white text (as the Claude app's),
+                        // Things' card corners: yours at a glance.
                         .padding(.horizontal, Theme.Space.l)
-                        .padding(.vertical, Theme.Space.s)
-                        .background(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous)
-                            .fill(Theme.Fill.subtle))
+                        .padding(.vertical, Theme.Space.s + Theme.Space.xxs)
+                        .background(RoundedRectangle(cornerRadius: Theme.Radius.message, style: .continuous)
+                            .fill(Theme.bubbleBlue))
                 }
             }
         }
@@ -631,7 +639,7 @@ struct ClaudeUserMessage: View {
         let font = ClaudeTypography.body
         return NSAttributedString(string: text, attributes: [
             .font: font,
-            .foregroundColor: ClaudeTypography.text,
+            .foregroundColor: NSColor(white: 1, alpha: 0.95),
             .paragraphStyle: ClaudeTypography.paragraphStyle(font: font, multiple: ClaudeTypography.inputLineHeightMultiple),
             .baselineOffset: ClaudeTypography.baselineOffset(font, ClaudeTypography.inputLineHeightMultiple),
         ])
@@ -684,7 +692,8 @@ struct ClaudeReplyActions: View {
     var body: some View {
         HStack(spacing: 6) {
             ReplyActionButton(symbol: copied ? "checkmark" : "square.on.square",
-                              help: copied ? "Copied" : "Copy Response") {
+                              tooltip: Tooltip(title: copied ? "Copied" : "Copy Response",
+                                               detail: "Everything Claude wrote this turn, as Markdown.")) {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(item.turnText.isEmpty ? item.text : item.turnText, forType: .string)
                 copied = true
@@ -692,7 +701,9 @@ struct ClaudeReplyActions: View {
             }
             if let onFork {
                 // ⌘-click opens the fork without switching to it, like a link.
-                ReplyActionButton(symbol: "arrow.triangle.branch", help: "Fork from Here") {
+                ReplyActionButton(symbol: "arrow.triangle.branch",
+                                  tooltip: Tooltip(title: "Fork from Here",
+                                                   detail: "A new tab that goes on from this reply. ⌘-click to open it behind this one.")) {
                     onFork((NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags).contains(.command))
                 }
             }
@@ -727,7 +738,7 @@ struct ClaudeReplyActions: View {
 
 private struct ReplyActionButton: View {
     let symbol: String
-    let help: String
+    let tooltip: Tooltip
     let action: () -> Void
     @State private var hovering = false
 
@@ -736,16 +747,15 @@ private struct ReplyActionButton: View {
             Image(systemName: symbol)
                 .font(.toasty(Theme.Size.control))
                 .foregroundStyle(hovering ? .secondary : .tertiary)
-                .frame(width: 26, height: 26)
-                .background(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
-                    .fill((hovering ? Theme.Fill.hover : Color.clear)))
-                .contentShape(Rectangle())
+                .frame(width: 28, height: 24)
+                .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BarButtonStyle(hovering: hovering))
         .onHover { hovering = $0 }
-        .help(help)
-        .accessibilityLabel(help)
-        .padding(.leading, -6)
+        .tooltip(tooltip)
+        .accessibilityLabel(tooltip.title)
+        // The glyph, not its capsule, sits on the reply's edge.
+        .padding(.leading, -7)
     }
 }
 
@@ -789,13 +799,16 @@ struct ClaudeEmptyState: View {
     }
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: Theme.Space.s) {
+            // As Things' empty lists: the icon large and faint; the name and
+            // place quiet beneath it.
             Image(systemName: "sparkle")
-                .font(.toasty(Theme.Glyph.hero, .light))
-                .foregroundStyle(Color(nsColor: .systemOrange))
-                .padding(.bottom, 4)
+                .font(.toasty(Theme.Glyph.emptyState, .ultraLight))
+                .foregroundStyle(.quaternary)
+                .padding(.bottom, Theme.Space.m)
             Text(conversation.projectName)
-                .font(.toasty(Theme.Size.display, .semibold))
+                .font(.toasty(Theme.Size.title, .semibold))
+                .foregroundStyle(.secondary)
             HStack(spacing: 6) {
                 Text((conversation.cwd as NSString).abbreviatingWithTildeInPath)
                 if let branch = conversation.branch {

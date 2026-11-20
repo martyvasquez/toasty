@@ -140,10 +140,7 @@ private struct HeadingRow: View {
 
     private var isRenaming: Bool { store.renamingID == heading.id }
 
-    /// The accent color, softened on dark backgrounds (as Things does).
-    private var color: Color {
-        colorScheme == .dark ? Color.accentColor.mix(with: .white, by: 0.35) : .accentColor
-    }
+    private var color: Color { Theme.headingBlue }
 
     var body: some View {
         // A row like the workspaces' (24pt, its title centered, so the

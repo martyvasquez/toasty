@@ -35,7 +35,26 @@ enum Theme {
         static let small: CGFloat = 9
         /// The large faint icon of an empty state (always light).
         static let hero: CGFloat = 28
+        /// A new conversation's icon: Things' large, faint empty-list mark.
+        static let emptyState: CGFloat = 56
     }
+
+    /// Your messages in the conversation: a deep, slightly muted blue with
+    /// white text (as the Claude app's), from the accent so it follows the
+    /// system setting; in light mode the accent itself.
+    static let bubbleBlue = Color(nsColor: NSColor(name: nil) { a in
+        a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? (NSColor.controlAccentColor.blended(withFraction: 0.64, of: NSColor(white: 0.25, alpha: 1)) ?? .controlAccentColor)
+            : .controlAccentColor
+    })
+
+    /// The headings' blue: the accent, softened toward white in dark mode
+    /// (as Things' heading blue).
+    static let headingBlue = Color(nsColor: NSColor(name: nil) { a in
+        a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? (NSColor.controlAccentColor.blended(withFraction: 0.35, of: .white) ?? .controlAccentColor)
+            : .controlAccentColor
+    })
 
     // MARK: Fills
 
@@ -103,8 +122,10 @@ enum Theme {
         static let row: CGFloat = 8
         /// Cards, bubbles, popovers.
         static let card: CGFloat = 12
-        /// The composer, message bubbles, request cards and sheets.
+        /// The composer, request cards and sheets.
         static let large: CGFloat = 18
+        /// Your messages: Things' card radius (its expanded to-do).
+        static let message: CGFloat = 14
     }
 
     // MARK: Elevation
