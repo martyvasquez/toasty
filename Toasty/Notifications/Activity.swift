@@ -570,5 +570,5 @@ enum StatusColor {
 /// A status dot (see `StatusColor`).
 struct StatusDot: View {
     let color: Color
-    var body: some View { Circle().fill(color).frame(width: 7, height: 7) }
+    var body: some View { Circle().fill(color).frame(width: 8, height: 8) }
 }

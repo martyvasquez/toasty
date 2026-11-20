@@ -1675,6 +1675,13 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
 #if DEBUG
 extension ClaudeConversation {
+    /// Debug: show the tab as working or idle without a turn (for
+    /// screenshots of the sidebar's status).
+    func debugSetWorking(_ on: Bool) {
+        phase = on ? .working : .idle
+        reportState()
+    }
+
     /// Debug: a pending request with no agent behind it (for the
     /// sidebar's notifications), or clear them with `toolName` nil.
     func debugSetRequest(toolName: String?, input: [String: Any] = [:], title: String? = nil) {

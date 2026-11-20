@@ -215,6 +215,9 @@ enum WorkspaceDebug {
             case "attention":
                 // Mark a tab as finished-unseen (checks the dot).
                 try target().attention = cmd["on"] as? Bool ?? true
+            case "working":
+                // Show a tab as working, no turn behind it.
+                try target().debugSetWorking(cmd["on"] as? Bool ?? true)
             default: throw E("unknown action \(action)")
             }
             return state()

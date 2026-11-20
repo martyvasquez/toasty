@@ -21,7 +21,7 @@ struct NotificationsSection: View {
 
     @ViewBuilder private func content(_ notices: [Activity.Notice]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Divider().padding(.horizontal, Theme.Space.m)
+            Divider().padding(.horizontal, Theme.textEdge)
 
             HStack {
                 Text("Notifications")

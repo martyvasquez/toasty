@@ -192,6 +192,28 @@ enum DebugControl {
             return nil
         }
 
+        // The pointer moves to (x, y) in points from the window's top-left
+        // ("warp": true moves the real cursor there, for hover states that
+        // only follow the window server).
+        register("hover") { cmd in
+            guard let window else { throw DebugError("no window") }
+            let x = cmd["x"] as? Double ?? 0, y = cmd["y"] as? Double ?? 0
+            let p = NSPoint(x: x, y: window.frame.height - y)
+            if cmd["warp"] as? Bool == true {
+                let screen = window.convertPoint(toScreen: p)
+                let top = NSScreen.screens.first?.frame.maxY ?? 0
+                CGWarpMouseCursorPosition(CGPoint(x: screen.x, y: top - screen.y))
+                CGEvent(mouseEventSource: nil, mouseType: .mouseMoved,
+                        mouseCursorPosition: CGPoint(x: screen.x, y: top - screen.y), mouseButton: .left)?.post(tap: .cghidEventTap)
+            } else if let e = NSEvent.mouseEvent(with: .mouseMoved, location: p, modifierFlags: [],
+                                                 timestamp: ProcessInfo.processInfo.systemUptime,
+                                                 windowNumber: window.windowNumber, context: nil,
+                                                 eventNumber: 0, clickCount: 0, pressure: 0) {
+                window.sendEvent(e)
+            }
+            return nil
+        }
+
         // A real drag: mouse down at (x1,y1), dragged in steps to (x2,y2), up.
         register("drag") { cmd in
             guard let window else { throw DebugError("no window") }

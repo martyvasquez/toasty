@@ -65,6 +65,7 @@ final class KeyboardShortcuts: NSObject {
             Group(title: "Workspaces", rows: [
                 menu("New workspace", #selector(W.newWorkspace(_:))),
                 menu("New worktree", #selector(W.newWorktree(_:))),
+                menu("New heading", #selector(W.newHeading(_:))),
                 menu("Rename workspace", #selector(W.renameWorkspace(_:))),
                 menu("Next workspace", #selector(W.selectNextWorkspace(_:))),
                 menu("Previous workspace", #selector(W.selectPreviousWorkspace(_:))),

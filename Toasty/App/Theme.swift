@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Toasty's visual standard: every font size, weight, fill, radius and
@@ -59,6 +60,25 @@ enum Theme {
     /// Outlines of cards, fields and chips (widths vary; the color doesn't).
     enum Stroke {
         static let border = Color.primary.opacity(0.10)
+        /// A bar button under the pointer: a hairline capsule.
+        static let hover = Color.primary.opacity(0.15)
+    }
+
+    /// Tooltips (see Tooltip.swift): a small popover-like panel.
+    enum Tooltip {
+        static let background = Color(nsColor: NSColor(name: nil) { a in
+            a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 0.265, alpha: 1) : .white
+        })
+        /// A light inner edge (dark mode) and a dark outer hairline.
+        static let innerBorder = Color(nsColor: NSColor(name: nil) { a in
+            a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 1, alpha: 0.12) : .clear
+        })
+        static let outerBorder = Color(nsColor: NSColor(name: nil) { a in
+            a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 0, alpha: 0.6) : NSColor(white: 0, alpha: 0.12)
+        })
+        /// The shortcut and the detail line: a step below the title.
+        static let secondaryOpacity: Double = 0.75
+        static let maxTextWidth: CGFloat = 200
     }
 
     // MARK: Shape
@@ -129,8 +149,12 @@ enum Theme {
     // MARK: Sidebar
 
     enum Sidebar {
-        /// A workspace's row: one line of body text.
-        static let rowHeight: CGFloat = 28
+        /// A workspace's row: one line of body text (rows touch; groups
+        /// are set apart by space).
+        static let rowHeight: CGFloat = 26
+        /// The row icons' glyph size: a little larger than the text, as
+        /// Things' 18pt icons beside 14pt names.
+        static let iconSize: CGFloat = 15
         /// Rows' and headings' inset from the sidebar's edges.
         static let inset: CGFloat = 8
         /// A row's content inset inside its selection.
