@@ -563,10 +563,20 @@ struct UsageSections: View {
         c.context != nil || c.usage != nil || !c.rateLimits.isEmpty
     }
 
+    /// Which of them: the context window (shown first, above the status),
+    /// or the plan's limits and the session's totals (after the activity).
+    var part: Part = .totals
+
+    enum Part { case context, totals }
+
     var body: some View {
-        if let context = conversation.context { ContextSection(context: context) }
-        if !conversation.rateLimits.isEmpty { LimitsSection(limits: conversation.rateLimits) }
-        if let usage = conversation.usage { SessionSection(usage: usage) }
+        switch part {
+        case .context:
+            if let context = conversation.context { ContextSection(context: context) }
+        case .totals:
+            if !conversation.rateLimits.isEmpty { LimitsSection(limits: conversation.rateLimits) }
+            if let usage = conversation.usage { SessionSection(usage: usage) }
+        }
     }
 }
 

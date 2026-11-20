@@ -24,6 +24,9 @@ struct ActivityTab: View {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 ScrollView {
                     VStack(alignment: .leading, spacing: Theme.Inspector.sectionGap) {
+                        // How full the context is first, then the status and
+                        // what's happening, then the plan's and session's totals.
+                        UsageSections(conversation: conversation, part: .context)
                         StatusSection(conversation: conversation, activity: conversation.activity,
                                       lastTurn: lastTurn, now: context.date)
                         if conversation.phase == .working {
@@ -32,7 +35,7 @@ struct ActivityTab: View {
                         if !conversation.backgroundTasks.isEmpty {
                             BackgroundSection(conversation: conversation, now: context.date)
                         }
-                        UsageSections(conversation: conversation)
+                        UsageSections(conversation: conversation, part: .totals)
                     }
                     .padding(.horizontal, Theme.Inspector.edge)
                     .padding(.top, Theme.Space.s)
