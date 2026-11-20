@@ -110,8 +110,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         // the row runs from the window's edge.
         let minX = PreviewDrawer.shared.hidesConversation ? 0 : split.contentMinX
         if let titlebarLeading, abs(titlebarLeading.constant - minX) > 0.25 { titlebarLeading.constant = minX }
-        // The window buttons sit over the conversation when the sidebar is hidden.
-        let inset: CGFloat = minX < 60 ? 76 - minX : 0
+        // The window buttons sit over the conversation when the sidebar is
+        // hidden: the tabs start about 20pt after them (as Safari's).
+        let inset: CGFloat = minX < 60 ? 86 - minX : 0
         if layout.leadingInset != inset { layout.leadingInset = inset }
         // The row's controls center on the window buttons' line.
         if let button = window?.standardWindowButton(.closeButton), let bar = button.superview {

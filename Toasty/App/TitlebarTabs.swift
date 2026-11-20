@@ -27,7 +27,10 @@ struct TitlebarRow: View {
     /// the preview's controls have the whole row.
     @ObservedObject private var drawer = PreviewDrawer.shared
 
-    static let toggleWidth: CGFloat = 44
+    /// The bar's margin at each end (Things' toolbar: 12).
+    static let edge: CGFloat = 12
+    /// The column toggle with its gap before it and the bar's margin after.
+    static let toggleWidth: CGFloat = 32 + 4 + edge
     /// The preview's button, left of the column toggle (when it's turned on).
     static let previewToggleWidth: CGFloat = 36
 
@@ -69,7 +72,7 @@ struct TitlebarRow: View {
         // the content.
         .frame(height: layout.buttonsMidY > 0 ? layout.buttonsMidY * 2 : nil)
         .background(ZStack { Color.claudeChrome; WindowDragArea() })  // the preview drawer's row
-        .overlay(alignment: .bottom) { Rectangle().fill(Color.claudeSeparator).frame(height: 0.5) }
+        .overlay(alignment: .bottom) { Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1) }
         .frame(maxHeight: .infinity, alignment: .top)
         .background(WindowDragArea())
     }
@@ -102,7 +105,8 @@ private struct ColumnToggle: View {
                       active: shown, size: CGSize(width: 32, height: TabStyle.height)) {
             AppDelegate.shared.windowController?.toggleRightColumn(nil)
         }
-        .frame(width: TitlebarRow.toggleWidth)
+        .padding(.leading, 4)
+        .padding(.trailing, TitlebarRow.edge)
     }
 }
 
@@ -117,7 +121,7 @@ private struct PreviewToggle: View {
                       active: workspace.previewShowing, size: CGSize(width: 32, height: TabStyle.height)) {
             AppDelegate.shared.windowController?.togglePreview(nil)
         }
-        .frame(width: TitlebarRow.previewToggleWidth)
+        .padding(.leading, 4)
     }
 }
 
@@ -143,7 +147,7 @@ private struct InspectorTabBar: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(.leading, 8)
+        .padding(.leading, TitlebarRow.edge)
     }
 }
 
@@ -458,7 +462,7 @@ private struct ConversationTabBar: View {
             NewTabButton(tooltip: Tooltip(title: "New Tab", shortcut: "⌘T",
                                           detail: "Another conversation in this workspace.")) { workspace.newConversation() }
         }
-        .padding(.leading, 8)
+        .padding(.leading, TitlebarRow.edge)
         .padding(.trailing, 6)
     }
 }
@@ -580,7 +584,7 @@ struct TerminalTabBar: View {
                 AppDelegate.shared.windowController?.focusTerminal()
             }
         }
-        .padding(.leading, 8)
+        .padding(.leading, TitlebarRow.edge)
     }
 }
 
