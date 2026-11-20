@@ -118,6 +118,13 @@ private struct TooltipAnchorView: NSViewRepresentable {
         DispatchQueue.main.asyncAfter(deadline: .now() + (warm ? 0.05 : delay), execute: work)
     }
 
+    /// Hides whatever tooltip is up (a menu is opening over it).
+    func dismiss() {
+        pending?.cancel()
+        current = nil
+        hide()
+    }
+
     func leave(_ anchor: TooltipAnchor) {
         guard current === anchor else { return }
         pending?.cancel()

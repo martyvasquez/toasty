@@ -19,10 +19,12 @@ struct DictationMicButton: View {
             ZStack {
                 switch phase {
                 case .idle:
-                    Circle().fill((hovering ? Theme.Fill.hover : Color.clear))
+                    // As the app's bar buttons: full ink and a hairline
+                    // capsule under the pointer.
+                    Capsule().strokeBorder(hovering ? Theme.Stroke.hover : Color.clear, lineWidth: 1)
                     Image(systemName: "mic")
                         .font(.toasty(Theme.Size.body, .regular))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
                 case .listening:
                     Circle().fill(Color.accentColor.opacity(0.16))
                         .scaleEffect(1 + CGFloat(dictation.level) * 0.3)
@@ -45,14 +47,14 @@ struct DictationMicButton: View {
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
-        .help(help)
+        .tooltip(label, shortcut: "Right ⌥", detail: help)
         .accessibilityLabel(label)
     }
 
     private var help: String {
         switch phase {
-        case .idle: "Dictate (hold Right Option, or double-tap it to keep listening)"
-        case .listening: dictation.locked ? "Finish Dictation (Right Option) · Cancel (esc)" : "Listening… · Cancel (esc)"
+        case .idle: "Hold Right Option to talk, or double-tap it to keep listening."
+        case .listening: dictation.locked ? "Right Option finishes; esc cancels." : "Listening. esc cancels."
         case .transcribing: "Transcribing…"
         case .failed(let reason): reason
         }

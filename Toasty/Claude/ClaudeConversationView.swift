@@ -1157,7 +1157,8 @@ struct ClaudeComposerBox: View {
             // the right. Gray controls; only send carries the accent (a
             // risky mode is red, a live remote session green).
             HStack(spacing: Theme.Space.xxs) {
-                ComposerIconButton(symbol: "plus", help: "Attach Files…", label: "Attach Files", action: attach)
+                ComposerIconButton(symbol: "plus", help: "Pictures and files for Claude to read. You can also paste or drop them.",
+                                   label: "Attach Files", action: attach)
                 ClaudeModeMenu(conversation: conversation)
                 Spacer(minLength: 8)
                 if conversation.remoteControlAvailable {
@@ -1172,6 +1173,8 @@ struct ClaudeComposerBox: View {
             .padding(.trailing, Theme.Space.s)
             .padding(.top, Theme.Space.xs)
             .padding(.bottom, Theme.Space.s)
+            // Buttons, not text: the arrow, not the text field's I-beam.
+            .pointerStyle(.default)
         }
         .background(RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
             .fill(Color.claudeField))
@@ -1230,7 +1233,7 @@ struct ClaudeComposerBox: View {
                 .contentShape(Circle())
             }
             .buttonStyle(.plain)
-            .help("Stop (esc)")
+            .tooltip("Stop", shortcut: "esc", detail: "Claude stops where it is.")
             .accessibilityLabel("Stop")
         } else {
             Button { conversation.submit() } label: {
@@ -1246,7 +1249,7 @@ struct ClaudeComposerBox: View {
             }
             .buttonStyle(.plain)
             .disabled(isEmpty)
-            .help("Send (⏎)")
+            .tooltip("Send", shortcut: "⏎", detail: "⇧⏎ starts a new line.")
             .accessibilityLabel("Send")
         }
     }
@@ -1401,7 +1404,7 @@ struct ClaudeModelMenu: View {
             }) { hovering in
             ClaudeChip(icon: nil, title: conversation.modelName ?? "Model", tint: nil, hovering: hovering)
         }
-        .help("Model")
+        .tooltip("Model", detail: "The model this conversation uses.")
     }
 }
 
@@ -1449,7 +1452,7 @@ struct ClaudeModeMenu: View {
                        tint: conversation.permissionMode == "bypassPermissions" ? .red : nil,
                        hovering: hovering)
         }
-        .help("Permission mode (⇧⇥ to cycle)")
+        .tooltip("Permission Mode", shortcut: "⇧⇥", detail: "What Claude may do without asking. ⇧⇥ cycles through them.")
     }
 }
 
@@ -1679,8 +1682,8 @@ struct ClaudeRemoteControlMenu: View {
                        tint: state.isOn ? .green : { if case .failed = state { Color.orange } else { nil } }(),
                        hovering: hovering)
         }
-        .help(state.isOn ? "Remote Control is on: continue this session from claude.ai or the Claude app"
-              : "Remote Control")
+        .tooltip("Remote Control", detail: state.isOn ? "On: continue this session from claude.ai or the Claude app."
+                                                      : "Continue this session from claude.ai or the Claude app.")
         .accessibilityLabel("Remote Control")
     }
 }
@@ -1700,44 +1703,53 @@ struct ClaudePopUp<Label: View>: View {
     let items: [Item]
     @ViewBuilder let label: (_ hovering: Bool) -> Label
     @State private var hovering = false
+    @State private var menuOpen = false
+    @State private var anchor = MenuAnchorRef()
 
     var body: some View {
-        label(hovering)
-            .contentShape(Rectangle())
-            .onHover { hovering = $0 }
-            .overlay(MenuAnchor(items: items))
+        // A plain SwiftUI button, so it hovers and clicks like the others in
+        // the composer; Toasty's own menu opens over it (above, inside the
+        // window), placed by an AppKit view behind it that only marks where.
+        Button(action: open) {
+            label(hovering || menuOpen)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .background(MenuAnchor(ref: anchor))
+        .animation(.easeOut(duration: 0.12), value: hovering || menuOpen)
     }
 
-    /// Transparent AppKit view that shows the menu on click, anchored to
-    /// its own bottom-left corner like a pop-up button.
-    private struct MenuAnchor: NSViewRepresentable {
-        let items: [Item]
+    private func open() {
+        guard let view = anchor.view else { return }
+        if menuOpen { PopoverMenu.shared.close(); return }
+        menuOpen = true
+        PopoverMenu.shared.show(items.map {
+            PopoverMenu.Item(title: $0.title, subtitle: $0.subtitle, symbol: $0.symbol,
+                             checked: $0.checked, enabled: $0.enabled, action: $0.action)
+        }, from: view) { menuOpen = false }
+    }
 
-        func makeNSView(context: Context) -> AnchorView { AnchorView() }
-        func updateNSView(_ view: AnchorView, context: Context) { view.items = items }
+    /// Where the menu opens from (the AppKit view behind the button).
+    @MainActor final class MenuAnchorRef {
+        weak var view: NSView?
+    }
 
-        final class AnchorView: NSView {
-            var items: [Item] = []
+    /// A transparent AppKit view behind the button that only marks where it
+    /// is (clicks and the pointer go to the button).
+    struct MenuAnchor: NSViewRepresentable {
+        let ref: MenuAnchorRef
 
-            override func mouseDown(with event: NSEvent) {
-                let menu = NSMenu()
-                menu.autoenablesItems = false
-                for item in items {
-                    let mi = NSMenuItem(title: item.title, action: #selector(choose(_:)), keyEquivalent: "")
-                    mi.target = self
-                    mi.representedObject = item.action
-                    mi.state = item.checked ? .on : .off
-                    mi.isEnabled = item.enabled
-                    if let symbol = item.symbol { mi.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) }
-                    if !item.subtitle.isEmpty, #available(macOS 14.4, *) { mi.subtitle = item.subtitle }
-                    menu.addItem(mi)
-                }
-                menu.popUp(positioning: nil, at: NSPoint(x: 0, y: isFlipped ? bounds.maxY + 4 : -4), in: self)
-            }
+        func makeNSView(context: Context) -> NSView {
+            let v = Passthrough()
+            ref.view = v
+            return v
+        }
 
-            @objc private func choose(_ sender: NSMenuItem) {
-                (sender.representedObject as? () -> Void)?()
-            }
+        func updateNSView(_ view: NSView, context: Context) { ref.view = view }
+
+        private final class Passthrough: NSView {
+            override func hitTest(_ point: NSPoint) -> NSView? { nil }
         }
     }
 }
@@ -1757,16 +1769,20 @@ struct ClaudeChip: View {
             if !title.isEmpty { Text(title).font(.toasty(Theme.Size.control, .medium)) }
             Image(systemName: "chevron.down").font(.toasty(Theme.Glyph.small, .semibold)).opacity(0.6)
         }
-        .foregroundStyle(tint.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.secondary))
-        .padding(.horizontal, Theme.Space.s)
+        // As the app's bar buttons: full ink and a hairline capsule under
+        // the pointer (a tint, when it has one, stays its color).
+        .foregroundStyle(tint.map { AnyShapeStyle($0) } ?? (hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary)))
+        .padding(.horizontal, Theme.Space.s + Theme.Space.xxs)
         .frame(height: Theme.Control.height)
-        .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-            .fill((hovering ? Theme.Fill.hover : Color.clear)))
+        .overlay(Capsule().strokeBorder(hovering ? Theme.Stroke.hover : Color.clear, lineWidth: 1))
+        .contentShape(Capsule())
         .animation(.easeOut(duration: 0.12), value: hovering)
     }
 }
 
-/// A borderless icon button for the composer's control row (hover fill only).
+/// An icon button for the composer's control row, as the app's bar
+/// buttons: full ink and a hairline capsule under the pointer, filled
+/// while pressed.
 struct ComposerIconButton: View {
     let symbol: String
     let help: String
@@ -1778,15 +1794,14 @@ struct ComposerIconButton: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.toasty(Theme.Size.body, .regular))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
                 .frame(width: Theme.Control.height, height: Theme.Control.height)
-                .background(Circle().fill((hovering ? Theme.Fill.hover : Color.clear)))
-                .contentShape(Circle())
+                .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BarButtonStyle(hovering: hovering))
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
-        .help(help)
+        .tooltip(label, detail: help)
         .accessibilityLabel(label)
     }
 }
