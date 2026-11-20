@@ -100,8 +100,9 @@ enum MainMenu {
         workspace.addItem(hidden(item("Previous Workspace", #selector(W.selectPreviousWorkspace(_:)), "k", [.command, .control])))
         workspace.addItem(item("Jump to Conversation Needing You", #selector(W.jumpToAttention(_:)), "u", [.command, .control]))
         for n in 1...9 {
-            // ⌘1–9: the nth row of the sidebar's Notifications list.
-            let i = item("Notification \(n)", #selector(W.openNotification(_:)), "\(n)")
+            // ⌘1–9: the nth workspace with something for you (its row
+            // shows the number).
+            let i = item("Workspace Needing You \(n)", #selector(W.openNotification(_:)), "\(n)")
             i.tag = n
             workspace.addItem(hidden(i))
         }

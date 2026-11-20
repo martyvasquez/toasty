@@ -70,7 +70,7 @@ final class KeyboardShortcuts: NSObject {
                 menu("Next workspace", #selector(W.selectNextWorkspace(_:))),
                 menu("Previous workspace", #selector(W.selectPreviousWorkspace(_:))),
                 menu("Jump to the conversation needing you", #selector(W.jumpToAttention(_:))),
-                plain("Open a notification", "⌘1 – ⌘9"),
+                plain("Go to a workspace that needs you (its number)", "⌘1 – ⌘9"),
             ].compactMap { $0 }),
             Group(title: "Window", rows: [
                 menu("Workspaces", #selector(W.toggleWorkspaces(_:))),

@@ -24,10 +24,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         window.titlebarAppearsTransparent = true
         window.tabbingMode = .disallowed
         window.minSize = NSSize(width: 760, height: 480)
-        // An empty compact toolbar gives the titlebar the standard height of
-        // a Mac app with tabs in its toolbar (Safari, Xcode).
+        // An empty standard toolbar, as Things: the taller titlebar puts the
+        // window buttons where Things has them and gives the window macOS's
+        // larger corner radius for toolbar windows.
         window.toolbar = NSToolbar(identifier: "Toasty")
-        window.toolbarStyle = .unifiedCompact
+        window.toolbarStyle = .unified
         window.backgroundColor = .textBackgroundColor
         super.init(window: window)
         window.delegate = self
@@ -294,10 +295,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     @objc func selectPreviousWorkspace(_ sender: Any?) { store.activateRelative(-1) }
     @objc func jumpToAttention(_ sender: Any?) { store.jumpToAttention() }
     /// ⌘1–9: open the nth notification in the sidebar's list.
+    /// ⌘1–9: the nth workspace with something for you (its row shows the
+    /// number).
     @objc func openNotification(_ sender: NSMenuItem) {
-        let notices = Activity.shared.notices
-        guard notices.indices.contains(sender.tag - 1) else { NSSound.beep(); return }
-        Activity.shared.show(notices[sender.tag - 1].conversation)
+        if !Activity.shared.showNumbered(sender.tag) { NSSound.beep() }
     }
 
     @objc func changeWorkspaceFolder(_ sender: Any?) {

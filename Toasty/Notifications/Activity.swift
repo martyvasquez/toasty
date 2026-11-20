@@ -348,6 +348,31 @@ final class Activity: NSObject, ObservableObject {
         return list.sorted { (rank($0.kind), $1.date) < (rank($1.kind), $0.date) }
     }
 
+    /// Workspaces with something for you (waiting on you, or finished
+    /// unseen), in the sidebar's order: ⌘1–⌘9 go to them, and their rows
+    /// show the number.
+    var numberedWorkspaces: [Workspace] {
+        let ids = Set(notices.compactMap { $0.conversation.workspace?.id })
+        return WorkspaceStore.shared.workspaces.filter { ids.contains($0.id) }
+    }
+
+    /// A workspace's ⌘-number, if it has one (1–9).
+    func number(for workspace: Workspace) -> Int? {
+        numberedWorkspaces.firstIndex { $0.id == workspace.id }.map { $0 + 1 }.flatMap { $0 <= 9 ? $0 : nil }
+    }
+
+    /// ⌘n: the nth numbered workspace's most pressing tab (a question or
+    /// permission before a finished one; the newest within each).
+    @discardableResult
+    func showNumbered(_ n: Int) -> Bool {
+        let list = numberedWorkspaces
+        guard list.indices.contains(n - 1) else { return false }
+        let w = list[n - 1]
+        guard let notice = notices.first(where: { $0.conversation.workspace?.id == w.id }) else { return false }
+        show(notice.conversation)
+        return true
+    }
+
     // MARK: Dock badge
 
     /// Conversations needing the user: waiting on them, or finished unseen.
@@ -553,12 +578,13 @@ struct ActivityToastView: View {
 }
 
 /// The app's status colors, the same in sidebar rows, tabs and
-/// notifications: orange = Claude needs your input, blue (accent) = ready to
-/// review, red = stopped with an error. Idle and working are gray (icons, a
-/// spinner); selection is shown by a background, never a color.
+/// notifications. Color only where you're needed: orange = Claude needs
+/// your input, red = stopped with an error. Finished (ready to review) is a
+/// quiet gray dot; idle and working are gray too (icons, a spinner). Blue is
+/// kept for structure (headings), and selection is a background.
 enum StatusColor {
     static let needsInput = Color.orange
-    static let ready = Color.accentColor
+    static let ready = Color.secondary
     static let stopped = Color.red
 
     /// Ready to review, or stopped, for a finished-unseen conversation.

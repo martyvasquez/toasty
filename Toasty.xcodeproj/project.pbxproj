@@ -20,7 +20,6 @@
 		1A8E421209B30F795BE5BBD5 /* PreviewTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FDEDA73E441426DFF2253CD /* PreviewTools.swift */; };
 		1ACC8FE2272EB5760687D654 /* WorkspaceSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6927A423E7E99E5F0D72EB08 /* WorkspaceSidebarView.swift */; };
 		20269D1700BC605AB731984E /* ScreenshotDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40C6D34EE079744D4A4A2A5 /* ScreenshotDebug.swift */; };
-		229AA2E1849A5A346C4A74E8 /* NotificationsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADBCB0D878A12E401FE41DCD /* NotificationsSection.swift */; };
 		2D64BC5DEBA0FAD3E38A9F5A /* ClaudeSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DF8B11F0CF51797223AF23B /* ClaudeSetup.swift */; };
 		2E201587160057E35BDB263E /* ClaudeMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFFBD1A7316E98A070F3E2BE /* ClaudeMarkdown.swift */; };
 		308C0EB67B57D5743742E49F /* ClaudeAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E376E9D81389D2BAC3DC077 /* ClaudeAgent.swift */; };
@@ -207,7 +206,6 @@
 		A97DF3CFA988D518C8A2490B /* KeyboardShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcuts.swift; sourceTree = "<group>"; };
 		AA579EC5BB11ED8507AF049E /* DefaultModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultModel.swift; sourceTree = "<group>"; };
 		AAFDD6D5C02551210E270F85 /* SpeechModels */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SpeechModels; path = Toasty/Resources/SpeechModels; sourceTree = SOURCE_ROOT; };
-		ADBCB0D878A12E401FE41DCD /* NotificationsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsSection.swift; sourceTree = "<group>"; };
 		AEF18C42EDAF14F5AFAD03EE /* ClaudeConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeConversationView.swift; sourceTree = "<group>"; };
 		B0AB472102F6E81ECE753B0B /* CaptureClip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureClip.swift; sourceTree = "<group>"; };
 		B40C6D34EE079744D4A4A2A5 /* ScreenshotDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotDebug.swift; sourceTree = "<group>"; };
@@ -303,7 +301,6 @@
 			isa = PBXGroup;
 			children = (
 				C221CFDD6F14809C8C78A6D1 /* Activity.swift */,
-				ADBCB0D878A12E401FE41DCD /* NotificationsSection.swift */,
 			);
 			path = Notifications;
 			sourceTree = "<group>";
@@ -705,7 +702,6 @@
 				346191052BC0573C556FAE23 /* MainWindowController.swift in Sources */,
 				8E343C37F42EE056A3D4ED01 /* MicCapture.swift in Sources */,
 				A2EC71DB7AA8F9C82C143E0E /* MosttyImport.swift in Sources */,
-				229AA2E1849A5A346C4A74E8 /* NotificationsSection.swift in Sources */,
 				E418801CB5AD25148EC64A13 /* PTY.swift in Sources */,
 				A83035FF59935DFD66E04BAC /* PreviewDebug.swift in Sources */,
 				6319D3046C9435785726500E /* PreviewDrawer.swift in Sources */,

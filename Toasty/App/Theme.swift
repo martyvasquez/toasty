@@ -151,19 +151,37 @@ enum Theme {
     enum Sidebar {
         /// A workspace's row: one line of body text (rows touch; groups
         /// are set apart by space).
-        static let rowHeight: CGFloat = 26
+        static let rowHeight: CGFloat = 24
         /// The row icons' glyph size: a little larger than the text, as
         /// Things' 18pt icons beside 14pt names.
         static let iconSize: CGFloat = 15
-        /// Rows' and headings' inset from the sidebar's edges.
-        static let inset: CGFloat = 8
-        /// A row's content inset inside its selection.
-        static let rowPadding: CGFloat = 8
+        /// Rows' and headings' inset from the sidebar's edges (the
+        /// selection's margin): Things' 13.
+        static let inset: CGFloat = 13
+        /// A row's content inside its selection: 7 before the name, 8 after
+        /// the last mark (Things' icon guide and badge margin).
+        static let rowLeading: CGFloat = 7
+        static let rowTrailing: CGFloat = 8
+        /// Names: Things' sidebar title color, a step quieter than labels
+        /// (white at 80% in dark mode; blue-black at 78% in light).
+        static let titleColor = Color(nsColor: NSColor(name: nil) { a in
+            a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(white: 1, alpha: 0.80)
+                : NSColor(srgbRed: 0, green: 4 / 255, blue: 9 / 255, alpha: 0.776)
+        })
         /// The leading icon's box; names start after it.
         static let iconWidth: CGFloat = 18
         static let iconGap: CGFloat = 8
         /// Space above a heading (groups are set apart by space).
         static let headingSpaceAbove: CGFloat = 16
+        /// A row's ⌘-number slot at its end (always kept, so status marks
+        /// before it line up).
+        static let shortcutWidth: CGFloat = 20
+        /// From the window's top to the list's first row (Things: the first
+        /// row's middle 47pt below the window buttons', at 72.5).
+        static let listTop: CGFloat = 60
+        /// The footer under the list (New Workspace, New Heading).
+        static let footerHeight: CGFloat = 48
     }
 }
 

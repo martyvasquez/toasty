@@ -8,32 +8,6 @@ struct WorkspaceSidebarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // The section's header, built like the Notifications header at
-            // the bottom: the sidebar is two sections, each with a title
-            // and its one control on the right.
-            HStack {
-                Text("Workspaces")
-                    .font(.toasty(Theme.Size.meta, .semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                HStack(spacing: Theme.Space.xxs) {
-                    BarIconButton(symbol: "text.badge.plus",
-                                  tooltip: Tooltip(title: "New Heading", shortcut: "⌥⌘N",
-                                                   detail: "Group your workspaces by client, project or stage."),
-                                  size: CGSize(width: 30, height: 24)) { store.newHeading() }
-                    BarIconButton(symbol: "plus",
-                                  tooltip: Tooltip(title: "New Workspace", shortcut: "⌘N",
-                                                   detail: "You can also drop a folder on Toasty in the Dock."),
-                                  size: CGSize(width: 30, height: 24)) { store.createWithFolderPicker() }
-                }
-                // The last glyph, not its capsule, sits on the text edge.
-                .padding(.trailing, -(30 - 11) / 2)
-            }
-            .frame(height: 16)
-            .padding(.horizontal, Theme.textEdge)
-            .padding(.top, Theme.Space.m)
-            .padding(.bottom, Theme.Space.s)
-
             ScrollView {
                 VStack(spacing: 0) {
                     ForEach(store.items, id: \.self) { item in
@@ -74,8 +48,12 @@ struct WorkspaceSidebarView: View {
                 .animation(.easeInOut(duration: 0.15), value: store.workspaces.map(\.id))
             }
             .scrollIndicators(.never)
+            // Measured from the window's top, as Things: the first row's
+            // middle sits 47pt below the window buttons'.
+            .contentMargins(.top, Theme.Sidebar.listTop, for: .scrollContent)
+            .ignoresSafeArea(.container, edges: .top)
 
-            NotificationsSection()
+            SidebarFooter(store: store)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
@@ -92,6 +70,47 @@ struct WorkspaceSidebarView: View {
         guard let dragging = store.draggingID else { return false }
         let top = w.parent ?? w
         return dragging == top.id || dragging == top.headingID
+    }
+}
+
+/// The sidebar's footer, as Things': New Workspace on the left (glyph and
+/// words), New Heading on the right, above a hairline.
+private struct SidebarFooter: View {
+    @ObservedObject var store: WorkspaceStore
+    @State private var hovering = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 1)
+            HStack(spacing: 0) {
+                Button { store.createWithFolderPicker() } label: {
+                    HStack(spacing: Theme.Space.s) {
+                        Image(systemName: "plus").font(.toasty(Theme.Size.control, .medium))
+                        Text("New Workspace").font(.toasty(Theme.Size.body))
+                    }
+                    .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                    .padding(.horizontal, Theme.Space.s + Theme.Space.xxs)
+                    .frame(height: 28)
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(BarButtonStyle(hovering: hovering))
+                .onHover { hovering = $0 }
+                .animation(.easeOut(duration: 0.12), value: hovering)
+                .tooltip(Tooltip(title: "New Workspace", shortcut: "⌘N",
+                                 detail: "You can also drop a folder on Toasty in the Dock."))
+                .accessibilityLabel("New Workspace")
+                // The glyph, not its capsule, sits on the names' edge.
+                .padding(.leading, Theme.Sidebar.inset + Theme.Sidebar.rowLeading - (Theme.Space.s + Theme.Space.xxs))
+                Spacer(minLength: 0)
+                BarIconButton(symbol: "text.badge.plus",
+                              tooltip: Tooltip(title: "New Heading", shortcut: "⌥⌘N",
+                                               detail: "Group your workspaces by client, project or stage."),
+                              size: CGSize(width: 32, height: 28)) { store.newHeading() }
+                    // Its glyph ends where the rows' ⌘-numbers do.
+                    .padding(.trailing, Theme.Sidebar.inset + Theme.Sidebar.rowTrailing - (32 - 16) / 2)
+            }
+            .frame(height: Theme.Sidebar.footerHeight)
+        }
     }
 }
 
@@ -115,8 +134,9 @@ private struct HeadingRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.xs) {
-            Group {
+        // A row like the workspaces' (as Things' areas in its sidebar): the
+        // same height, no rule; groups are set apart by the space above.
+        Group {
                 if isRenaming {
                     TextField("Heading", text: $draft)
                         .textFieldStyle(.plain)
@@ -134,18 +154,13 @@ private struct HeadingRow: View {
                         .truncationMode(.tail)
                 }
             }
-            .font(.toasty(Theme.Size.body, .bold))
-            .foregroundStyle(color)
-            .frame(height: 20)
-            .padding(.horizontal, Theme.Sidebar.rowPadding)
-
-            Rectangle()
-                .fill(Color(nsColor: .separatorColor))
-                .frame(height: 1)
-                .padding(.horizontal, Theme.Sidebar.rowPadding)
-        }
-        .padding(.top, first ? Theme.Space.s : Theme.Sidebar.headingSpaceAbove)
-        .padding(.bottom, Theme.Space.xs)
+        .font(.toasty(Theme.Size.body, .semibold))  // Things' area titles: 600
+        .foregroundStyle(color)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: Theme.Sidebar.rowHeight)
+        .padding(.leading, Theme.Sidebar.rowLeading)
+        .padding(.trailing, Theme.Sidebar.rowTrailing)
+        .padding(.top, first ? 0 : Theme.Sidebar.headingSpaceAbove)
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { store.renamingID = heading.id }
         .contextMenu {
@@ -176,7 +191,7 @@ private struct PendingWorktreeRow: View {
     var body: some View {
         HStack(spacing: Theme.Sidebar.iconGap) {
             ProgressView().controlSize(.small).scaleEffect(0.6).frame(width: 14, height: 14)
-                .frame(width: Theme.Sidebar.iconWidth)
+                .frame(width: WorkspaceRow.branchWidth)
             Text(name)
                 .font(.toasty(Theme.Size.control))
                 .foregroundStyle(.secondary)
@@ -185,8 +200,8 @@ private struct PendingWorktreeRow: View {
         }
         .frame(height: Theme.Sidebar.rowHeight)
         .help("Creating worktree…")
-        .padding(.leading, Theme.Sidebar.rowPadding + WorkspaceRow.worktreeIndent)
-        .padding(.trailing, Theme.Sidebar.rowPadding)
+        .padding(.leading, Theme.Sidebar.rowLeading)
+        .padding(.trailing, Theme.Sidebar.rowTrailing)
         .transition(.opacity)
     }
 }
@@ -208,7 +223,14 @@ private struct WorkspaceRow: View {
 
     var body: some View {
         HStack(spacing: Theme.Sidebar.iconGap) {
-            leadingStatus.frame(width: Theme.Sidebar.iconWidth)
+            // Names start on the headings' edge; a worktree's branch mark
+            // starts where its parent's name does, and its name follows.
+            if workspace.isWorktree {
+                Image(systemName: "arrow.triangle.branch")
+                    .font(.toasty(Theme.Sidebar.iconSize - 2))
+                    .foregroundStyle(.secondary)
+                    .frame(width: Self.branchWidth)
+            }
 
             HStack(spacing: 6) {
                 if isRenaming {
@@ -226,11 +248,13 @@ private struct WorkspaceRow: View {
                 } else {
                     Text(workspace.name)
                         .font(nameFont)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(Theme.Sidebar.titleColor)
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
                 Spacer(minLength: 0)
+                // The row's status at its end: how long Claude has worked,
+                // then its mark (spinner, or a dot), then its ⌘-number.
                 if working && !waiting {
                     // How long Claude has been at it, once it's a minute.
                     TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -241,18 +265,29 @@ private struct WorkspaceRow: View {
                                 .monospacedDigit()
                         }
                     }
-                } else if workspace.conversations.count > 1, hovering || isActive {
-                    // How many tabs: on the row you're on or pointing at,
-                    // not on every row.
-                    Text("\(workspace.conversations.count)")
-                        .font(.toasty(Theme.Size.caption, .medium))
-                        .foregroundStyle(.tertiary)
                 }
+                // Its ⌘-number while it has something for you (⌘1 is the
+                // first such row from the top); it takes you to the tab.
+                statusMark
+                // The number's slot is kept on every row, so status marks
+                // line up in one column whether or not a row has a number.
+                Group {
+                    if let number = activity.number(for: workspace) {
+                        Text("⌘\(number)")
+                            .font(.toasty(Theme.Size.caption, .medium))
+                            .foregroundStyle(.tertiary)
+                            .monospacedDigit()
+                            .accessibilityHidden(true)
+                    } else {
+                        Color.clear  // an empty frame would collapse
+                    }
+                }
+                .frame(width: Theme.Sidebar.shortcutWidth, height: 14, alignment: .trailing)
             }
         }
         .frame(height: Theme.Sidebar.rowHeight)
-        .padding(.leading, Theme.Sidebar.rowPadding + (workspace.isWorktree ? Self.worktreeIndent : 0))
-        .padding(.trailing, Theme.Sidebar.rowPadding)
+        .padding(.leading, Theme.Sidebar.rowLeading)
+        .padding(.trailing, Theme.Sidebar.rowTrailing)
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
                 // Editing the name looks selected too, so the field reads as one.
@@ -302,11 +337,10 @@ private struct WorkspaceRow: View {
         .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
     }
 
-    /// Workspaces a pinch heavier than their worktrees (Things: lists 500,
-    /// projects 400); worktrees also a size smaller. Selection shows in
-    /// the background.
+    /// Things' sidebar weights at one size: workspaces as its lists (500),
+    /// worktrees as its projects (400).
     private var nameFont: Font {
-        workspace.isWorktree ? .toasty(Theme.Size.control) : .toasty(Theme.Size.body, .medium)
+        .toasty(Theme.Size.body, workspace.isWorktree ? .regular : .medium)
     }
 
     private func workingMinutes(now: Date) -> Int? {
@@ -335,27 +369,26 @@ private struct WorkspaceRow: View {
     }
 
     /// Claude's status when there is one, else the folder.
-    /// How far a worktree's row is indented: its slot sits under the
-    /// parent's name.
-    static var worktreeIndent: CGFloat { Theme.Sidebar.iconWidth + Theme.Sidebar.iconGap }
+    /// A worktree's branch mark's slot (its name starts after it).
+    static var branchWidth: CGFloat { Theme.Sidebar.iconSize - 1 }
 
-    /// The row's icon: Claude's status while there is one (waiting on you,
-    /// working, or finished unseen: red if anything stopped with an error,
-    /// else blue), otherwise the folder, or a worktree's branch. Always the
-    /// same width, so names never move.
-    @ViewBuilder private var leadingStatus: some View {
-        if waiting {
-            StatusDot(color: StatusColor.needsInput)
-        } else if working {
-            ProgressView().controlSize(.small).scaleEffect(0.6).frame(width: 14, height: 14)
-        } else if attention {
-            let done = workspace.conversations.filter(\.attention)
-            StatusDot(color: done.contains(where: activity.isStopped) ? StatusColor.stopped : StatusColor.ready)
-        } else {
-            Image(systemName: workspace.isWorktree ? "arrow.triangle.branch" : "folder")
-                .font(.toasty(workspace.isWorktree ? Theme.Sidebar.iconSize - 2 : Theme.Sidebar.iconSize))
-                .foregroundStyle(.secondary)  // gray = idle; selection is the background
+    /// Claude's status here, if any: waiting on you (orange), working (a
+    /// spinner), finished unseen (gray; red if anything stopped with an
+    /// error). Nothing when idle.
+    private var statusMark: some View {
+        // Each centered in the same box, so dots and the spinner share a
+        // column.
+        Group {
+            if waiting {
+                StatusDot(color: StatusColor.needsInput)
+            } else if working {
+                ProgressView().controlSize(.small).scaleEffect(0.6)
+            } else if attention {
+                let done = workspace.conversations.filter(\.attention)
+                StatusDot(color: done.contains(where: activity.isStopped) ? StatusColor.stopped : StatusColor.ready)
+            }
         }
+        .frame(width: 14, height: 14)
     }
 
     private func commit() {
