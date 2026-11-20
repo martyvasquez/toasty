@@ -60,6 +60,13 @@ enum Theme {
     /// Outlines of cards, fields and chips (widths vary; the color doesn't).
     enum Stroke {
         static let border = Color.primary.opacity(0.10)
+        /// Between a bar and what it sits on (Things' toolbar divider: a
+        /// darker line, black 20% in dark mode, navy 6% in light).
+        static let barDivider = Color(nsColor: NSColor(name: nil) { a in
+            a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(white: 0, alpha: 0.20)
+                : NSColor(srgbRed: 0, green: 0x13 / 255.0, blue: 0x30 / 255.0, alpha: 0.06)
+        })
         /// A bar button under the pointer: a hairline capsule.
         static let hover = Color.primary.opacity(0.15)
         /// The rule under a heading (Things': white 15% / navy 10%).
@@ -197,8 +204,14 @@ enum Theme {
         /// From the window's top to the list's first row (Things: the first
         /// row's middle 47pt below the window buttons', at 72.5).
         static let listTop: CGFloat = 60
-        /// The footer under the list (New Workspace, New Heading).
-        static let footerHeight: CGFloat = 48
+        /// The footer under the list (New Workspace, New Heading): Things'
+        /// 40pt, its button text 13pt at white 66% (navy-black 64% light).
+        static let footerHeight: CGFloat = 40
+        static let footerTextColor = Color(nsColor: NSColor(name: nil) { a in
+            a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(white: 1, alpha: 0.66)
+                : NSColor(srgbRed: 0, green: 5 / 255, blue: 12 / 255, alpha: 0.64)
+        })
     }
 }
 

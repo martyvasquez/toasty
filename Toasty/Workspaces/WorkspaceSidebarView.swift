@@ -93,14 +93,14 @@ private struct SidebarFooter: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 1)
+            Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1)
             HStack(spacing: 0) {
                 Button { store.createWithFolderPicker() } label: {
-                    HStack(spacing: Theme.Space.s) {
-                        Image(systemName: "plus").font(.toasty(Theme.Size.control, .medium))
-                        Text("New Workspace").font(.toasty(Theme.Size.body))
+                    HStack(spacing: Theme.Space.xs + Theme.Space.xxs) {
+                        Image(systemName: "plus").font(.toasty(Theme.Size.control))
+                        Text("New Workspace").font(.toasty(Theme.Size.control))
                     }
-                    .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                    .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(Theme.Sidebar.footerTextColor))
                     .padding(.horizontal, Theme.Space.s + Theme.Space.xxs)
                     .frame(height: 28)
                     .contentShape(Capsule())
