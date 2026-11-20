@@ -4,8 +4,12 @@ import SwiftUI
 /// Column widths of the split view, mirrored by the titlebar row so each
 /// column's tabs sit over it.
 final class WindowLayout: ObservableObject {
-    /// Width of the right column (0 when hidden).
+    /// Width of the right column (0 when hidden); animated along with the
+    /// column when it slides open or closed.
     @Published var terminalWidth: CGFloat = 0
+    /// The right column's width when open: its bar is laid out at this
+    /// width and uncovered as `terminalWidth` grows (not squeezed).
+    @Published var terminalOpenWidth: CGFloat = 0
     /// Room for the window buttons when the workspaces sidebar is hidden.
     @Published var leadingInset: CGFloat = 0
     /// The window buttons' center, from the titlebar's top: the row's
@@ -59,8 +63,12 @@ struct TitlebarRow: View {
                 HStack(spacing: 0) {
                     if right {
                         Rectangle().fill(Color.claudeSeparator).frame(width: 0.5)
+                        // At its open width, uncovered from the column's
+                        // edge as it slides (as the panel under it is).
                         RightColumnBar(workspace: workspace)
-                            .frame(width: max(0, layout.terminalWidth - 0.5))
+                            .frame(width: max(0, max(layout.terminalOpenWidth, layout.terminalWidth) - 0.5))
+                            .frame(width: max(0, layout.terminalWidth - 0.5), alignment: .leading)
+                            .clipped()
                     }
                 }
                 .frame(maxHeight: .infinity)

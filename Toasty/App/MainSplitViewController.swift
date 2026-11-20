@@ -254,12 +254,19 @@ final class MainSplitViewController: NSSplitViewController {
         if terminalItem.isCollapsed == visible {
             if animated {
                 terminalAnimating = true
+                // The titlebar's part over the column slides with it, frame
+                // by frame: the split view sets the end frames at once and
+                // animates what's drawn, so the bar follows what's drawn.
+                let open = rightColumn.view.frame.width
+                if visible, open > 0 { layout.terminalOpenWidth = open }
+                followSlide(true)
                 NSAnimationContext.runAnimationGroup { ctx in
-                    ctx.duration = 0.22
+                    ctx.duration = Self.columnSlide
                     ctx.allowsImplicitAnimation = true
                     terminalItem.animator().isCollapsed = !visible
                 } completionHandler: { [weak self] in
                     MainActor.assumeIsolated {
+                        self?.followSlide(false)
                         self?.terminalAnimating = false
                         self?.applySidebarWidth()
                         self?.layoutChanged()
@@ -319,8 +326,40 @@ final class MainSplitViewController: NSSplitViewController {
     /// Something outside the split view moved what the titlebar row follows.
     func noteLayout() { layoutChanged() }
 
+    /// The right column sliding open or closed (the titlebar follows it).
+    static let columnSlide: TimeInterval = 0.22
+
+    /// While the right column slides: a tick each frame that sets the
+    /// titlebar's width from where the column is drawn.
+    private var slideLink: CADisplayLink?
+
+    private func followSlide(_ on: Bool) {
+        slideLink?.invalidate()
+        slideLink = nil
+        guard on else { return }
+        let link = splitView.displayLink(target: self, selector: #selector(slideTick))
+        link.add(to: .main, forMode: .common)
+        slideLink = link
+    }
+
+    @objc private func slideTick() {
+        let column = rightColumn.view.superview ?? rightColumn.view
+        // Its left edge as drawn this frame (mid-animation), to the
+        // window's right edge.
+        let drawn = column.layer?.presentation()?.frame ?? column.frame
+        let width = max(0, min(splitView.bounds.width, splitView.bounds.width - drawn.minX))
+        if abs(layout.terminalWidth - width) > 0.25 { layout.terminalWidth = width }
+        onLayout?()
+    }
+
     private func layoutChanged() {
         var width = terminalItem.isCollapsed ? 0 : rightColumn.view.frame.width
+        // While it slides, the titlebar's width is the animation's.
+        if terminalAnimating {
+            onLayout?()
+            return
+        }
+        if width > 0 { layout.terminalOpenWidth = width }
         if drawerMode, let total = view.superview?.bounds.width {
             // The preview's controls sit over the page: what shows of it
             // right of the drawer and its edge, or all of it.
