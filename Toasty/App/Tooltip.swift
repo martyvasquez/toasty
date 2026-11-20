@@ -11,11 +11,18 @@ struct Tooltip: Equatable {
     var detail: String? = nil
 }
 
+/// Where a tooltip shows: above its control (below when there's no room),
+/// or beside it, vertically centered (for controls at a window's edge, as
+/// the sidebars' handles).
+enum TooltipPlacement {
+    case above, trailing, leading
+}
+
 extension View {
     /// Shows `tooltip` while the pointer rests on this view. It replaces
     /// `.help`; VoiceOver reads the title and detail as the help text.
-    func tooltip(_ tooltip: Tooltip) -> some View {
-        modifier(TooltipModifier(tooltip: tooltip))
+    func tooltip(_ tooltip: Tooltip, placement: TooltipPlacement = .above) -> some View {
+        modifier(TooltipModifier(tooltip: tooltip, placement: placement))
     }
 
     func tooltip(_ title: String, shortcut: String? = nil, detail: String? = nil) -> some View {
@@ -25,13 +32,14 @@ extension View {
 
 private struct TooltipModifier: ViewModifier {
     let tooltip: Tooltip
+    var placement: TooltipPlacement = .above
     @State private var anchor = TooltipAnchor()
 
     func body(content: Content) -> some View {
         content
             .background(TooltipAnchorView(anchor: anchor))
             .onHover { inside in
-                if inside { TooltipController.shared.hover(tooltip, over: anchor) }
+                if inside { TooltipController.shared.hover(tooltip, over: anchor, placement: placement) }
                 else { TooltipController.shared.leave(anchor) }
             }
             // A click is an answer: the tooltip gets out of the way.
@@ -76,13 +84,13 @@ private struct TooltipAnchorView: NSViewRepresentable {
     private weak var current: TooltipAnchor?
     private var hiddenAt: Date = .distantPast
 
-    func hover(_ tooltip: Tooltip, over anchor: TooltipAnchor) {
+    func hover(_ tooltip: Tooltip, over anchor: TooltipAnchor, placement: TooltipPlacement = .above) {
         pending?.cancel()
         current = anchor
         let warm = panel?.isVisible == true || Date().timeIntervalSince(hiddenAt) < warmFor
         let work = DispatchWorkItem { [weak self, weak anchor] in
             guard let self, let anchor, self.current === anchor else { return }
-            self.show(tooltip, at: anchor)
+            self.show(tooltip, at: anchor, placement: placement)
         }
         pending = work
         DispatchQueue.main.asyncAfter(deadline: .now() + (warm ? 0.05 : delay), execute: work)
@@ -102,7 +110,7 @@ private struct TooltipAnchorView: NSViewRepresentable {
         hiddenAt = Date()
     }
 
-    private func show(_ tooltip: Tooltip, at anchor: TooltipAnchor) {
+    private func show(_ tooltip: Tooltip, at anchor: TooltipAnchor, placement: TooltipPlacement) {
         guard let rect = anchor.screenRect, let window = anchor.view?.window else { return }
         let panel = self.panel ?? makePanel()
         let view = TooltipView(tooltip: tooltip)
@@ -118,8 +126,15 @@ private struct TooltipAnchorView: NSViewRepresentable {
         // window's edges.
         let gap: CGFloat = 6 - TooltipView.shadowRoom
         var origin = NSPoint(x: rect.midX - size.width / 2, y: rect.maxY + gap)
-        if origin.y + size.height - TooltipView.shadowRoom > window.frame.maxY - 28 {
-            origin.y = rect.minY - gap - size.height
+        switch placement {
+        case .above:
+            if origin.y + size.height - TooltipView.shadowRoom > window.frame.maxY - 28 {
+                origin.y = rect.minY - gap - size.height
+            }
+        case .trailing:
+            origin = NSPoint(x: rect.maxX + gap, y: rect.midY - size.height / 2)
+        case .leading:
+            origin = NSPoint(x: rect.minX - gap - size.width, y: rect.midY - size.height / 2)
         }
         let margin: CGFloat = 8 - TooltipView.shadowRoom
         origin.x = min(max(origin.x, window.frame.minX + margin), window.frame.maxX - margin - size.width)

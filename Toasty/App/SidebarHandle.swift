@@ -52,18 +52,26 @@ private struct EdgeHandle: View {
         Button(action: action) {
             ZStack(alignment: edge == .leading ? .leading : .trailing) {
                 Color.clear
+                // Around the pill, the strip's width: resting here shows the
+                // label beside the pill, toward the conversation (not at the
+                // top of the tall hover strip).
+                Color.clear
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 38 * 2)
+                    .contentShape(Rectangle())
+                    .tooltip(tooltip, placement: edge == .leading ? .trailing : .leading)
                 Capsule()
                     .fill(Theme.Sidebar.handle)
                     .frame(width: 8, height: 38)
                     .padding(edge == .leading ? .leading : .trailing, 7.5)
                     .opacity(hovering ? 1 : 0)
+                    .allowsHitTesting(false)
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(EdgeHandleStyle())
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.15), value: hovering)
-        .tooltip(tooltip)
         .accessibilityLabel(tooltip.title)
     }
 }
