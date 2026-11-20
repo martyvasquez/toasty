@@ -101,8 +101,7 @@ struct PreviewDrawerEdge: View {
         Button { AppDelegate.shared.windowController?.toggleWorkspaces(nil) } label: { Color.clear }
             .buttonStyle(PreviewDrawerEdgeStyle(open: drawer.open, hovering: hovering))
             .onHover { hovering = $0 }
-            .help(drawer.open ? "Hide Workspaces and Conversation (⇧⌘S)"
-                              : "Show Workspaces and Conversation (⇧⌘S)")
+            .tooltip(drawer.open ? "Hide Workspaces and Conversation" : "Show Workspaces and Conversation", shortcut: "⇧⌘S")
             .accessibilityLabel(drawer.open ? "Hide Workspaces and Conversation"
                                             : "Show Workspaces and Conversation")
     }
@@ -180,7 +179,7 @@ private struct PreviewDrawerStatus: View {
         .buttonStyle(.plain)
         .padding(.leading, 4)
         .onHover { hovering = $0 }
-        .help("\(statusWord)\(conversation.title). Click to show the conversation (⇧⌘S).")
+        .tooltipText("\(statusWord)\(conversation.title). Click to show the conversation (⇧⌘S).")
         .accessibilityLabel("\(statusWord)\(conversation.title)")
         .accessibilityHint("Shows the conversation")
     }

@@ -364,7 +364,7 @@ struct ForkedFromLine: View {
         .buttonStyle(.plain)
         .allowsHitTesting(source != nil)
         .onHover { hovering = $0 }
-        .help("Go to the reply this was forked from")
+        .tooltip("Forked From", detail: "Go to the reply this was forked from.")
         .frame(maxWidth: .infinity)
     }
 }
@@ -390,7 +390,7 @@ struct ClaudePeerMessage: View {
                     if !expanded, !firstLine.isEmpty { Text("· " + firstLine) }
                 }
             }
-            .help("A message from another Claude Code session")
+            .tooltip("From Another Session", detail: "A message from another Claude Code session.")
             if expanded {
                 VStack(alignment: .leading, spacing: Theme.Space.s) {
                     ForEach(Array(ClaudeMarkdown.blocks(item.text, style: .init(cwd: cwd)).enumerated()), id: \.offset) { _, block in
@@ -715,7 +715,7 @@ struct ClaudeReplyActions: View {
                         .monospacedDigit()
                 }
                 .padding(.leading, 4)
-                .help(detail(date))
+                .tooltipText(detail(date))
             }
         }
     }
@@ -825,7 +825,7 @@ struct ClaudeEmptyState: View {
                     .font(.toasty(Theme.Size.meta))
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
-                    .help(copied.joined(separator: "\n"))
+                    .tooltipText(copied.joined(separator: "\n"))
             }
             if let changes = conversation.workspace?.changes {
                 RemoteNotice(changes: changes, conversation: conversation)
@@ -967,7 +967,7 @@ struct ClaudeBackgroundLine: View {
             }
         }
         .fixedSize(horizontal: false, vertical: true)
-        .help("Claude Code is still running this; it picks up the result when it finishes. Click to stop.")
+        .tooltipText("Claude Code is still running this; it picks up the result when it finishes. Click to stop.")
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Running in the background")
     }
@@ -1340,7 +1340,7 @@ struct AttachedFileChip: View {
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).strokeBorder(Theme.Stroke.border))
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { NSWorkspace.shared.open(url) }
-        .help(url.path)
+        .tooltipText(url.path)
         .contextMenu {
             Button("Open") { NSWorkspace.shared.open(url) }
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
@@ -1626,7 +1626,7 @@ struct ClaudeMentionMenu: View {
                 .fill(selected ? Theme.Fill.accent : .clear))
             .contentShape(Rectangle())
             .onTapGesture { if enabled { choose(tab) } }
-            .help(enabled ? "Mention @\(tab.title)" : "Open this tab to start its session, then it can be messaged")
+            .tooltipText(enabled ? "Mention @\(tab.title)" : "Open this tab to start its session, then it can be messaged")
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
         }
@@ -1824,7 +1824,7 @@ private struct JumpToLatestButton: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .help("Jump to Latest")
+        .tooltip("Jump to Latest")
         .accessibilityLabel("Jump to Latest")
     }
 }

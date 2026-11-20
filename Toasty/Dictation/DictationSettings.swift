@@ -165,7 +165,7 @@ struct DictationSettingsView: View {
                                     Image(systemName: "exclamationmark.triangle")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
-                                        .help(warning)
+                                        .tooltipText(warning)
                                 }
                             }
                     }
@@ -174,7 +174,7 @@ struct DictationSettingsView: View {
                     }
                     TableColumn("Fix case") { $row in
                         Toggle("", isOn: $row.fixCase).labelsHidden()
-                            .help("Also fix the capitals of an ordinary English word (e.g. Codex)")
+                            .tooltip("Fix Capitals", detail: "Also fix the capitals of an ordinary English word (e.g. Codex).")
                     }
                     .width(56)
                 }
@@ -246,10 +246,10 @@ private struct AddRemove: View {
     var body: some View {
         HStack(spacing: 0) {
             Button(action: add) { Image(systemName: "plus").frame(width: 22, height: 18) }
-                .help("Add")
+                .tooltip("Add")
             Button(action: remove) { Image(systemName: "minus").frame(width: 22, height: 18) }
                 .disabled(!canRemove)
-                .help("Remove Selected")
+                .tooltip("Remove Selected")
             Spacer()
         }
         .buttonStyle(.borderless)

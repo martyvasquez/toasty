@@ -305,7 +305,7 @@ private struct BackgroundRow: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .help("Stop this task")
+                    .tooltip("Stop Task")
                     .accessibilityLabel("Stop")
                 }
             }

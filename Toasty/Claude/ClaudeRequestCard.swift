@@ -77,11 +77,11 @@ struct ClaudePermissionPrompt: View {
             }
             Spacer()
             Button("Deny") { deny() }
-                .help("esc")
+                .tooltip("Deny", shortcut: "esc")
             Button("Allow") { allow() }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.return, modifiers: .command)
-                .help("⌘⏎")
+                .tooltip("Allow", shortcut: "⌘⏎")
         }
         .controlSize(.regular)
     }

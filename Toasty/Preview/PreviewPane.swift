@@ -334,7 +334,7 @@ private struct CommentField: View {
                 .onSubmit { submit(note, Self.shiftHeld) }
                 .onExitCommand(perform: cancel)
             Text("↩").font(.toasty(Theme.Size.caption)).foregroundStyle(.tertiary)
-                .help(teeUp ? "Return adds the comment to Tee-Up. Shift-Return sends it to Claude now."
+                .tooltipText(teeUp ? "Return adds the comment to Tee-Up. Shift-Return sends it to Claude now."
                             : "Return sends the comment to Claude. Shift-Return adds it to Tee-Up instead.")
         }
         .padding(.horizontal, 10)

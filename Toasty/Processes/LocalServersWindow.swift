@@ -165,17 +165,17 @@ private struct LocalServerRow: View {
             }
             Spacer(minLength: 8)
             Button("Open") { model.open(server) }
-                .help("Open \(server.address) in your browser")
+                .tooltip("Open in Browser", detail: server.address)
             Button("Stop") { model.stop(server) }
                 .disabled(stopping)
-                .help("Stop this server")
+                .tooltip("Stop Server")
         }
         .controlSize(.small)
         .padding(.horizontal, 20)
         .frame(height: 52)
         .opacity(stopping ? 0.5 : 1)
         .contentShape(Rectangle())
-        .help(help)
+        .tooltipText(help)
         .contextMenu {
             Button("Open in Browser") { model.open(server) }
             Button("Show Folder in Finder") { model.reveal(server) }

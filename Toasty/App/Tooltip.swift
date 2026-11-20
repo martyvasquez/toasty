@@ -3,12 +3,15 @@ import SwiftUI
 
 /// A tooltip that explains a control, as Things does: a bold title, its
 /// shortcut on the right, and one line about it. Shown in its own small
-/// panel (system tooltips can't have structure), after a short hover; the
-/// next one shows at once while you move along a bar.
+/// panel (system tooltips can't have structure), always after the same
+/// short rest on the control: every tooltip in the app, the same way.
 struct Tooltip: Equatable {
     var title: String
     var shortcut: String? = nil
     var detail: String? = nil
+    /// Its text is content shown in full (a prompt, a path, a title), not
+    /// a control's name: regular weight, not bold.
+    var plain = false
 }
 
 /// Where a tooltip shows: above its control (below when there's no room),
@@ -40,6 +43,12 @@ extension View {
     func tooltip(_ title: String, shortcut: String? = nil, detail: String? = nil) -> some View {
         self.tooltip(Tooltip(title: title, shortcut: shortcut, detail: detail))
     }
+
+    /// A tooltip of content shown in full (a prompt's text, a path, a
+    /// title), in regular weight: the same panel and timing as the others.
+    func tooltipText(_ text: String) -> some View {
+        self.tooltip(Tooltip(title: text, plain: true))
+    }
 }
 
 private struct TooltipModifier: ViewModifier {
@@ -58,8 +67,6 @@ private struct TooltipModifier: ViewModifier {
                 if inside { TooltipController.shared.hover(tooltip, over: anchor, placement: placement) }
                 else { TooltipController.shared.leave(anchor) }
             }
-            // A click is an answer: the tooltip gets out of the way.
-            .simultaneousGesture(TapGesture().onEnded { TooltipController.shared.leave(anchor) })
             .accessibilityHint([tooltip.title, tooltip.detail].compactMap { $0 }.joined(separator: ". "))
             .onDisappear { TooltipController.shared.leave(anchor) }
     }
@@ -95,27 +102,39 @@ private struct TooltipAnchorView: NSViewRepresentable {
 @MainActor final class TooltipController {
     static let shared = TooltipController()
 
-    /// Resting this long on a control shows its tooltip...
+    /// Resting this long on a control shows its tooltip, always (no
+    /// shortcut for the next one: every tooltip behaves the same).
     private let delay: TimeInterval = 0.6
-    /// ...unless one was showing a moment ago: then the next shows at once.
-    private let warmFor: TimeInterval = 0.6
 
     private var panel: NSPanel?
     private var host: NSHostingView<TooltipView>?
     private var pending: DispatchWorkItem?
     private weak var current: TooltipAnchor?
-    private var hiddenAt: Date = .distantPast
+
+    /// A click or a key press anywhere is an answer: the tooltip (or one
+    /// about to show) gets out of the way, and the event goes on where it
+    /// was aimed. Watched here, not with a gesture on the control, which
+    /// would take clicks from rows and buttons around it.
+    private var dismissMonitor: Any?
 
     func hover(_ tooltip: Tooltip, over anchor: TooltipAnchor, placement: TooltipPlacement = .above) {
+        if dismissMonitor == nil {
+            dismissMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .keyDown]) { event in
+                MainActor.assumeIsolated { TooltipController.shared.dismiss() }
+                return event
+            }
+        }
         pending?.cancel()
         current = anchor
-        let warm = panel?.isVisible == true || Date().timeIntervalSince(hiddenAt) < warmFor
+        // Moving to another control: the one showing goes, and the next
+        // waits its turn like any other.
+        hide()
         let work = DispatchWorkItem { [weak self, weak anchor] in
             guard let self, let anchor, self.current === anchor else { return }
             self.show(tooltip, at: anchor, placement: placement)
         }
         pending = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + (warm ? 0.05 : delay), execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
     /// Hides whatever tooltip is up (a menu is opening over it).
@@ -136,7 +155,6 @@ private struct TooltipAnchorView: NSViewRepresentable {
         guard let panel, panel.isVisible else { return }
         panel.parent?.removeChildWindow(panel)
         panel.orderOut(nil)
-        hiddenAt = Date()
     }
 
     private func show(_ tooltip: Tooltip, at anchor: TooltipAnchor, placement: TooltipPlacement) {
@@ -206,18 +224,20 @@ struct TooltipView: View {
         func width(_ s: String, _ weight: NSFont.Weight) -> CGFloat {
             ceil((s as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: Theme.Size.control, weight: weight)]).width)
         }
-        var row = width(t.title, .bold)
+        var row = width(t.title, t.plain ? .regular : .bold)
         if let k = t.shortcut { row += Theme.Space.l + width(k, .semibold) }
         let detail = t.detail.map { width($0, .regular) } ?? 0
-        return min(Theme.Tooltip.maxTextWidth, max(row, detail))
+        // Content (a path, a prompt) gets more room before it wraps.
+        return min(t.plain ? Theme.Tooltip.maxTextWidth * 1.5 : Theme.Tooltip.maxTextWidth, max(row, detail))
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.xs + Theme.Space.xxs) {
             HStack(alignment: .firstTextBaseline, spacing: Theme.Space.l) {
                 Text(tooltip.title)
-                    .font(.toasty(Theme.Size.control, .bold))
+                    .font(.toasty(Theme.Size.control, tooltip.plain ? .regular : .bold))
                     .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
                 if let shortcut = tooltip.shortcut {
                     Text(shortcut)

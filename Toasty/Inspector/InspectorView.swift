@@ -332,7 +332,7 @@ private struct WorktreeBadge: View {
             .padding(.horizontal, 6)
             .frame(height: 18)
             .background(Capsule().fill(Theme.Fill.subtle))
-            .help(help)
+            .tooltipText(help)
     }
 }
 
@@ -379,7 +379,7 @@ private struct SyncStatus: View {
         .padding(.horizontal, 6)
         .frame(height: 18)
         .background(Capsule().fill(Theme.Fill.subtle))
-        .help(help)
+        .tooltipText(help)
     }
 }
 
@@ -428,7 +428,7 @@ private struct ChangedFileRow: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: action)
         .onHover { hovering = $0 }
-        .help("\(file.status.label): \(file.path)")
+        .tooltipText("\(file.status.label): \(file.path)")
         .contextMenu {
             Button(selected ? "Hide Diff" : "Show Diff", action: action)
             Divider()
@@ -526,7 +526,7 @@ struct DiffPage: View {
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
             .keyboardShortcut(.cancelAction)
-            .help("Back to Conversation (esc)")
+            .tooltip("Back to Conversation", shortcut: "esc")
             .accessibilityLabel("Back to Conversation")
 
             StatusMark(status: file.status)
@@ -545,7 +545,7 @@ struct DiffPage: View {
             if file.status != .deleted {
                 Button("Open") { NSWorkspace.shared.open(file.url) }
                     .controlSize(.small)
-                    .help("Open in its default app")
+                    .tooltip("Open in Default App")
             }
         }
         .padding(.horizontal, 14)

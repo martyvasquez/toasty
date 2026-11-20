@@ -216,7 +216,7 @@ struct TabCloseButton: View {
         .padding(.trailing, Theme.Space.s)
         .opacity(visible ? 1 : 0)
         .allowsHitTesting(visible)
-        .help(help)
+        .tooltipText(help)
         .accessibilityLabel("Close")
     }
 }
@@ -500,7 +500,7 @@ private struct ConversationTabItem: View {
             TabCloseButton(visible: hovering && !renaming, help: "Close Tab (⌘W)") { workspace.requestClose(conversation) }
         }
         .onHover { hovering = $0 }
-        .help(conversation.title)
+        .tooltipText(conversation.title)
         .contextMenu {
             let index = workspace.conversations.firstIndex { $0.id == conversation.id } ?? 0
             Button("Rename…") { renaming = true }
@@ -600,7 +600,7 @@ private struct TerminalTabItem: View {
             TabCloseButton(visible: hovering, help: "Close Terminal") { workspace.requestCloseTerminal(session.id) }
         }
         .onHover { hovering = $0 }
-        .help("\(session.displayTitle)\n\((session.directory as NSString).abbreviatingWithTildeInPath)")
+        .tooltipText("\(session.displayTitle)\n\((session.directory as NSString).abbreviatingWithTildeInPath)")
         .contextMenu {
             let index = workspace.terminals.firstIndex { $0.id == session.id } ?? 0
             Button("Move Left") { workspace.moveTerminal(session.id, to: index - 1) }

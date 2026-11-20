@@ -232,7 +232,7 @@ private struct PendingWorktreeRow: View {
             Spacer(minLength: 0)
         }
         .frame(height: Theme.Sidebar.rowHeight)
-        .help("Creating worktree…")
+        .tooltip("Creating Worktree…")
         .padding(.leading, Theme.Sidebar.rowLeading)
         .padding(.trailing, Theme.Sidebar.rowTrailing)
         .transition(.opacity)
@@ -335,7 +335,7 @@ private struct WorkspaceRow: View {
                 .fill(isActive || isRenaming ? Theme.Sidebar.selection : .clear)  // no hover state, as Things
         )
         .contentShape(Rectangle())
-        .help(help)
+        .tooltipText(help)
         .onTapGesture(count: 2) { store.renamingID = workspace.id }
         .simultaneousGesture(TapGesture(count: 1).onEnded {
             if !isRenaming { store.activate(workspace.id) }
@@ -522,7 +522,7 @@ private struct HeadingStylePicker: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .help(c.name)
+                    .tooltipText(c.name)
                     .accessibilityLabel(c.name)
                     .accessibilityAddTraits(c == color ? .isSelected : [])
                 }

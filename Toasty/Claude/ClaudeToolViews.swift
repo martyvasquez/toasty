@@ -540,7 +540,7 @@ struct ClaudeCodeBlock: View {
             }
             if let onRun, Self.shellLanguages.contains(language.lowercased()) {
                 chip("terminal", "Run in Terminal") { onRun(code) }
-                    .help("Paste into the terminal sidebar, ready to run")
+                    .tooltip("Run in Terminal", detail: "Pastes it into the terminal, ready to run.")
             }
             chip(copied ? "checkmark" : "square.on.square", copied ? "Copied" : "Copy") { copy() }
         }

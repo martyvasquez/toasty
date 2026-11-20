@@ -440,7 +440,7 @@ private struct TeeUpCard: View {
             Spacer(minLength: 0)
         }
         .frame(height: Theme.Todo.rowHeight)
-        .help(item.text)
+        .tooltipText(item.text)
     }
 
     private func mark(_ symbol: String, _ help: String) -> some View {
@@ -448,7 +448,7 @@ private struct TeeUpCard: View {
             .font(.toasty(Theme.Size.caption, .medium))
             .foregroundStyle(Theme.Todo.mark)
             .padding(.leading, 1)
-            .help(help)
+            .tooltipText(help)
             .accessibilityLabel(help)
     }
 
