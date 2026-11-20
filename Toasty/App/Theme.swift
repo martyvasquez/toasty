@@ -204,6 +204,12 @@ enum Theme {
         /// From the window's top to the list's first row (Things: the first
         /// row's middle 47pt below the window buttons', at 72.5).
         static let listTop: CGFloat = 60
+        /// The handle at the sidebar's edge (Things': white 18% / navy 12%).
+        static let handle = Color(nsColor: NSColor(name: nil) { a in
+            a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(white: 1, alpha: 0.18)
+                : NSColor(srgbRed: 0, green: 0x1c / 255.0, blue: 0x46 / 255.0, alpha: 0.13)
+        })
         /// The footer under the list (New Workspace, New Heading): Things'
         /// 40pt, its button text 13pt at white 66% (navy-black 64% light).
         static let footerHeight: CGFloat = 40

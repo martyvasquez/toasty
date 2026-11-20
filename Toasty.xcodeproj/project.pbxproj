@@ -60,6 +60,7 @@
 		78A6CA1B4CA929C128407E33 /* WorkspaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */; };
 		7AE223DDAF7373582139DE08 /* ClaudeDisclosure.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1501768BBE5EBFFAFD293A51 /* ClaudeDisclosure.swift */; };
 		810F05E5628D52043ACA62B8 /* KeyboardShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = A97DF3CFA988D518C8A2490B /* KeyboardShortcuts.swift */; };
+		83FFA2B82AB965597303CD55 /* SidebarHandle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944191F92E33894586D21416 /* SidebarHandle.swift */; };
 		8564E49059338213553F5F29 /* DictationDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 662BABDF0CE9D1BACB40CDDF /* DictationDebug.swift */; };
 		88B35CC67C795C3CAA432EA4 /* DictationSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 044EC2205DB30FAFEDB1F70B /* DictationSettings.swift */; };
 		8905A680FA47042672972DFD /* ClaudeConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEF18C42EDAF14F5AFAD03EE /* ClaudeConversationView.swift */; };
@@ -193,6 +194,7 @@
 		92F0C051C134C0C9C597BCFD /* Workspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Workspace.swift; sourceTree = "<group>"; };
 		9311817626D412A87AA47552 /* TerminalSprites.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSprites.swift; sourceTree = "<group>"; };
 		938002554F60AC3FFC1B8C75 /* TriggerMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TriggerMonitor.swift; sourceTree = "<group>"; };
+		944191F92E33894586D21416 /* SidebarHandle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarHandle.swift; sourceTree = "<group>"; };
 		953B4EC2E8F32D9B902082DE /* TextPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextPipeline.swift; sourceTree = "<group>"; };
 		9CCEEDDC3B6D5A771D67C9DC /* ClaudeRequestCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeRequestCard.swift; sourceTree = "<group>"; };
 		9FDEDA73E441426DFF2253CD /* PreviewTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewTools.swift; sourceTree = "<group>"; };
@@ -511,6 +513,7 @@
 				2FBCBE999788997C12380B2D /* MainWindowController.swift */,
 				D1E0AF94EDDB841E22D8DEAA /* ServiceProvider.swift */,
 				1A784151685B16B9E4F4EC6E /* SettingsWindow.swift */,
+				944191F92E33894586D21416 /* SidebarHandle.swift */,
 				3353E01CDA88E07D3A7012D3 /* Theme.swift */,
 				ECA042843FEF43774DB0414C /* TitlebarTabs.swift */,
 				4D511FF5995FACBB3EEE8BD9 /* Tooltip.swift */,
@@ -718,6 +721,7 @@
 				20269D1700BC605AB731984E /* ScreenshotDebug.swift in Sources */,
 				72B35C923E6E7BBD19F19BC3 /* ServiceProvider.swift in Sources */,
 				74AD96205B972C48FB67E2B3 /* SettingsWindow.swift in Sources */,
+				83FFA2B82AB965597303CD55 /* SidebarHandle.swift in Sources */,
 				F3EDEAA0B2C742A331699A9C /* SpeechEngine.swift in Sources */,
 				D9F77D560C3635E6D7AD25E2 /* SpeechModels.swift in Sources */,
 				AC946F3D12C8AAF3BB8D8BF1 /* TeeUp.swift in Sources */,

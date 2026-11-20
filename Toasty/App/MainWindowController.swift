@@ -11,6 +11,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     private var container: MainContainerController!
     private var titlebarHost: NSView?
     private var titlebarLeading: NSLayoutConstraint?
+    /// The sidebar handle's strip, at the conversation's leading edge.
+    private var handleHost: NSView?
+    private var handleLeading: NSLayoutConstraint?
     private var cancellables: Set<AnyCancellable> = []
 
     init(store: WorkspaceStore) {
@@ -57,6 +60,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
         installTitlebar()
         installToast()
+        installSidebarHandle()
         store.selectionChanged
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.updateTitle() }
@@ -89,6 +93,26 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         updateTitlebar()
     }
 
+    /// The sidebar's handle: a strip along the conversation's left edge
+    /// (moved with it in `updateTitlebar`).
+    private func installSidebarHandle() {
+        guard let content = window?.contentView else { return }
+        let host = NSHostingView(rootView: SidebarHandle(store: store))
+        host.sizingOptions = []
+        host.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(host, positioned: .above, relativeTo: nil)
+        let leading = host.leadingAnchor.constraint(equalTo: content.leadingAnchor)
+        NSLayoutConstraint.activate([
+            leading,
+            host.widthAnchor.constraint(equalToConstant: 20),
+            host.topAnchor.constraint(equalTo: content.safeAreaLayoutGuide.topAnchor, constant: 40),
+            host.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -40),
+        ])
+        handleHost = host
+        handleLeading = leading
+        updateTitlebar()
+    }
+
     /// The activity toast, floating at the window's top-right below the tab
     /// row. Clicks pass through when there's no toast.
     private func installToast() {
@@ -114,6 +138,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         // hidden: the tabs start about 20pt after them (as Safari's).
         let inset: CGFloat = minX < 60 ? 86 - minX : 0
         if layout.leadingInset != inset { layout.leadingInset = inset }
+        if let handleLeading, abs(handleLeading.constant - minX) > 0.25 { handleLeading.constant = minX }
+        handleHost?.isHidden = PreviewDrawer.shared.hidesConversation
         // The row's controls center on the window buttons' line.
         if let button = window?.standardWindowButton(.closeButton), let bar = button.superview {
             let r = button.convert(button.bounds, to: bar)
