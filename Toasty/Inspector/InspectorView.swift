@@ -32,39 +32,49 @@ private struct InspectorWorkspace: View {
             case .activity:
                 if let c = workspace.selected { ActivityTab(conversation: c).id(c.id) } else { NoConversation(detail: "Open a tab to see what Claude is doing.") }
             }
-            if !workspace.terminalVisible {
-                TerminalFooter(workspace: workspace)
+            if !workspace.terminalVisible || workspace.inspectorTab == .teeUp {
+                InspectorFooter(workspace: workspace)
             }
         }
     }
 }
 
-/// Under the inspector while the terminal is hidden: one click brings it
-/// back (like Xcode's debug area button).
-private struct TerminalFooter: View {
+/// Under the inspector, laid out as the sidebar's footer: Terminal at the
+/// left while the terminal is hidden (one click brings it back, like
+/// Xcode's debug area button), and the tab's own buttons at the right.
+private struct InspectorFooter: View {
     @ObservedObject var workspace: Workspace
-    @State private var hovering = false
 
+    // The label's glyph on the inspector's 20pt edge; the last icon's
+    // glyph ends on it on the right (new terminals are the strip's +).
     var body: some View {
-        Button {
+        VStack(spacing: 0) {
+            // A bar of its own only at the column's foot: over the
+            // terminal, the buttons end the list instead (the split's line
+            // is under them).
+            if !workspace.terminalVisible {
+                Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1)
+            }
+            HStack(spacing: 0) {
+                if !workspace.terminalVisible { terminalButton }
+                Spacer(minLength: 0)
+                if workspace.inspectorTab == .teeUp {
+                    TeeUpBarButtons(workspace: workspace)
+                        .padding(.trailing, Theme.Inspector.edge - TeeUpBarButtons.margin)
+                }
+            }
+            .frame(height: Theme.Sidebar.footerHeight)
+        }
+    }
+
+    private var terminalButton: some View {
+        BarLabelButton(symbol: "terminal", title: "Terminal",
+                       tooltip: Tooltip(title: "Show Terminal", shortcut: "⌃⌘T",
+                                        detail: "A shell in this workspace's folder, under the inspector.")) {
             workspace.showTerminal()
             DispatchQueue.main.async { AppDelegate.shared.windowController?.focusTerminal() }
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "terminal").font(.toasty(Theme.Size.caption))
-                Text("Terminal").font(.toasty(Theme.Size.meta))
-                Spacer()
-                Text("⌃⌘T").font(.toasty(Theme.Size.caption)).foregroundStyle(.tertiary)
-            }
-            .foregroundStyle(hovering ? .primary : .secondary)
-            .padding(.horizontal, 14)
-            .frame(height: 32)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-        .overlay(alignment: .top) { Rectangle().fill(Color.claudeSeparator).frame(height: 0.5) }
-        .help("Show Terminal (⌃⌘T)")
+        .padding(.leading, Theme.Inspector.edge - BarLabelButton.padding)
     }
 }
 
@@ -633,37 +643,31 @@ struct TerminalStrip: View {
     @ObservedObject var store: WorkspaceStore
 
     var body: some View {
+        // The card's raised surface (the terminal's background).
         ZStack {
-            Color.claudeChrome
+            Color(nsColor: NSColor(name: nil) { a in
+                let t = TerminalTheme.current(for: a)
+                return NSColor(cgColor: t.background.cgColor) ?? .windowBackgroundColor
+            })
             if let workspace = store.active {
                 TerminalStripContent(workspace: workspace)
             }
         }
-        .overlay(alignment: .bottom) { Rectangle().fill(Color.claudeSeparator).frame(height: 0.5) }
+        .overlay(alignment: .bottom) { Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1) }
     }
 }
 
 private struct TerminalStripContent: View {
     @ObservedObject var workspace: Workspace
-    @State private var hovering = false
 
     var body: some View {
         HStack(spacing: 0) {
             TerminalTabBar(workspace: workspace)
-            Button {
-                workspace.hideTerminal()
-            } label: {
-                Image(systemName: "chevron.down")
-                    .font(.toasty(Theme.Size.caption, .semibold))
-                    .foregroundStyle(hovering ? .primary : .secondary)
-                    .frame(width: 28, height: 26)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .onHover { hovering = $0 }
-            .padding(.trailing, 6)
-            .help("Hide Terminal (⌃⌘T)")
-            .accessibilityLabel("Hide Terminal")
+            BarIconButton(symbol: "chevron.down",
+                          tooltip: Tooltip(title: "Hide Terminal", shortcut: "⌃⌘T",
+                                           detail: "The inspector takes the whole column."),
+                          size: CGSize(width: 32, height: TabStyle.height)) { workspace.hideTerminal() }
+                .padding(.trailing, TitlebarRow.edge)
         }
     }
 }

@@ -184,6 +184,12 @@ struct ClaudeComposer: NSViewRepresentable {
     var fontSize: CGFloat = ClaudeStyle.bodySize
     /// The text lost the keyboard (a click elsewhere).
     var onBlur: (() -> Void)? = nil
+    /// Space after the first line, setting it apart as a title over the
+    /// rest (a teed-up prompt, as a Things to-do's title over its notes).
+    var titleSpacing: CGFloat? = nil
+    /// Drawn invisibly (still taking typing): a stand-in shows the text
+    /// while the view around it animates.
+    var concealed = false
 
     /// One line of text at rest; the box grows as you type.
     static var minHeight: CGFloat {
@@ -232,18 +238,23 @@ struct ClaudeComposer: NSViewRepresentable {
         view.string = text
 
         scroll.documentView = view
+        scroll.alphaValue = concealed ? 0 : 1
         context.coordinator.textView = view
+        context.coordinator.styleTitle()
         DispatchQueue.main.async { context.coordinator.recalcHeight() }
         return scroll
     }
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
+        let alpha: CGFloat = concealed ? 0 : 1
+        if scroll.alphaValue != alpha { scroll.alphaValue = alpha }
         context.coordinator.parent = self
         guard let view = scroll.documentView as? ComposerTextView else { return }
         view.dictationID = dictationID
         if view.suggestion != suggestion { view.suggestion = suggestion }
         if view.string != text {
             view.string = text
+            context.coordinator.styleTitle()
             view.setSelectedRange(NSRange(location: (text as NSString).length, length: 0))
             // Not during this view update: SwiftUI drops state written
             // while it updates a view (the box kept its old height after
@@ -288,7 +299,25 @@ struct ClaudeComposer: NSViewRepresentable {
         func textDidChange(_ notification: Notification) {
             guard let view = textView else { return }
             if parent.text != view.string { parent.text = view.string }
+            styleTitle()
             recalcHeight()
+        }
+
+        /// With `titleSpacing`: the first paragraph gets that space after
+        /// it; the rest keep the input style.
+        func styleTitle() {
+            guard let spacing = parent.titleSpacing, let view = textView,
+                  let storage = view.textStorage, !view.hasMarkedText() else { return }
+            let font = NSFont.systemFont(ofSize: parent.fontSize)
+            let base = ComposerTextView.inputAttributes(font: font, color: .labelColor)
+            guard let style = (base[.paragraphStyle] as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle else { return }
+            let all = NSRange(location: 0, length: storage.length)
+            let first = (storage.string as NSString).paragraphRange(for: NSRange(location: 0, length: 0))
+            style.paragraphSpacing = spacing
+            storage.beginEditing()
+            storage.addAttribute(.paragraphStyle, value: base[.paragraphStyle] as Any, range: all)
+            storage.addAttribute(.paragraphStyle, value: style, range: first)
+            storage.endEditing()
         }
 
         func recalcHeight() {

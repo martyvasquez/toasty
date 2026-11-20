@@ -140,6 +140,75 @@ enum Theme {
         static let sectionGap: CGFloat = 24
     }
 
+    /// Lists of to-do-like rows (the Tee-Up prompts), as Things' to-dos.
+    enum Todo {
+        /// A closed row: one line of body text.
+        static let rowHeight: CGFloat = 28
+        /// The leading box (Things' checkbox), and the gap after it.
+        static let box: CGFloat = 16
+        static let boxGap: CGFloat = 5
+        /// Rows' inset from the column's edge, and content's inside a row:
+        /// the sidebar's measure, so the box sits on the 20pt edge.
+        static let inset = Sidebar.inset
+        static let rowLeading = Sidebar.rowLeading
+        static let rowTrailing = Sidebar.rowTrailing
+        /// An open row grows this much past the others on each side, and
+        /// sets itself apart by this much above and below.
+        static let openWiden: CGFloat = 5
+        /// Things' open to-do: 30pt clear above and below the card (the
+        /// rows above stay put; the card, its title and the rows below move
+        /// down), its first line 12pt inside the card's top, and room for
+        /// notes even when there are none.
+        static let openSpace: CGFloat = 30
+        static let cardTop: CGFloat = 12
+        static let notesMinHeight: CGFloat = 38
+        /// Inside an open row: its actions are 32pt slots this far from the
+        /// card's right and bottom edges.
+        /// Between an open row's first line and the rest (Things' title
+        /// over its notes: 10).
+        static let titleSpacing: CGFloat = 10
+        static let actionSlot: CGFloat = 32
+        static let actionTrailing: CGFloat = 12
+        static let actionBottom: CGFloat = 10
+        /// An open row's actions: Things' gray (white 50% / navy 44%), blue
+        /// under the pointer.
+        static let action = Color(nsColor: NSColor(name: nil) { a in
+            a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(white: 1, alpha: 0.50)
+                : NSColor(srgbRed: 0, green: 0x07 / 255.0, blue: 0x12 / 255.0, alpha: 0.44)
+        })
+        /// The selected row while the list has focus (Things' key
+        /// selection: a deep blue in dark mode, a pale one in light).
+        static let selection = Color(nsColor: NSColor(name: nil) { a in
+            a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? (NSColor.controlAccentColor.blended(withFraction: 0.6, of: NSColor(white: 0.16, alpha: 1)) ?? .controlAccentColor)
+                : (NSColor.controlAccentColor.blended(withFraction: 0.8, of: .white) ?? .controlAccentColor)
+        })
+        /// The selected row when the list doesn't have focus.
+        static let selectionInactive = Sidebar.selection
+        /// An open row: a lighter surface, no shadow (Things' expanded
+        /// to-do: white 8% over the list in dark mode).
+        static let card = Color(nsColor: NSColor(name: nil) { a in
+            a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(white: 1, alpha: 0.08)
+                : NSColor(srgbRed: 0, green: 0x19 / 255.0, blue: 0x3d / 255.0, alpha: 0.05)
+        })
+        static let cardRadius = Radius.message
+        /// The box's outline, and faint marks at a row's end (Things'
+        /// indicator color: white 40% / navy 29%).
+        static let mark = Color(nsColor: NSColor(name: nil) { a in
+            a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(white: 1, alpha: 0.40)
+                : NSColor(srgbRed: 0, green: 0x0c / 255.0, blue: 0x1d / 255.0, alpha: 0.29)
+        })
+        /// Placeholder text ("New Prompt"): white 40% / navy 31%.
+        static let placeholder = Color(nsColor: NSColor(name: nil) { a in
+            a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(white: 1, alpha: 0.40)
+                : NSColor(srgbRed: 0, green: 0x0b / 255.0, blue: 0x1b / 255.0, alpha: 0.31)
+        })
+    }
+
     // MARK: Elevation
 
     /// Surfaces that float over the page: the composer, request cards.

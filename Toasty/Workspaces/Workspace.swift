@@ -317,10 +317,20 @@ final class Workspace: ObservableObject, Identifiable {
     /// `files` attached, when it's started by dropping them). Left empty,
     /// it goes away when it's closed.
     func newTeeUp(with files: [URL] = []) {
+        newTeeUp(after: nil, with: files)
+    }
+
+    /// Start a new prompt right under `id` (as Space under a selected
+    /// Things to-do), or at the end, open for typing.
+    func newTeeUp(after id: UUID?, with files: [URL] = []) {
         endTeeUpEdit()
         var item = TeeUp()
         item.attach(files)
-        teeUps.append(item)
+        if let id, let i = teeUps.firstIndex(where: { $0.id == id }) {
+            teeUps.insert(item, at: i + 1)
+        } else {
+            teeUps.append(item)
+        }
         teeUpEditingID = item.id
         changed()
     }
@@ -356,13 +366,22 @@ final class Workspace: ObservableObject, Identifiable {
     }
 
     /// Close the prompt being edited. Edited down to nothing, it's deleted.
-    func endTeeUpEdit() {
+    func endTeeUpEdit(keepingEmpty: Bool = false) {
         guard let id = teeUpEditingID else { return }
         teeUpEditingID = nil
         guard let i = teeUps.firstIndex(where: { $0.id == id }) else { return }
-        if teeUps[i].isEmpty { return removeTeeUp(id) }
+        if teeUps[i].isEmpty {
+            if !keepingEmpty { removeTeeUp(id) }
+            return
+        }
         let trimmed = teeUps[i].text.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed != teeUps[i].text { teeUps[i].text = trimmed; changed() }
+    }
+
+    /// Removes a prompt that was left empty (unless it's being edited again).
+    func removeTeeUpIfEmpty(_ id: UUID) {
+        guard teeUpEditingID != id, teeUps.first(where: { $0.id == id })?.isEmpty == true else { return }
+        removeTeeUp(id)
     }
 
     func removeTeeUp(_ id: UUID) {
