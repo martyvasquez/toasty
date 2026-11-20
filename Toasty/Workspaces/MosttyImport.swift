@@ -139,7 +139,7 @@ final class MosttyImport: ObservableObject {
         var firstImported: UUID?
         for item in items where item.selected {
             let workspace = store.workspaces.first { WorkspaceStore.normalize($0.folder) == WorkspaceStore.normalize(item.folder) }
-                ?? store.create(folder: item.folder, name: item.name, activate: false, withConversation: false, append: true)
+                ?? store.create(folder: item.folder, name: item.name, activate: false, withConversation: false)
             for s in item.sessions.reversed()
                 where s.selected && !workspace.conversations.contains(where: { $0.sessionID == s.id }) {
                 let c = ClaudeConversation(restoring: UUID(), cwd: item.folder, sessionID: s.id, customTitle: nil)

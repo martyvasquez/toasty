@@ -6,16 +6,61 @@ import Combine
 struct WorkspaceHeading: Codable, Identifiable, Equatable {
     let id: UUID
     var name: String
+    /// Its icon (one of `HeadingStyle.icons`) and color; nil is the
+    /// default (Things' area: a gray cube). Older saves have neither.
+    var icon: String? = nil
+    var color: HeadingColor? = nil
+}
+
+/// A heading's color: Things' sidebar palette, nothing else.
+enum HeadingColor: String, Codable, CaseIterable, Identifiable {
+    case gray, blue, yellow, red, teal, tan, green, silver
+    var id: String { rawValue }
+
+    var name: String {
+        switch self {
+        case .gray: "Gray"
+        case .blue: "Blue"
+        case .yellow: "Yellow"
+        case .red: "Red"
+        case .teal: "Teal"
+        case .tan: "Tan"
+        case .green: "Green"
+        case .silver: "Silver"
+        }
+    }
+}
+
+/// The icons a heading can have (filled, so they carry their color as
+/// Things' sidebar icons do), the first being the default.
+enum HeadingStyle {
+    static let icons = [
+        "shippingbox", "folder.fill", "tray.fill", "briefcase.fill",
+        "building.2.fill", "person.2.fill", "hammer.fill", "wrench.and.screwdriver.fill",
+        "star.fill", "flag.fill", "bolt.fill", "flame.fill",
+        "leaf.fill", "book.closed.fill", "archivebox.fill", "sparkles",
+    ]
+    static var defaultIcon: String { icons[0] }
 }
 
 /// A top-level row of the workspaces sidebar.
 enum SidebarItem: Hashable {
     case heading(UUID)
     case workspace(UUID)
+    /// Where the workspaces under no heading start: below every heading's
+    /// (only when there are headings). Drawn as the gap before them.
+    case loose
+
+    /// The no-heading section's id, for dropping onto it.
+    static let looseID = UUID(uuidString: "00000000-0000-0000-0000-00000000100E")!
+    /// A workspace's `headingID` when it's under no heading at the top,
+    /// above every heading (nil: under no heading at the bottom).
+    static let topID = UUID(uuidString: "00000000-0000-0000-0000-00000000100F")!
 
     var id: UUID {
         switch self {
         case .heading(let id), .workspace(let id): id
+        case .loose: Self.looseID
         }
     }
 }
@@ -38,6 +83,8 @@ final class WorkspaceStore: ObservableObject {
     var inspectorFraction: CGFloat = 0.55
     /// The workspace or heading whose name is being edited in the sidebar.
     @Published var renamingID: UUID?
+    /// The heading whose icon and color are being picked (its popover open).
+    @Published var stylingID: UUID?
     /// The workspace or heading being dragged in the sidebar.
     @Published var draggingID: UUID?
     /// Worktrees being created (placeholder rows in the sidebar).
@@ -152,9 +199,11 @@ final class WorkspaceStore: ObservableObject {
 
     // MARK: Workspaces
 
+    /// A new workspace: last, under no heading (a worktree: after its
+    /// parent's other worktrees).
     @discardableResult
     func create(folder: String, name: String? = nil, activate: Bool = true, withConversation: Bool = true,
-                append: Bool = false, parent: Workspace? = nil) -> Workspace {
+                parent: Workspace? = nil) -> Workspace {
         let w = Workspace(name: name ?? Self.projectName(for: URL(fileURLWithPath: folder)), folder: folder,
                           parentID: parent?.id)
         w.store = self
@@ -163,13 +212,11 @@ final class WorkspaceStore: ObservableObject {
         if let parent, let i = list.firstIndex(where: { $0.id == parent.id }) {
             // A worktree goes after its parent's other worktrees.
             list.insert(w, at: i + 1 + children(of: parent.id).count)
-        } else if !append, let active, let i = list.firstIndex(where: { $0.id == (active.parentID ?? active.id) }) {
-            // After the active workspace and its worktrees.
-            list.insert(w, at: i + 1 + children(of: list[i].id).count)
-            w.headingID = list[i].headingID
         } else {
+            // A new workspace goes last, under no heading (below every
+            // heading's), to be filed under one when you like.
             list.append(w)
-            w.headingID = headings.last?.id
+            w.headingID = nil
         }
         workspaces = grouped(list)
         if activate { self.activate(w.id) }
@@ -265,13 +312,13 @@ final class WorkspaceStore: ObservableObject {
     func children(of id: UUID) -> [Workspace] { workspaces.filter { $0.parentID == id } }
 
     /// Each top-level workspace followed by its worktrees, in sidebar order:
-    /// those under no heading, then each heading's (keeping their order
-    /// within a heading).
+    /// each heading's, then those under no heading (keeping their order
+    /// within a section).
     private func grouped(_ list: [Workspace]) -> [Workspace] {
         let tops = list.filter { $0.parentID == nil }
-        let known = Set(headings.map(\.id))
+        let known = Set(headings.map(\.id) + [SidebarItem.topID])
         for w in tops where w.headingID.map({ !known.contains($0) }) == true { w.headingID = nil }
-        let sections: [UUID?] = [nil] + headings.map(\.id)
+        let sections: [UUID?] = [SidebarItem.topID] + headings.map(\.id) + [nil]
         return sections.flatMap { h in tops.filter { $0.headingID == h } }
             .flatMap { top in [top] + list.filter { $0.parentID == top.id } }
     }
@@ -286,20 +333,26 @@ final class WorkspaceStore: ObservableObject {
     // Only top-level workspaces move; their worktrees move with them. A
     // workspace moved past a heading goes under it (or out from under it).
 
-    /// The sidebar's top level in order: workspaces under no heading, then
-    /// each heading followed by its workspaces.
+    /// The sidebar's top level in order: workspaces under no heading at
+    /// the top, each heading followed by its workspaces, then (marked by
+    /// `.loose`) those under no heading at the bottom.
     var items: [SidebarItem] {
         let tops = workspaces.filter { $0.parentID == nil }
-        return tops.filter { $0.headingID == nil }.map { .workspace($0.id) }
-            + headings.flatMap { h in
-                [.heading(h.id)] + tops.filter { $0.headingID == h.id }.map { .workspace($0.id) }
-            }
+        let above = tops.filter { $0.headingID == SidebarItem.topID }.map { SidebarItem.workspace($0.id) }
+        let loose = tops.filter { $0.headingID == nil }.map { SidebarItem.workspace($0.id) }
+        guard !headings.isEmpty else { return above + loose }
+        return above + headings.flatMap { h in
+            [.heading(h.id)] + tops.filter { $0.headingID == h.id }.map { .workspace($0.id) }
+        } + [.loose] + loose
     }
 
     /// Take `items` as the new order: each workspace goes under the heading
     /// above it.
     private func apply(_ items: [SidebarItem]) {
-        var heading: UUID?
+        // Above the first heading: the top section (with no headings at
+        // all, there's just the one, under no heading).
+        let hasHeadings = items.contains { if case .heading = $0 { true } else { false } }
+        var heading: UUID? = hasHeadings ? SidebarItem.topID : nil
         var order: [UUID] = []
         var tops: [UUID] = []
         for item in items {
@@ -310,6 +363,8 @@ final class WorkspaceStore: ObservableObject {
             case .workspace(let id):
                 workspaces.first { $0.id == id }?.headingID = heading
                 tops.append(id)
+            case .loose:
+                heading = nil
             }
         }
         headings = order.compactMap { id in headings.first { $0.id == id } }
@@ -322,6 +377,16 @@ final class WorkspaceStore: ObservableObject {
     /// Move a workspace to where `target` (a workspace or a heading) is,
     /// as when dragging it there.
     func move(_ id: UUID, to target: UUID) {
+        // Onto the no-heading section: first under no heading.
+        if target == SidebarItem.looseID {
+            guard let id = top(id) else { return }
+            var items = items
+            guard let from = items.firstIndex(of: .workspace(id)) else { return }
+            items.remove(at: from)
+            if let i = items.firstIndex(of: .loose) { items.insert(.workspace(id), at: i + 1) } else { items.insert(.workspace(id), at: 0) }
+            apply(items)
+            return
+        }
         guard let id = top(id), let target = isHeading(target) ? target : top(target), id != target else { return }
         var items = items
         guard let from = items.firstIndex(of: .workspace(id)),
@@ -435,7 +500,16 @@ final class WorkspaceStore: ObservableObject {
         setNeedsSave()
     }
 
-    /// Remove a heading; its workspaces join the section above.
+    /// A heading's icon and color (nil: the default).
+    func setHeadingStyle(icon: String?, color: HeadingColor?, for id: UUID) {
+        guard let i = headings.firstIndex(where: { $0.id == id }) else { return }
+        headings[i].icon = icon == HeadingStyle.defaultIcon ? nil : icon
+        headings[i].color = color == .gray ? nil : color
+        setNeedsSave()
+    }
+
+    /// Remove a heading; its workspaces join the section above (under the
+    /// first heading: the top one, under no heading).
     func removeHeading(_ id: UUID) {
         apply(items.filter { $0 != .heading(id) })
     }
@@ -460,17 +534,16 @@ final class WorkspaceStore: ObservableObject {
     /// heading means the top).
     func moveHeading(_ id: UUID, to target: UUID) {
         guard let from = headings.firstIndex(where: { $0.id == id }) else { return }
-        // Onto a workspace under no heading (the top of the list): the
-        // heading, with its workspaces, goes right before it, and the
-        // ungrouped workspaces from there on join it.
-        if !isHeading(target), let t = top(target), workspaces.first(where: { $0.id == t })?.headingID == nil {
-            var items = items
-            let members = workspaces.filter { $0.headingID == id && $0.parentID == nil }.map { SidebarItem.workspace($0.id) }
-            let block = [SidebarItem.heading(id)] + members
-            items.removeAll { block.contains($0) }
-            guard let i = items.firstIndex(of: .workspace(t)) else { return }
-            items.insert(contentsOf: block, at: i)
-            apply(items)
+        // Onto the no-heading section at the bottom (or a workspace in
+        // it): the heading goes last, just above it. Onto a workspace in
+        // the top one: first, just below it.
+        let targetSection = isHeading(target) ? target : top(target).flatMap { t in workspaces.first { $0.id == t }?.headingID }
+        if target == SidebarItem.looseID || (!isHeading(target) && targetSection == nil) {
+            moveHeading(id, by: headings.count - 1 - from)
+            return
+        }
+        if targetSection == SidebarItem.topID {
+            moveHeading(id, by: -from)
             return
         }
         let targetHeading = isHeading(target) ? target : top(target).flatMap { t in workspaces.first { $0.id == t }?.headingID }

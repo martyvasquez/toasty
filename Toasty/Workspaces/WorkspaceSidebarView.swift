@@ -33,6 +33,15 @@ struct WorkspaceSidebarView: View {
                             ForEach(store.pendingWorktrees.filter { $0.parentID == id }) { p in
                                 PendingWorktreeRow(name: p.name)
                             }
+                        case .loose:
+                            // The workspaces under no heading, below every
+                            // heading's: set apart by a heading's space, and
+                            // a place to drop a workspace out of its heading.
+                            Color.clear
+                                .frame(height: Theme.Sidebar.headingSpaceAbove)
+                                .contentShape(Rectangle())
+                                .onDrop(of: [.toastyWorkspace],
+                                        delegate: WorkspaceDropDelegate(target: SidebarItem.looseID, store: store))
                         }
                     }
                     // Dropping below the last workspace moves it to the end.
@@ -128,14 +137,19 @@ private struct HeadingRow: View {
 
     private var isRenaming: Bool { store.renamingID == heading.id }
 
-    private var color: Color { Theme.headingBlue }
-
     var body: some View {
         // A row like the workspaces' (24pt, its title centered, so the
         // rhythm is Things': a group starts 40pt after the last row), with
         // a hairline on its bottom edge that starts a little left of the
         // title, as Things' project headings.
         VStack(alignment: .leading, spacing: 0) {
+        HStack(spacing: Theme.Sidebar.iconGap) {
+            // Its icon in its color (Things' sidebar), then its name in the
+            // rows' ink, bold.
+            Image(systemName: heading.icon ?? HeadingStyle.defaultIcon)
+                .font(.toasty(Theme.Sidebar.iconSize, .medium))
+                .foregroundStyle(Theme.heading(heading.color))
+                .frame(width: Theme.Sidebar.iconWidth)
         Group {
                 if isRenaming {
                     TextField("Heading", text: $draft)
@@ -155,7 +169,8 @@ private struct HeadingRow: View {
                 }
             }
         .font(.toasty(Theme.Size.body, .semibold))  // Things' area titles: 600
-        .foregroundStyle(color)
+        .foregroundStyle(Theme.Sidebar.titleColor)
+        }
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: Theme.Sidebar.rowHeight)
         .padding(.leading, Theme.Sidebar.rowLeading)
@@ -175,8 +190,14 @@ private struct HeadingRow: View {
         // Headings are labels, never selected (one highlight in the
         // sidebar: the workspace you're in); double-click renames.
         .onTapGesture(count: 2) { store.renamingID = heading.id }
+        .popover(isPresented: Binding(get: { store.stylingID == heading.id },
+                                      set: { if !$0, store.stylingID == heading.id { store.stylingID = nil } }),
+                 arrowEdge: .trailing) {
+            HeadingStylePicker(heading: heading, store: store)
+        }
         .contextMenu {
             Button("Rename…") { store.renamingID = heading.id }
+            Button("Icon & Color…") { store.stylingID = heading.id }
             Divider()
             Button("Move Up") { store.moveHeading(heading.id, by: -1) }
                 .disabled(!store.canMoveHeading(heading.id, by: -1))
@@ -232,10 +253,19 @@ private struct WorkspaceRow: View {
     private var working: Bool { workspace.isWorking }
     private var attention: Bool { workspace.hasAttention }
 
+    /// Under a heading (its own, or its parent's for a worktree): its name
+    /// lines up with the heading's name, past the heading's icon, as a
+    /// Things area's lists do. Workspaces under no heading keep the edge.
+    private var grouped: Bool {
+        let top = workspace.parentID.flatMap { id in store.workspaces.first { $0.id == id } } ?? workspace
+        return top.headingID.map { id in store.headings.contains { $0.id == id } } ?? false
+    }
+
     var body: some View {
         HStack(spacing: Theme.Sidebar.iconGap) {
-            // Names start on the headings' edge; a worktree's branch mark
-            // starts where its parent's name does, and its name follows.
+            // Names start on the headings' names (or edge, ungrouped); a
+            // worktree's branch mark starts where its parent's name does,
+            // and its name follows.
             if workspace.isWorktree {
                 Image(systemName: "arrow.triangle.branch")
                     .font(.toasty(Theme.Sidebar.iconSize - 2))
@@ -297,7 +327,7 @@ private struct WorkspaceRow: View {
             }
         }
         .frame(height: Theme.Sidebar.rowHeight)
-        .padding(.leading, Theme.Sidebar.rowLeading)
+        .padding(.leading, Theme.Sidebar.rowLeading + (grouped ? Theme.Sidebar.iconWidth + Theme.Sidebar.iconGap : 0))
         .padding(.trailing, Theme.Sidebar.rowTrailing)
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
@@ -332,6 +362,9 @@ private struct WorkspaceRow: View {
                     .disabled(!store.canMove(workspace.id, by: -1))
                 Button("Move Down") { store.move(workspace.id, by: 1) }
                     .disabled(!store.canMove(workspace.id, by: 1))
+                if let h = workspace.headingID, store.isHeading(h) {
+                    Button("Remove from Heading") { store.move(workspace.id, toHeading: nil) }
+                }
                 if !store.headings.isEmpty {
                     Menu("Move to Heading") {
                         Button("No Heading") { store.move(workspace.id, toHeading: nil) }
@@ -443,5 +476,58 @@ private struct WorkspaceDropDelegate: DropDelegate {
     func performDrop(info: DropInfo) -> Bool {
         store.draggingID = nil
         return true
+    }
+}
+
+/// A heading's icon and color, picked from a small set (Things' sidebar
+/// palette): a grid of the icons in the heading's color, then the colors.
+/// A choice applies at once.
+private struct HeadingStylePicker: View {
+    let heading: WorkspaceHeading
+    @ObservedObject var store: WorkspaceStore
+
+    private var current: WorkspaceHeading { store.headings.first { $0.id == heading.id } ?? heading }
+    private var icon: String { current.icon ?? HeadingStyle.defaultIcon }
+    private var color: HeadingColor { current.color ?? .gray }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.m) {
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(32), spacing: Theme.Space.xs), count: 8),
+                      spacing: Theme.Space.xs) {
+                ForEach(HeadingStyle.icons, id: \.self) { name in
+                    Button { store.setHeadingStyle(icon: name, color: color, for: heading.id) } label: {
+                        Image(systemName: name)
+                            .font(.toasty(Theme.Sidebar.iconSize, .medium))
+                            .foregroundStyle(Theme.heading(color))
+                            .frame(width: 32, height: 32)
+                            .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+                                .fill(name == icon ? Theme.Fill.selected : Color.clear))
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(name)
+                    .accessibilityAddTraits(name == icon ? .isSelected : [])
+                }
+            }
+            Rectangle().fill(Theme.Stroke.border).frame(height: 1)
+            HStack(spacing: Theme.Space.xs) {
+                ForEach(HeadingColor.allCases) { c in
+                    Button { store.setHeadingStyle(icon: icon, color: c, for: heading.id) } label: {
+                        Circle()
+                            .fill(Theme.heading(c))
+                            .frame(width: 18, height: 18)
+                            .padding(3)
+                            .overlay(Circle().strokeBorder(c == color ? Color.primary.opacity(0.6) : Color.clear, lineWidth: 1.5))
+                            .frame(width: 32, height: 28)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(c.name)
+                    .accessibilityLabel(c.name)
+                    .accessibilityAddTraits(c == color ? .isSelected : [])
+                }
+            }
+        }
+        .padding(Theme.Space.m)
     }
 }

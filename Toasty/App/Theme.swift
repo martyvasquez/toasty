@@ -209,6 +209,24 @@ enum Theme {
         })
     }
 
+    /// Headings' colors in the workspaces sidebar: Things' sidebar icons
+    /// (sampled from its dark theme), so a heading's icon adds that pop.
+    static func heading(_ c: HeadingColor?) -> Color {
+        let hex: UInt32
+        switch c ?? .gray {
+        case .gray: hex = 0x9498A0
+        case .blue: hex = 0x60B8F4
+        case .yellow: hex = 0xF8D858
+        case .red: hex = 0xEC5C78
+        case .teal: hex = 0x78B8B4
+        case .tan: hex = 0xD8CCA0
+        case .green: hex = 0x7CC47C
+        case .silver: hex = 0xCCD0D4
+        }
+        return Color(nsColor: NSColor(srgbRed: CGFloat(hex >> 16 & 0xFF) / 255, green: CGFloat(hex >> 8 & 0xFF) / 255,
+                                      blue: CGFloat(hex & 0xFF) / 255, alpha: 1))
+    }
+
     // MARK: Elevation
 
     /// Surfaces that float over the page: the composer, request cards.
@@ -298,8 +316,9 @@ enum Theme {
         /// Space above a heading (groups are set apart by space).
         static let headingSpaceAbove: CGFloat = 16
         /// A hairline under each heading (as Things' project headings).
-        /// Off: headings are plain rows, as Things' sidebar areas.
-        static let headingRule = true
+        /// Off: headings are plain rows with their icon, as Things'
+        /// sidebar areas.
+        static let headingRule = false
         /// A row's ⌘-number slot at its end (always kept, so status marks
         /// before it line up).
         static let shortcutWidth: CGFloat = 20

@@ -36,6 +36,11 @@ enum WorkspaceDebug {
                 guard let to = cmd["to"] as? Int, store.workspaces.indices.contains(to) else { throw E("to=") }
                 store.moveWorktree(try target().id, to: store.workspaces[to].id)
             case "moveTo":
+                // "loose": true: dragged onto the no-heading section (below the headings).
+                if cmd["loose"] as? Bool == true {
+                    store.move(try target().id, to: SidebarItem.looseID)
+                    break
+                }
                 // "toHeading": dragged onto a heading's row (an index into the headings).
                 if let h = cmd["toHeading"] as? Int {
                     guard store.headings.indices.contains(h) else { throw E("toHeading=") }
@@ -78,6 +83,11 @@ enum WorkspaceDebug {
                 if let name = cmd["name"] as? String { store.setHeadingName(name, for: try target()) }
                 else { store.renamingID = try target() }
             case "remove": store.removeHeading(try target())
+            case "picker": store.stylingID = cmd["close"] as? Bool == true ? nil : try target()
+            case "style":  // {"icon":"star.fill","color":"yellow"}
+                store.setHeadingStyle(icon: cmd["icon"] as? String,
+                                      color: (cmd["color"] as? String).flatMap(HeadingColor.init(rawValue:)),
+                                      for: try target())
             case "move": store.moveHeading(try target(), by: cmd["by"] as? Int ?? 1)
             case "dropOn":  // as dragging the heading onto workspace "workspace" (an index)
                 guard let i = cmd["workspace"] as? Int, store.workspaces.indices.contains(i) else { throw E("workspace=") }
@@ -462,6 +472,7 @@ enum WorkspaceDebug {
                 switch item {
                 case .heading(let id): "# " + (store.headings.first { $0.id == id }?.name ?? "?")
                 case .workspace(let id): store.workspaces.first { $0.id == id }?.name ?? "?"
+                case .loose: "—"
                 }
             },
             "workspaces": store.workspaces.map { w -> [String: Any] in
