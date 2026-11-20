@@ -41,7 +41,7 @@ private struct InspectorWorkspace: View {
 }
 
 /// Under the inspector while the terminal is hidden, laid out as the
-/// sidebar's footer: "Terminal" at the left, which brings it back.
+/// sidebar's footer: "Open Terminal" at the left, which brings it back.
 private struct InspectorFooter: View {
     @ObservedObject var workspace: Workspace
 
@@ -57,11 +57,12 @@ private struct InspectorFooter: View {
         }
     }
 
-    // "Terminal": shows the workspace's terminals (one is started if there
+    // "Open Terminal": shows the workspace's terminals (one is started if there
     // are none), as ⌃⌘T does. New terminals are the strip's +.
     private var terminalButton: some View {
-        BarLabelButton(symbol: "terminal", title: "Terminal",
-                       tooltip: Tooltip(title: "Show Terminal", shortcut: "⌃⌘T",
+        // The up chevron opens it (the strip's down chevron closes it).
+        BarLabelButton(symbol: "chevron.up", title: "Open Terminal",
+                       tooltip: Tooltip(title: "Open Terminal", shortcut: "⌃⌘T",
                                         detail: "A shell in this workspace's folder, under the inspector.")) {
             AppDelegate.shared.windowController?.toggleTerminal(nil)
         }
