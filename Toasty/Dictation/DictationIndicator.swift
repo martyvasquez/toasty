@@ -19,9 +19,9 @@ struct DictationMicButton: View {
             ZStack {
                 switch phase {
                 case .idle:
-                    Circle().fill(Color.primary.opacity(hovering ? 0.07 : 0))
+                    Circle().fill((hovering ? Theme.Fill.hover : Color.clear))
                     Image(systemName: "mic")
-                        .font(.system(size: 14, weight: .regular))
+                        .font(.toasty(Theme.Size.body, .regular))
                         .foregroundStyle(.secondary)
                 case .listening:
                     Circle().fill(Color.accentColor.opacity(0.16))
@@ -29,13 +29,13 @@ struct DictationMicButton: View {
                         .animation(.easeOut(duration: 0.08), value: dictation.level)
                     Circle().fill(Color.accentColor.opacity(hovering ? 0.22 : 0.14))
                     Image(systemName: "mic.fill")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.toasty(Theme.Size.control, .medium))
                         .foregroundStyle(Color.accentColor)
                 case .transcribing:
                     ProgressView().controlSize(.small).scaleEffect(0.8)
                 case .failed:
                     Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.toasty(Theme.Size.control, .regular))
                         .foregroundStyle(.secondary)
                 }
             }

@@ -28,19 +28,34 @@ enum Theme {
         static let display: CGFloat = 23
     }
 
+    /// SF Symbols used as marks rather than icons beside text.
+    enum Glyph {
+        /// Chevrons, close and play/pause marks (always semibold).
+        static let small: CGFloat = 9
+        /// The large faint icon of an empty state (always light).
+        static let hero: CGFloat = 28
+    }
+
     // MARK: Fills
 
     /// Backgrounds laid over a surface: hover, selection, pressed, chips.
     /// One ladder of `primary` opacities, so every gray agrees.
     enum Fill {
+        /// Large quiet surfaces inside the page: cards, code, options.
+        static let faint = Color.primary.opacity(0.04)
         /// Pointer over a row or button.
-        static let hover = Color.primary.opacity(0.05)
-        /// Quiet surfaces: chips, code, cards inside the page.
-        static let subtle = Color.primary.opacity(0.06)
+        static let hover = Color.primary.opacity(0.06)
+        /// Small quiet surfaces: chips, badges, key caps, fields.
+        static let subtle = Color.primary.opacity(0.07)
         /// The selected row.
         static let selected = Color.primary.opacity(0.10)
         /// Mouse down.
         static let pressed = Color.primary.opacity(0.14)
+    }
+
+    /// Outlines of cards, fields and chips (widths vary; the color doesn't).
+    enum Stroke {
+        static let border = Color.primary.opacity(0.10)
     }
 
     // MARK: Shape
@@ -52,7 +67,7 @@ enum Theme {
         static let row: CGFloat = 8
         /// Cards, bubbles, popovers.
         static let card: CGFloat = 12
-        /// The composer and sheets.
+        /// The composer, message bubbles, request cards and sheets.
         static let large: CGFloat = 18
     }
 
@@ -88,7 +103,7 @@ enum Theme {
 
 extension Font {
     /// System font at a `Theme.Size` step.
-    static func toasty(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight)
+    static func toasty(_ size: CGFloat, _ weight: Font.Weight = .regular, design: Font.Design = .default) -> Font {
+        .system(size: size, weight: weight, design: design)
     }
 }

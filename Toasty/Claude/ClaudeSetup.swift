@@ -163,11 +163,11 @@ struct ClaudeSetupView: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(model.allSet ? "Claude Is Ready" : "Set Up Claude Conversations")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.toasty(Theme.Size.title, .semibold))
                 Text(model.allSet
                      ? "Everything Claude conversation tabs need is on this Mac."
                      : "Terminal tabs are ready to use. Claude conversation tabs also need these on this Mac.")
-                    .font(.system(size: 12))
+                    .font(.toasty(Theme.Size.meta))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -184,7 +184,7 @@ struct ClaudeSetupView: View {
 
             if !model.allSet && !model.checking {
                 Text("Already installed? Toasty looks on your login shell's PATH. After installing, click Check Again.")
-                    .font(.system(size: 11))
+                    .font(.toasty(Theme.Size.caption))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 20)
@@ -243,7 +243,7 @@ struct ClaudeSetupView: View {
             if model.brew != nil { CommandLine(command: "brew install node") }
             Link(model.brew != nil ? "Or download it from nodejs.org" : "Download Node.js from nodejs.org",
                  destination: ClaudeSetup.nodeDownload)
-                .font(.system(size: 11.5))
+                .font(.toasty(Theme.Size.meta))
         }
     }
 
@@ -275,12 +275,12 @@ struct ClaudeSetupView: View {
                         }
                     }
                 }
-                .font(.system(size: 14))
+                .font(.toasty(Theme.Size.body))
                 .frame(width: 16)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(title).font(.system(size: 13, weight: .medium))
+                    Text(title).font(.toasty(Theme.Size.control, .medium))
                     Text(checking ? "Checking…" : detail)
-                        .font(.system(size: 11.5))
+                        .font(.toasty(Theme.Size.meta))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .textSelection(.enabled)
@@ -298,13 +298,13 @@ struct ClaudeSetupView: View {
         var body: some View {
             HStack(spacing: 8) {
                 Text(command)
-                    .font(.system(size: 11.5, design: .monospaced))
+                    .font(.toasty(Theme.Size.meta, design: .monospaced))
                     .textSelection(.enabled)
                     .lineLimit(1)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(0.06)))
+                    .background(RoundedRectangle(cornerRadius: Theme.Radius.small).fill(Theme.Fill.subtle))
                 Button(copied ? "Copied" : "Copy") {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(command, forType: .string)

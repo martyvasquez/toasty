@@ -46,13 +46,13 @@ private struct EmptyState: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: symbol)
-                .font(.system(size: 30))
+                .font(.toasty(Theme.Glyph.hero, .light))
                 .foregroundStyle(Color(nsColor: .systemOrange))
             Text(title)
-                .font(.system(size: 22, weight: .semibold))
+                .font(.toasty(Theme.Size.display, .semibold))
             Button(button, action: action)
                 .controlSize(.large)
-            Text(shortcut).font(.system(size: 11)).foregroundStyle(.tertiary)
+            Text(shortcut).font(.toasty(Theme.Size.caption)).foregroundStyle(.tertiary)
         }
     }
 }

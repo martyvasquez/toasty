@@ -96,7 +96,7 @@ struct PreviewToolbar: View {
 
             TextField("localhost:3000", text: $session.address)
                 .textFieldStyle(.plain)
-                .font(.system(size: 12))
+                .font(.toasty(Theme.Size.meta))
                 .focused($addressFocused)
                 .onSubmit {
                     session.open(session.address)
@@ -104,7 +104,7 @@ struct PreviewToolbar: View {
                 }
                 .padding(.horizontal, 8)
                 .frame(height: 24)
-                .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.primary.opacity(0.06)))
+                .background(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous).fill(Theme.Fill.subtle))
                 .padding(.horizontal, 4)
                 .accessibilityLabel("Address")
 
@@ -157,12 +157,12 @@ struct PreviewIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 12, weight: selected ? .semibold : .regular))
+                .font(.toasty(Theme.Size.meta, selected ? .semibold : .regular))
                 .foregroundStyle(tint.map(AnyShapeStyle.init)
                     ?? (selected || hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary)))
                 .frame(width: 26, height: 24)
-                .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color.primary.opacity(selected ? 0.09 : hovering && enabled ? 0.05 : 0)))
+                .background(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
+                    .fill(selected ? Theme.Fill.selected : hovering && enabled ? Theme.Fill.hover : Color.clear))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -185,14 +185,14 @@ private struct PreviewStart: View {
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: "safari")
-                .font(.system(size: 22, weight: .light))
+                .font(.toasty(Theme.Glyph.hero, .light))
                 .foregroundStyle(.tertiary)
             Text("Preview")
-                .font(.system(size: 13, weight: .medium))
+                .font(.toasty(Theme.Size.control, .medium))
                 .foregroundStyle(.secondary)
             Text(addresses.isEmpty ? "Type your dev server's address in the bar above, or ask Claude to open it."
                                    : "Running in this workspace's terminal:")
-                .font(.system(size: 11.5))
+                .font(.toasty(Theme.Size.meta))
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -246,11 +246,11 @@ private struct PreviewPage: View {
             .overlay(alignment: .bottom) {
                 if teedUp {
                     Label("Added to Tee-Up", systemImage: "checkmark")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.toasty(Theme.Size.meta, .medium))
                         .padding(.horizontal, 12)
                         .frame(height: 28)
                         .background(Capsule().fill(Color.claudeField).shadow(color: .black.opacity(0.22), radius: 8, y: 2))
-                        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5))
+                        .overlay(Capsule().strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
                         .padding(.bottom, 14)
                         .transition(.opacity)
                 }
@@ -319,23 +319,23 @@ private struct CommentField: View {
     var body: some View {
         HStack(spacing: 7) {
             Image(systemName: "plus.bubble")
-                .font(.system(size: 12))
+                .font(.toasty(Theme.Size.meta))
                 .foregroundStyle(Color.accentColor)
             TextField(teeUp ? "Comment for Tee-Up" : "Comment for Claude", text: $note)
                 .textFieldStyle(.plain)
-                .font(.system(size: 12.5))
+                .font(.toasty(Theme.Size.control))
                 .focused($focused)
                 .onSubmit { submit(note, Self.shiftHeld) }
                 .onExitCommand(perform: cancel)
-            Text("↩").font(.system(size: 11)).foregroundStyle(.tertiary)
+            Text("↩").font(.toasty(Theme.Size.caption)).foregroundStyle(.tertiary)
                 .help(teeUp ? "Return adds the comment to Tee-Up. Shift-Return sends it to Claude now."
                             : "Return sends the comment to Claude. Shift-Return adds it to Tee-Up instead.")
         }
         .padding(.horizontal, 10)
         .frame(height: Self.height)
-        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.claudeField)
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).fill(Color.claudeField)
             .shadow(color: .black.opacity(0.22), radius: 8, y: 2))
-        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
         .onAppear { DispatchQueue.main.async { focused = true } }
     }
 }

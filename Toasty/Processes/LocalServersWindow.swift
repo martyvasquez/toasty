@@ -118,7 +118,7 @@ struct LocalServersView: View {
             }
             Divider()
             Text("Every program serving a port from one of your folders.")
-                .font(.system(size: 11))
+                .font(.toasty(Theme.Size.caption))
                 .foregroundStyle(.tertiary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 20)
@@ -131,10 +131,10 @@ struct LocalServersView: View {
         VStack(spacing: 4) {
             if model.loaded {
                 Text("No Local Servers")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.toasty(Theme.Size.control, .medium))
                     .foregroundStyle(.secondary)
                 Text("Nothing is serving a port from your folders.")
-                    .font(.system(size: 12))
+                    .font(.toasty(Theme.Size.meta))
                     .foregroundStyle(.tertiary)
             }
         }
@@ -151,12 +151,12 @@ private struct LocalServerRow: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(server.name)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.toasty(Theme.Size.control, .medium))
                     .lineLimit(1)
                     .truncationMode(.middle)
                 TimelineView(.periodic(from: .now, by: 30)) { context in
                     Text(detail(now: context.date))
-                        .font(.system(size: 11.5))
+                        .font(.toasty(Theme.Size.meta))
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                         .lineLimit(1)

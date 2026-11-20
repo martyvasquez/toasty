@@ -30,7 +30,7 @@ enum ClaudeStyle {
             : NSColor.white
     }
 
-    static let cornerRadius: CGFloat = 10
+    static let cornerRadius = Theme.Radius.card
 }
 
 extension Color {
@@ -40,5 +40,5 @@ extension Color {
     /// Hairline separators.
     static var claudeSeparator: Color { Color(nsColor: .separatorColor) }
     /// Subtle fill for cards and code.
-    static var claudeFill: Color { Color.primary.opacity(0.045) }
+    static var claudeFill: Color { Theme.Fill.faint }
 }

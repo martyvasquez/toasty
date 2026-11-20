@@ -240,26 +240,26 @@ struct ClaudeToolGroup: View {
                             ProgressView().controlSize(.small).scaleEffect(0.55)
                         } else {
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 9, weight: .semibold))
+                                .font(.toasty(Theme.Glyph.small, .semibold))
                                 .rotationEffect(.degrees(expanded ? 90 : 0))
                         }
                     }
                     .frame(width: 12, height: 12)
                     Text(headline)
-                        .font(.system(size: 12.5))
+                        .font(.toasty(Theme.Size.control))
                         .lineLimit(1)
                         .truncationMode(.tail)
                     if let r = running, let elapsed = r.elapsed {
                         Text(ClaudeToolInfo.duration(Int(elapsed)))
-                            .font(.system(size: 11.5).monospacedDigit())
+                            .font(.toasty(Theme.Size.meta).monospacedDigit())
                             .foregroundStyle(.tertiary)
                     }
                 }
                 .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
                 .padding(.horizontal, 6)
                 .frame(height: 24)
-                .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color.primary.opacity(hovering ? 0.05 : 0)))
+                .background(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
+                    .fill((hovering ? Theme.Fill.hover : Color.clear)))
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -299,7 +299,7 @@ struct ClaudeToolInlineResult: View {
         if item.resultIsError, let r = item.result {
             HStack(alignment: .firstTextBaseline, spacing: 7) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.toasty(Theme.Glyph.small, .semibold))
                     .foregroundStyle(Color(nsColor: .systemRed))
                     .frame(width: 12)
                 Text("\(ClaudeToolInfo.displayName(item.toolName)) \(ClaudeToolInfo.summary(item.toolName, item.input, cwd: cwd)): ")
@@ -307,13 +307,13 @@ struct ClaudeToolInlineResult: View {
                 + Text(r.trimmingCharacters(in: .whitespacesAndNewlines))
                     .foregroundStyle(Color(nsColor: .systemRed))
             }
-            .font(.system(size: 12))
+            .font(.toasty(Theme.Size.meta))
             .lineLimit(3)
             .textSelection(.enabled)
         } else if ClaudeToolInfo.isEdit(item.toolName) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(ClaudeToolInfo.summary(item.toolName, item.input, cwd: cwd))
-                    .font(.system(size: 11.5, design: .monospaced))
+                    .font(.toasty(Theme.Size.meta, design: .monospaced))
                     .foregroundStyle(.tertiary)
                 ClaudeDiffView(lines: ClaudeToolInfo.patchLines(item.toolUseResult)
                     ?? ClaudeToolInfo.diffLines(item.toolName, item.input), maxLines: 12)
@@ -339,7 +339,7 @@ struct ClaudeToolList: View {
         }
         .background(RoundedRectangle(cornerRadius: ClaudeStyle.cornerRadius, style: .continuous).fill(Color.claudeFill))
         .overlay(RoundedRectangle(cornerRadius: ClaudeStyle.cornerRadius, style: .continuous)
-            .strokeBorder(Color.primary.opacity(0.06)))
+            .strokeBorder(Theme.Stroke.border))
     }
 }
 
@@ -362,21 +362,21 @@ struct ClaudeToolRow: View {
                 HStack(spacing: 9) {
                     statusIcon
                     Text(ClaudeToolInfo.displayName(item.toolName))
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .font(.toasty(Theme.Size.control, .semibold))
                         .foregroundStyle(.primary)
                     Text(ClaudeToolInfo.summary(item.toolName, item.input, cwd: cwd))
-                        .font(.system(size: 12, design: item.toolName == "Bash" ? .monospaced : .default))
+                        .font(.toasty(Theme.Size.meta, design: item.toolName == "Bash" ? .monospaced : .default))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: 8)
                     if let elapsed = item.elapsed, item.result == nil {
                         Text(ClaudeToolInfo.duration(Int(elapsed)))
-                            .font(.system(size: 11).monospacedDigit())
+                            .font(.toasty(Theme.Size.caption).monospacedDigit())
                             .foregroundStyle(.tertiary)
                     }
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 8.5, weight: .bold))
+                        .font(.toasty(Theme.Glyph.small, .semibold))
                         .foregroundStyle(.tertiary)
                         .rotationEffect(.degrees(expanded ? 90 : 0))
                         .opacity(hovering || expanded ? 1 : 0)
@@ -402,7 +402,7 @@ struct ClaudeToolRow: View {
                         }
                         if !expanded && item.children.count > 3 {
                             Text("\(item.children.count - 3) more tool uses")
-                                .font(.system(size: 11))
+                                .font(.toasty(Theme.Size.caption))
                                 .foregroundStyle(.tertiary)
                                 .padding(.top, 2)
                         }
@@ -411,7 +411,7 @@ struct ClaudeToolRow: View {
                 if expanded { details }
                 if item.resultIsError, !expanded, let r = item.result {
                     Text(r.trimmingCharacters(in: .whitespacesAndNewlines))
-                        .font(.system(size: 11.5, design: .monospaced))
+                        .font(.toasty(Theme.Size.meta, design: .monospaced))
                         .foregroundStyle(Color(nsColor: .systemRed))
                         .lineLimit(3)
                         .textSelection(.enabled)
@@ -434,11 +434,11 @@ struct ClaudeToolRow: View {
                 ProgressView().controlSize(.mini).scaleEffect(0.75)
             } else if item.resultIsError {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.toasty(Theme.Glyph.small, .semibold))
                     .foregroundStyle(Color(nsColor: .systemRed))
             } else {
                 Image(systemName: ClaudeToolInfo.icon(item.toolName))
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.toasty(Theme.Size.caption, .medium))
                     .foregroundStyle(.secondary)
             }
         }
@@ -477,15 +477,15 @@ struct ClaudeDiffView: View {
             ClaudeRichText(text: attributed(shown), insets: NSSize(width: 0, height: 6))
             if let maxLines, lines.count > maxLines {
                 Text("\(lines.count - maxLines) more lines")
-                    .font(.system(size: 11))
+                    .font(.toasty(Theme.Size.caption))
                     .foregroundStyle(.tertiary)
                     .padding(.horizontal, 10)
                     .padding(.bottom, 6)
             }
         }
-        .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.claudeBackground))
-        .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.primary.opacity(0.07)))
-        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).fill(Color.claudeBackground))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).strokeBorder(Theme.Stroke.border))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous))
     }
 
     private func attributed(_ lines: [(Character, String)]) -> NSAttributedString {
@@ -538,7 +538,7 @@ struct ClaudeCodeBlock: View {
         VStack(alignment: .leading, spacing: 6) {
             if let title {
                 Text(title)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.toasty(Theme.Size.caption, .medium))
                     .foregroundStyle(.secondary)
             }
             ClaudeRichText(
@@ -559,7 +559,7 @@ struct ClaudeCodeBlock: View {
         HStack(spacing: 2) {
             if !compact, !language.isEmpty {
                 Text(language)
-                    .font(.system(size: 10.5, weight: .medium))
+                    .font(.toasty(Theme.Size.caption, .medium))
                     .foregroundStyle(.tertiary)
                     .padding(.horizontal, 6)
             }
@@ -570,15 +570,15 @@ struct ClaudeCodeBlock: View {
             chip(copied ? "checkmark" : "square.on.square", copied ? "Copied" : "Copy") { copy() }
         }
         .padding(2)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).strokeBorder(Theme.Stroke.border))
     }
 
     private func chip(_ icon: String, _ label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(label, systemImage: icon)
                 .labelStyle(.titleAndIcon)
-                .font(.system(size: 10.5, weight: .medium))
+                .font(.toasty(Theme.Size.caption, .medium))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 7)
                 .frame(height: 22)
@@ -601,8 +601,8 @@ struct ClaudeTableBlock: View {
 
     var body: some View {
         ClaudeRichText(text: text)
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
                 .strokeBorder(Color(nsColor: ClaudeTypography.tableBorder), lineWidth: 1))
     }
 }

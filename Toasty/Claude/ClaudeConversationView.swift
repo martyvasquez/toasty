@@ -114,7 +114,7 @@ struct ClaudeTranscript: View {
                     if hidden > 0 {
                         Button("Show \(hidden) Earlier") { limit += Self.initialLimit }
                             .buttonStyle(.link)
-                            .font(.system(size: 12))
+                            .font(.toasty(Theme.Size.meta))
                             .frame(maxWidth: .infinity)
                             .padding(.bottom, 20)
                     }
@@ -347,9 +347,9 @@ struct ForkedFromLine: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "arrow.triangle.branch")
-                    .font(.system(size: 10.5, weight: .medium))
+                    .font(.toasty(Theme.Size.caption, .medium))
                 (Text("Forked from ") + Text(name).fontWeight(.medium).foregroundStyle(hovering && source != nil ? .primary : .secondary))
-                    .font(.system(size: 12))
+                    .font(.toasty(Theme.Size.meta))
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
@@ -383,14 +383,14 @@ struct ClaudePeerMessage: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "bubble.left")
-                        .font(.system(size: 11.5))
+                        .font(.toasty(Theme.Size.meta))
                     Text("Message from @\(item.sender ?? "another session")")
-                        .font(.system(size: 12.5, weight: .medium))
+                        .font(.toasty(Theme.Size.control, .medium))
                     if !expanded, !firstLine.isEmpty {
-                        Text("· " + firstLine).font(.system(size: 12.5)).lineLimit(1).truncationMode(.tail)
+                        Text("· " + firstLine).font(.toasty(Theme.Size.control)).lineLimit(1).truncationMode(.tail)
                     }
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 8.5, weight: .bold))
+                        .font(.toasty(Theme.Glyph.small, .semibold))
                         .rotationEffect(.degrees(expanded ? 90 : 0))
                 }
                 .foregroundStyle(.secondary)
@@ -449,14 +449,14 @@ struct ClaudePlanRow: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: status.symbol)
-                        .font(.system(size: 11.5))
+                        .font(.toasty(Theme.Size.meta))
                         .foregroundStyle(status.color)
-                    Text(status.text).font(.system(size: 12.5, weight: .medium))
+                    Text(status.text).font(.toasty(Theme.Size.control, .medium))
                     if !title.isEmpty {
-                        Text("· " + title).font(.system(size: 12.5)).lineLimit(1).truncationMode(.tail)
+                        Text("· " + title).font(.toasty(Theme.Size.control)).lineLimit(1).truncationMode(.tail)
                     }
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 8.5, weight: .bold))
+                        .font(.toasty(Theme.Glyph.small, .semibold))
                         .rotationEffect(.degrees(expanded ? 90 : 0))
                 }
                 .foregroundStyle(.secondary)
@@ -499,14 +499,14 @@ struct ClaudeWorkingLine: View {
             let tick = Int(context.date.timeIntervalSinceReferenceDate / 0.12)
             HStack(spacing: 7) {
                 Text(String(Self.frames[tick % Self.frames.count]))
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.toasty(Theme.Size.control, .semibold))
                     .foregroundStyle(Color(nsColor: .systemOrange))
                     .frame(width: 14)
                 Text(verb)
-                    .font(.system(size: 12.5, weight: .medium))
+                    .font(.toasty(Theme.Size.control, .medium))
                     .foregroundStyle(.secondary)
                 Text(details(now: context.date))
-                    .font(.system(size: 12.5))
+                    .font(.toasty(Theme.Size.control))
                     .foregroundStyle(.tertiary)
                     .monospacedDigit()
                     .lineLimit(1)
@@ -599,7 +599,7 @@ struct ClaudeItemView: View {
         case .tool: ClaudeToolGroup(items: [item], cwd: cwd)
         case .notice:
             Text(item.text)
-                .font(.system(size: 11.5))
+                .font(.toasty(Theme.Size.meta))
                 .foregroundStyle(.tertiary)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
@@ -607,7 +607,7 @@ struct ClaudeItemView: View {
         case .error:
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 12))
+                    .font(.toasty(Theme.Size.meta))
                     .foregroundStyle(Color(nsColor: .systemRed))
                 ClaudeRichText(text: ClaudeMarkdown.inline(item.text, font: .systemFont(ofSize: 13), style: .init(cwd: cwd)))
             }
@@ -632,7 +632,7 @@ struct ClaudeUserMessage: View {
                         ForEach(Array(item.images.enumerated()), id: \.offset) { _, image in
                             Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
                                 .frame(width: 72, height: 72)
-                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous))
                         }
                     }
                 }
@@ -645,8 +645,8 @@ struct ClaudeUserMessage: View {
                     ClaudeRichText(text: Self.attributed(item.text), hugs: true)
                         .padding(.horizontal, 15)
                         .padding(.vertical, 8)
-                        .background(RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(Color.primary.opacity(0.075)))
+                        .background(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous)
+                            .fill(Theme.Fill.subtle))
                 }
             }
         }
@@ -724,7 +724,7 @@ struct ClaudeReplyActions: View {
             if let date = item.finishedAt {
                 TimelineView(.periodic(from: .now, by: 30)) { context in
                     Text(Self.relative(date, now: context.date))
-                        .font(.system(size: 12))
+                        .font(.toasty(Theme.Size.meta))
                         .foregroundStyle(.tertiary)
                         .monospacedDigit()
                 }
@@ -759,11 +759,11 @@ private struct ReplyActionButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 12.5))
+                .font(.toasty(Theme.Size.control))
                 .foregroundStyle(hovering ? .secondary : .tertiary)
                 .frame(width: 26, height: 26)
-                .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color.primary.opacity(hovering ? 0.06 : 0)))
+                .background(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
+                    .fill((hovering ? Theme.Fill.hover : Color.clear)))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -785,9 +785,9 @@ struct ClaudeThinking: View {
             } label: {
                 HStack(spacing: 6) {
                     Text(item.finalized ? "Thought" : "Thinking")
-                        .font(.system(size: 12.5, weight: .medium))
+                        .font(.toasty(Theme.Size.control, .medium))
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 8.5, weight: .bold))
+                        .font(.toasty(Theme.Glyph.small, .semibold))
                         .rotationEffect(.degrees(expanded ? 90 : 0))
                 }
                 .foregroundStyle(.secondary)
@@ -826,25 +826,25 @@ struct ClaudeEmptyState: View {
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: "sparkle")
-                .font(.system(size: 30, weight: .regular))
+                .font(.toasty(Theme.Glyph.hero, .light))
                 .foregroundStyle(Color(nsColor: .systemOrange))
                 .padding(.bottom, 4)
             Text(conversation.projectName)
-                .font(.system(size: 22, weight: .semibold))
+                .font(.toasty(Theme.Size.display, .semibold))
             HStack(spacing: 6) {
                 Text((conversation.cwd as NSString).abbreviatingWithTildeInPath)
                 if let branch = conversation.branch {
                     Text("·")
-                    Image(systemName: "arrow.triangle.branch").font(.system(size: 10.5))
+                    Image(systemName: "arrow.triangle.branch").font(.toasty(Theme.Size.caption))
                     Text(branch)
                 }
             }
-            .font(.system(size: 12))
+            .font(.toasty(Theme.Size.meta))
             .foregroundStyle(.secondary)
             .textSelection(.enabled)
             if let copied = conversation.workspace?.copiedFiles, !copied.isEmpty {
                 Text(Self.copiedLine(copied))
-                    .font(.system(size: 11.5))
+                    .font(.toasty(Theme.Size.meta))
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
                     .help(copied.joined(separator: "\n"))
@@ -881,11 +881,11 @@ private struct RemoteNotice: View {
         if let news {
             HStack(spacing: 8) {
                 HStack(spacing: 4) {
-                    Image(systemName: "arrow.down").font(.system(size: 9.5, weight: .bold))
+                    Image(systemName: "arrow.down").font(.toasty(Theme.Glyph.small, .semibold))
                     Text("\(news.count == 1 ? "1 new commit" : "\(news.count) new commits") on \(news.ref)")
                         .monospacedDigit()
                 }
-                .font(.system(size: 12))
+                .font(.toasty(Theme.Size.meta))
                 .foregroundStyle(.secondary)
                 Button(news.pull ? "Ask Claude to Pull" : "Ask Claude to Rebase") {
                     conversation.draft = news.pull
@@ -977,10 +977,10 @@ struct ClaudeBackgroundLine: View {
                     ProgressView().controlSize(.small).scaleEffect(0.55)
                         .frame(width: 14, height: 14)
                     Text(tasks.count == 1 ? "Running in the background" : "\(tasks.count) tasks running in the background")
-                        .font(.system(size: 12.5, weight: .medium))
+                        .font(.toasty(Theme.Size.control, .medium))
                         .foregroundStyle(hovering ? .primary : .secondary)
                     Text(details(tasks, now: context.date))
-                        .font(.system(size: 12.5))
+                        .font(.toasty(Theme.Size.control))
                         .foregroundStyle(.tertiary)
                         .monospacedDigit()
                         .lineLimit(1)
@@ -1196,7 +1196,7 @@ struct ClaudeComposerBox: View {
         .background(RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
             .fill(Color.claudeField))
         .overlay(RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
-            .strokeBorder(Color.primary.opacity(0.09), lineWidth: 0.5))
+            .strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
         .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
         .contentShape(Rectangle())
         .onTapGesture { conversation.focusComposer() }
@@ -1255,9 +1255,9 @@ struct ClaudeComposerBox: View {
         } else {
             Button { conversation.submit() } label: {
                 ZStack {
-                    Circle().fill(isEmpty ? Color.primary.opacity(0.10) : Color.accentColor)
+                    Circle().fill(isEmpty ? Theme.Fill.selected : Color.accentColor)
                     Image(systemName: "arrow.up")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.toasty(Theme.Size.control, .semibold))
                         .foregroundStyle(isEmpty ? AnyShapeStyle(.tertiary) : AnyShapeStyle(Color.white))
                 }
                 .frame(width: 28, height: 28)
@@ -1279,8 +1279,8 @@ struct ClaudeComposerBox: View {
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                         .frame(width: 52, height: 52)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.1)))
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).strokeBorder(Theme.Stroke.border))
                         .overlay(alignment: .topTrailing) {
                             RemoveAttachmentButton(label: "Remove Image") { conversation.attachments.remove(at: i) }
                         }
@@ -1320,7 +1320,7 @@ struct RemoveAttachmentButton: View {
             Image(systemName: "xmark.circle.fill")
                 .symbolRenderingMode(.palette)
                 .foregroundStyle(.white, .black.opacity(0.6))
-                .font(.system(size: 15))
+                .font(.toasty(Theme.Size.body))
         }
         .buttonStyle(.plain)
         .offset(x: 5, y: -5)
@@ -1340,11 +1340,11 @@ struct AttachedFileChip: View {
                 .frame(width: height - 16, height: height - 16)
             VStack(alignment: .leading, spacing: 1) {
                 Text(url.lastPathComponent)
-                    .font(.system(size: 12.5, weight: .medium))
+                    .font(.toasty(Theme.Size.control, .medium))
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Text(kind)
-                    .font(.system(size: 11))
+                    .font(.toasty(Theme.Size.caption))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -1353,8 +1353,8 @@ struct AttachedFileChip: View {
         .padding(.trailing, 12)
         .frame(maxWidth: 260, alignment: .leading)
         .frame(height: height)
-        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.06)))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.1)))
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).fill(Theme.Fill.subtle))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).strokeBorder(Theme.Stroke.border))
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { NSWorkspace.shared.open(url) }
         .help(url.path)
@@ -1378,13 +1378,13 @@ struct DropTargetOverlay: View {
             Color.claudeBackground.opacity(0.75)
             VStack(spacing: 8) {
                 Image(systemName: "paperclip")
-                    .font(.system(size: 24, weight: .light))
+                    .font(.toasty(Theme.Glyph.hero, .light))
                 Text("Drop to Attach")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.toasty(Theme.Size.control, .medium))
             }
             .foregroundStyle(.secondary)
         }
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
             .strokeBorder(Color.accentColor.opacity(0.6), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
             .padding(8))
         .allowsHitTesting(false)
@@ -1506,8 +1506,8 @@ struct ClaudeCommandMenu: View {
                 if commands.indices.contains(i) { proxy.scrollTo(commands[i].id) }
             }
         }
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.claudeField))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(Color.claudeField))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
         .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Commands")
@@ -1521,13 +1521,13 @@ struct ClaudeCommandMenu: View {
             HStack(spacing: 10) {
                 HStack(spacing: 5) {
                     Text("/" + command.name)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.toasty(Theme.Size.control, .medium))
                         .foregroundStyle(.primary)
                     // Short hints only ("<file>"); long option lists would
                     // crowd out the description.
                     if !command.argumentHint.isEmpty, command.argumentHint.count <= 24 {
                         Text(command.argumentHint)
-                            .font(.system(size: 12))
+                            .font(.toasty(Theme.Size.meta))
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -1535,7 +1535,7 @@ struct ClaudeCommandMenu: View {
                 .frame(maxWidth: 260, alignment: .leading)
                 .fixedSize(horizontal: true, vertical: false)
                 Text(command.description)
-                    .font(.system(size: 12))
+                    .font(.toasty(Theme.Size.meta))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -1543,7 +1543,7 @@ struct ClaudeCommandMenu: View {
             }
             .padding(.horizontal, 10)
             .frame(height: ClaudeCommandMenu.rowHeight)
-            .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
                 .fill(selected ? Color.accentColor.opacity(0.18) : .clear))
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
@@ -1580,7 +1580,7 @@ struct ClaudeMentionMenu: View {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(groups) { group in
                         Text(group.name)
-                            .font(.system(size: 11.5, weight: .semibold))
+                            .font(.toasty(Theme.Size.meta, .semibold))
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
                             .padding(.horizontal, 10)
@@ -1600,8 +1600,8 @@ struct ClaudeMentionMenu: View {
                 if let id { proxy.scrollTo(id) }
             }
         }
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.claudeField))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(Color.claudeField))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
         .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Tabs to Message")
@@ -1622,24 +1622,24 @@ struct ClaudeMentionMenu: View {
             HStack(spacing: 8) {
                 // The tab bar's icons: Claude's sparkle, or a branch for a fork.
                 Image(systemName: tab.forkOrigin != nil ? "arrow.triangle.branch" : "sparkle")
-                    .font(.system(size: 9.5, weight: .semibold))
+                    .font(.toasty(Theme.Glyph.small, .semibold))
                     .foregroundStyle(enabled ? Color(nsColor: .systemOrange) : Color.secondary.opacity(0.5))
                     .frame(width: 12)
                 Text(tab.title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.toasty(Theme.Size.control, .medium))
                     .foregroundStyle(enabled ? .primary : .tertiary)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 8)
                 if let hint {
                     Text(hint)
-                        .font(.system(size: 12))
+                        .font(.toasty(Theme.Size.meta))
                         .foregroundStyle(.tertiary)
                 }
             }
             .padding(.horizontal, 10)
             .frame(height: ClaudeMentionMenu.rowHeight)
-            .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
                 .fill(selected ? Color.accentColor.opacity(0.18) : .clear))
             .contentShape(Rectangle())
             .onTapGesture { if enabled { choose(tab) } }
@@ -1772,16 +1772,16 @@ struct ClaudeChip: View {
     var body: some View {
         HStack(spacing: 5) {
             if let icon {
-                Image(systemName: icon).font(.system(size: 11, weight: .medium))
+                Image(systemName: icon).font(.toasty(Theme.Size.caption, .medium))
             }
-            if !title.isEmpty { Text(title).font(.system(size: 12.5, weight: .medium)) }
-            Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold)).opacity(0.6)
+            if !title.isEmpty { Text(title).font(.toasty(Theme.Size.control, .medium)) }
+            Image(systemName: "chevron.down").font(.toasty(Theme.Glyph.small, .semibold)).opacity(0.6)
         }
         .foregroundStyle(tint.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.secondary))
         .padding(.horizontal, 8)
         .frame(height: 28)
-        .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(Color.primary.opacity(hovering ? 0.06 : 0)))
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+            .fill((hovering ? Theme.Fill.hover : Color.clear)))
         .animation(.easeOut(duration: 0.12), value: hovering)
     }
 }
@@ -1797,10 +1797,10 @@ struct ComposerIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 14, weight: .regular))
+                .font(.toasty(Theme.Size.body, .regular))
                 .foregroundStyle(.secondary)
                 .frame(width: 28, height: 28)
-                .background(Circle().fill(Color.primary.opacity(hovering ? 0.07 : 0)))
+                .background(Circle().fill((hovering ? Theme.Fill.hover : Color.clear)))
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
@@ -1819,11 +1819,11 @@ private struct JumpToLatestButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: "arrow.down")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.toasty(Theme.Size.meta, .semibold))
                 .foregroundStyle(hovering ? .primary : .secondary)
                 .frame(width: 30, height: 30)
                 .background(Circle().fill(Color.claudeField))
-                .overlay(Circle().strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
+                .overlay(Circle().strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
                 .contentShape(Circle())
         }

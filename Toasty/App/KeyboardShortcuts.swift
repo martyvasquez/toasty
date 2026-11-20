@@ -163,7 +163,7 @@ struct KeyboardShortcutsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Keyboard Shortcuts")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.toasty(Theme.Size.title, .semibold))
                 .padding(.bottom, 16)
             HStack(alignment: .top, spacing: 36) {
                 ForEach(Array(columns.enumerated()), id: \.offset) { _, column in
@@ -171,13 +171,13 @@ struct KeyboardShortcutsView: View {
                         ForEach(column) { group in
                             VStack(alignment: .leading, spacing: 0) {
                                 Text(group.title)
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.toasty(Theme.Size.caption, .semibold))
                                     .foregroundStyle(.secondary)
                                     .padding(.bottom, 6)
                                 ForEach(group.rows) { row in
                                     HStack(spacing: 12) {
                                         Text(row.title)
-                                            .font(.system(size: 12.5))
+                                            .font(.toasty(Theme.Size.control))
                                             .lineLimit(1)
                                         Spacer(minLength: 12)
                                         KeyCap(keys: row.keys)
@@ -208,11 +208,11 @@ private struct KeyCap: View {
 
     var body: some View {
         Text(keys)
-            .font(.system(size: 11.5, weight: .medium))
+            .font(.toasty(Theme.Size.meta, .medium))
             .foregroundStyle(.secondary)
             .padding(.horizontal, 7)
             .frame(minWidth: 24, minHeight: 20)
-            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.primary.opacity(0.07)))
-            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous).fill(Theme.Fill.subtle))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous).strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
     }
 }

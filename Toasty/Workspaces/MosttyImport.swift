@@ -191,9 +191,9 @@ struct MosttyImportView: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Import from mostty")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.toasty(Theme.Size.title, .semibold))
                 Text("Your mostty workspaces, and the recent Claude Code sessions in each folder to reopen as tabs. mostty isn't changed. Quit mostty first so no session is open in both apps.")
-                    .font(.system(size: 12))
+                    .font(.toasty(Theme.Size.meta))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -244,25 +244,25 @@ struct MosttyImportView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Toggle(isOn: $item.selected) {
                     HStack(spacing: 6) {
-                        Text(item.name).font(.system(size: 13, weight: .medium))
+                        Text(item.name).font(.toasty(Theme.Size.control, .medium))
                         Text((item.folder as NSString).abbreviatingWithTildeInPath)
-                            .font(.system(size: 11.5))
+                            .font(.toasty(Theme.Size.meta))
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
                             .truncationMode(.middle)
                         if item.existing {
                             Text("Already in Toasty")
-                                .font(.system(size: 10.5, weight: .medium))
+                                .font(.toasty(Theme.Size.caption, .medium))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 1)
-                                .background(Capsule().fill(Color.primary.opacity(0.07)))
+                                .background(Capsule().fill(Theme.Fill.subtle))
                         }
                     }
                 }
                 if item.sessions.isEmpty {
                     Text("No Claude Code sessions in this folder")
-                        .font(.system(size: 11.5))
+                        .font(.toasty(Theme.Size.meta))
                         .foregroundStyle(.tertiary)
                         .padding(.leading, 22)
                 } else {
@@ -271,15 +271,15 @@ struct MosttyImportView: View {
                             Toggle(isOn: $session.selected) {
                                 HStack(spacing: 8) {
                                     Image(systemName: "sparkle")
-                                        .font(.system(size: 9.5, weight: .semibold))
+                                        .font(.toasty(Theme.Glyph.small, .semibold))
                                         .foregroundStyle(Color(nsColor: .systemOrange))
                                     Text(session.title)
-                                        .font(.system(size: 12))
+                                        .font(.toasty(Theme.Size.meta))
                                         .lineLimit(1)
                                         .truncationMode(.tail)
                                     Spacer(minLength: 8)
                                     Text(session.date, format: .relative(presentation: .named))
-                                        .font(.system(size: 11))
+                                        .font(.toasty(Theme.Size.caption))
                                         .foregroundStyle(.tertiary)
                                 }
                             }

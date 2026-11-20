@@ -115,14 +115,14 @@ private struct PreviewDrawerEdgeStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         let lit = hovering || configuration.isPressed
         Image(systemName: "chevron.left")
-            .font(.system(size: 9, weight: .bold))
+            .font(.toasty(Theme.Glyph.small, .semibold))
             .foregroundStyle(lit ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
             .rotationEffect(.degrees(open ? 0 : 180))
             .animation(.easeInOut(duration: 0.2), value: open)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(ZStack {
                 Color.claudeChrome
-                Color.primary.opacity(configuration.isPressed ? 0.09 : hovering ? 0.05 : 0)
+                (configuration.isPressed ? Theme.Fill.pressed : hovering ? Theme.Fill.hover : Color.clear)
             })
             // Out, it's between the conversation and the page; away, the
             // window's own edge is on its left.
@@ -164,7 +164,7 @@ private struct PreviewDrawerStatus: View {
                 ConversationStatusIcon(conversation: conversation, selected: false)
                     .frame(width: 12)
                 Text(conversation.title)
-                    .font(.system(size: TabStyle.fontSize))
+                    .font(.toasty(TabStyle.fontSize))
                     .foregroundStyle(hovering ? .primary : .secondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -173,8 +173,8 @@ private struct PreviewDrawerStatus: View {
             .frame(height: 24)
             .frame(maxWidth: 200)
             .fixedSize(horizontal: true, vertical: false)
-            .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.primary.opacity(hovering ? 0.09 : 0.06)))
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
+                .fill(hovering ? Theme.Fill.selected : Theme.Fill.subtle))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

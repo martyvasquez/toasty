@@ -509,16 +509,16 @@ struct ActivityToastView: View {
                     .frame(height: 16)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(toast.title)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.toasty(Theme.Size.meta, .semibold))
                     if !toast.body.isEmpty {
                         Text(toast.body)
-                            .font(.system(size: 11.5))
+                            .font(.toasty(Theme.Size.meta))
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
                     }
                     if !toast.location.isEmpty {
                         Text(toast.location)
-                            .font(.system(size: 10.5))
+                            .font(.toasty(Theme.Size.caption))
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
                     }
@@ -526,7 +526,7 @@ struct ActivityToastView: View {
                 Spacer(minLength: 0)
                 Button { activity.dismissToast() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.toasty(Theme.Glyph.small, .semibold))
                         .foregroundStyle(.tertiary)
                         .frame(width: 16, height: 16)
                         .contentShape(Rectangle())
@@ -537,8 +537,8 @@ struct ActivityToastView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .frame(width: 300, alignment: .leading)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                 .strokeBorder(toast.color.opacity(0.45), lineWidth: 1))
             .shadow(color: .black.opacity(0.25), radius: 10, y: 4)
             .contentShape(Rectangle())

@@ -19,8 +19,8 @@ struct ClaudeRequestCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.claudeField))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.orange.opacity(0.45), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous).fill(Color.claudeField))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous).strokeBorder(Color.orange.opacity(0.45), lineWidth: 1))
         .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
     }
 }
@@ -34,7 +34,7 @@ private struct FeedbackField: View {
     var body: some View {
         TextField(placeholder, text: $text)
             .textFieldStyle(.roundedBorder)
-            .font(.system(size: 12))
+            .font(.toasty(Theme.Size.meta))
             .onSubmit(onSubmit)
     }
 }
@@ -52,16 +52,16 @@ struct ClaudePermissionPrompt: View {
         HStack(spacing: 7) {
             Image(systemName: ClaudeToolInfo.icon(request.toolName)).foregroundStyle(Color.orange)
             Text(request.title ?? "Allow Claude to use \(ClaudeToolInfo.displayName(request.toolName))?")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.toasty(Theme.Size.control, .semibold))
         }
         if let d = request.description ?? (input["description"] as? String), !d.isEmpty,
            d != ClaudeToolInfo.summary(request.toolName, input, cwd: conversation.cwd),
            d != (input["file_path"] as? String) {
-            Text(d).font(.system(size: 12)).foregroundStyle(.secondary).textSelection(.enabled)
+            Text(d).font(.toasty(Theme.Size.meta)).foregroundStyle(.secondary).textSelection(.enabled)
         }
         preview
         if let reason = request.decisionReason, !reason.isEmpty {
-            Text(reason).font(.system(size: 11)).foregroundStyle(.tertiary)
+            Text(reason).font(.toasty(Theme.Size.caption)).foregroundStyle(.tertiary)
         }
 
         HStack(spacing: 8) {
@@ -92,7 +92,7 @@ struct ClaudePermissionPrompt: View {
         case "Edit", "MultiEdit", "Write":
             VStack(alignment: .leading, spacing: 4) {
                 Text(ClaudeToolInfo.summary(request.toolName, input, cwd: conversation.cwd))
-                    .font(.system(size: 11.5, design: .monospaced))
+                    .font(.toasty(Theme.Size.meta, design: .monospaced))
                     .foregroundStyle(.secondary)
                 HuggingScrollView(maxHeight: 260) {
                     ClaudeDiffView(lines: ClaudeToolInfo.diffLines(request.toolName, input), maxLines: nil)
@@ -101,7 +101,7 @@ struct ClaudePermissionPrompt: View {
         default:
             let summary = ClaudeToolInfo.summary(request.toolName, input, cwd: conversation.cwd)
             if !summary.isEmpty && input.count <= 1 {
-                Text(summary).font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
+                Text(summary).font(.toasty(Theme.Size.meta, design: .monospaced)).textSelection(.enabled)
             } else if !input.isEmpty {
                 HuggingScrollView(maxHeight: 200) {
                     ClaudeCodeBlock(language: "json", code: ClaudeToolInfo.pretty(input), compact: true)
@@ -162,12 +162,12 @@ struct ClaudeQuestionForm: View {
                 HStack(spacing: 6) {
                     if let header = q["header"] as? String, !header.isEmpty {
                         Text(header.uppercased())
-                            .font(.system(size: 9.5, weight: .semibold))
+                            .font(.toasty(Theme.Size.caption, .semibold))
                             .padding(.horizontal, 5).padding(.vertical, 2)
                             .background(Color.orange.opacity(0.18), in: Capsule())
                     }
                     Text(q["question"] as? String ?? "")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.toasty(Theme.Size.control, .semibold))
                         .textSelection(.enabled)
                 }
                 let multi = q["multiSelect"] as? Bool ?? false
@@ -182,24 +182,24 @@ struct ClaudeQuestionForm: View {
                                                     : (isOn ? "largecircle.fill.circle" : "circle"))
                                 .foregroundStyle(isOn ? Color.accentColor : .secondary)
                             VStack(alignment: .leading, spacing: 1) {
-                                Text(label).font(.system(size: 12.5, weight: .medium))
+                                Text(label).font(.toasty(Theme.Size.control, .medium))
                                 if let d = option["description"] as? String, !d.isEmpty {
-                                    Text(d).font(.system(size: 11.5)).foregroundStyle(.secondary)
+                                    Text(d).font(.toasty(Theme.Size.meta)).foregroundStyle(.secondary)
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
                             }
                             Spacer(minLength: 0)
                         }
                         .padding(.vertical, 5).padding(.horizontal, 8)
-                        .background(isOn ? Color.accentColor.opacity(0.10) : Color.primary.opacity(0.03),
-                                    in: RoundedRectangle(cornerRadius: 6))
+                        .background(isOn ? Color.accentColor.opacity(0.10) : Theme.Fill.faint,
+                                    in: RoundedRectangle(cornerRadius: Theme.Radius.small))
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
                 TextField("Other…", text: Binding(get: { other[qi] ?? "" }, set: { other[qi] = $0 }))
                     .textFieldStyle(.roundedBorder)
-                    .font(.system(size: 12))
+                    .font(.toasty(Theme.Size.meta))
                     .onSubmit { if complete { submit() } }
             }
         }
@@ -260,7 +260,7 @@ struct ClaudePlanApproval: View {
     var body: some View {
         HStack(spacing: 7) {
             Image(systemName: "list.bullet.clipboard").foregroundStyle(Color.orange)
-            Text("Ready to code? Here is Claude's plan:").font(.system(size: 13, weight: .semibold))
+            Text("Ready to code? Here is Claude's plan:").font(.toasty(Theme.Size.control, .semibold))
         }
         HuggingScrollView(maxHeight: 320) {
             VStack(alignment: .leading, spacing: 8) {
@@ -276,7 +276,7 @@ struct ClaudePlanApproval: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
         }
-        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 7))
+        .background(Theme.Fill.faint, in: RoundedRectangle(cornerRadius: Theme.Radius.row))
 
         HStack(spacing: 8) {
             if conversation.autoModeAvailable {

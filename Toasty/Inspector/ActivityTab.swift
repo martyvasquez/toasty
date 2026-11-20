@@ -84,10 +84,10 @@ private struct StatusSection: View {
                     mark.frame(width: 14, height: 14)
                         .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4.5 }
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(title).font(.system(size: 13, weight: .medium))
+                        Text(title).font(.toasty(Theme.Size.control, .medium))
                         if let detail {
                             Text(detail)
-                                .font(.system(size: 11.5))
+                                .font(.toasty(Theme.Size.meta))
                                 .foregroundStyle(.secondary)
                                 .lineLimit(3)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -98,9 +98,9 @@ private struct StatusSection: View {
                     VStack(spacing: 6) {
                         ForEach(rows, id: \.title) { row in
                             HStack {
-                                Text(row.title).font(.system(size: 12)).foregroundStyle(.secondary)
+                                Text(row.title).font(.toasty(Theme.Size.meta)).foregroundStyle(.secondary)
                                 Spacer(minLength: 8)
-                                Text(row.value).font(.system(size: 12)).monospacedDigit()
+                                Text(row.value).font(.toasty(Theme.Size.meta)).monospacedDigit()
                                     .foregroundStyle(row.warns ? AnyShapeStyle(Color(nsColor: .systemOrange)) : AnyShapeStyle(.primary))
                             }
                         }
@@ -119,7 +119,7 @@ private struct StatusSection: View {
             StatusDot(color: StatusColor.needsInput)
         case .quiet:
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 11))
+                .font(.toasty(Theme.Size.caption))
                 .foregroundStyle(Color(nsColor: .systemOrange))
         case .stopped:
             StatusDot(color: StatusColor.stopped)
@@ -294,7 +294,7 @@ private struct BackgroundRow: View {
                 if hovering {
                     Button(action: stop) {
                         Image(systemName: "stop.circle")
-                            .font(.system(size: 12.5))
+                            .font(.toasty(Theme.Size.control))
                             .foregroundStyle(.secondary)
                             .frame(width: 18, height: 16)
                             .contentShape(Rectangle())
@@ -338,18 +338,18 @@ private struct ActivityRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Image(systemName: symbol)
-                .font(.system(size: 11))
+                .font(.toasty(Theme.Size.caption))
                 .foregroundStyle(.secondary)
                 .frame(width: 14)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 12))
+                    .font(.toasty(Theme.Size.meta))
                     .lineLimit(2)
                     .truncationMode(.middle)
                     .fixedSize(horizontal: false, vertical: true)
                 if let detail {
                     Text(detail)
-                        .font(.system(size: 11.5))
+                        .font(.toasty(Theme.Size.meta))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                         .truncationMode(.middle)
@@ -359,7 +359,7 @@ private struct ActivityRow: View {
             Spacer(minLength: 8)
             if let time {
                 Text(time)
-                    .font(.system(size: 12))
+                    .font(.toasty(Theme.Size.meta))
                     .foregroundStyle(.tertiary)
                     .monospacedDigit()
             }

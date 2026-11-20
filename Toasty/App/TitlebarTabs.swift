@@ -81,7 +81,7 @@ private struct ColumnToggle: View {
         let shown = workspace.rightColumnVisible && !workspace.previewShowing
         Button { AppDelegate.shared.windowController?.toggleRightColumn(nil) } label: {
             Image(systemName: "sidebar.right")
-                .font(.system(size: 14))
+                .font(.toasty(Theme.Size.body))
                 .foregroundStyle(shown ? Color.accentColor : Color.secondary)
                 .frame(width: 30, height: 26)
                 .contentShape(Rectangle())
@@ -100,7 +100,7 @@ private struct PreviewToggle: View {
     var body: some View {
         Button { AppDelegate.shared.windowController?.togglePreview(nil) } label: {
             Image(systemName: "safari")
-                .font(.system(size: 14))
+                .font(.toasty(Theme.Size.body))
                 .foregroundStyle(workspace.previewShowing ? Color.accentColor : Color.secondary)
                 .frame(width: 30, height: 26)
                 .contentShape(Rectangle())
@@ -148,10 +148,10 @@ private struct InspectorTabButton: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: tab.symbol)
-                    .font(.system(size: 12.5, weight: selected ? .semibold : .regular))
+                    .font(.toasty(Theme.Size.control, selected ? .semibold : .regular))
                 if selected {
                     Text(tab.title)
-                        .font(.system(size: TabStyle.fontSize, weight: .medium))
+                        .font(.toasty(TabStyle.fontSize, .medium))
                 }
             }
             .foregroundStyle(selected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
@@ -174,7 +174,7 @@ enum TabStyle {
     static let height: CGFloat = 28
     static let radius: CGFloat = 8
     static let gap: CGFloat = 6
-    static let fontSize: CGFloat = 12
+    static let fontSize = Theme.Size.control
 }
 
 /// The selected tab is the page itself, raised out of the bar; others are
@@ -187,10 +187,10 @@ struct TabBackground: View {
         let shape = RoundedRectangle(cornerRadius: TabStyle.radius, style: .continuous)
         if selected {
             shape.fill(Color.claudeBackground)
-                .overlay(shape.strokeBorder(Color.primary.opacity(0.09), lineWidth: 0.5))
+                .overlay(shape.strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.18), radius: 1.5, y: 0.5)
         } else {
-            shape.fill(Color.primary.opacity(hovering ? 0.06 : 0))
+            shape.fill((hovering ? Theme.Fill.hover : Color.clear))
         }
     }
 }
@@ -203,10 +203,10 @@ struct TabCloseButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: "xmark")
-                .font(.system(size: 8.5, weight: .bold))
+                .font(.toasty(Theme.Glyph.small, .semibold))
                 .foregroundStyle(.secondary)
                 .frame(width: 16, height: 16)
-                .background(Circle().fill(Color.primary.opacity(0.08)))
+                .background(Circle().fill(Theme.Fill.subtle))
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
@@ -225,7 +225,7 @@ struct NewTabButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: "plus")
-                .font(.system(size: 12, weight: .medium))
+                .font(.toasty(Theme.Size.meta, .medium))
                 .foregroundStyle(.secondary)
                 .frame(width: 28, height: 26)
                 .contentShape(Rectangle())
@@ -417,7 +417,7 @@ private struct ConversationTabItem: View {
             if renaming {
                 TextField("Name", text: $draft)
                     .textFieldStyle(.plain)
-                    .font(.system(size: TabStyle.fontSize, weight: .medium))
+                    .font(.toasty(TabStyle.fontSize, .medium))
                     .focused($fieldFocused)
                     .onSubmit(commit)
                     .onExitCommand { renaming = false }
@@ -425,7 +425,7 @@ private struct ConversationTabItem: View {
                     .onChange(of: fieldFocused) { _, focused in if !focused && renaming { commit() } }
             } else {
                 Text(conversation.title)
-                    .font(.system(size: TabStyle.fontSize, weight: selected ? .medium : .regular))
+                    .font(.toasty(TabStyle.fontSize, selected ? .medium : .regular))
                     .foregroundStyle(selected ? .primary : .secondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -485,7 +485,7 @@ struct ConversationStatusIcon: View {
             StatusDot(color: StatusColor.done(conversation))
         } else {
             Image(systemName: conversation.forkOrigin != nil ? "arrow.triangle.branch" : "sparkle")
-                .font(.system(size: 9.5, weight: .semibold))
+                .font(.toasty(Theme.Glyph.small, .semibold))
                 .foregroundStyle(selected ? Color.secondary : Color.secondary.opacity(0.6))
         }
     }
@@ -521,11 +521,11 @@ private struct TerminalTabItem: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "terminal")
-                .font(.system(size: 10.5))
+                .font(.toasty(Theme.Size.caption))
                 .foregroundStyle(.secondary)
                 .frame(width: 12)
             Text(session.displayTitle)
-                .font(.system(size: TabStyle.fontSize, weight: selected ? .medium : .regular))
+                .font(.toasty(TabStyle.fontSize, selected ? .medium : .regular))
                 .foregroundStyle(selected ? .primary : .secondary)
                 .lineLimit(1)
                 .truncationMode(.tail)

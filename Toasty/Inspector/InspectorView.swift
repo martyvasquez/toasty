@@ -53,10 +53,10 @@ private struct TerminalFooter: View {
             DispatchQueue.main.async { AppDelegate.shared.windowController?.focusTerminal() }
         } label: {
             HStack(spacing: 6) {
-                Image(systemName: "terminal").font(.system(size: 11))
-                Text("Terminal").font(.system(size: 12))
+                Image(systemName: "terminal").font(.toasty(Theme.Size.caption))
+                Text("Terminal").font(.toasty(Theme.Size.meta))
                 Spacer()
-                Text("⌃⌘T").font(.system(size: 11)).foregroundStyle(.tertiary)
+                Text("⌃⌘T").font(.toasty(Theme.Size.caption)).foregroundStyle(.tertiary)
             }
             .foregroundStyle(hovering ? .primary : .secondary)
             .padding(.horizontal, 14)
@@ -89,14 +89,14 @@ struct InspectorEmpty: View {
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: symbol)
-                .font(.system(size: 22, weight: .light))
+                .font(.toasty(Theme.Glyph.hero, .light))
                 .foregroundStyle(.tertiary)
             Text(title)
-                .font(.system(size: 13, weight: .medium))
+                .font(.toasty(Theme.Size.control, .medium))
                 .foregroundStyle(.secondary)
             if let detail {
                 Text(detail)
-                    .font(.system(size: 11.5))
+                    .font(.toasty(Theme.Size.meta))
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -117,7 +117,7 @@ struct InspectorSection<Content: View, Accessory: View>: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 Text(title)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.toasty(Theme.Size.caption, .semibold))
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 8)
                 accessory()
@@ -143,7 +143,7 @@ private struct Meter: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.primary.opacity(0.08))
+                Capsule().fill(Theme.Fill.subtle)
                 Capsule().fill(tint)
                     .frame(width: max(fraction > 0 ? 4 : 0, geo.size.width * min(1, max(0, fraction))))
             }
@@ -226,10 +226,10 @@ private struct BranchHeader: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Image(systemName: "arrow.triangle.branch")
-                    .font(.system(size: 11.5, weight: .medium))
+                    .font(.toasty(Theme.Size.meta, .medium))
                     .foregroundStyle(.secondary)
                 Text(changes.branch ?? "Detached HEAD")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.toasty(Theme.Size.control, .semibold))
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .layoutPriority(-1)  // the name gives way, not the pill
@@ -241,13 +241,13 @@ private struct BranchHeader: View {
             }
             HStack(spacing: 6) {
                 Text(summary)
-                    .font(.system(size: 11.5))
+                    .font(.toasty(Theme.Size.meta))
                     .foregroundStyle(.secondary)
                 if !changes.files.isEmpty {
                     Text("+\(changes.totalAdded)").foregroundStyle(Color(nsColor: .systemGreen))
-                        .font(.system(size: 11.5, weight: .medium)).monospacedDigit()
+                        .font(.toasty(Theme.Size.meta, .medium)).monospacedDigit()
                     Text("−\(changes.totalRemoved)").foregroundStyle(Color(nsColor: .systemRed))
-                        .font(.system(size: 11.5, weight: .medium)).monospacedDigit()
+                        .font(.toasty(Theme.Size.meta, .medium)).monospacedDigit()
                 }
                 Spacer(minLength: 0)
             }
@@ -274,12 +274,12 @@ private struct WorktreeBadge: View {
 
     var body: some View {
         Text("Worktree")
-            .font(.system(size: 11, weight: .medium))
+            .font(.toasty(Theme.Size.caption, .medium))
             .foregroundStyle(.secondary)
             .fixedSize()
             .padding(.horizontal, 6)
             .frame(height: 18)
-            .background(Capsule().fill(Color.primary.opacity(0.07)))
+            .background(Capsule().fill(Theme.Fill.subtle))
             .help(help)
     }
 }
@@ -319,14 +319,14 @@ private struct SyncStatus: View {
 
     private func pill(_ symbol: String?, _ text: String, help: String) -> some View {
         HStack(spacing: 3) {
-            if let symbol { Image(systemName: symbol).font(.system(size: 9, weight: .bold)) }
-            Text(text).font(.system(size: 11, weight: .medium)).monospacedDigit()
+            if let symbol { Image(systemName: symbol).font(.toasty(Theme.Glyph.small, .semibold)) }
+            Text(text).font(.toasty(Theme.Size.caption, .medium)).monospacedDigit()
         }
         .foregroundStyle(.secondary)
         .fixedSize()
         .padding(.horizontal, 6)
         .frame(height: 18)
-        .background(Capsule().fill(Color.primary.opacity(0.07)))
+        .background(Capsule().fill(Theme.Fill.subtle))
         .help(help)
     }
 }
@@ -342,13 +342,13 @@ private struct ChangedFileRow: View {
             StatusMark(status: file.status)
             VStack(alignment: .leading, spacing: 1) {
                 Text(file.name)
-                    .font(.system(size: 12.5, weight: .medium))
+                    .font(.toasty(Theme.Size.control, .medium))
                     .strikethrough(file.status == .deleted, color: .secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if !file.directory.isEmpty || file.oldPath != nil {
                     Text(file.oldPath.map { "from \($0)" } ?? file.directory)
-                        .font(.system(size: 11))
+                        .font(.toasty(Theme.Size.caption))
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
                         .truncationMode(.head)
@@ -366,13 +366,13 @@ private struct ChangedFileRow: View {
                     Text("binary").foregroundStyle(.tertiary)
                 }
             }
-            .font(.system(size: 11, weight: .medium))
+            .font(.toasty(Theme.Size.caption, .medium))
             .monospacedDigit()
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
-        .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .fill(selected ? Color.accentColor.opacity(0.16) : Color.primary.opacity(hovering ? 0.05 : 0)))
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
+            .fill(selected ? Color.accentColor.opacity(0.16) : (hovering ? Theme.Fill.hover : Color.clear)))
         .contentShape(Rectangle())
         .onTapGesture(perform: action)
         .onHover { hovering = $0 }
@@ -400,10 +400,10 @@ struct StatusMark: View {
 
     var body: some View {
         Text(status.mark)
-            .font(.system(size: 10, weight: .bold, design: .rounded))
+            .font(.toasty(Theme.Size.caption, .bold, design: .rounded))
             .foregroundStyle(color)
             .frame(width: 16, height: 16)
-            .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(color.opacity(0.14)))
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous).fill(color.opacity(0.14)))
     }
 
     private var color: Color {
@@ -442,7 +442,7 @@ struct DiffPage: View {
                             ClaudeDiffView(lines: Array(lines.prefix(Self.maxLines)), maxLines: nil)
                             if lines.count > Self.maxLines {
                                 Text("\(lines.count - Self.maxLines) more lines not shown")
-                                    .font(.system(size: 11.5)).foregroundStyle(.tertiary)
+                                    .font(.toasty(Theme.Size.meta)).foregroundStyle(.tertiary)
                             }
                         }
                         .frame(maxWidth: ClaudeTypography.composerWidth + 160, alignment: .leading)
@@ -467,7 +467,7 @@ struct DiffPage: View {
         HStack(spacing: 10) {
             Button(action: close) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.toasty(Theme.Size.meta, .semibold))
                     .frame(width: 26, height: 26)
                     .contentShape(Rectangle())
             }
@@ -479,16 +479,16 @@ struct DiffPage: View {
 
             StatusMark(status: file.status)
             VStack(alignment: .leading, spacing: 1) {
-                Text(file.name).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                Text(file.name).font(.toasty(Theme.Size.control, .semibold)).lineLimit(1)
                 Text(file.directory.isEmpty ? file.status.label : "\(file.status.label) · \(file.directory)")
-                    .font(.system(size: 11)).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.head)
+                    .font(.toasty(Theme.Size.caption)).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.head)
             }
             Spacer(minLength: 8)
             if let a = file.added, a > 0 {
-                Text("+\(a)").foregroundStyle(Color(nsColor: .systemGreen)).font(.system(size: 12, weight: .medium)).monospacedDigit()
+                Text("+\(a)").foregroundStyle(Color(nsColor: .systemGreen)).font(.toasty(Theme.Size.meta, .medium)).monospacedDigit()
             }
             if let r = file.removed, r > 0 {
-                Text("−\(r)").foregroundStyle(Color(nsColor: .systemRed)).font(.system(size: 12, weight: .medium)).monospacedDigit()
+                Text("−\(r)").foregroundStyle(Color(nsColor: .systemRed)).font(.toasty(Theme.Size.meta, .medium)).monospacedDigit()
             }
             if file.status != .deleted {
                 Button("Open") { NSWorkspace.shared.open(file.url) }
@@ -534,13 +534,13 @@ private struct ContextSection: View {
         let fraction = context.maxTokens > 0 ? Double(context.totalTokens) / Double(context.maxTokens) : context.percentage / 100
         InspectorSection(title: "Context Window") {
             Text("\(formatTokens(context.totalTokens)) of \(formatTokens(context.maxTokens))")
-                .font(.system(size: 11)).foregroundStyle(.tertiary).monospacedDigit()
+                .font(.toasty(Theme.Size.caption)).foregroundStyle(.tertiary).monospacedDigit()
         } content: {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("\(Int((fraction * 100).rounded()))%")
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.toasty(Theme.Size.display, .semibold))
                     .monospacedDigit()
-                Text("used").font(.system(size: 12)).foregroundStyle(.secondary)
+                Text("used").font(.toasty(Theme.Size.meta)).foregroundStyle(.secondary)
             }
             Meter(fraction: fraction, tint: fraction > 0.9 ? Color(nsColor: .systemRed)
                   : fraction > 0.75 ? Color(nsColor: .systemOrange) : .accentColor)
@@ -549,9 +549,9 @@ private struct ContextSection: View {
                 VStack(spacing: 5) {
                     ForEach(used.prefix(7)) { c in
                         HStack {
-                            Text(c.name).font(.system(size: 11.5)).foregroundStyle(.secondary).lineLimit(1)
+                            Text(c.name).font(.toasty(Theme.Size.meta)).foregroundStyle(.secondary).lineLimit(1)
                             Spacer(minLength: 8)
-                            Text(formatTokens(c.tokens)).font(.system(size: 11.5)).foregroundStyle(.tertiary).monospacedDigit()
+                            Text(formatTokens(c.tokens)).font(.toasty(Theme.Size.meta)).foregroundStyle(.tertiary).monospacedDigit()
                         }
                     }
                 }
@@ -570,14 +570,14 @@ private struct LimitsSection: View {
                 ForEach(limits) { limit in
                     VStack(alignment: .leading, spacing: 5) {
                         HStack {
-                            Text(limit.title).font(.system(size: 12))
+                            Text(limit.title).font(.toasty(Theme.Size.meta))
                             Spacer(minLength: 8)
                             if let u = limit.utilization {
                                 Text("\(Int((u * 100).rounded()))%")
-                                    .font(.system(size: 11.5, weight: .medium)).monospacedDigit()
+                                    .font(.toasty(Theme.Size.meta, .medium)).monospacedDigit()
                                     .foregroundStyle(limit.status == "allowed" ? .secondary : .primary)
                             } else if limit.status == "rejected" {
-                                Text("Limit reached").font(.system(size: 11.5, weight: .medium))
+                                Text("Limit reached").font(.toasty(Theme.Size.meta, .medium))
                                     .foregroundStyle(Color(nsColor: .systemRed))
                             }
                         }
@@ -587,7 +587,7 @@ private struct LimitsSection: View {
                         }
                         if let resets = limit.resetsAt {
                             Text("Resets \(resets.formatted(resets.timeIntervalSinceNow < 86_400 ? .dateTime.hour().minute() : .dateTime.weekday().hour().minute()))")
-                                .font(.system(size: 11)).foregroundStyle(.tertiary)
+                                .font(.toasty(Theme.Size.caption)).foregroundStyle(.tertiary)
                         }
                     }
                 }
@@ -614,9 +614,9 @@ private struct SessionSection: View {
 
     private func row(_ title: String, _ value: String) -> some View {
         HStack {
-            Text(title).font(.system(size: 12)).foregroundStyle(.secondary)
+            Text(title).font(.toasty(Theme.Size.meta)).foregroundStyle(.secondary)
             Spacer(minLength: 8)
-            Text(value).font(.system(size: 12)).monospacedDigit()
+            Text(value).font(.toasty(Theme.Size.meta)).monospacedDigit()
         }
     }
 }
@@ -650,7 +650,7 @@ private struct TerminalStripContent: View {
                 workspace.hideTerminal()
             } label: {
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.toasty(Theme.Size.caption, .semibold))
                     .foregroundStyle(hovering ? .primary : .secondary)
                     .frame(width: 28, height: 26)
                     .contentShape(Rectangle())

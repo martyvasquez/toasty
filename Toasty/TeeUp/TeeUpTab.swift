@@ -93,7 +93,7 @@ private enum TeeUpStyle {
     static let inset: CGFloat = 12
     /// Every closed card.
     static let rowHeight: CGFloat = 36
-    static let fontSize: CGFloat = 13
+    static let fontSize = Theme.Size.control
     /// Above an editor's text, so its first line is where a closed card's is.
     static let textTop: CGFloat = 3.5
     static let pictureSize: CGFloat = 36
@@ -111,7 +111,7 @@ private struct TeeUpSurface: ViewModifier {
             .background(shape.fill(Color.claudeField))
             // What's inside an opening card is uncovered, not squeezed.
             .clipShape(shape)
-            .overlay(shape.strokeBorder(Color.primary.opacity(0.09), lineWidth: 0.5))
+            .overlay(shape.strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
             .shadow(color: .black.opacity(lifted ? 0.28 : 0), radius: lifted ? 10 : 0, y: lifted ? 4 : 0)
     }
 }
@@ -184,23 +184,23 @@ private struct TeeUpCard: View {
     private var closed: some View {
         HStack(spacing: 8) {
             Text(title)
-                .font(.system(size: TeeUpStyle.fontSize))
+                .font(.toasty(TeeUpStyle.fontSize))
                 .foregroundStyle(item.text.isEmpty || item.isHeld ? .secondary : .primary)
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
             if item.isHeld {
                 Image(systemName: "pause.fill")
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.toasty(Theme.Glyph.small, .semibold))
                     .foregroundStyle(.tertiary)
                     .help("Held back from Auto-Send")
                     .accessibilityLabel("Held back from Auto-Send")
             }
             if attachmentCount > 0 {
                 HStack(spacing: 2) {
-                    Image(systemName: "paperclip").font(.system(size: 10.5, weight: .medium))
+                    Image(systemName: "paperclip").font(.toasty(Theme.Size.caption, .medium))
                     if attachmentCount > 1 {
-                        Text("\(attachmentCount)").font(.system(size: 10.5, weight: .medium)).monospacedDigit()
+                        Text("\(attachmentCount)").font(.toasty(Theme.Size.caption, .medium)).monospacedDigit()
                     }
                 }
                 .foregroundStyle(.tertiary)
@@ -224,9 +224,9 @@ private struct TeeUpCard: View {
     private func sendButton(ready: Bool) -> some View {
         Button(action: send) {
             ZStack {
-                Circle().fill(ready ? Color.accentColor : Color.primary.opacity(0.10))
+                Circle().fill(ready ? Color.accentColor : Theme.Fill.selected)
                 Image(systemName: "arrow.up")
-                    .font(.system(size: 10.5, weight: .semibold))
+                    .font(.toasty(Theme.Size.caption, .semibold))
                     .foregroundStyle(ready ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
             }
             .frame(width: 22, height: 22)
@@ -296,7 +296,7 @@ private struct TeeUpFeedBar: View {
             row(feed)
             if let detail {
                 Text(detail)
-                    .font(.system(size: 11.5))
+                    .font(.toasty(Theme.Size.meta))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -321,8 +321,8 @@ private struct TeeUpFeedBar: View {
             } else {
                 Button { workspace.requestTeeUpFeed() } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: "play").font(.system(size: 10))
-                        Text("Auto-Send…").font(.system(size: 12))
+                        Image(systemName: "play").font(.toasty(Theme.Glyph.small, .semibold))
+                        Text("Auto-Send…").font(.toasty(Theme.Size.meta))
                     }
                     .foregroundStyle(hovering && canStart ? .primary : .secondary)
                     .contentShape(Rectangle())
@@ -340,7 +340,7 @@ private struct TeeUpFeedBar: View {
     /// Sending: what it's doing now, then Pause and Stop.
     @ViewBuilder private func running(_ feed: TeeUpFeed) -> some View {
         let left = workspace.teeUps.filter { !$0.isHeld }.count
-        Image(systemName: "play.fill").font(.system(size: 9)).foregroundStyle(Color.accentColor)
+        Image(systemName: "play.fill").font(.toasty(Theme.Glyph.small, .semibold)).foregroundStyle(Color.accentColor)
         Group {
             if let at = feed.nextAt {
                 TimelineView(.periodic(from: .now, by: 0.25)) { context in
@@ -354,10 +354,10 @@ private struct TeeUpFeedBar: View {
                 Text("Sending to “\(tab)”")
             }
         }
-        .font(.system(size: 12))
+        .font(.toasty(Theme.Size.meta))
         .lineLimit(1)
         .truncationMode(.tail)
-        Text("· \(left) left").font(.system(size: 12)).foregroundStyle(.tertiary).fixedSize()
+        Text("· \(left) left").font(.toasty(Theme.Size.meta)).foregroundStyle(.tertiary).fixedSize()
         Spacer(minLength: 8)
         Button("Pause") { workspace.pauseTeeUpFeed() }
             .help("Send nothing more to “\(tab)” until you resume. Claude finishes what it has.")
@@ -366,8 +366,8 @@ private struct TeeUpFeedBar: View {
 
     /// Paused (the reason is on the line below), then Resume and Stop.
     @ViewBuilder private var paused: some View {
-        Image(systemName: "pause.fill").font(.system(size: 9)).foregroundStyle(.secondary)
-        Text("Paused").font(.system(size: 12)).fixedSize()
+        Image(systemName: "pause.fill").font(.toasty(Theme.Glyph.small, .semibold)).foregroundStyle(.secondary)
+        Text("Paused").font(.toasty(Theme.Size.meta)).fixedSize()
         Spacer(minLength: 8)
         Button("Resume") { workspace.resumeTeeUpFeed() }
             .disabled(workspace.nextTeeUpToFeed == nil)
@@ -399,15 +399,15 @@ private struct TeeUpNewRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                Image(systemName: "plus").font(.system(size: 11, weight: .medium))
-                Text("New Prompt").font(.system(size: TeeUpStyle.fontSize))
+                Image(systemName: "plus").font(.toasty(Theme.Size.caption, .medium))
+                Text("New Prompt").font(.toasty(TeeUpStyle.fontSize))
                 Spacer(minLength: 0)
             }
             .foregroundStyle(hovering ? .secondary : .tertiary)
             .padding(.horizontal, TeeUpStyle.inset)
             .frame(height: TeeUpStyle.rowHeight)
             .background(RoundedRectangle(cornerRadius: ClaudeStyle.cornerRadius, style: .continuous)
-                .fill(Color.primary.opacity(hovering ? 0.05 : 0)))
+                .fill((hovering ? Theme.Fill.hover : Color.clear)))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -427,10 +427,10 @@ private struct TeeUpIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 12, weight: .regular))
+                .font(.toasty(Theme.Size.meta, .regular))
                 .foregroundStyle(.secondary)
                 .frame(width: 22, height: 22)
-                .background(Circle().fill(Color.primary.opacity(hovering ? 0.07 : 0)))
+                .background(Circle().fill((hovering ? Theme.Fill.hover : Color.clear)))
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
@@ -537,17 +537,17 @@ private struct TeeUpAttachments: View {
     }
 
     private func picture(_ name: String) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
         return Group {
             if let image = TeeUpImages.image(name) {
                 Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
             } else {
-                Color.primary.opacity(0.06)
+                Theme.Fill.subtle
             }
         }
         .frame(width: TeeUpStyle.pictureSize, height: TeeUpStyle.pictureSize)
         .clipShape(shape)
-        .overlay(shape.strokeBorder(Color.primary.opacity(0.1)))
+        .overlay(shape.strokeBorder(Theme.Stroke.border))
         .accessibilityLabel("Picture")
     }
 }
