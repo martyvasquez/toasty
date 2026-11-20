@@ -29,12 +29,6 @@ struct TitlebarRow: View {
 
     /// The bar's margin at each end (Things' toolbar: 12).
     static let edge: CGFloat = 12
-    /// The column toggle with its gap before it and the bar's margin after
-    /// (only while the page has the window: otherwise the inspector's
-    /// handle, at the conversation's right edge, shows and hides it).
-    static let toggleWidth: CGFloat = 32 + 4 + edge
-    /// The preview's button, left of the column toggle (when it's turned on).
-    static let previewToggleWidth: CGFloat = 36
 
     var body: some View {
         HStack(spacing: 0) {
@@ -48,20 +42,26 @@ struct TitlebarRow: View {
                 // Each part of the bar is its column's color, so the bar
                 // reads as the top of the page and of the inspector, not a
                 // strip of its own (as Things' toolbar over its list).
-                ConversationTabBar(workspace: workspace)
-                    .padding(.leading, layout.leadingInset)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                    .background(ZStack { Color.claudeBackground; WindowDragArea() })
                 let right = layout.terminalWidth > 0
+                // The browser belongs to the conversation, not the
+                // inspector: its button ends the conversation's tab row.
+                HStack(spacing: 0) {
+                    ConversationTabBar(workspace: workspace)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    if preview.enabled {
+                        PreviewToggle(workspace: workspace)
+                            .padding(.trailing, right ? Theme.Space.s : Self.edge)
+                    }
+                }
+                .padding(.leading, layout.leadingInset)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .background(ZStack { Color.claudeBackground; WindowDragArea() })
                 HStack(spacing: 0) {
                     if right {
                         Rectangle().fill(Color.claudeSeparator).frame(width: 0.5)
                         RightColumnBar(workspace: workspace)
-                            .frame(width: max(0, layout.terminalWidth - 0.5 - Self.edge
-                                                 - (preview.enabled ? Self.previewToggleWidth : 0)))
+                            .frame(width: max(0, layout.terminalWidth - 0.5))
                     }
-                    if preview.enabled { PreviewToggle(workspace: workspace) }
-                    if right || preview.enabled { Color.clear.frame(width: Self.edge) }
                 }
                 .frame(maxHeight: .infinity)
                 .background(ZStack { right ? Color.claudeChrome : Color.claudeBackground; WindowDragArea() })
@@ -129,59 +129,28 @@ private struct PreviewToggle: View {
 
 // MARK: - Inspector tabs
 
-/// The inspector's tabs, icon-only like Xcode's inspector selector; the
-/// selected one is tinted while the inspector shows. Clicking a tab while
-/// the inspector is hidden shows it.
+/// The inspector's tabs, as Things' toolbar: plain icons in equal slots
+/// across the column, the selected one in a filled capsule while the
+/// inspector shows (names and shortcuts in their tooltips). Clicking a
+/// tab while the inspector is hidden shows it; clicking the selected one
+/// hides it.
 private struct InspectorTabBar: View {
     @ObservedObject var workspace: Workspace
 
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 0) {
             ForEach(InspectorTab.allCases) { tab in
-                InspectorTabButton(tab: tab,
-                                   selected: workspace.inspectorVisible && workspace.inspectorTab == tab) {
-                    if workspace.inspectorVisible && workspace.inspectorTab == tab {
-                        workspace.hideInspector()
-                    } else {
-                        workspace.showInspector(tab)
-                    }
+                let selected = workspace.inspectorVisible && workspace.inspectorTab == tab
+                BarIconButton(symbol: tab.symbol,
+                              tooltip: Tooltip(title: tab.title, shortcut: "⌃⌘\(tab.shortcut)", detail: tab.tooltipDetail),
+                              active: selected, glyphSize: tab.symbolSize + 1,
+                              size: CGSize(width: 44, height: TabStyle.height)) {
+                    if selected { workspace.hideInspector() } else { workspace.showInspector(tab) }
                 }
+                .accessibilityAddTraits(selected ? [.isSelected] : [])
+                .frame(maxWidth: .infinity)
             }
-            Spacer(minLength: 0)
         }
-        .padding(.leading, TitlebarRow.edge)
-    }
-}
-
-private struct InspectorTabButton: View {
-    let tab: InspectorTab
-    let selected: Bool
-    let action: () -> Void
-    @State private var hovering = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: Theme.Space.xs + Theme.Space.xxs) {
-                Image(systemName: tab.symbol)
-                    .font(.toasty(tab.symbolSize, .medium))
-                    .frame(width: 18)
-                if selected {
-                    Text(tab.title)
-                        .font(.toasty(TabStyle.fontSize, .medium))
-                }
-            }
-            .foregroundStyle(selected || hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-            .padding(.horizontal, selected ? Theme.Space.m : Theme.Space.s)
-            .frame(minWidth: 32)
-            .frame(height: TabStyle.height)
-            .background(TabBackground(selected: selected, hovering: hovering))
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-        .tooltip(Tooltip(title: tab.title, shortcut: "⌃⌘\(tab.shortcut)", detail: tab.tooltipDetail))
-        .accessibilityLabel(tab.title)
-        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 }
 
