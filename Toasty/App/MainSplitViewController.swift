@@ -321,6 +321,12 @@ final class MainSplitViewController: NSSplitViewController {
         guard let v = contentItem?.viewController.view, v.window != nil else { return 0 }
         return v.convert(v.bounds, to: nil).minX
     }
+
+    /// The conversation's right edge in the window (nil before it's in one).
+    var contentMaxX: CGFloat? {
+        guard let v = contentItem?.viewController.view, v.window != nil else { return nil }
+        return v.convert(v.bounds, to: nil).maxX
+    }
 }
 
 /// A 0.5pt divider in the separator color with a wider grab area.
@@ -478,14 +484,20 @@ final class RightColumnController: NSSplitViewController {
     }
 }
 
-/// The terminal half: the workspace's terminal tabs, then the selected
-/// terminal, on the terminal's own background.
+/// The terminal half: a card floating in the right column, as Things'
+/// popovers (rounded, a light inner edge and a dark outer one, a soft
+/// shadow), holding the workspace's terminal tabs and the selected terminal.
 final class TerminalColumnController: NSViewController {
     private(set) var current: TerminalSession?
     let store: WorkspaceStore
     private var strip: NSView!
+    /// The card the strip and the terminal sit in (clipped to its corners).
+    private var card: NSView!
 
-    static let stripHeight: CGFloat = 34
+    /// A secondary bar, as the sidebar's footer (40pt).
+    static let stripHeight: CGFloat = 40
+    /// The card's margin from the column's sides and bottom.
+    static let cardMargin: CGFloat = 12
 
     init(store: WorkspaceStore) {
         self.store = store
@@ -496,14 +508,34 @@ final class TerminalColumnController: NSViewController {
 
     override func loadView() {
         view = TerminalColumnView()
+        let m = Self.cardMargin
+        // Under the card: its shadow and dark outer edge (the card itself
+        // clips, so it can't cast a shadow).
+        let shadow = TerminalCardShadow()
+        shadow.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(shadow)
+        let card = TerminalCard()
+        card.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(card)
+        NSLayoutConstraint.activate([
+            card.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: m),
+            card.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -m),
+            card.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: m),
+            card.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -m),
+            shadow.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: -0.5),
+            shadow.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: 0.5),
+            shadow.topAnchor.constraint(equalTo: card.topAnchor, constant: -0.5),
+            shadow.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: 0.5),
+        ])
+        self.card = card
         let host = NSHostingView(rootView: TerminalStrip(store: store))
         host.sizingOptions = []
         host.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(host)
+        card.addSubview(host)
         NSLayoutConstraint.activate([
-            host.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            host.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            host.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            host.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            host.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+            host.topAnchor.constraint(equalTo: card.topAnchor),
             host.heightAnchor.constraint(equalToConstant: Self.stripHeight),
         ])
         strip = host
@@ -511,18 +543,18 @@ final class TerminalColumnController: NSViewController {
 
     func show(_ session: TerminalSession?) {
         loadViewIfNeeded()
-        guard session?.id != current?.id || (session != nil && session!.view.superview !== view) else { return }
+        guard session?.id != current?.id || (session != nil && session!.view.superview !== card) else { return }
         current?.view.removeFromSuperview()
         current = session
         guard let session else { return }
         let v = session.view
         v.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(v)
+        card.addSubview(v, positioned: .below, relativeTo: strip)
         NSLayoutConstraint.activate([
-            v.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            v.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            v.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            v.trailingAnchor.constraint(equalTo: card.trailingAnchor),
             v.topAnchor.constraint(equalTo: strip.bottomAnchor),
-            v.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            v.bottomAnchor.constraint(equalTo: card.bottomAnchor),
         ])
     }
 
@@ -537,13 +569,67 @@ final class TerminalColumnController: NSViewController {
     }
 }
 
+/// The column around the card: the inspector's panel color.
 private final class TerminalColumnView: NSView {
     override var isOpaque: Bool { true }
     override var wantsUpdateLayer: Bool { true }
 
     override func updateLayer() {
-        let theme = TerminalTheme.current(for: effectiveAppearance)
-        layer?.backgroundColor = theme.background.cgColor
+        layer?.backgroundColor = ClaudeStyle.chrome.cgColor
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+    }
+}
+
+/// The terminal's card: its own background, rounded, clipped, with a light
+/// inner edge (Things: white 10%; none in light mode).
+private final class TerminalCard: NSView {
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        guard let layer else { return }
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        layer.backgroundColor = TerminalTheme.current(for: effectiveAppearance).background.cgColor
+        layer.cornerRadius = Theme.Radius.large
+        layer.cornerCurve = .continuous
+        layer.masksToBounds = true
+        layer.borderWidth = dark ? 1 : 0
+        layer.borderColor = NSColor(white: 1, alpha: 0.10).cgColor
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+    }
+}
+
+/// Behind the card: its dark outer edge and shadow (Things' popover edge,
+/// black 90% at 0.5pt; a shadow 10pt down, 24pt blur, 60% dark / 30% light).
+private final class TerminalCardShadow: NSView {
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        guard let layer else { return }
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        layer.cornerRadius = Theme.Radius.large + 0.5
+        layer.cornerCurve = .continuous
+        layer.borderWidth = 0.5
+        layer.borderColor = NSColor(white: 0, alpha: dark ? 0.9 : 0.2).cgColor
+        layer.backgroundColor = NSColor.black.cgColor
+        layer.shadowColor = NSColor.black.cgColor
+        // A step deeper than Things' popover, so the card clearly floats.
+        layer.shadowOpacity = dark ? 0.6 : 0.3
+        layer.shadowRadius = dark ? 12 : 8  // Core Animation's radius is half the blur
+        layer.shadowOffset = CGSize(width: 0, height: -(dark ? 10 : 6))
+    }
+
+    override func layout() {
+        super.layout()
+        layer?.shadowPath = CGPath(roundedRect: bounds, cornerWidth: Theme.Radius.large + 0.5,
+                                   cornerHeight: Theme.Radius.large + 0.5, transform: nil)
     }
 
     override func viewDidChangeEffectiveAppearance() {

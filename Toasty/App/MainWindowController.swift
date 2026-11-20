@@ -14,6 +14,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     /// The sidebar handle's strip, at the conversation's leading edge.
     private var handleHost: NSView?
     private var handleLeading: NSLayoutConstraint?
+    /// The inspector handle's strip, at the conversation's trailing edge.
+    private var inspectorHandleHost: NSView?
+    private var inspectorHandleTrailing: NSLayoutConstraint?
     private var cancellables: Set<AnyCancellable> = []
 
     init(store: WorkspaceStore) {
@@ -110,6 +113,20 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         ])
         handleHost = host
         handleLeading = leading
+
+        let right = NSHostingView(rootView: InspectorHandle(store: store))
+        right.sizingOptions = []
+        right.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(right, positioned: .above, relativeTo: nil)
+        let trailing = right.trailingAnchor.constraint(equalTo: content.trailingAnchor)
+        NSLayoutConstraint.activate([
+            trailing,
+            right.widthAnchor.constraint(equalToConstant: 20),
+            right.topAnchor.constraint(equalTo: content.safeAreaLayoutGuide.topAnchor, constant: 40),
+            right.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -40),
+        ])
+        inspectorHandleHost = right
+        inspectorHandleTrailing = trailing
         updateTitlebar()
     }
 
@@ -140,6 +157,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         if layout.leadingInset != inset { layout.leadingInset = inset }
         if let handleLeading, abs(handleLeading.constant - minX) > 0.25 { handleLeading.constant = minX }
         handleHost?.isHidden = PreviewDrawer.shared.hidesConversation
+        if let content = window?.contentView, let inspectorHandleTrailing {
+            let offset = split.contentMaxX.map { $0 - content.bounds.width } ?? 0
+            if abs(inspectorHandleTrailing.constant - offset) > 0.25 { inspectorHandleTrailing.constant = offset }
+        }
+        inspectorHandleHost?.isHidden = PreviewDrawer.shared.hidesConversation
         // The row's controls center on the window buttons' line.
         if let button = window?.standardWindowButton(.closeButton), let bar = button.superview {
             let r = button.convert(button.bounds, to: bar)

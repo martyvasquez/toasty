@@ -299,6 +299,13 @@ final class Workspace: ObservableObject, Identifiable {
         }
     }
 
+    /// A terminal tab's label: its place in the strip ("Terminal 2"), so the
+    /// tabs always read 1, 2, 3 from the left. What's running and where is
+    /// in the tab's tooltip.
+    func terminalLabel(_ t: TerminalSession) -> String {
+        "Terminal \((terminals.firstIndex { $0.id == t.id } ?? 0) + 1)"
+    }
+
     func hideTerminal() {
         terminalVisible = false
         changed()

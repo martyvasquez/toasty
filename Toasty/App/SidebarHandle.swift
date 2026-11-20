@@ -6,30 +6,70 @@ import SwiftUI
 /// waits at the window's edge.
 struct SidebarHandle: View {
     @ObservedObject var store: WorkspaceStore
+
+    var body: some View {
+        EdgeHandle(edge: .leading,
+                   tooltip: Tooltip(title: store.sidebarVisible ? "Hide Workspaces" : "Show Workspaces", shortcut: "⇧⌘S")) {
+            AppDelegate.shared.windowController?.toggleWorkspaces(nil)
+        }
+    }
+}
+
+/// The inspector's handle: the sidebar's, mirrored, just inside the
+/// conversation's right edge. It hides or shows the inspector and
+/// terminal; with them hidden it waits at the window's edge.
+struct InspectorHandle: View {
+    @ObservedObject var store: WorkspaceStore
+
+    var body: some View {
+        if let workspace = store.active {
+            Content(workspace: workspace)
+        }
+    }
+
+    private struct Content: View {
+        @ObservedObject var workspace: Workspace
+
+        var body: some View {
+            let shown = workspace.rightColumnVisible && !workspace.previewShowing
+            EdgeHandle(edge: .trailing,
+                       tooltip: Tooltip(title: shown ? "Hide Inspector and Terminal" : "Show Inspector", shortcut: "⇧⌘D")) {
+                AppDelegate.shared.windowController?.toggleRightColumn(nil)
+            }
+        }
+    }
+}
+
+/// A pill along one of the conversation's edges, shown while the pointer
+/// is near it.
+private struct EdgeHandle: View {
+    let edge: HorizontalEdge
+    let tooltip: Tooltip
+    let action: () -> Void
     @State private var hovering = false
 
     var body: some View {
-        Button { AppDelegate.shared.windowController?.toggleWorkspaces(nil) } label: {
-            ZStack(alignment: .leading) {
+        Button(action: action) {
+            ZStack(alignment: edge == .leading ? .leading : .trailing) {
                 Color.clear
                 Capsule()
                     .fill(Theme.Sidebar.handle)
                     .frame(width: 8, height: 38)
-                    .padding(.leading, 7.5)
+                    .padding(edge == .leading ? .leading : .trailing, 7.5)
                     .opacity(hovering ? 1 : 0)
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(SidebarHandleStyle())
+        .buttonStyle(EdgeHandleStyle())
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.15), value: hovering)
-        .tooltip(Tooltip(title: store.sidebarVisible ? "Hide Workspaces" : "Show Workspaces", shortcut: "⇧⌘S"))
-        .accessibilityLabel(store.sidebarVisible ? "Hide Workspaces" : "Show Workspaces")
+        .tooltip(tooltip)
+        .accessibilityLabel(tooltip.title)
     }
 }
 
 /// Brighter while pressed (Things: white 18% → 47%).
-private struct SidebarHandleStyle: ButtonStyle {
+private struct EdgeHandleStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.brightness(configuration.isPressed ? 0.25 : 0)
     }

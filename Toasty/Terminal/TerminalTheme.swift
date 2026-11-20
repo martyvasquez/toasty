@@ -2,9 +2,9 @@ import AppKit
 import GhosttyVt
 
 /// The terminal's look: macOS Terminal's "Apple System Colors" palette on
-/// the panel color of the sidebar and inspector (`ClaudeStyle.chrome`:
-/// #2A2A2A dark, #EEEEEE light), so the right column reads as one panel,
-/// SF Mono 13.
+/// a raised surface a step lighter than the panel around it (#363636 on
+/// #2A2A2A dark, white on #EEEEEE light), as Things' popovers float on
+/// their window. SF Mono 13.
 nonisolated struct TerminalTheme: Sendable {
     var background: RGB
     var foreground: RGB
@@ -31,7 +31,7 @@ nonisolated struct TerminalTheme: Sendable {
     ]
 
     static let dark = TerminalTheme(
-        background: RGB(0x2A2A2A), foreground: RGB(0xFFFFFF),
+        background: RGB(0x363636), foreground: RGB(0xFFFFFF),
         cursor: RGB(0x98989D), cursorText: RGB(0xFFFFFF),
         selectionBackground: RGB(0x3F638B), selectionForeground: RGB(0xFFFFFF),
         palette: basePalette.map(RGB.init))
@@ -41,7 +41,7 @@ nonisolated struct TerminalTheme: Sendable {
         p[11] = 0xE5BC00
         p[14] = 0x69C9F2
         return TerminalTheme(
-            background: RGB(0xEEEEEE), foreground: RGB(0x000000),
+            background: RGB(0xFFFFFF), foreground: RGB(0x000000),
             cursor: RGB(0x98989D), cursorText: RGB(0xFFFFFF),
             selectionBackground: RGB(0xABD8FF), selectionForeground: RGB(0x000000),
             palette: p.map(RGB.init))
@@ -61,9 +61,10 @@ nonisolated struct TerminalTheme: Sendable {
         return isDark ? dark : light
     }
 
-    /// Padding inside the terminal, around the cell grid.
-    static let paddingX: CGFloat = 12
-    static let paddingY: CGFloat = 8
+    /// Padding inside the terminal, around the cell grid: the inspector's
+    /// margins, so its text starts on the right column's one edge.
+    static let paddingX: CGFloat = 20
+    static let paddingY: CGFloat = 12
 }
 
 /// Font and cell metrics for the grid.

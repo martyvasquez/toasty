@@ -89,30 +89,18 @@ struct WorkspaceSidebarView: View {
 /// words), New Heading on the right, above a hairline.
 private struct SidebarFooter: View {
     @ObservedObject var store: WorkspaceStore
-    @State private var hovering = false
 
     var body: some View {
         VStack(spacing: 0) {
             Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1)
             HStack(spacing: 0) {
-                Button { store.createWithFolderPicker() } label: {
-                    HStack(spacing: Theme.Space.xs + Theme.Space.xxs) {
-                        Image(systemName: "plus").font(.toasty(Theme.Size.control))
-                        Text("New Workspace").font(.toasty(Theme.Size.control))
-                    }
-                    .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(Theme.Sidebar.footerTextColor))
-                    .padding(.horizontal, Theme.Space.s + Theme.Space.xxs)
-                    .frame(height: 28)
-                    .contentShape(Capsule())
+                BarLabelButton(symbol: "plus", title: "New Workspace",
+                               tooltip: Tooltip(title: "New Workspace", shortcut: "⌘N",
+                                                detail: "You can also drop a folder on Toasty in the Dock.")) {
+                    store.createWithFolderPicker()
                 }
-                .buttonStyle(BarButtonStyle(hovering: hovering))
-                .onHover { hovering = $0 }
-                .animation(.easeOut(duration: 0.12), value: hovering)
-                .tooltip(Tooltip(title: "New Workspace", shortcut: "⌘N",
-                                 detail: "You can also drop a folder on Toasty in the Dock."))
-                .accessibilityLabel("New Workspace")
                 // The glyph, not its capsule, sits on the names' edge.
-                .padding(.leading, Theme.Sidebar.inset + Theme.Sidebar.rowLeading - (Theme.Space.s + Theme.Space.xxs))
+                .padding(.leading, Theme.Sidebar.inset + Theme.Sidebar.rowLeading - BarLabelButton.padding)
                 Spacer(minLength: 0)
                 BarIconButton(symbol: "text.badge.plus",
                               tooltip: Tooltip(title: "New Heading", shortcut: "⌥⌘N",

@@ -13,16 +13,18 @@ struct BarIconButton: View {
     var size = CGSize(width: 32, height: 24)
     let action: () -> Void
     @State private var hovering = false
+    @Environment(\.isEnabled) private var enabled
 
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.toasty(glyphSize, .medium))
-                .foregroundStyle(hovering || active ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                .foregroundStyle(!enabled ? AnyShapeStyle(.tertiary)
+                                 : hovering || active ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
                 .frame(width: size.width, height: size.height)
                 .contentShape(Capsule())
         }
-        .buttonStyle(BarButtonStyle(hovering: hovering, active: active))
+        .buttonStyle(BarButtonStyle(hovering: hovering && enabled, active: active))
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
         .tooltip(tooltip)
@@ -40,5 +42,39 @@ struct BarButtonStyle: ButtonStyle {
         configuration.label
             .background(Capsule().fill(filled ? Theme.Fill.pressed : Color.clear))
             .overlay(Capsule().strokeBorder(hovering && !filled ? Theme.Stroke.hover : Color.clear, lineWidth: 1))
+    }
+}
+
+/// A footer's labeled button (Things' "+ New List"): a glyph and a word at
+/// 13pt in the footer's gray, brighter with a hairline capsule on hover,
+/// filled while pressed, with a tooltip. Shared by the sidebar's and the
+/// inspector's footers.
+struct BarLabelButton: View {
+    let symbol: String
+    let title: String
+    let tooltip: Tooltip
+    let action: () -> Void
+    @State private var hovering = false
+
+    /// The capsule's padding: callers shift the button by this so the glyph,
+    /// not the capsule, sits on their text edge.
+    static var padding: CGFloat { Theme.Space.s + Theme.Space.xxs }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Theme.Space.xs + Theme.Space.xxs) {
+                Image(systemName: symbol).font(.toasty(Theme.Size.control))
+                Text(title).font(.toasty(Theme.Size.control))
+            }
+            .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(Theme.Sidebar.footerTextColor))
+            .padding(.horizontal, Self.padding)
+            .frame(height: 28)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(BarButtonStyle(hovering: hovering))
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .tooltip(tooltip)
+        .accessibilityLabel(title)
     }
 }

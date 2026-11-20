@@ -29,7 +29,9 @@ struct TitlebarRow: View {
 
     /// The bar's margin at each end (Things' toolbar: 12).
     static let edge: CGFloat = 12
-    /// The column toggle with its gap before it and the bar's margin after.
+    /// The column toggle with its gap before it and the bar's margin after
+    /// (only while the page has the window: otherwise the inspector's
+    /// handle, at the conversation's right edge, shows and hides it).
     static let toggleWidth: CGFloat = 32 + 4 + edge
     /// The preview's button, left of the column toggle (when it's turned on).
     static let previewToggleWidth: CGFloat = 36
@@ -55,11 +57,11 @@ struct TitlebarRow: View {
                     if right {
                         Rectangle().fill(Color.claudeSeparator).frame(width: 0.5)
                         RightColumnBar(workspace: workspace)
-                            .frame(width: max(0, layout.terminalWidth - 0.5 - Self.toggleWidth
+                            .frame(width: max(0, layout.terminalWidth - 0.5 - Self.edge
                                                  - (preview.enabled ? Self.previewToggleWidth : 0)))
                     }
                     if preview.enabled { PreviewToggle(workspace: workspace) }
-                    ColumnToggle(workspace: workspace)
+                    if right || preview.enabled { Color.clear.frame(width: Self.edge) }
                 }
                 .frame(maxHeight: .infinity)
                 .background(ZStack { right ? Color.claudeChrome : Color.claudeBackground; WindowDragArea() })
@@ -572,9 +574,12 @@ struct TerminalTabBar: View {
     @ObservedObject var workspace: Workspace
 
     var body: some View {
+        // Never narrower than a whole "Terminal N" (past that the strip
+        // scrolls, keeping the selected one in view).
+        let whole = TabStyle.titleWidth("Terminal \(max(9, workspace.terminals.count))") + Theme.Space.m * 2 + 1
         FittingTabStrip(items: workspace.terminals, selectedID: workspace.selectedTerminalID,
-                        minWidth: 80, maxWidth: 180,
-                        naturalWidth: { t in TabStyle.titleWidth(t.displayTitle) + Theme.Space.m * 2 + 1 },
+                        minWidth: whole, maxWidth: 180,
+                        naturalWidth: { t in TabStyle.titleWidth(workspace.terminalLabel(t)) + Theme.Space.m * 2 + 1 },
                         pick: { if $0.id != workspace.selectedTerminalID { workspace.selectTerminal($0.id) } },
                         move: { workspace.moveTerminal($0, to: $1) }) { t in
             TerminalTabItem(session: t, selected: t.id == workspace.selectedTerminalID, workspace: workspace)
@@ -597,7 +602,7 @@ private struct TerminalTabItem: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            Text(session.displayTitle)
+            Text(workspace.terminalLabel(session))
                 .font(.toasty(TabStyle.fontSize, selected ? .medium : .regular))
                 .foregroundStyle(selected ? .primary : .secondary)
                 .lineLimit(1)
@@ -618,7 +623,7 @@ private struct TerminalTabItem: View {
             TabCloseButton(visible: hovering, help: "Close Terminal") { workspace.requestCloseTerminal(session.id) }
         }
         .onHover { hovering = $0 }
-        .help(session.directory)
+        .help("\(session.displayTitle)\n\((session.directory as NSString).abbreviatingWithTildeInPath)")
         .contextMenu {
             let index = workspace.terminals.firstIndex { $0.id == session.id } ?? 0
             Button("Move Left") { workspace.moveTerminal(session.id, to: index - 1) }
@@ -634,7 +639,7 @@ private struct TerminalTabItem: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
-        .accessibilityLabel("Terminal: \(session.displayTitle)")
+        .accessibilityLabel("\(workspace.terminalLabel(session)): \(session.displayTitle)")
     }
 }
 
