@@ -102,7 +102,7 @@ private struct ColumnToggle: View {
         BarIconButton(symbol: "sidebar.right",
                       tooltip: Tooltip(title: shown ? "Hide Inspector and Terminal" : "Show Inspector", shortcut: "⇧⌘D",
                                        detail: "Changes, usage, teed-up prompts and activity, beside the conversation."),
-                      active: shown, size: CGSize(width: 32, height: TabStyle.height)) {
+                      active: shown, glyphSize: Theme.Size.body, size: CGSize(width: 32, height: TabStyle.height)) {
             AppDelegate.shared.windowController?.toggleRightColumn(nil)
         }
         .padding(.leading, 4)
@@ -118,7 +118,7 @@ private struct PreviewToggle: View {
         BarIconButton(symbol: "safari",
                       tooltip: Tooltip(title: workspace.previewShowing ? "Hide Preview" : "Show Preview", shortcut: "⇧⌘B",
                                        detail: "The page you're building, beside the conversation."),
-                      active: workspace.previewShowing, size: CGSize(width: 32, height: TabStyle.height)) {
+                      active: workspace.previewShowing, glyphSize: Theme.Size.body, size: CGSize(width: 32, height: TabStyle.height)) {
             AppDelegate.shared.windowController?.togglePreview(nil)
         }
         .padding(.leading, 4)
@@ -161,7 +161,8 @@ private struct InspectorTabButton: View {
         Button(action: action) {
             HStack(spacing: Theme.Space.xs + Theme.Space.xxs) {
                 Image(systemName: tab.symbol)
-                    .font(.toasty(Theme.Size.control, .medium))
+                    .font(.toasty(tab.symbolSize, .medium))
+                    .frame(width: 18)
                 if selected {
                     Text(tab.title)
                         .font(.toasty(TabStyle.fontSize, .medium))

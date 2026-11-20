@@ -751,12 +751,23 @@ enum InspectorTab: String, CaseIterable, Identifiable {
         }
     }
 
+    /// One matched set (same stroke, similar height): ± for a diff (the
+    /// branch means worktrees and forks elsewhere), a plain gauge, a list of
+    /// prompts, a heartbeat.
     var symbol: String {
         switch self {
-        case .changes: "arrow.triangle.branch"
-        case .usage: "gauge.with.dots.needle.50percent"
-        case .teeUp: "text.line.first.and.arrowtriangle.forward"
+        case .changes: "plus.forwardslash.minus"
+        case .usage: "gauge.with.needle"
+        case .teeUp: "list.bullet"
         case .activity: "waveform.path.ecg"
+        }
+    }
+
+    /// The thin, short symbols a size up, so the set reads at one weight.
+    var symbolSize: CGFloat {
+        switch self {
+        case .changes, .activity: Theme.Size.body + 1
+        case .usage, .teeUp: Theme.Size.body
         }
     }
 

@@ -8,6 +8,7 @@ struct BarIconButton: View {
     let symbol: String
     let tooltip: Tooltip
     var active = false
+    var glyphSize = Theme.Size.control
     /// The capsule around the glyph.
     var size = CGSize(width: 32, height: 24)
     let action: () -> Void
@@ -16,7 +17,7 @@ struct BarIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.toasty(Theme.Size.control, .medium))
+                .font(.toasty(glyphSize, .medium))
                 .foregroundStyle(hovering || active ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
                 .frame(width: size.width, height: size.height)
                 .contentShape(Capsule())
