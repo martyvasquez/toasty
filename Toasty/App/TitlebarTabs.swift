@@ -188,7 +188,7 @@ struct TabBackground: View {
         if selected {
             shape.fill(Color.claudeBackground)
                 .overlay(shape.strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
-                .shadow(color: .black.opacity(0.18), radius: 1.5, y: 0.5)
+                .liftShadow()
         } else {
             shape.fill((hovering ? Theme.Fill.hover : Color.clear))
         }

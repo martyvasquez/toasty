@@ -41,6 +41,9 @@ enum Theme {
     /// Backgrounds laid over a surface: hover, selection, pressed, chips.
     /// One ladder of `primary` opacities, so every gray agrees.
     enum Fill {
+        /// The selected row of a menu or list that has focus, an option
+        /// that's on.
+        static let accent = Color.accentColor.opacity(0.16)
         /// Large quiet surfaces inside the page: cards, code, options.
         static let faint = Color.primary.opacity(0.04)
         /// Pointer over a row or button.
@@ -79,9 +82,38 @@ enum Theme {
         static let raisedColor = Color.black.opacity(0.10)
         static let raisedRadius: CGFloat = 8
         static let raisedY: CGFloat = 3
+        /// Menus and toasts, over everything.
+        static let popoverColor = Color.black.opacity(0.20)
+        static let popoverRadius: CGFloat = 12
+        static let popoverY: CGFloat = 4
+        /// A small control lifted off its bar (the selected tab).
+        static let liftColor = Color.black.opacity(0.16)
+        static let liftRadius: CGFloat = 2
+        static let liftY: CGFloat = 1
+    }
+
+    // MARK: Controls
+
+    enum Control {
+        /// Buttons, chips and icon buttons in bars and the composer.
+        static let height: CGFloat = 28
+    }
+
+    /// Menus Toasty draws itself (the composer's / and @ menus).
+    enum Menu {
+        static let rowHeight: CGFloat = 32
+        static let headerHeight: CGFloat = 26
+        /// Rows' inset from the menu's edge, and text's inset in a row:
+        /// together the 16pt text edge the sidebar and composer use too.
+        static let inset = Theme.Space.xs
+        static let rowPadding = Theme.Space.m
     }
 
     // MARK: Space
+
+    /// Text sits this far from the edge of its container (sidebar,
+    /// composer, menus), however the inset and row padding split it.
+    static let textEdge: CGFloat = 16
 
     /// Spacing steps; use these for padding and gaps.
     enum Space {
@@ -115,6 +147,14 @@ extension View {
     /// The shadow of a surface floating over the page (`Theme.Elevation`).
     func raisedShadow() -> some View {
         shadow(color: Theme.Elevation.raisedColor, radius: Theme.Elevation.raisedRadius, y: Theme.Elevation.raisedY)
+    }
+
+    func popoverShadow() -> some View {
+        shadow(color: Theme.Elevation.popoverColor, radius: Theme.Elevation.popoverRadius, y: Theme.Elevation.popoverY)
+    }
+
+    func liftShadow() -> some View {
+        shadow(color: Theme.Elevation.liftColor, radius: Theme.Elevation.liftRadius, y: Theme.Elevation.liftY)
     }
 }
 

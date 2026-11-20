@@ -632,8 +632,8 @@ struct ClaudeUserMessage: View {
         return NSAttributedString(string: text, attributes: [
             .font: font,
             .foregroundColor: ClaudeTypography.text,
-            .paragraphStyle: ClaudeTypography.paragraphStyle(font: font, multiple: 1.38),
-            .baselineOffset: ClaudeTypography.baselineOffset(font, 1.38),
+            .paragraphStyle: ClaudeTypography.paragraphStyle(font: font, multiple: ClaudeTypography.inputLineHeightMultiple),
+            .baselineOffset: ClaudeTypography.baselineOffset(font, ClaudeTypography.inputLineHeightMultiple),
         ])
     }
 }
@@ -976,9 +976,9 @@ struct ClaudeBackgroundLine: View {
 
 struct ClaudeComposerBox: View {
     @ObservedObject var conversation: ClaudeConversation
-    static let radius: CGFloat = 18
+    static let radius = Theme.Radius.large
     /// Left edge shared by the text and the first control's glyph.
-    static let inset: CGFloat = 16
+    static let inset = Theme.Space.l
     @State private var height: CGFloat = ClaudeComposer.minHeight
     /// The slash command menu's highlighted row.
     @State private var commandIndex = 0
@@ -1213,7 +1213,7 @@ struct ClaudeComposerBox: View {
                     Circle().fill(Color.primary.opacity(0.85))
                     RoundedRectangle(cornerRadius: 2.5, style: .continuous).fill(Color.claudeField).frame(width: 9, height: 9)
                 }
-                .frame(width: 28, height: 28)
+                .frame(width: Theme.Control.height, height: Theme.Control.height)
                 .contentShape(Circle())
             }
             .buttonStyle(.plain)
@@ -1227,7 +1227,7 @@ struct ClaudeComposerBox: View {
                         .font(.toasty(Theme.Size.control, .semibold))
                         .foregroundStyle(isEmpty ? AnyShapeStyle(.tertiary) : AnyShapeStyle(Color.white))
                 }
-                .frame(width: 28, height: 28)
+                .frame(width: Theme.Control.height, height: Theme.Control.height)
                 .contentShape(Circle())
                 .animation(.easeOut(duration: 0.15), value: isEmpty)
             }
@@ -1240,7 +1240,7 @@ struct ClaudeComposerBox: View {
 
     private var attachments: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: Theme.Space.s) {
                 ForEach(Array(conversation.attachments.enumerated()), id: \.offset) { i, image in
                     Image(nsImage: image)
                         .resizable()
@@ -1301,7 +1301,7 @@ struct AttachedFileChip: View {
     var height: CGFloat = 44
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Theme.Space.s) {
             Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
                 .resizable()
                 .frame(width: height - 16, height: height - 16)
@@ -1316,8 +1316,8 @@ struct AttachedFileChip: View {
                     .lineLimit(1)
             }
         }
-        .padding(.leading, 8)
-        .padding(.trailing, 12)
+        .padding(.leading, Theme.Space.s)
+        .padding(.trailing, Theme.Space.m)
         .frame(maxWidth: 260, alignment: .leading)
         .frame(height: height)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).fill(Theme.Fill.subtle))
@@ -1343,7 +1343,7 @@ struct DropTargetOverlay: View {
     var body: some View {
         ZStack {
             Color.claudeBackground.opacity(0.75)
-            VStack(spacing: 8) {
+            VStack(spacing: Theme.Space.s) {
                 Image(systemName: "paperclip")
                     .font(.toasty(Theme.Glyph.hero, .light))
                 Text("Drop to Attach")
@@ -1353,7 +1353,7 @@ struct DropTargetOverlay: View {
         }
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
             .strokeBorder(Color.accentColor.opacity(0.6), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
-            .padding(8))
+            .padding(Theme.Space.s))
         .allowsHitTesting(false)
         .transition(.opacity)
     }
@@ -1447,11 +1447,11 @@ struct ClaudeCommandMenu: View {
     let selected: Int
     let choose: (Int) -> Void
 
-    static let rowHeight: CGFloat = 32
+    static let rowHeight = Theme.Menu.rowHeight
     static let visibleRows = 8
 
     static func height(for count: Int) -> CGFloat {
-        CGFloat(min(count, visibleRows)) * rowHeight + 10
+        CGFloat(min(count, visibleRows)) * rowHeight + Theme.Menu.inset * 2
     }
 
     var body: some View {
@@ -1465,7 +1465,7 @@ struct ClaudeCommandMenu: View {
                             .onTapGesture { choose(i) }
                     }
                 }
-                .padding(5)
+                .padding(Theme.Menu.inset)
             }
             .scrollIndicators(commands.count > Self.visibleRows ? .automatic : .never)
             .frame(height: Self.height(for: commands.count))
@@ -1475,7 +1475,7 @@ struct ClaudeCommandMenu: View {
         }
         .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(Color.claudeField))
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
+        .popoverShadow()
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Commands")
     }
@@ -1485,8 +1485,8 @@ struct ClaudeCommandMenu: View {
         let selected: Bool
 
         var body: some View {
-            HStack(spacing: 10) {
-                HStack(spacing: 5) {
+            HStack(spacing: Theme.Space.m) {
+                HStack(spacing: Theme.Space.xs + 1) {
                     Text("/" + command.name)
                         .font(.toasty(Theme.Size.control, .medium))
                         .foregroundStyle(.primary)
@@ -1508,10 +1508,10 @@ struct ClaudeCommandMenu: View {
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, Theme.Menu.rowPadding)
             .frame(height: ClaudeCommandMenu.rowHeight)
             .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-                .fill(selected ? Color.accentColor.opacity(0.18) : .clear))
+                .fill(selected ? Theme.Fill.accent : .clear))
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
         }
@@ -1532,13 +1532,13 @@ struct ClaudeMentionMenu: View {
     let selected: UUID?
     let choose: (ClaudeConversation) -> Void
 
-    static let rowHeight: CGFloat = 32
-    static let headerHeight: CGFloat = 26
+    static let rowHeight = Theme.Menu.rowHeight
+    static let headerHeight = Theme.Menu.headerHeight
     static let maxHeight: CGFloat = 8 * rowHeight
 
     static func height(for groups: [Group]) -> CGFloat {
         let content = groups.reduce(0) { $0 + headerHeight + CGFloat($1.tabs.count) * rowHeight }
-        return min(content, maxHeight) + 10
+        return min(content, maxHeight) + Theme.Menu.inset * 2
     }
 
     var body: some View {
@@ -1550,7 +1550,7 @@ struct ClaudeMentionMenu: View {
                             .font(.toasty(Theme.Size.meta, .semibold))
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
-                            .padding(.horizontal, 10)
+                            .padding(.horizontal, Theme.Menu.rowPadding)
                             .frame(height: Self.headerHeight, alignment: .bottomLeading)
                             .padding(.bottom, 0)
                         ForEach(group.tabs) { tab in
@@ -1559,7 +1559,7 @@ struct ClaudeMentionMenu: View {
                         }
                     }
                 }
-                .padding(5)
+                .padding(Theme.Menu.inset)
             }
             .scrollIndicators(Self.height(for: groups) >= Self.maxHeight + 10 ? .automatic : .never)
             .frame(height: Self.height(for: groups))
@@ -1569,7 +1569,7 @@ struct ClaudeMentionMenu: View {
         }
         .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(Color.claudeField))
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
+        .popoverShadow()
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Tabs to Message")
     }
@@ -1586,7 +1586,7 @@ struct ClaudeMentionMenu: View {
 
         var body: some View {
             let enabled = tab.address != nil
-            HStack(spacing: 8) {
+            HStack(spacing: Theme.Space.s) {
                 // The tab bar's icons: Claude's sparkle, or a branch for a fork.
                 Image(systemName: tab.forkOrigin != nil ? "arrow.triangle.branch" : "sparkle")
                     .font(.toasty(Theme.Glyph.small, .semibold))
@@ -1604,10 +1604,10 @@ struct ClaudeMentionMenu: View {
                         .foregroundStyle(.tertiary)
                 }
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, Theme.Menu.rowPadding)
             .frame(height: ClaudeMentionMenu.rowHeight)
             .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-                .fill(selected ? Color.accentColor.opacity(0.18) : .clear))
+                .fill(selected ? Theme.Fill.accent : .clear))
             .contentShape(Rectangle())
             .onTapGesture { if enabled { choose(tab) } }
             .help(enabled ? "Mention @\(tab.title)" : "Open this tab to start its session, then it can be messaged")
@@ -1746,7 +1746,7 @@ struct ClaudeChip: View {
         }
         .foregroundStyle(tint.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.secondary))
         .padding(.horizontal, Theme.Space.s)
-        .frame(height: 28)
+        .frame(height: Theme.Control.height)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
             .fill((hovering ? Theme.Fill.hover : Color.clear)))
         .animation(.easeOut(duration: 0.12), value: hovering)
@@ -1766,7 +1766,7 @@ struct ComposerIconButton: View {
             Image(systemName: symbol)
                 .font(.toasty(Theme.Size.body, .regular))
                 .foregroundStyle(.secondary)
-                .frame(width: 28, height: 28)
+                .frame(width: Theme.Control.height, height: Theme.Control.height)
                 .background(Circle().fill((hovering ? Theme.Fill.hover : Color.clear)))
                 .contentShape(Circle())
         }
@@ -1791,7 +1791,7 @@ private struct JumpToLatestButton: View {
                 .frame(width: 30, height: 30)
                 .background(Circle().fill(Color.claudeField))
                 .overlay(Circle().strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
-                .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
+                .liftShadow()
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)

@@ -187,7 +187,7 @@ struct ClaudeComposer: NSViewRepresentable {
 
     /// One line of text at rest; the box grows as you type.
     static var minHeight: CGFloat {
-        ceil(NSFont.systemFont(ofSize: ClaudeStyle.bodySize).boundingRectForFont.height * 1.2) + 6
+        ceil(ClaudeTypography.lineHeight(.systemFont(ofSize: ClaudeStyle.bodySize), ClaudeTypography.inputLineHeightMultiple)) + 6
     }
     static let maxHeight: CGFloat = 300
 
@@ -225,15 +225,7 @@ struct ClaudeComposer: NSViewRepresentable {
         view.isContinuousSpellCheckingEnabled = true
         // No Writing Tools / Apple Intelligence button beside the text.
         view.writingToolsBehavior = .none
-        view.typingAttributes = [
-            .font: NSFont.systemFont(ofSize: fontSize),
-            .foregroundColor: NSColor.labelColor,
-            .paragraphStyle: {
-                let p = NSMutableParagraphStyle()
-                p.lineHeightMultiple = 1.2
-                return p
-            }(),
-        ]
+        view.typingAttributes = ComposerTextView.inputAttributes(font: .systemFont(ofSize: fontSize), color: .labelColor)
         view.placeholder = placeholder
         view.suggestion = suggestion
         view.dictationID = dictationID
@@ -352,6 +344,19 @@ struct ClaudeComposer: NSViewRepresentable {
 }
 
 final class ComposerTextView: NSTextView {
+    /// Typed text, the placeholder and the suggestion: the input line
+    /// height, glyphs centered in it (as in the sent bubble).
+    static func inputAttributes(font: NSFont, color: NSColor, truncating: Bool = false) -> [NSAttributedString.Key: Any] {
+        let style = ClaudeTypography.paragraphStyle(font: font, multiple: ClaudeTypography.inputLineHeightMultiple)
+        if truncating { style.lineBreakMode = .byTruncatingTail }
+        return [
+            .font: font,
+            .foregroundColor: color,
+            .paragraphStyle: style,
+            .baselineOffset: ClaudeTypography.baselineOffset(font, ClaudeTypography.inputLineHeightMultiple),
+        ]
+    }
+
     weak var coordinator: ClaudeComposer.Coordinator?
     /// The conversation this composer belongs to (dictation's target id).
     var dictationID: UUID?
@@ -415,14 +420,8 @@ final class ComposerTextView: NSTextView {
         guard !placeholder.isEmpty else { return }
         // Same font and line height as typed text, so the placeholder sits
         // exactly where the first line will.
-        let style = NSMutableParagraphStyle()
-        style.lineHeightMultiple = 1.2
-        style.lineBreakMode = .byTruncatingTail
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: font ?? NSFont.systemFont(ofSize: ClaudeStyle.bodySize),
-            .foregroundColor: NSColor.placeholderTextColor,
-            .paragraphStyle: style,
-        ]
+        let attrs = Self.inputAttributes(font: font ?? NSFont.systemFont(ofSize: ClaudeStyle.bodySize),
+                                         color: .placeholderTextColor, truncating: true)
         let x = textContainerInset.width + (textContainer?.lineFragmentPadding ?? 0)
         let rect = NSRect(x: x, y: textContainerInset.height, width: bounds.width - x * 2, height: bounds.height)
         (placeholder as NSString).draw(with: rect, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine], attributes: attrs)
@@ -431,13 +430,8 @@ final class ComposerTextView: NSTextView {
     /// The suggested prompt on one line (truncated), then a small "tab"
     /// key cap, like the CLI's ghost text.
     private func drawSuggestion(_ text: String) {
-        let style = NSMutableParagraphStyle()
-        style.lineHeightMultiple = 1.2
-        style.lineBreakMode = .byTruncatingTail
         let font = font ?? NSFont.systemFont(ofSize: ClaudeStyle.bodySize)
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: font, .foregroundColor: NSColor.placeholderTextColor, .paragraphStyle: style,
-        ]
+        let attrs = Self.inputAttributes(font: font, color: .placeholderTextColor, truncating: true)
         let keyFont = NSFont.systemFont(ofSize: Theme.Size.caption, weight: .medium)
         let keyAttrs: [NSAttributedString.Key: Any] = [.font: keyFont, .foregroundColor: NSColor.tertiaryLabelColor]
         let key = "tab" as NSString
@@ -448,13 +442,13 @@ final class ComposerTextView: NSTextView {
         let x = textContainerInset.width + (textContainer?.lineFragmentPadding ?? 0)
         let available = max(0, bounds.width - x * 2 - capWidth - 8)
         let width = min(ceil(line.size(withAttributes: attrs).width), available)
-        let lineHeight = ceil(font.boundingRectForFont.height * 1.2)
+        let lineHeight = ClaudeTypography.lineHeight(font, ClaudeTypography.inputLineHeightMultiple)
         line.draw(with: NSRect(x: x, y: textContainerInset.height, width: width, height: lineHeight),
                   options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine], attributes: attrs)
 
         let cap = NSRect(x: x + width + 8, y: textContainerInset.height + (lineHeight - capHeight) / 2,
                          width: capWidth, height: capHeight)
-        let path = NSBezierPath(roundedRect: cap.insetBy(dx: 0.25, dy: 0.25), xRadius: 4, yRadius: 4)
+        let path = NSBezierPath(roundedRect: cap.insetBy(dx: 0.25, dy: 0.25), xRadius: Theme.Radius.small - 2, yRadius: Theme.Radius.small - 2)
         path.lineWidth = 0.5
         NSColor.tertiaryLabelColor.setStroke()
         path.stroke()

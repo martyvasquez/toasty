@@ -192,7 +192,7 @@ struct ClaudeQuestionForm: View {
                             Spacer(minLength: 0)
                         }
                         .padding(.vertical, Theme.Space.xs + Theme.Space.xxs).padding(.horizontal, Theme.Space.s)
-                        .background(isOn ? Color.accentColor.opacity(0.10) : Theme.Fill.faint,
+                        .background(isOn ? Theme.Fill.accent : Theme.Fill.faint,
                                     in: RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous))
                         .contentShape(Rectangle())
                     }

@@ -19,6 +19,9 @@ nonisolated enum ClaudeTypography {
     static let headingSizes: [CGFloat] = [21, 18, 15.5, 14.5, 14, 14]
 
     static let lineHeightMultiple: CGFloat = 1.5
+    /// Text you type and its bubble once sent: tighter than a reply, the
+    /// same in both, so a prompt doesn't change shape when it's sent.
+    static let inputLineHeightMultiple: CGFloat = 1.35
     static let headingLineHeightMultiple: CGFloat = 1.2
     static let codeLineHeightMultiple: CGFloat = 1.45
     /// Space above a heading beyond the paragraph gap, as a fraction of its

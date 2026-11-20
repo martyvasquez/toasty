@@ -540,7 +540,7 @@ struct ActivityToastView: View {
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                 .strokeBorder(toast.color.opacity(0.45), lineWidth: 1))
-            .shadow(color: .black.opacity(0.25), radius: 10, y: 4)
+            .popoverShadow()
             .contentShape(Rectangle())
             .onTapGesture { activity.open(toast) }
             .padding(12)

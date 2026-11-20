@@ -372,7 +372,7 @@ private struct ChangedFileRow: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
-            .fill(selected ? Color.accentColor.opacity(0.16) : (hovering ? Theme.Fill.hover : Color.clear)))
+            .fill(selected ? Theme.Fill.accent : (hovering ? Theme.Fill.hover : Color.clear)))
         .contentShape(Rectangle())
         .onTapGesture(perform: action)
         .onHover { hovering = $0 }
