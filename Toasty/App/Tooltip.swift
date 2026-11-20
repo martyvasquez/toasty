@@ -25,6 +25,18 @@ extension View {
         modifier(TooltipModifier(tooltip: tooltip, placement: placement))
     }
 
+    /// Shows `tooltip` while the pointer rests on this view, placed against
+    /// another view (marked with `tooltipAnchor`), as a handle's tall
+    /// hover strip shows its label beside its small pill.
+    func tooltip(_ tooltip: Tooltip, placement: TooltipPlacement, at anchor: TooltipAnchor) -> some View {
+        modifier(TooltipModifier(tooltip: tooltip, placement: placement, external: anchor))
+    }
+
+    /// Marks this view as where a tooltip is placed (see `tooltip(_:placement:at:)`).
+    func tooltipAnchor(_ anchor: TooltipAnchor) -> some View {
+        background(TooltipAnchorView(anchor: anchor))
+    }
+
     func tooltip(_ title: String, shortcut: String? = nil, detail: String? = nil) -> some View {
         self.tooltip(Tooltip(title: title, shortcut: shortcut, detail: detail))
     }
@@ -33,11 +45,15 @@ extension View {
 private struct TooltipModifier: ViewModifier {
     let tooltip: Tooltip
     var placement: TooltipPlacement = .above
-    @State private var anchor = TooltipAnchor()
+    /// Placed against this instead of the view itself.
+    var external: TooltipAnchor? = nil
+    @State private var own = TooltipAnchor()
+
+    private var anchor: TooltipAnchor { external ?? own }
 
     func body(content: Content) -> some View {
         content
-            .background(TooltipAnchorView(anchor: anchor))
+            .background { if external == nil { TooltipAnchorView(anchor: own) } }
             .onHover { inside in
                 if inside { TooltipController.shared.hover(tooltip, over: anchor, placement: placement) }
                 else { TooltipController.shared.leave(anchor) }
@@ -63,11 +79,17 @@ private struct TooltipModifier: ViewModifier {
 private struct TooltipAnchorView: NSViewRepresentable {
     let anchor: TooltipAnchor
     func makeNSView(context: Context) -> NSView {
-        let v = NSView()
+        let v = Passthrough()
         anchor.view = v
         return v
     }
     func updateNSView(_ nsView: NSView, context: Context) { anchor.view = nsView }
+
+    /// Only marks where the control is: clicks go through it to the
+    /// control (it can sit inside a button's label, as the handles' do).
+    private final class Passthrough: NSView {
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    }
 }
 
 @MainActor final class TooltipController {
