@@ -224,9 +224,9 @@ private struct PendingWorktreeRow: View {
     var body: some View {
         HStack(spacing: Theme.Sidebar.iconGap) {
             ProgressView().controlSize(.small).scaleEffect(0.6).frame(width: 14, height: 14)
-                .frame(width: WorkspaceRow.branchWidth)
+                .frame(width: Theme.Sidebar.iconWidth)
             Text(name)
-                .font(.toasty(Theme.Size.control))
+                .font(.toasty(Theme.Size.body))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Spacer(minLength: 0)
@@ -253,25 +253,28 @@ private struct WorkspaceRow: View {
     private var working: Bool { workspace.isWorking }
     private var attention: Bool { workspace.hasAttention }
 
-    /// Under a heading (its own, or its parent's for a worktree): its name
-    /// lines up with the heading's name, past the heading's icon, as a
-    /// Things area's lists do. Workspaces under no heading keep the edge.
-    private var grouped: Bool {
-        let top = workspace.parentID.flatMap { id in store.workspaces.first { $0.id == id } } ?? workspace
-        return top.headingID.map { id in store.headings.contains { $0.id == id } } ?? false
-    }
+    /// The workspace's own status is its leading mark (the status column);
+    /// a worktree's leading mark is its branch, so its status stays at the
+    /// row's end.
+    private var statusLeads: Bool { !workspace.isWorktree }
 
     var body: some View {
         HStack(spacing: Theme.Sidebar.iconGap) {
-            // Names start on the headings' names (or edge, ungrouped); a
-            // worktree's branch mark starts where its parent's name does,
-            // and its name follows.
-            if workspace.isWorktree {
-                Image(systemName: "arrow.triangle.branch")
-                    .font(.toasty(Theme.Sidebar.iconSize - 2))
-                    .foregroundStyle(.secondary)
-                    .frame(width: Self.branchWidth)
+            // Two edges, as Things' sidebar: every row's mark in the icon
+            // column (the headings' icons, a worktree's branch, a
+            // workspace's status), every name on one line after it.
+            Group {
+                if workspace.isWorktree {
+                    // Small and faint, near the idle dots' weight: it says
+                    // "worktree" without out-shouting the statuses.
+                    Image(systemName: "arrow.triangle.branch")
+                        .font(.toasty(Theme.Size.caption))
+                        .foregroundStyle(Theme.Sidebar.branchMark)
+                } else {
+                    leadingStatus
+                }
             }
+            .frame(width: Theme.Sidebar.iconWidth, height: Theme.Sidebar.iconWidth)
 
             HStack(spacing: 6) {
                 if isRenaming {
@@ -289,7 +292,9 @@ private struct WorkspaceRow: View {
                 } else {
                     Text(workspace.name)
                         .font(nameFont)
-                        .foregroundStyle(Theme.Sidebar.titleColor)
+                        // A worktree is told by its mark and a quieter ink,
+                        // not by another indent.
+                        .foregroundStyle(workspace.isWorktree ? AnyShapeStyle(.secondary) : AnyShapeStyle(Theme.Sidebar.titleColor))
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
@@ -309,7 +314,7 @@ private struct WorkspaceRow: View {
                 }
                 // Its ⌘-number while it has something for you (⌘1 is the
                 // first such row from the top); it takes you to the tab.
-                statusMark
+                if !statusLeads { statusMark }
                 // The number's slot is kept on every row, so status marks
                 // line up in one column whether or not a row has a number.
                 Group {
@@ -327,7 +332,7 @@ private struct WorkspaceRow: View {
             }
         }
         .frame(height: Theme.Sidebar.rowHeight)
-        .padding(.leading, Theme.Sidebar.rowLeading + (grouped ? Theme.Sidebar.iconWidth + Theme.Sidebar.iconGap : 0))
+        .padding(.leading, Theme.Sidebar.rowLeading)
         .padding(.trailing, Theme.Sidebar.rowTrailing)
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
@@ -385,10 +390,10 @@ private struct WorkspaceRow: View {
         .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
     }
 
-    /// Things' sidebar weights at one size: workspaces as its lists (500),
-    /// worktrees as its projects (400).
+    /// Things' sidebar weights at one size: names regular, as its projects
+    /// (400), under the headings' semibold, as its areas.
     private var nameFont: Font {
-        .toasty(Theme.Size.body, workspace.isWorktree ? .regular : .medium)
+        .toasty(Theme.Size.body, .regular)
     }
 
     private func workingMinutes(now: Date) -> Int? {
@@ -416,24 +421,38 @@ private struct WorkspaceRow: View {
         minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h \(minutes % 60)m"
     }
 
-    /// Claude's status when there is one, else the folder.
-    /// A worktree's branch mark's slot (its name starts after it).
-    static var branchWidth: CGFloat { Theme.Sidebar.iconSize - 1 }
-
     /// Claude's status here, if any: waiting on you (orange), working (a
     /// spinner), finished unseen (gray; red if anything stopped with an
     /// error). Nothing when idle.
+    /// The workspace's status as its leading mark: one dot, always the same
+    /// size. Faint at rest; in the status's color when it has finished
+    /// (blue), needs you (orange) or hit a problem (red), the last two
+    /// pulsing for their first minute, since they're waiting on you. The
+    /// spinner while Claude works.
+    @ViewBuilder private var leadingStatus: some View {
+        if waiting {
+            StatusDot(color: StatusColor.needsInput, pulses: true)
+        } else if working {
+            ProgressView().controlSize(.small).scaleEffect(0.65)
+        } else if attention {
+            let stopped = workspace.conversations.filter(\.attention).contains(where: activity.isStopped)
+            StatusDot(color: stopped ? StatusColor.stopped : StatusColor.ready, pulses: stopped)
+        } else {
+            StatusDot(color: Theme.Sidebar.restDot)
+        }
+    }
+
     private var statusMark: some View {
         // Each centered in the same box, so dots and the spinner share a
         // column.
         Group {
             if waiting {
-                StatusDot(color: StatusColor.needsInput)
+                StatusDot(color: StatusColor.needsInput, pulses: true)
             } else if working {
                 ProgressView().controlSize(.small).scaleEffect(0.6)
             } else if attention {
-                let done = workspace.conversations.filter(\.attention)
-                StatusDot(color: done.contains(where: activity.isStopped) ? StatusColor.stopped : StatusColor.ready)
+                let stopped = workspace.conversations.filter(\.attention).contains(where: activity.isStopped)
+                StatusDot(color: stopped ? StatusColor.stopped : StatusColor.ready, pulses: stopped)
             }
         }
         .frame(width: 14, height: 14)

@@ -527,20 +527,23 @@ private struct ConversationTabItem: View {
     }
 }
 
-/// A conversation's status (see `StatusColor`): orange dot waiting for you,
-/// spinner working, gray/red dot finished/stopped while you weren't
-/// looking; nothing when idle.
+/// A conversation's status, by the sidebar's rules (see `StatusColor`,
+/// `StatusDot`): an orange dot when it needs you, the spinner while it
+/// works, a blue dot when it finished while you weren't looking, a red one
+/// when it stopped on a problem (orange and red pulse for their first
+/// minute); nothing when idle.
 struct ConversationStatusIcon: View {
     @ObservedObject var conversation: ClaudeConversation
     let selected: Bool
 
     var body: some View {
         if !conversation.requests.isEmpty {
-            StatusDot(color: StatusColor.needsInput)
+            StatusDot(color: StatusColor.needsInput, pulses: true)
         } else if conversation.phase != .idle {
             ProgressView().controlSize(.small).scaleEffect(0.6).frame(width: 12, height: 12)
         } else if conversation.attention {
-            StatusDot(color: StatusColor.done(conversation))
+            let stopped = Activity.shared.isStopped(conversation)
+            StatusDot(color: stopped ? StatusColor.stopped : StatusColor.ready, pulses: stopped)
         }
     }
 }

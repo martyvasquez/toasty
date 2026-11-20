@@ -12,17 +12,30 @@ struct WorkspaceHeading: Codable, Identifiable, Equatable {
     var color: HeadingColor? = nil
 }
 
-/// A heading's color: Things' sidebar palette, nothing else.
+/// A heading's color: Things' sidebar palette, with its blue and red
+/// moved aside (to purple and pink): blue, orange and red are the status
+/// dots' in the same column, and a color should mean one thing there.
 enum HeadingColor: String, Codable, CaseIterable, Identifiable {
-    case gray, blue, yellow, red, teal, tan, green, silver
+    case gray, purple, pink, yellow, teal, tan, green, silver
     var id: String { rawValue }
+
+    /// Headings saved as blue or red (before those became the statuses'
+    /// alone) are purple and pink.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        switch raw {
+        case "blue": self = .purple
+        case "red": self = .pink
+        default: self = HeadingColor(rawValue: raw) ?? .gray
+        }
+    }
 
     var name: String {
         switch self {
         case .gray: "Gray"
-        case .blue: "Blue"
+        case .purple: "Purple"
+        case .pink: "Pink"
         case .yellow: "Yellow"
-        case .red: "Red"
         case .teal: "Teal"
         case .tan: "Tan"
         case .green: "Green"

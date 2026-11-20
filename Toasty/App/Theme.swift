@@ -210,14 +210,16 @@ enum Theme {
     }
 
     /// Headings' colors in the workspaces sidebar: Things' sidebar icons
-    /// (sampled from its dark theme), so a heading's icon adds that pop.
+    /// (sampled from its dark theme), so a heading's icon adds that pop;
+    /// purple and pink stand in for its blue and red, which are the
+    /// statuses' (`StatusColor`).
     static func heading(_ c: HeadingColor?) -> Color {
         let hex: UInt32
         switch c ?? .gray {
         case .gray: hex = 0x9498A0
-        case .blue: hex = 0x60B8F4
+        case .purple: hex = 0xA596F2
+        case .pink: hex = 0xEE86BC
         case .yellow: hex = 0xF8D858
-        case .red: hex = 0xEC5C78
         case .teal: hex = 0x78B8B4
         case .tan: hex = 0xD8CCA0
         case .green: hex = 0x7CC47C
@@ -319,6 +321,12 @@ enum Theme {
         /// Off: headings are plain rows with their icon, as Things'
         /// sidebar areas.
         static let headingRule = false
+        /// A worktree's branch mark in the status column: a step above the
+        /// idle dot, well below a status.
+        static let branchMark = Color.primary.opacity(0.35)
+        /// An idle workspace's dot in the status column (`StatusDot`, one
+        /// size for every status): this faint.
+        static let restDot = Color.primary.opacity(0.22)
         /// A row's ⌘-number slot at its end (always kept, so status marks
         /// before it line up).
         static let shortcutWidth: CGFloat = 20

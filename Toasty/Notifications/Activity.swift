@@ -582,19 +582,71 @@ struct ActivityToastView: View {
 /// your input, red = stopped with an error. Finished (ready to review) is a
 /// quiet gray dot; idle and working are gray too (icons, a spinner). Blue is
 /// kept for structure (headings), and selection is a background.
+/// A conversation's status, by color: needs you (orange), finished and
+/// not yet seen (blue), stopped on a problem (red). Working is a spinner.
 enum StatusColor {
-    static let needsInput = Color.orange
-    static let ready = Color.secondary
-    static let stopped = Color.red
+    static let needsInput = fixed(.systemOrange)
+    static let ready = fixed(.systemBlue)
+    static let stopped = fixed(.systemRed)
 
-    /// Ready to review, or stopped, for a finished-unseen conversation.
-    @MainActor static func done(_ c: ClaudeConversation) -> Color {
-        Activity.shared.isStopped(c) ? stopped : ready
+    /// A system color at its standard light or dark value wherever it's
+    /// drawn. The sidebar has a vibrant appearance, under which the system
+    /// colors come out lighter (its orange was yellower than a tab's): a
+    /// status is one color everywhere.
+    private static func fixed(_ color: NSColor) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let dark = appearance.bestMatch(from: [.darkAqua, .vibrantDark, .aqua, .vibrantLight])
+                .map { $0 == .darkAqua || $0 == .vibrantDark } ?? false
+            var resolved = color
+            NSAppearance(named: dark ? .darkAqua : .aqua)?.performAsCurrentDrawingAppearance {
+                resolved = color.usingColorSpace(.sRGB) ?? color
+            }
+            return resolved
+        })
     }
 }
 
-/// A status dot (see `StatusColor`).
+/// A status dot (see `StatusColor`): one size wherever a status shows (the
+/// sidebar, the tabs, the inspector). With `pulses` (a status waiting on
+/// you: needs you, or a problem), a ring of its color grows out of it and
+/// fades for its first minute, announcing that it's new; then it sits
+/// still in its color. Every pulse is on one beat (its phase comes from the
+/// clock, not from when the dot appeared). Not with Reduce Motion.
 struct StatusDot: View {
     let color: Color
-    var body: some View { Circle().fill(color).frame(width: 8, height: 8) }
+    var pulses = false
+    @State private var announcing = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    static let size: CGFloat = 6
+    /// One pulse, and how long a new status keeps pulsing.
+    static let period: TimeInterval = 1.6
+    static let announces: TimeInterval = 60
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: Self.size, height: Self.size)
+            .background {
+                if pulses, announcing, !reduceMotion {
+                    TimelineView(.animation) { context in
+                        let t = context.date.timeIntervalSinceReferenceDate
+                        let phase = t.truncatingRemainder(dividingBy: Self.period) / Self.period
+                        // Quick out of the dot, slowing as it fades.
+                        let eased = 1 - (1 - phase) * (1 - phase)
+                        Circle()
+                            .stroke(color, lineWidth: 1.5)
+                            .scaleEffect(1 + 1.6 * eased)
+                            .opacity(0.7 * (1 - eased))
+                    }
+                    .transition(.opacity)
+                }
+            }
+            .task(id: pulses) {
+                guard pulses else { announcing = false; return }
+                announcing = true
+                try? await Task.sleep(for: .seconds(Self.announces))
+                if !Task.isCancelled { withAnimation(.easeOut(duration: 0.6)) { announcing = false } }
+            }
+    }
 }
