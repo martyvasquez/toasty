@@ -109,12 +109,13 @@ struct WorkspaceSidebarView: View {
         }
     }
 
-    /// Whether a workspace's row is dimmed: it's being dragged, with its
-    /// parent, or under a heading being dragged.
+    /// Whether a workspace's row is dimmed: it's being dragged (alone or
+    /// with the others selected), with its parent, or under a heading
+    /// being dragged.
     private func dimmed(_ w: Workspace) -> Bool {
         guard let dragging = store.draggingID else { return false }
         let top = w.parent ?? w
-        return dragging == w.id || dragging == top.id || dragging == top.headingID
+        return dragging == w.id || dragging == top.headingID || store.draggingGroup.contains(top.id)
     }
 }
 
@@ -328,6 +329,11 @@ private struct WorkspaceRow: View {
     @FocusState private var fieldFocused: Bool
 
     private var isActive: Bool { store.activeID == workspace.id }
+    /// Highlighted: the active workspace, or (while several are picked
+    /// with ⌘ or ⇧) one of those.
+    private var isSelected: Bool {
+        store.selectedIDs.isEmpty ? isActive : !workspace.isWorktree && store.selectedIDs.contains(workspace.id)
+    }
     private var isRenaming: Bool { store.renamingID == workspace.id }
     private var waiting: Bool { workspace.needsAttention }
     private var working: Bool { workspace.isWorking }
@@ -414,16 +420,34 @@ private struct WorkspaceRow: View {
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
                 // Editing the name looks selected too, so the field reads as one.
-                .fill(isActive || isRenaming ? Theme.Sidebar.selection : .clear)  // no hover state, as Things
+                .fill(isSelected || isRenaming ? Theme.Sidebar.selection : .clear)  // no hover state, as Things
         )
         .contentShape(Rectangle())
         .tooltipText(help)
         .onTapGesture(count: 2) { store.renamingID = workspace.id }
-        .simultaneousGesture(TapGesture(count: 1).onEnded {
-            if !isRenaming { store.activate(workspace.id) }
-        })
+        // ⌘-click picks a workspace (or unpicks it), ⇧-click a run of them,
+        // to move together; a plain click opens one. (The gestures' own
+        // modifiers: the event is gone by the time a tap ends.)
+        .simultaneousGesture(
+            TapGesture().modifiers(.command).onEnded { click { store.toggleSelected(workspace.id) } }
+                .exclusively(before: TapGesture().modifiers(.shift).onEnded { click { store.extendSelection(to: workspace.id) } })
+                .exclusively(before: TapGesture().onEnded { if !isRenaming { store.activate(workspace.id) } })
+        )
         .contextMenu {
-            if workspace.isWorktree {
+            let group = store.group(for: workspace.id)
+            if !workspace.isWorktree, group.count > 1 {
+                // Several picked, this one among them: what applies to all.
+                if !store.headings.isEmpty {
+                    Menu("Move \(group.count) Workspaces to Heading") {
+                        Button("No Heading") { store.move(group, toHeading: nil) }
+                        Divider()
+                        ForEach(store.headings) { h in
+                            Button(h.name) { store.move(group, toHeading: h.id) }
+                        }
+                    }
+                }
+                Button("New Heading with \(group.count) Workspaces") { store.newHeading(with: group) }
+            } else if workspace.isWorktree {
                 Button("Rename…") { store.renamingID = workspace.id }
                 Button("Open in Finder") { NSWorkspace.shared.open(URL(fileURLWithPath: workspace.folder)) }
                 Divider()
@@ -535,6 +559,12 @@ private struct WorkspaceRow: View {
         .frame(width: 14, height: 14)
     }
 
+    /// A ⌘- or ⇧-click: `pick` for a workspace; a worktree just opens.
+    private func click(_ pick: () -> Void) {
+        guard !isRenaming else { return }
+        if workspace.isWorktree { store.activate(workspace.id) } else { pick() }
+    }
+
     private func commit() {
         store.setName(draft, for: workspace.id)
         store.renamingID = nil
@@ -561,12 +591,20 @@ private struct WorkspaceDropDelegate: DropDelegate {
         return store.isHeading(target) && !store.isHeading(dragging) && !store.isWorktree(dragging)
     }
 
+    /// Several selected workspaces being dragged: they don't shuffle the
+    /// list on the way (a heading lights up); dropped, they move together.
+    private var group: [UUID] {
+        let g = store.draggingGroup
+        return g.count > 1 ? g : []
+    }
+
     func dropEntered(info: DropInfo) {
         guard let dragging = store.draggingID else { return }
         if nesting {
             store.dropHeadingID = target
             return
         }
+        if !group.isEmpty { return }
         if let target {
             if store.isHeading(dragging) { store.moveHeading(dragging, to: target) }
             else if store.isWorktree(dragging) { store.moveWorktree(dragging, to: target) }
@@ -587,7 +625,9 @@ private struct WorkspaceDropDelegate: DropDelegate {
 
     func performDrop(info: DropInfo) -> Bool {
         if nesting, let dragging = store.draggingID, let target {
-            store.move(dragging, toHeading: target)
+            if group.isEmpty { store.move(dragging, toHeading: target) } else { store.move(group, toHeading: target) }
+        } else if !group.isEmpty {
+            store.move(group, to: target)
         }
         store.dropHeadingID = nil
         store.draggingID = nil

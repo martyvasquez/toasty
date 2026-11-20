@@ -49,6 +49,21 @@ enum WorkspaceDebug {
                 }
                 guard let to = cmd["to"] as? Int, store.workspaces.indices.contains(to) else { throw E("to=") }
                 store.move(try target().id, to: store.workspaces[to].id)
+            case "select":  // ⌘-click ("toggle") or ⇧-click ("extend") on workspace "index"
+                if cmd["extend"] as? Bool == true { store.extendSelection(to: try target().id) }
+                else { store.toggleSelected(try target().id) }
+            case "moveSelection":  // "toHeading": index (-1: none); else "to" (workspace index) / "loose" / end
+                let group = store.selection
+                if let h = cmd["toHeading"] as? Int {
+                    store.move(group, toHeading: store.headings.indices.contains(h) ? store.headings[h].id : nil)
+                } else if cmd["loose"] as? Bool == true {
+                    store.move(group, to: SidebarItem.looseID)
+                } else if let to = cmd["to"] as? Int, store.workspaces.indices.contains(to) {
+                    store.move(group, to: store.workspaces[to].id)
+                } else {
+                    store.move(group, to: nil)
+                }
+            case "headingFromSelection": store.newHeading(with: store.selection)
             case "close": store.close(try target().id)
             case "heading":  // "heading": index into the headings, or -1 for none
                 let h = cmd["heading"] as? Int ?? -1
@@ -469,6 +484,7 @@ enum WorkspaceDebug {
             "dockBadge": NSApp.dockTile.badgeLabel ?? "",
             "keepingAwake": Activity.shared.keepingAwake,
             "pendingWorktrees": store.pendingWorktrees.map(\.name),
+            "picked": store.selection.compactMap { id in store.workspaces.first { $0.id == id }?.name },
             "toast": Activity.shared.toast.map { "\($0.title) | \($0.body) | \($0.location)" } ?? "",
             "sidebar": store.items.map { item -> String in
                 switch item {

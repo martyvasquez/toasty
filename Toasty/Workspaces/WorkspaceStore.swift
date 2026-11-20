@@ -105,6 +105,17 @@ final class WorkspaceStore: ObservableObject {
     @Published var stylingID: UUID?
     /// The workspace or heading being dragged in the sidebar.
     @Published var draggingID: UUID?
+    /// Workspaces picked with ⌘-click or ⇧-click, to move together (empty:
+    /// just the active one). A plain click clears it.
+    @Published var selectedIDs: Set<UUID> = []
+    /// Where a ⇧-click's range starts: the last plain or ⌘-click.
+    var selectionAnchor: UUID?
+    /// What's being dragged when it's a workspace: it, or the selection
+    /// it's part of.
+    var draggingGroup: [UUID] {
+        guard let id = draggingID, !isHeading(id), !isWorktree(id) else { return [] }
+        return group(for: id)
+    }
     /// The heading a dragged workspace is over: dropped there, it goes
     /// under that heading (the heading is highlighted meanwhile).
     @Published var dropHeadingID: UUID?
@@ -260,6 +271,8 @@ final class WorkspaceStore: ObservableObject {
         guard workspaces.contains(where: { $0.id == id }) else { return }
         renamingID = nil
         activeID = id
+        selectedIDs = []
+        selectionAnchor = workspaces.first { $0.id == id }.map { $0.parentID ?? $0.id }
         selectionChanged.send()
         startShownConversation()
         setNeedsSave()
@@ -456,6 +469,86 @@ final class WorkspaceStore: ObservableObject {
         setNeedsSave()
     }
 
+    // MARK: Selection
+
+    /// The workspaces a move or drag applies to when it starts from `id`:
+    /// the selection if `id` is in it, else `id` alone.
+    func group(for id: UUID) -> [UUID] {
+        guard let id = top(id) else { return [] }
+        let picked = selection
+        return picked.contains(id) && picked.count > 1 ? picked : [id]
+    }
+
+    /// The picked workspaces still around, in sidebar order.
+    var selection: [UUID] {
+        items.compactMap { if case .workspace(let id) = $0, selectedIDs.contains(id) { id } else { nil } }
+    }
+
+    /// ⌘-click: add a workspace to the selection or take it out (starting
+    /// from the active one).
+    func toggleSelected(_ id: UUID) {
+        guard let id = top(id) else { return }
+        if selectedIDs.isEmpty, let a = activeID, let a = top(a) { selectedIDs = [a] }
+        if selectedIDs.contains(id) { selectedIDs.remove(id) } else { selectedIDs.insert(id) }
+        selectionAnchor = id
+    }
+
+    /// ⇧-click: select every workspace from the anchor to this one.
+    func extendSelection(to id: UUID) {
+        guard let id = top(id) else { return }
+        let order = items.compactMap { if case .workspace(let w) = $0 { w } else { nil } }
+        let anchor = selectionAnchor ?? activeID.flatMap(top) ?? id
+        guard let a = order.firstIndex(of: anchor), let b = order.firstIndex(of: id) else { return }
+        selectedIDs = Set(order[min(a, b)...max(a, b)])
+    }
+
+    /// Put workspaces last under a heading (nil: under none), in their order.
+    func move(_ ids: [UUID], toHeading heading: UUID?) {
+        for id in ids { move(id, toHeading: heading) }
+    }
+
+    /// Move workspaces together to where `target` is (a workspace, the
+    /// no-heading section, or nil: the end), keeping their order.
+    func move(_ ids: [UUID], to target: UUID?) {
+        let ids = ids.compactMap(top)
+        guard let target else {
+            var items = items.filter { if case .workspace(let w) = $0 { !ids.contains(w) } else { true } }
+            items += ids.map { .workspace($0) }
+            apply(items)
+            return
+        }
+        guard !ids.contains(target) else { return }
+        var items = items.filter { if case .workspace(let w) = $0 { !ids.contains(w) } else { true } }
+        let anchor: SidebarItem = target == SidebarItem.looseID ? .loose : .workspace(top(target) ?? target)
+        guard var i = items.firstIndex(of: anchor) else { return }
+        if anchor == .loose { i += 1 }
+        items.insert(contentsOf: ids.map { .workspace($0) }, at: i)
+        apply(items)
+    }
+
+    /// A new heading with these workspaces under it, named in place: after
+    /// the first one's section (in the bottom one: last of the headings).
+    func newHeading(with ids: [UUID]) {
+        let ids = ids.compactMap(top)
+        guard let first = ids.first else { return newHeading() }
+        let h = WorkspaceHeading(id: UUID(), name: "New Heading")
+        let all = items
+        guard let start = all.firstIndex(of: .workspace(first)) else { return }
+        // Where the first one's section ends (a heading, the bottom
+        // section's start, or the end).
+        let inBottom = all.firstIndex(of: .loose).map { $0 < start } ?? false
+        var at = inBottom ? all.firstIndex(of: .loose)!
+            : all[start...].firstIndex { if case .workspace = $0 { false } else { true } } ?? all.endIndex
+        var list = all
+        for id in ids { if let i = list.firstIndex(of: .workspace(id)) { list.remove(at: i); if i < at { at -= 1 } } }
+        list.insert(contentsOf: [.heading(h.id)] + ids.map { .workspace($0) }, at: at)
+        headings.append(h)
+        apply(list)
+        selectedIDs = []
+        sidebarVisible = true
+        renamingID = h.id
+    }
+
     // MARK: Worktree order
 
     func isWorktree(_ id: UUID) -> Bool { workspaces.first { $0.id == id }?.parentID != nil }
@@ -541,6 +634,12 @@ final class WorkspaceStore: ObservableObject {
 
     /// Move a heading (with its workspaces) past `delta` others.
     func moveHeading(_ id: UUID, by delta: Int) {
+        // The first heading moved up: above the top section (its
+        // workspaces join it).
+        if delta < 0, headings.first?.id == id, let top = topWorkspace {
+            moveHeading(id, to: top)
+            return
+        }
         guard let from = headings.firstIndex(where: { $0.id == id }), headings.indices.contains(from + delta) else { return }
         var list = headings
         list.insert(list.remove(at: from), at: from + delta)
@@ -551,7 +650,14 @@ final class WorkspaceStore: ObservableObject {
 
     func canMoveHeading(_ id: UUID, by delta: Int) -> Bool {
         guard let from = headings.firstIndex(where: { $0.id == id }) else { return false }
+        if from == 0, delta < 0, topWorkspace != nil { return true }
         return headings.indices.contains(from + delta)
+    }
+
+    /// The first workspace above every heading, if any.
+    private var topWorkspace: UUID? {
+        guard let first = items.first, case .workspace(let id) = first, !headings.isEmpty else { return nil }
+        return id
     }
 
     /// Move a heading to where `target` is, as when dragging it there: a
@@ -567,8 +673,18 @@ final class WorkspaceStore: ObservableObject {
             moveHeading(id, by: headings.count - 1 - from)
             return
         }
-        if targetSection == SidebarItem.topID {
-            moveHeading(id, by: -from)
+        // Onto a workspace in the top section (above every heading): the
+        // heading goes just above it, with its own workspaces, and the top
+        // section's workspaces from there down join it, as in a list.
+        if targetSection == SidebarItem.topID, let target = top(target) {
+            var items = items
+            guard let start = items.firstIndex(of: .heading(id)) else { return }
+            let end = items[(start + 1)...].firstIndex { if case .workspace = $0 { false } else { true } } ?? items.endIndex
+            let group = Array(items[start..<end])
+            items.removeSubrange(start..<end)
+            guard let to = items.firstIndex(of: .workspace(target)) else { return }
+            items.insert(contentsOf: group, at: to)
+            apply(items)
             return
         }
         let targetHeading = isHeading(target) ? target : top(target).flatMap { t in workspaces.first { $0.id == t }?.headingID }
