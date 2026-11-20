@@ -366,6 +366,50 @@ final class WorkspaceStore: ObservableObject {
         setNeedsSave()
     }
 
+    // MARK: Worktree order
+
+    func isWorktree(_ id: UUID) -> Bool { workspaces.first { $0.id == id }?.parentID != nil }
+
+    /// Move a worktree to where `target` is, among its own workspace's
+    /// worktrees (its parent's row: first). Anywhere else, it stays.
+    func moveWorktree(_ id: UUID, to target: UUID) {
+        guard id != target, let w = workspaces.first(where: { $0.id == id }), let parent = w.parentID else { return }
+        var siblings = children(of: parent).map(\.id)
+        guard let from = siblings.firstIndex(of: id) else { return }
+        let to: Int
+        if target == parent { to = 0 }
+        else if let i = siblings.firstIndex(of: target) { to = i }
+        else { return }
+        guard to != from else { return }
+        siblings.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
+        reorderWorktrees(of: parent, siblings)
+    }
+
+    func moveWorktree(_ id: UUID, by delta: Int) {
+        guard let parent = workspaces.first(where: { $0.id == id })?.parentID else { return }
+        var siblings = children(of: parent).map(\.id)
+        guard let from = siblings.firstIndex(of: id), siblings.indices.contains(from + delta) else { return }
+        siblings.swapAt(from, from + delta)
+        reorderWorktrees(of: parent, siblings)
+    }
+
+    func canMoveWorktree(_ id: UUID, by delta: Int) -> Bool {
+        guard let parent = workspaces.first(where: { $0.id == id })?.parentID else { return false }
+        let siblings = children(of: parent).map(\.id)
+        guard let from = siblings.firstIndex(of: id) else { return false }
+        return siblings.indices.contains(from + delta)
+    }
+
+    /// Put a workspace's worktrees in this order (they follow it).
+    private func reorderWorktrees(of parent: UUID, _ order: [UUID]) {
+        let others = workspaces.filter { $0.parentID != parent }
+        let kids = order.compactMap { id in workspaces.first { $0.id == id } }
+        var list = others
+        if let i = list.firstIndex(where: { $0.id == parent }) { list.insert(contentsOf: kids, at: i + 1) }
+        workspaces = grouped(list)
+        setNeedsSave()
+    }
+
     // MARK: Headings
 
     /// A new heading, named in place: at the end, or above a workspace
@@ -416,6 +460,19 @@ final class WorkspaceStore: ObservableObject {
     /// heading means the top).
     func moveHeading(_ id: UUID, to target: UUID) {
         guard let from = headings.firstIndex(where: { $0.id == id }) else { return }
+        // Onto a workspace under no heading (the top of the list): the
+        // heading, with its workspaces, goes right before it, and the
+        // ungrouped workspaces from there on join it.
+        if !isHeading(target), let t = top(target), workspaces.first(where: { $0.id == t })?.headingID == nil {
+            var items = items
+            let members = workspaces.filter { $0.headingID == id && $0.parentID == nil }.map { SidebarItem.workspace($0.id) }
+            let block = [SidebarItem.heading(id)] + members
+            items.removeAll { block.contains($0) }
+            guard let i = items.firstIndex(of: .workspace(t)) else { return }
+            items.insert(contentsOf: block, at: i)
+            apply(items)
+            return
+        }
         let targetHeading = isHeading(target) ? target : top(target).flatMap { t in workspaces.first { $0.id == t }?.headingID }
         let to = targetHeading.flatMap { t in headings.firstIndex { $0.id == t } } ?? 0
         guard to != from else { return }

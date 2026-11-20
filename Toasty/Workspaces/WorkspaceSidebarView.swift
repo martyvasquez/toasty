@@ -24,8 +24,9 @@ struct WorkspaceSidebarView: View {
                             ForEach(store.workspaces.filter { $0.id == id || $0.parentID == id }) { w in
                                 WorkspaceRow(workspace: w, store: store)
                                     .opacity(dimmed(w) ? 0.35 : 1)
-                                    // A worktree drags its parent (they move together).
-                                    .onDrag { drag(id) }
+                                    // A worktree moves among its siblings; a
+                                    // workspace moves with its worktrees.
+                                    .onDrag { drag(w.id) }
                                     .onDrop(of: [.toastyWorkspace], delegate: WorkspaceDropDelegate(target: w.id, store: store))
                             }
                             // Worktrees being created.
@@ -60,8 +61,19 @@ struct WorkspaceSidebarView: View {
 
     private func drag(_ id: UUID) -> NSItemProvider {
         store.draggingID = id
+        Self.endDragWhenReleased(store)
         return NSItemProvider(item: id.uuidString.data(using: .utf8) as NSData?,
                               typeIdentifier: UTType.toastyWorkspace.identifier)
+    }
+
+    /// SwiftUI doesn't say when a drag ends without a drop (let go outside
+    /// the list, or refused), which left the dragged row faded: clear the
+    /// drag once the mouse button is up.
+    private static func endDragWhenReleased(_ store: WorkspaceStore) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            guard store.draggingID != nil else { return }
+            if NSEvent.pressedMouseButtons & 1 == 0 { store.draggingID = nil } else { endDragWhenReleased(store) }
+        }
     }
 
     /// Whether a workspace's row is dimmed: it's being dragged, with its
@@ -69,7 +81,7 @@ struct WorkspaceSidebarView: View {
     private func dimmed(_ w: Workspace) -> Bool {
         guard let dragging = store.draggingID else { return false }
         let top = w.parent ?? w
-        return dragging == top.id || dragging == top.headingID
+        return dragging == w.id || dragging == top.id || dragging == top.headingID
     }
 }
 
@@ -134,8 +146,11 @@ private struct HeadingRow: View {
     }
 
     var body: some View {
-        // A row like the workspaces' (as Things' areas in its sidebar): the
-        // same height, no rule; groups are set apart by the space above.
+        // A row like the workspaces' (24pt, its title centered, so the
+        // rhythm is Things': a group starts 40pt after the last row), with
+        // a hairline on its bottom edge that starts a little left of the
+        // title, as Things' project headings.
+        VStack(alignment: .leading, spacing: 0) {
         Group {
                 if isRenaming {
                     TextField("Heading", text: $draft)
@@ -160,8 +175,20 @@ private struct HeadingRow: View {
         .frame(height: Theme.Sidebar.rowHeight)
         .padding(.leading, Theme.Sidebar.rowLeading)
         .padding(.trailing, Theme.Sidebar.rowTrailing)
+
+            if Theme.Sidebar.headingRule {
+                Rectangle()
+                    .fill(Theme.Stroke.rule)
+                    .frame(height: 1)
+                    .padding(.leading, Theme.Sidebar.rowLeading - 3)
+                    .padding(.trailing, Theme.Sidebar.rowTrailing - 3)
+            }
+        }
         .padding(.top, first ? 0 : Theme.Sidebar.headingSpaceAbove)
+        .padding(.bottom, Theme.Sidebar.headingRule ? Theme.Space.xs : 0)
         .contentShape(Rectangle())
+        // Headings are labels, never selected (one highlight in the
+        // sidebar: the workspace you're in); double-click renames.
         .onTapGesture(count: 2) { store.renamingID = heading.id }
         .contextMenu {
             Button("Rename…") { store.renamingID = heading.id }
@@ -211,7 +238,6 @@ private struct WorkspaceRow: View {
     @ObservedObject var store: WorkspaceStore
     @ObservedObject private var activity: Activity = .shared
 
-    @State private var hovering = false
     @State private var draft = ""
     @FocusState private var fieldFocused: Bool
 
@@ -291,11 +317,10 @@ private struct WorkspaceRow: View {
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
                 // Editing the name looks selected too, so the field reads as one.
-                .fill(isActive || isRenaming ? Theme.Fill.selected : (hovering ? Theme.Fill.hover : .clear))
+                .fill(isActive || isRenaming ? Theme.Sidebar.selection : .clear)  // no hover state, as Things
         )
         .contentShape(Rectangle())
         .help(help)
-        .onHover { hovering = $0 }
         .onTapGesture(count: 2) { store.renamingID = workspace.id }
         .simultaneousGesture(TapGesture(count: 1).onEnded {
             if !isRenaming { store.activate(workspace.id) }
@@ -304,6 +329,11 @@ private struct WorkspaceRow: View {
             if workspace.isWorktree {
                 Button("Rename…") { store.renamingID = workspace.id }
                 Button("Open in Finder") { NSWorkspace.shared.open(URL(fileURLWithPath: workspace.folder)) }
+                Divider()
+                Button("Move Up") { store.moveWorktree(workspace.id, by: -1) }
+                    .disabled(!store.canMoveWorktree(workspace.id, by: -1))
+                Button("Move Down") { store.moveWorktree(workspace.id, by: 1) }
+                    .disabled(!store.canMoveWorktree(workspace.id, by: 1))
                 Divider()
                 Button("Remove Worktree…") { store.requestRemoveWorktree(workspace.id) }
             } else {
@@ -412,7 +442,11 @@ private struct WorkspaceDropDelegate: DropDelegate {
     func dropEntered(info: DropInfo) {
         guard let dragging = store.draggingID else { return }
         if let target {
-            if store.isHeading(dragging) { store.moveHeading(dragging, to: target) } else { store.move(dragging, to: target) }
+            if store.isHeading(dragging) { store.moveHeading(dragging, to: target) }
+            else if store.isWorktree(dragging) { store.moveWorktree(dragging, to: target) }
+            else { store.move(dragging, to: target) }
+        } else if store.isWorktree(dragging) {
+            return  // a worktree stays with its workspace
         } else {
             store.moveToEnd(dragging)
         }

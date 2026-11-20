@@ -62,6 +62,12 @@ enum Theme {
         static let border = Color.primary.opacity(0.10)
         /// A bar button under the pointer: a hairline capsule.
         static let hover = Color.primary.opacity(0.15)
+        /// The rule under a heading (Things': white 15% / navy 10%).
+        static let rule = Color(nsColor: NSColor(name: nil) { a in
+            a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(white: 1, alpha: 0.15)
+                : NSColor(srgbRed: 0, green: 0x19 / 255.0, blue: 0x3d / 255.0, alpha: 0.10)
+        })
     }
 
     /// Tooltips (see Tooltip.swift): a small popover-like panel.
@@ -162,6 +168,14 @@ enum Theme {
         /// the last mark (Things' icon guide and badge margin).
         static let rowLeading: CGFloat = 7
         static let rowTrailing: CGFloat = 8
+        /// The selected row, as Things': a cool blue-gray rather than a
+        /// neutral one (on screen ≈ #4C4F53 over the dark sidebar, #DDE0E5
+        /// over the light one).
+        static let selection = Color(nsColor: NSColor(name: nil) { a in
+            a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(srgbRed: 180 / 255, green: 195 / 255, blue: 215 / 255, alpha: 0.15)
+                : NSColor(srgbRed: 0, green: 10 / 255, blue: 31 / 255, alpha: 0.10)
+        })
         /// Names: Things' sidebar title color, a step quieter than labels
         /// (white at 80% in dark mode; blue-black at 78% in light).
         static let titleColor = Color(nsColor: NSColor(name: nil) { a in
@@ -174,6 +188,9 @@ enum Theme {
         static let iconGap: CGFloat = 8
         /// Space above a heading (groups are set apart by space).
         static let headingSpaceAbove: CGFloat = 16
+        /// A hairline under each heading (as Things' project headings).
+        /// Off: headings are plain rows, as Things' sidebar areas.
+        static let headingRule = true
         /// A row's ⌘-number slot at its end (always kept, so status marks
         /// before it line up).
         static let shortcutWidth: CGFloat = 20

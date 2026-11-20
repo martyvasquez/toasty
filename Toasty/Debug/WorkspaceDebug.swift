@@ -31,6 +31,10 @@ enum WorkspaceDebug {
                 if let name = cmd["name"] as? String { store.setName(name, for: try target().id) }
                 else { store.renamingID = try target().id }
             case "move": store.move(try target().id, by: cmd["by"] as? Int ?? 1)
+            case "moveWorktree": store.moveWorktree(try target().id, by: cmd["by"] as? Int ?? 1)
+            case "dropWorktreeOn":  // as dragging the worktree onto workspace "to" (an index)
+                guard let to = cmd["to"] as? Int, store.workspaces.indices.contains(to) else { throw E("to=") }
+                store.moveWorktree(try target().id, to: store.workspaces[to].id)
             case "moveTo":
                 // "toHeading": dragged onto a heading's row (an index into the headings).
                 if let h = cmd["toHeading"] as? Int {
@@ -75,6 +79,9 @@ enum WorkspaceDebug {
                 else { store.renamingID = try target() }
             case "remove": store.removeHeading(try target())
             case "move": store.moveHeading(try target(), by: cmd["by"] as? Int ?? 1)
+            case "dropOn":  // as dragging the heading onto workspace "workspace" (an index)
+                guard let i = cmd["workspace"] as? Int, store.workspaces.indices.contains(i) else { throw E("workspace=") }
+                store.moveHeading(try target(), to: store.workspaces[i].id)
             default: throw E("unknown action \(action)")
             }
             return state()
