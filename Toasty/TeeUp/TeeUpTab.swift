@@ -19,12 +19,16 @@ struct TeeUpTab: View {
     /// The selected row (Things: a click selects, a double-click opens).
     @State private var selection: UUID?
     @FocusState private var listFocused: Bool
+    /// Where the rows are, so a double-click in the list's empty space (not
+    /// on a row) starts a new prompt.
+    @State private var rowsAnchor = ViewAnchor()
 
     var body: some View {
         VStack(spacing: 0) {
             if workspace.teeUps.isEmpty {
                 InspectorEmpty(symbol: InspectorTab.teeUp.symbol, title: "Nothing Teed Up",
                                detail: "Write prompts ahead of time, then send each one to the open tab when you're ready.")
+                    .background(DoubleClick { newAtEnd() })
             } else {
                 list
             }
@@ -89,6 +93,7 @@ struct TeeUpTab: View {
                     // A click anywhere that isn't on a row (the list's empty
                     // space, the rest of the window) clears the selection.
                     .background { if selection != nil { ClickOutside { selection = nil } } }
+                    .background(AnchorView(anchor: rowsAnchor))
                 }
                 .padding(.horizontal, Theme.Todo.inset)
                 .padding(.bottom, Theme.Todo.inset)
@@ -96,6 +101,9 @@ struct TeeUpTab: View {
                 .padding(.top, Theme.Todo.openWiden)
             }
             .scrollBounceBehavior(.basedOnSize)
+            // A double-click in the empty space under the rows starts a new
+            // prompt at the end (as in Things).
+            .background(DoubleClick(excluding: rowsAnchor) { newAtEnd() })
             // So does the keyboard going elsewhere.
             .onChange(of: listFocused) { _, focused in if !focused { selection = nil } }
             // The keyboard works the list as Things': arrows move the
@@ -153,6 +161,11 @@ struct TeeUpTab: View {
         }
     }
 
+    private func newAtEnd() {
+        selection = nil
+        workspace.newTeeUp()
+    }
+
     private func select(_ id: UUID) {
         selection = id
         listFocused = true
@@ -182,8 +195,9 @@ struct TeeUpTab: View {
         return .handled
     }
 
-    /// Closes the open prompt. One left empty rolls back up to a row first
-    /// and then goes, as a cancelled Things to-do does.
+    /// Closes the open prompt. One left empty rolls all the way up as it
+    /// fades, in one motion (as a cancelled Things to-do), and once it's
+    /// nothing it's taken out of the list.
     private func close() {
         guard let id = workspace.teeUpEditingID else { return }
         let empty = workspace.teeUps.first { $0.id == id }?.isEmpty == true
@@ -191,7 +205,9 @@ struct TeeUpTab: View {
         guard empty else { return }
         if selection == id { selection = nil }
         DispatchQueue.main.asyncAfter(deadline: .now() + TeeUpStyle.openDuration) {
-            workspace.removeTeeUpIfEmpty(id)
+            var now = Transaction()
+            now.disablesAnimations = true
+            withTransaction(now) { workspace.removeTeeUpIfEmpty(id) }
         }
     }
 }
@@ -259,11 +275,17 @@ private struct TeeUpCard: View {
     /// row; closing shrinks it back, its contents staying till it's a row).
     @State private var expanded = false
     @State private var collapsing = false
+    /// Closed empty: it rolls up to nothing as it fades (and the list then
+    /// takes it out), in one motion with the rest of its close.
+    @State private var vanishing = false
     /// The editor is shown only once the card is fully open: while it
     /// grows or shrinks, a SwiftUI copy of the text stands in (an AppKit
     /// view doesn't move or clip with SwiftUI's animation). The editor is
     /// there all along, hidden, so typing goes in from the first moment.
     @State private var editorShown = false
+    /// Asks the editor for the keyboard: on opening, after the list has let
+    /// go of it (which could otherwise take it back), and again once open.
+    @State private var focusRequest = 0
     /// The row's width in the list (the open card is wider by its margins).
     @State private var slotWidth: CGFloat = 0
 
@@ -277,37 +299,48 @@ private struct TeeUpCard: View {
         Group {
             if open || collapsing { card.transition(.identity) } else { row.transition(.identity) }
         }
-        .frame(height: expanded ? nil : Theme.Todo.rowHeight, alignment: .top)
+        .frame(height: expanded ? nil : (vanishing ? 0 : Theme.Todo.rowHeight), alignment: .top)
         .padding(.top, expanded ? Theme.Todo.cardTop : 0)
         .padding(.leading, expanded ? TeeUpStyle.cardLeading : Theme.Todo.rowLeading)
         .padding(.trailing, expanded ? TeeUpStyle.textTrailing : Theme.Todo.rowTrailing)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .clipShape(RoundedRectangle(cornerRadius: expanded ? Theme.Todo.cardRadius : Theme.Radius.row, style: .continuous))
         .background { background }
+        // Fades evenly as it rolls up (the roll itself is quick to start),
+        // so it's seen to shrink away rather than blink out.
+        .opacity(vanishing ? 0 : 1)
         // A prompt that appears open (a new one) grows from its row, as
         // the others do.
         .onAppear {
             guard open else { return }
             DispatchQueue.main.async {
+                focusRequest += 1
                 withAnimation(TeeUpStyle.open) { expanded = true } completion: {
                     guard self.open else { return }
                     var now = Transaction()
                     now.disablesAnimations = true
                     withTransaction(now) { editorShown = true }
+                    focusRequest += 1
                 }
             }
         }
         .onChange(of: open) { _, open in
             if open {
                 collapsing = false
+                vanishing = false
+                DispatchQueue.main.async { focusRequest += 1 }
                 withAnimation(TeeUpStyle.open) { expanded = true } completion: {
                     guard self.open else { return }
                     var now = Transaction()
                     now.disablesAnimations = true
                     withTransaction(now) { editorShown = true }
+                    focusRequest += 1
                 }
             } else {
                 collapsing = true
+                if item.isEmpty {
+                    withAnimation(.linear(duration: TeeUpStyle.openDuration)) { vanishing = true }
+                }
                 // The stand-in takes over at once (not faded).
                 var now = Transaction()
                 now.disablesAnimations = true
@@ -426,7 +459,7 @@ private struct TeeUpCard: View {
                     text: $item.text,
                     height: $height,
                     placeholder: "New Prompt",
-                    focusToken: 0,
+                    focusToken: focusRequest,
                     onSubmit: { close(true) },
                     onEscape: { close(true); return true },
                     onShiftTab: {},
@@ -582,25 +615,36 @@ private struct TeeUpBoxStyle: ButtonStyle {
 /// Calls `action` for a double-click on the view it's the background of
 /// (the clicks still go where they're aimed).
 private struct DoubleClick: NSViewRepresentable {
+    /// Double-clicks on this view don't count (the rows, inside the list's
+    /// empty space).
+    var excluding: ViewAnchor? = nil
     let action: () -> Void
 
     func makeNSView(context: Context) -> Probe { Probe() }
 
-    func updateNSView(_ view: Probe, context: Context) { view.action = action }
+    func updateNSView(_ view: Probe, context: Context) {
+        view.action = action
+        view.excluding = excluding
+    }
 
     static func dismantleNSView(_ view: Probe, coordinator: ()) { view.stop() }
 
     final class Probe: NSView {
         var action: () -> Void = {}
+        var excluding: ViewAnchor?
         private var monitor: Any?
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             stop()
             guard window != nil else { return }
-            monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
-                if let self, let window = self.window, event.window === window, event.clickCount >= 2,
-                   self.convert(self.bounds, to: nil).contains(event.locationInWindow) {
+            // On the second click's release: once the click is done with,
+            // so whatever it lands on can't take the keyboard back from a
+            // prompt this opens.
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { [weak self] event in
+                if let self, let window = self.window, event.window === window, event.clickCount == 2,
+                   self.convert(self.bounds, to: nil).contains(event.locationInWindow),
+                   !(self.excluding?.contains(event.locationInWindow) ?? false) {
                     DispatchQueue.main.async { self.action() }
                 }
                 return event
@@ -1052,4 +1096,31 @@ private final class MenuAction: NSObject {
     let handler: () -> Void
     init(_ handler: @escaping () -> Void) { self.handler = handler }
     @objc func run() { handler() }
+}
+
+/// A view's place in its window, for probes that need to know where it is
+/// (set by `AnchorView` placed behind it).
+@MainActor private final class ViewAnchor {
+    weak var view: NSView?
+
+    func contains(_ point: NSPoint) -> Bool {
+        guard let view, view.window != nil else { return false }
+        return view.convert(view.bounds, to: nil).contains(point)
+    }
+}
+
+private struct AnchorView: NSViewRepresentable {
+    let anchor: ViewAnchor
+
+    func makeNSView(context: Context) -> NSView {
+        let v = Passthrough()
+        anchor.view = v
+        return v
+    }
+
+    func updateNSView(_ view: NSView, context: Context) { anchor.view = view }
+
+    private final class Passthrough: NSView {
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    }
 }
