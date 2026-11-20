@@ -30,6 +30,7 @@
 		346191052BC0573C556FAE23 /* MainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FBCBE999788997C12380B2D /* MainWindowController.swift */; };
 		3502266411B2DCC70D0962EA /* TitlebarTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECA042843FEF43774DB0414C /* TitlebarTabs.swift */; };
 		36319E454D908F628822D20A /* MainContainerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68416E84FB4CDE7D7C92D8DA /* MainContainerController.swift */; };
+		37643F2E3507FE5CFEF6C9DA /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3353E01CDA88E07D3A7012D3 /* Theme.swift */; };
 		39DB48C5EA22DF75F0E540AB /* CTranscribe.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = F8C8A579882F85EF3293A41D /* CTranscribe.xcframework */; };
 		3C7A12F4E8E396CA83D229F1 /* ClaudeSDKTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE3BEB622EF1F6E34C0F08C /* ClaudeSDKTests.swift */; };
 		3EB73BEED88DCBC63A5AB238 /* PreviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C16C7897BCDE55887D514826 /* PreviewTests.swift */; };
@@ -148,6 +149,7 @@
 		2DD1D1F3FEA1731159615845 /* Updater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updater.swift; sourceTree = "<group>"; };
 		2FBCBE999788997C12380B2D /* MainWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowController.swift; sourceTree = "<group>"; };
 		326FC85C18EB90E86334C2F6 /* Bridge */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Bridge; path = Toasty/Resources/Bridge; sourceTree = SOURCE_ROOT; };
+		3353E01CDA88E07D3A7012D3 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		33D68D9E3E776F9E606A7682 /* WorkspaceDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceDebug.swift; sourceTree = "<group>"; };
 		38D1D665E23048F8AD6FBA9E /* RepoPaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoPaths.swift; sourceTree = "<group>"; };
 		38E532463352FE1FCDD0BAFF /* SpeechModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechModels.swift; sourceTree = "<group>"; };
@@ -504,6 +506,7 @@
 				2FBCBE999788997C12380B2D /* MainWindowController.swift */,
 				D1E0AF94EDDB841E22D8DEAA /* ServiceProvider.swift */,
 				1A784151685B16B9E4F4EC6E /* SettingsWindow.swift */,
+				3353E01CDA88E07D3A7012D3 /* Theme.swift */,
 				ECA042843FEF43774DB0414C /* TitlebarTabs.swift */,
 				2DD1D1F3FEA1731159615845 /* Updater.swift */,
 			);
@@ -720,6 +723,7 @@
 				5A5408F16D2B6E4460483FCB /* TerminalTheme.swift in Sources */,
 				1061436DAC744C0B4D030005 /* TerminalView.swift in Sources */,
 				047E06E01E14C3D82252DAD3 /* TextPipeline.swift in Sources */,
+				37643F2E3507FE5CFEF6C9DA /* Theme.swift in Sources */,
 				3502266411B2DCC70D0962EA /* TitlebarTabs.swift in Sources */,
 				51C4BADA68E4CF5BC521F1CB /* TriggerMonitor.swift in Sources */,
 				8E7643DF1D9528FE0A0FD5FE /* Updater.swift in Sources */,

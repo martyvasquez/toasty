@@ -21,35 +21,35 @@ struct NotificationsSection: View {
 
     @ViewBuilder private func content(_ notices: [Activity.Notice]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Divider().padding(.horizontal, 12)
+            Divider().padding(.horizontal, Theme.Space.m)
 
             HStack {
                 Text("Notifications")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.toasty(Theme.Size.meta, .semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
                 if !notices.isEmpty {
                     Text("\(notices.count)")
-                        .font(.system(size: 10.5, weight: .semibold))
+                        .font(.toasty(Theme.Size.caption, .semibold))
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 6)
                         .frame(minWidth: 18, minHeight: 16)
-                        .background(Capsule().fill(Color.primary.opacity(0.08)))
+                        .background(Capsule().fill(Theme.Fill.subtle))
                         .transition(.opacity)
                 }
             }
             .frame(height: 16)
-            .padding(.horizontal, 12)
-            .padding(.top, 10)
-            .padding(.bottom, 6)
+            .padding(.horizontal, Theme.Space.m + Theme.Space.xs)
+            .padding(.top, Theme.Space.m)
+            .padding(.bottom, Theme.Space.xs)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Notifications, \(notices.count)")
 
             if notices.isEmpty {
                 EmptyNotices()
-                    .padding(.horizontal, 8)
-                    .padding(.bottom, 8)
+                    .padding(.horizontal, Theme.Sidebar.inset)
+                    .padding(.bottom, Theme.Space.s)
                     .transition(.opacity)
             } else {
                 ScrollView {
@@ -58,19 +58,19 @@ struct NotificationsSection: View {
                 }
                 .scrollBounceBehavior(.basedOnSize)
                 .frame(height: min(listHeight, Self.maxListHeight))
-                .padding(.bottom, 8)
+                .padding(.bottom, Theme.Space.s)
                 .transition(.opacity)
             }
         }
     }
 
     private func list(_ notices: [Activity.Notice]) -> some View {
-        VStack(spacing: 2) {
+        VStack(spacing: Theme.Space.xxs) {
             ForEach(Array(notices.enumerated()), id: \.element.id) { i, notice in
                 NoticeRow(notice: notice, number: i < 9 ? i + 1 : nil)
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, Theme.Sidebar.inset)
     }
 }
 
@@ -78,24 +78,24 @@ struct NotificationsSection: View {
 /// shape.
 private struct EmptyNotices: View {
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: Theme.Sidebar.iconGap) {
             Image(systemName: "cup.and.heat.waves")
-                .font(.system(size: 11, weight: .medium))
+                .font(.toasty(Theme.Size.control))
                 .foregroundStyle(.tertiary)
-                .frame(width: 16, height: 18)
+                .frame(width: Theme.Sidebar.iconWidth, height: 20)
             VStack(alignment: .leading, spacing: 1) {
                 Text("All caught up")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.toasty(Theme.Size.body))
                     .foregroundStyle(.secondary)
-                    .frame(height: 18)
+                    .frame(height: 20)
                 Text("Claude will check in here")
-                    .font(.system(size: 11))
+                    .font(.toasty(Theme.Size.meta))
                     .foregroundStyle(.tertiary)
             }
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 8)
+        .padding(.vertical, Theme.Space.xs + Theme.Space.xxs)
+        .padding(.horizontal, Theme.Sidebar.rowPadding)
         .accessibilityElement(children: .combine)
     }
 }
@@ -109,17 +109,17 @@ private struct NoticeRow: View {
     private var dismissable: Bool { [.finished, .stopped, .paused].contains(notice.kind) }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: Theme.Sidebar.iconGap) {
             StatusDot(color: color)
-                .frame(width: 16, height: 18)
+                .frame(width: Theme.Sidebar.iconWidth, height: 20)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.toasty(Theme.Size.body))
                     .lineLimit(1)
-                    .frame(height: 18)
+                    .frame(height: 20)
                 Text(location)
-                    .font(.system(size: 11))
+                    .font(.toasty(Theme.Size.meta))
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -131,7 +131,7 @@ private struct NoticeRow: View {
                 if hovering && dismissable {
                     Button { notice.conversation.attention = false } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.toasty(Theme.Size.caption, .semibold))
                             .foregroundStyle(.tertiary)
                             .frame(width: 16, height: 16)
                             .contentShape(Rectangle())
@@ -141,19 +141,19 @@ private struct NoticeRow: View {
                     .accessibilityLabel("Dismiss")
                 } else if let number {
                     Text("⌘\(number)")
-                        .font(.system(size: 10.5, weight: .medium))
+                        .font(.toasty(Theme.Size.caption, .medium))
                         .monospacedDigit()
                         .foregroundStyle(.tertiary)
                         .accessibilityHidden(true)
                 }
             }
-            .frame(width: 20, height: 18, alignment: .trailing)
+            .frame(width: 20, height: 20, alignment: .trailing)
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 8)
+        .padding(.vertical, Theme.Space.xs + Theme.Space.xxs)
+        .padding(.horizontal, Theme.Sidebar.rowPadding)
         .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.primary.opacity(hovering ? 0.05 : 0))
+            RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+                .fill(hovering ? Theme.Fill.hover : .clear)
         )
         .contentShape(Rectangle())
         .onHover { hovering = $0 }

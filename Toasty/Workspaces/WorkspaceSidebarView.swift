@@ -12,7 +12,7 @@ struct WorkspaceSidebarView: View {
                 Spacer()
                 Button { store.createWithFolderPicker() } label: {
                     Image(systemName: "plus")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.toasty(Theme.Size.control, .medium))
                         .foregroundStyle(.secondary)
                         .frame(width: 20, height: 20)
                         .contentShape(Rectangle())
@@ -21,12 +21,11 @@ struct WorkspaceSidebarView: View {
                 .help("New Workspace (⌘N)")
                 .accessibilityLabel("New Workspace")
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 2)
-            .padding(.bottom, 2)
+            .padding(.horizontal, Theme.Space.m)
+            .padding(.vertical, Theme.Space.xxs)
 
             ScrollView {
-                VStack(spacing: 2) {
+                VStack(spacing: Theme.Space.xxs) {
                     ForEach(store.items, id: \.self) { item in
                         switch item {
                         case .heading(let id):
@@ -60,7 +59,7 @@ struct WorkspaceSidebarView: View {
                             Button("New Heading") { store.newHeading() }
                         }
                 }
-                .padding(.horizontal, 8)
+                .padding(.horizontal, Theme.Sidebar.inset)
                 .animation(.easeInOut(duration: 0.15), value: store.items)
                 .animation(.easeInOut(duration: 0.15), value: store.workspaces.map(\.id))
             }
@@ -106,7 +105,7 @@ private struct HeadingRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: Theme.Space.xs) {
             Group {
                 if isRenaming {
                     TextField("Heading", text: $draft)
@@ -125,18 +124,18 @@ private struct HeadingRow: View {
                         .truncationMode(.tail)
                 }
             }
-            .font(.system(size: 12, weight: .bold))
+            .font(.toasty(Theme.Size.body, .bold))
             .foregroundStyle(color)
-            .frame(height: 16)
-            .padding(.horizontal, 8)
+            .frame(height: 20)
+            .padding(.horizontal, Theme.Sidebar.rowPadding)
 
             Rectangle()
-                .fill(Color.primary.opacity(0.1))
+                .fill(Color(nsColor: .separatorColor))
                 .frame(height: 1)
-                .padding(.horizontal, 8)
+                .padding(.horizontal, Theme.Sidebar.rowPadding)
         }
-        .padding(.top, first ? 4 : 20)
-        .padding(.bottom, 3)
+        .padding(.top, first ? Theme.Space.xs : Theme.Sidebar.headingSpaceAbove)
+        .padding(.bottom, Theme.Space.xs)
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { store.renamingID = heading.id }
         .contextMenu {
@@ -159,30 +158,28 @@ private struct HeadingRow: View {
     }
 }
 
-/// How far a worktree's row is indented under its parent.
-private let worktreeIndent: CGFloat = 20
-/// Rows are one line: 18pt plus this above and below.
-private let rowVerticalPadding: CGFloat = 5
+/// How far a worktree's row is indented under its parent: its icon sits
+/// under the parent's name.
+private let worktreeIndent = Theme.Sidebar.iconWidth + Theme.Sidebar.iconGap
 
 /// A worktree being created.
 private struct PendingWorktreeRow: View {
     let name: String
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Theme.Sidebar.iconGap) {
             ProgressView().controlSize(.small).scaleEffect(0.7).frame(width: 14, height: 14)
-                .frame(width: 16, height: 18)
+                .frame(width: Theme.Sidebar.iconWidth)
             Text(name)
-                .font(.system(size: 12))
+                .font(.toasty(Theme.Size.control))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Spacer(minLength: 0)
         }
-        .frame(height: 18)
-        .padding(.vertical, rowVerticalPadding)
+        .frame(height: Theme.Sidebar.rowHeight)
         .help("Creating worktree…")
-        .padding(.leading, 8 + worktreeIndent)
-        .padding(.trailing, 8)
+        .padding(.leading, Theme.Sidebar.rowPadding + worktreeIndent)
+        .padding(.trailing, Theme.Sidebar.rowPadding)
         .transition(.opacity)
     }
 }
@@ -203,8 +200,8 @@ private struct WorkspaceRow: View {
     private var attention: Bool { workspace.hasAttention }
 
     var body: some View {
-        HStack(spacing: 8) {
-            leadingIcon.frame(width: 16, height: 18)
+        HStack(spacing: Theme.Sidebar.iconGap) {
+            leadingIcon.frame(width: Theme.Sidebar.iconWidth)
 
             HStack(spacing: 6) {
                 if isRenaming {
@@ -232,25 +229,24 @@ private struct WorkspaceRow: View {
                     TimelineView(.periodic(from: .now, by: 30)) { context in
                         if let minutes = workingMinutes(now: context.date), minutes > 0 {
                             Text(Self.duration(minutes))
-                                .font(.system(size: 10.5, weight: .medium))
+                                .font(.toasty(Theme.Size.caption, .medium))
                                 .foregroundStyle(.tertiary)
                                 .monospacedDigit()
                         }
                     }
                 } else if workspace.conversations.count > 1 {
                     Text("\(workspace.conversations.count)")
-                        .font(.system(size: 10.5, weight: .medium))
+                        .font(.toasty(Theme.Size.caption, .medium))
                         .foregroundStyle(.tertiary)
                 }
             }
         }
-        .frame(height: 18)
-        .padding(.vertical, rowVerticalPadding)
-        .padding(.leading, 8 + (workspace.isWorktree ? worktreeIndent : 0))
-        .padding(.trailing, 8)
+        .frame(height: Theme.Sidebar.rowHeight)
+        .padding(.leading, Theme.Sidebar.rowPadding + (workspace.isWorktree ? worktreeIndent : 0))
+        .padding(.trailing, Theme.Sidebar.rowPadding)
         .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.primary.opacity(isActive ? 0.10 : (hovering ? 0.05 : 0)))
+            RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+                .fill(isActive ? Theme.Fill.selected : (hovering ? Theme.Fill.hover : .clear))
         )
         .contentShape(Rectangle())
         .help(help)
@@ -299,7 +295,7 @@ private struct WorkspaceRow: View {
     /// Workspaces are always bold; their worktrees are a step below:
     /// smaller and regular weight. Selection shows in the background.
     private var nameFont: Font {
-        workspace.isWorktree ? .system(size: 12) : .system(size: 13)
+        workspace.isWorktree ? .toasty(Theme.Size.control) : .toasty(Theme.Size.body)
     }
 
     private func workingMinutes(now: Date) -> Int? {
@@ -339,7 +335,7 @@ private struct WorkspaceRow: View {
             StatusDot(color: done.contains(where: activity.isStopped) ? StatusColor.stopped : StatusColor.ready)
         } else {
             Image(systemName: workspace.isWorktree ? "arrow.triangle.branch" : "folder")
-                .font(.system(size: workspace.isWorktree ? 11.5 : 12.5))
+                .font(.toasty(workspace.isWorktree ? Theme.Size.meta : Theme.Size.control))
                 .foregroundStyle(Color.secondary)  // gray = idle; selection is the background
         }
     }
