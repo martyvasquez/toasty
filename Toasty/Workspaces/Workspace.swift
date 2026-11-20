@@ -761,6 +761,16 @@ enum InspectorTab: String, CaseIterable, Identifiable {
     }
 
     /// ⌃⌘1, ⌃⌘2, ⌃⌘3, ⌃⌘4
+    /// One line for its tooltip: what the tab shows.
+    var tooltipDetail: String {
+        switch self {
+        case .changes: "What Claude changed in this folder, file by file."
+        case .usage: "How full this tab's context is, and your plan's limits."
+        case .teeUp: "Prompts written ahead, sent one after another."
+        case .activity: "Whether Claude is alive and what it's doing."
+        }
+    }
+
     var shortcut: String {
         switch self {
         case .changes: "1"

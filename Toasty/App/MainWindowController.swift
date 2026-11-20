@@ -113,6 +113,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         // The window buttons sit over the conversation when the sidebar is hidden.
         let inset: CGFloat = minX < 60 ? 76 - minX : 0
         if layout.leadingInset != inset { layout.leadingInset = inset }
+        // The row's controls center on the window buttons' line.
+        if let button = window?.standardWindowButton(.closeButton), let bar = button.superview {
+            let r = button.convert(button.bounds, to: bar)
+            let mid = bar.isFlipped ? r.midY : bar.bounds.height - r.midY
+            if abs(layout.buttonsMidY - mid) > 0.25 { layout.buttonsMidY = mid }
+        }
     }
 
     private func updateTitle() {

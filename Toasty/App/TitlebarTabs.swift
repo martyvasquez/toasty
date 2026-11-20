@@ -8,6 +8,9 @@ final class WindowLayout: ObservableObject {
     @Published var terminalWidth: CGFloat = 0
     /// Room for the window buttons when the workspaces sidebar is hidden.
     @Published var leadingInset: CGFloat = 0
+    /// The window buttons' center, from the titlebar's top: the row's
+    /// controls share their line (as Things' toolbar does).
+    @Published var buttonsMidY: CGFloat = 0
 }
 
 /// The titlebar row right of the workspaces sidebar: the conversation tabs
@@ -24,9 +27,9 @@ struct TitlebarRow: View {
     /// the preview's controls have the whole row.
     @ObservedObject private var drawer = PreviewDrawer.shared
 
-    static let toggleWidth: CGFloat = 40
+    static let toggleWidth: CGFloat = 44
     /// The preview's button, left of the column toggle (when it's turned on).
-    static let previewToggleWidth: CGFloat = 30
+    static let previewToggleWidth: CGFloat = 36
 
     var body: some View {
         HStack(spacing: 0) {
@@ -37,24 +40,38 @@ struct TitlebarRow: View {
                 PreviewToggle(workspace: workspace)
                 ColumnToggle(workspace: workspace)
             } else if let workspace = store.active {
+                // Each part of the bar is its column's color, so the bar
+                // reads as the top of the page and of the inspector, not a
+                // strip of its own (as Things' toolbar over its list).
                 ConversationTabBar(workspace: workspace)
                     .padding(.leading, layout.leadingInset)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if layout.terminalWidth > 0 {
-                    Rectangle().fill(Color.claudeSeparator).frame(width: 0.5)
-                    RightColumnBar(workspace: workspace)
-                        .frame(width: max(0, layout.terminalWidth - 0.5 - Self.toggleWidth
-                                             - (preview.enabled ? Self.previewToggleWidth : 0)))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    .background(ZStack { Color.claudeBackground; WindowDragArea() })
+                let right = layout.terminalWidth > 0
+                HStack(spacing: 0) {
+                    if right {
+                        Rectangle().fill(Color.claudeSeparator).frame(width: 0.5)
+                        RightColumnBar(workspace: workspace)
+                            .frame(width: max(0, layout.terminalWidth - 0.5 - Self.toggleWidth
+                                                 - (preview.enabled ? Self.previewToggleWidth : 0)))
+                    }
+                    if preview.enabled { PreviewToggle(workspace: workspace) }
+                    ColumnToggle(workspace: workspace)
                 }
-                if preview.enabled { PreviewToggle(workspace: workspace) }
-                ColumnToggle(workspace: workspace)
+                .frame(maxHeight: .infinity)
+                .background(ZStack { right ? Color.claudeChrome : Color.claudeBackground; WindowDragArea() })
             } else {
                 Spacer()
             }
         }
-        .frame(maxHeight: .infinity)
-        .background(ZStack { Color.claudeChrome; WindowDragArea() })
+        // The bar is the window buttons' band (centered on their line, as
+        // Things' toolbar); the titlebar's extra height below it belongs to
+        // the content.
+        .frame(height: layout.buttonsMidY > 0 ? layout.buttonsMidY * 2 : nil)
+        .background(ZStack { Color.claudeChrome; WindowDragArea() })  // the preview drawer's row
         .overlay(alignment: .bottom) { Rectangle().fill(Color.claudeSeparator).frame(height: 0.5) }
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(WindowDragArea())
     }
 }
 
@@ -79,17 +96,13 @@ private struct ColumnToggle: View {
 
     var body: some View {
         let shown = workspace.rightColumnVisible && !workspace.previewShowing
-        Button { AppDelegate.shared.windowController?.toggleRightColumn(nil) } label: {
-            Image(systemName: "sidebar.right")
-                .font(.toasty(Theme.Size.body))
-                .foregroundStyle(shown ? Color.accentColor : Color.secondary)
-                .frame(width: 30, height: 26)
-                .contentShape(Rectangle())
+        BarIconButton(symbol: "sidebar.right",
+                      tooltip: Tooltip(title: shown ? "Hide Inspector and Terminal" : "Show Inspector", shortcut: "⇧⌘D",
+                                       detail: "Changes, usage, teed-up prompts and activity, beside the conversation."),
+                      active: shown, size: CGSize(width: 32, height: TabStyle.height)) {
+            AppDelegate.shared.windowController?.toggleRightColumn(nil)
         }
-        .buttonStyle(.plain)
         .frame(width: TitlebarRow.toggleWidth)
-        .help(shown ? "Hide Inspector and Terminal (⇧⌘D)" : "Show Inspector (⇧⌘D)")
-        .accessibilityLabel(shown ? "Hide Inspector and Terminal" : "Show Inspector")
     }
 }
 
@@ -98,17 +111,13 @@ private struct PreviewToggle: View {
     @ObservedObject var workspace: Workspace
 
     var body: some View {
-        Button { AppDelegate.shared.windowController?.togglePreview(nil) } label: {
-            Image(systemName: "safari")
-                .font(.toasty(Theme.Size.body))
-                .foregroundStyle(workspace.previewShowing ? Color.accentColor : Color.secondary)
-                .frame(width: 30, height: 26)
-                .contentShape(Rectangle())
+        BarIconButton(symbol: "safari",
+                      tooltip: Tooltip(title: workspace.previewShowing ? "Hide Preview" : "Show Preview", shortcut: "⇧⌘B",
+                                       detail: "The page you're building, beside the conversation."),
+                      active: workspace.previewShowing, size: CGSize(width: 32, height: TabStyle.height)) {
+            AppDelegate.shared.windowController?.togglePreview(nil)
         }
-        .buttonStyle(.plain)
         .frame(width: TitlebarRow.previewToggleWidth)
-        .help(workspace.previewShowing ? "Hide Preview (⇧⌘B)" : "Show Preview (⇧⌘B)")
-        .accessibilityLabel(workspace.previewShowing ? "Hide Preview" : "Show Preview")
     }
 }
 
@@ -146,23 +155,24 @@ private struct InspectorTabButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 5) {
+            HStack(spacing: Theme.Space.xs + Theme.Space.xxs) {
                 Image(systemName: tab.symbol)
-                    .font(.toasty(Theme.Size.control, selected ? .semibold : .regular))
+                    .font(.toasty(Theme.Size.control, .medium))
                 if selected {
                     Text(tab.title)
                         .font(.toasty(TabStyle.fontSize, .medium))
                 }
             }
-            .foregroundStyle(selected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-            .padding(.horizontal, selected ? 10 : 8)
+            .foregroundStyle(selected || hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+            .padding(.horizontal, selected ? Theme.Space.m : Theme.Space.s)
+            .frame(minWidth: 32)
             .frame(height: TabStyle.height)
             .background(TabBackground(selected: selected, hovering: hovering))
-            .contentShape(Rectangle())
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .help("\(tab.title)  ⌃⌘\(tab.shortcut)")
+        .tooltip(Tooltip(title: tab.title, shortcut: "⌃⌘\(tab.shortcut)", detail: tab.tooltipDetail))
         .accessibilityLabel(tab.title)
         .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
@@ -173,25 +183,35 @@ private struct InspectorTabButton: View {
 enum TabStyle {
     static let height: CGFloat = 28
     static let radius: CGFloat = 8
-    static let gap: CGFloat = 6
+    static let gap: CGFloat = 4
     static let fontSize = Theme.Size.control
+
+    /// The end of a hovered tab, for its close button.
+    static let closeRoom: CGFloat = 28
+
+    /// Whether a conversation's tab shows a status mark.
+    @MainActor static func hasStatus(_ c: ClaudeConversation) -> Bool {
+        !c.requests.isEmpty || c.phase != .idle || c.attention
+    }
+
+    /// A title's width at the selected tab's weight (so selecting a tab
+    /// never changes its size).
+    static func titleWidth(_ title: String) -> CGFloat {
+        ceil((title as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: fontSize, weight: .medium)]).width)
+    }
 }
 
-/// The selected tab is the page itself, raised out of the bar; others are
-/// bare until hovered.
+/// Tabs share the bar buttons' states (`BarButtonStyle`, as Things'
+/// toolbar): the selected tab is a filled capsule, a hovered one gets a
+/// hairline capsule, the rest are bare.
 struct TabBackground: View {
     let selected: Bool
     let hovering: Bool
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: TabStyle.radius, style: .continuous)
-        if selected {
-            shape.fill(Color.claudeBackground)
-                .overlay(shape.strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
-                .liftShadow()
-        } else {
-            shape.fill((hovering ? Theme.Fill.hover : Color.clear))
-        }
+        Capsule()
+            .fill(selected ? Theme.Fill.selected : Color.clear)
+            .overlay(Capsule().strokeBorder(hovering && !selected ? Theme.Stroke.hover : Color.clear, lineWidth: 1))
     }
 }
 
@@ -206,11 +226,10 @@ struct TabCloseButton: View {
                 .font(.toasty(Theme.Glyph.small, .semibold))
                 .foregroundStyle(.secondary)
                 .frame(width: 16, height: 16)
-                .background(Circle().fill(Theme.Fill.subtle))
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .padding(.trailing, 6)
+        .padding(.trailing, Theme.Space.s)
         .opacity(visible ? 1 : 0)
         .allowsHitTesting(visible)
         .help(help)
@@ -219,20 +238,11 @@ struct TabCloseButton: View {
 }
 
 struct NewTabButton: View {
-    let help: String
+    let tooltip: Tooltip
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Image(systemName: "plus")
-                .font(.toasty(Theme.Size.meta, .medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 28, height: 26)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(help)
-        .accessibilityLabel(help)
+        BarIconButton(symbol: "plus", tooltip: tooltip, size: CGSize(width: 28, height: TabStyle.height), action: action)
     }
 }
 
@@ -252,6 +262,10 @@ struct FittingTabStrip<Item: Identifiable, Tab: View, Trailing: View>: View wher
     let selectedID: Item.ID?
     let minWidth: CGFloat
     let maxWidth: CGFloat
+    /// A tab's natural width (what its title needs). With room, each tab
+    /// is that wide (within min…max); without, the widest shrink first.
+    /// Nil: the tabs share the row evenly.
+    var naturalWidth: ((Item) -> CGFloat)? = nil
     /// A drag began on this tab (it becomes the selected one, as in Safari).
     var pick: ((Item) -> Void)?
     /// Put the tab at this index.
@@ -283,10 +297,9 @@ struct FittingTabStrip<Item: Identifiable, Tab: View, Trailing: View>: View wher
     var body: some View {
         GeometryReader { geo in
             let room = max(0, geo.size.width - Self.trailingRoom)
-            let n = CGFloat(items.count)
-            let width = n == 0 ? 0 : min(maxWidth, max(minWidth, (room - TabStyle.gap * (n - 1)) / n))
-            let content = n == 0 ? 0 : width * n + TabStyle.gap * (n - 1)
-            let step = width + TabStyle.gap
+            let widths = layout(room: room)
+            let xs = positions(widths)
+            let content = widths.isEmpty ? 0 : (xs.last ?? 0) + (widths.last ?? 0)
             HStack(spacing: TabStyle.gap) {
                 if !items.isEmpty {
                     ScrollViewReader { proxy in
@@ -294,16 +307,15 @@ struct FittingTabStrip<Item: Identifiable, Tab: View, Trailing: View>: View wher
                             HStack(spacing: TabStyle.gap) {
                                 ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
                                     let dragged = drag?.id == item.id
-                                    tab(item).frame(width: width).id(item.id)
-                                        .offset(x: offset(of: i, step: step))
+                                    tab(item).frame(width: widths[i]).id(item.id)
+                                        .offset(x: offset(of: i, widths: widths, xs: xs))
                                         .zIndex(dragged ? 1 : 0)
                                         // The dragged tab stays under the pointer
                                         // while the others slide.
                                         .transaction { if dragged, drag?.settling == false { $0.animation = nil } }
-                                        .gesture(reorder(item, at: i, step: step), including: move == nil ? .subviews : .all)
+                                        .gesture(reorder(item, at: i, widths: widths, xs: xs), including: move == nil ? .subviews : .all)
                                 }
                             }
-                            // Room for the selected tab's shadow.
                             .padding(.vertical, 4)
                         }
                         .scrollIndicators(.never)
@@ -321,6 +333,31 @@ struct FittingTabStrip<Item: Identifiable, Tab: View, Trailing: View>: View wher
         }
     }
 
+    /// Each tab's width in `room`.
+    private func layout(room: CGFloat) -> [CGFloat] {
+        let n = CGFloat(items.count)
+        guard n > 0 else { return [] }
+        let gaps = TabStyle.gap * (n - 1)
+        guard let naturalWidth else {
+            let even = min(maxWidth, max(minWidth, (room - gaps) / n))
+            return Array(repeating: even, count: items.count)
+        }
+        let natural = items.map { min(maxWidth, max(minWidth, naturalWidth($0).rounded(.up))) }
+        if natural.reduce(0, +) + gaps <= room { return natural }
+        // Too wide: cap every tab at the width that fits (the widest give
+        // way first), never below the minimum (then the row scrolls).
+        func total(_ cap: CGFloat) -> CGFloat { natural.reduce(0) { $0 + min($1, cap) } + gaps }
+        var lo = minWidth, hi = maxWidth
+        for _ in 0..<24 { let mid = (lo + hi) / 2; if total(mid) > room { hi = mid } else { lo = mid } }
+        return natural.map { min($0, lo).rounded(.down) }
+    }
+
+    /// Each tab's leading edge.
+    private func positions(_ widths: [CGFloat]) -> [CGFloat] {
+        var x: CGFloat = 0
+        return widths.map { w in defer { x += w + TabStyle.gap }; return x }
+    }
+
     private func reveal(_ id: Item.ID?, _ proxy: ScrollViewProxy) {
         guard let id, drag == nil else { return }
         DispatchQueue.main.async { withAnimation(.easeInOut(duration: 0.15)) { proxy.scrollTo(id) } }
@@ -328,47 +365,62 @@ struct FittingTabStrip<Item: Identifiable, Tab: View, Trailing: View>: View wher
 
     // MARK: Reordering
 
-    /// The place the dragged tab would take if let go now.
-    private func target(_ drag: Drag, step: CGFloat) -> Int {
-        max(0, min(items.count - 1, drag.from + Int((drag.x / step).rounded())))
+    /// The place the dragged tab would take if let go now: past every tab
+    /// whose middle its middle has crossed.
+    private func target(_ drag: Drag, widths: [CGFloat], xs: [CGFloat]) -> Int {
+        let f = drag.from
+        let mid = xs[f] + drag.x + widths[f] / 2
+        var to = f
+        for j in items.indices where j != f {
+            let center = xs[j] + widths[j] / 2
+            if j > f, mid > center { to = max(to, j) }
+            if j < f, mid < center { to = min(to, j) }
+        }
+        return to
     }
 
     /// How far the tab at `i` is drawn from its place: the dragged tab by
-    /// the drag, the tabs it has passed by one place the other way.
-    private func offset(of i: Int, step: CGFloat) -> CGFloat {
-        guard let drag else { return 0 }
+    /// the drag, the tabs it has passed by its width the other way.
+    private func offset(of i: Int, widths: [CGFloat], xs: [CGFloat]) -> CGFloat {
+        guard let drag, items.indices.contains(drag.from) else { return 0 }
         if items[i].id == drag.id { return drag.x }
         guard !drag.settling else { return 0 }
-        let to = target(drag, step: step)
+        let to = target(drag, widths: widths, xs: xs)
+        let step = widths[drag.from] + TabStyle.gap
         if drag.from < i, i <= to { return -step }
         if to <= i, i < drag.from { return step }
         return 0
     }
 
-    private func reorder(_ item: Item, at i: Int, step: CGFloat) -> some Gesture {
+    private func reorder(_ item: Item, at i: Int, widths: [CGFloat], xs: [CGFloat]) -> some Gesture {
         // Global: the tab moves with the drag, so its own coordinates do too.
         DragGesture(minimumDistance: 4, coordinateSpace: .global)
             .onChanged { value in
                 var d = drag ?? Drag(id: item.id, from: i)
-                guard d.id == item.id, !d.settling else { return }
+                guard d.id == item.id, !d.settling, widths.indices.contains(d.from) else { return }
                 if drag == nil { pick?(item) }
-                let before = target(d, step: step)
+                let before = target(d, widths: widths, xs: xs)
                 // Never past either end of the row.
-                d.x = max(-CGFloat(d.from) * step,
-                          min(CGFloat(items.count - 1 - d.from) * step, value.translation.width))
-                if target(d, step: step) != before {
+                let lo = -xs[d.from]
+                let hi = (xs.last ?? 0) + (widths.last ?? 0) - widths[d.from] - xs[d.from]
+                d.x = max(lo, min(hi, value.translation.width))
+                if target(d, widths: widths, xs: xs) != before {
                     withAnimation(.easeInOut(duration: 0.15)) { dragState = d }
                 } else {
                     dragState = d
                 }
             }
             .onEnded { _ in
-                guard var d = drag, d.id == item.id, !d.settling else { return }
-                let to = target(d, step: step)
-                // The others are already drawn where the new order puts
-                // them, so that happens at once; the dragged tab slides
-                // from where it was let go.
-                d.x -= CGFloat(to - d.from) * step
+                guard var d = drag, d.id == item.id, !d.settling, widths.indices.contains(d.from) else { return }
+                let to = target(d, widths: widths, xs: xs)
+                // Where it lands in the new order; the others are already
+                // drawn there, so that happens at once and the dragged tab
+                // slides from where it was let go.
+                var order = Array(widths.indices)
+                order.remove(at: d.from)
+                order.insert(d.from, at: to)
+                let landX = order.prefix(to).reduce(0) { $0 + widths[$1] + TabStyle.gap }
+                d.x -= landX - xs[d.from]
                 d.settling = true
                 var now = Transaction()
                 now.disablesAnimations = true
@@ -390,12 +442,21 @@ private struct ConversationTabBar: View {
 
     var body: some View {
         FittingTabStrip(items: workspace.conversations, selectedID: workspace.selectedID,
-                        minWidth: 110, maxWidth: 240,
+                        minWidth: 90, maxWidth: 240,
+                        naturalWidth: { c in
+                            // Title, a fork's mark, a status mark, and room
+                            // at the end for the close button.
+                            // (12 each side; see ConversationTabItem).
+                            TabStyle.titleWidth(c.title) + Theme.Space.m * 2 + 1
+                                + (c.forkOrigin != nil ? 15 : 0)
+                                + (TabStyle.hasStatus(c) ? 18 : 0)  // a gap, a dot or spinner (12)
+                        },
                         pick: { if $0.id != workspace.selectedID { workspace.select($0) } },
                         move: { workspace.moveConversation($0, to: $1) }) { c in
             ConversationTabItem(conversation: c, selected: c.id == workspace.selectedID, workspace: workspace)
         } trailing: {
-            NewTabButton(help: "New Tab (⌘T)") { workspace.newConversation() }
+            NewTabButton(tooltip: Tooltip(title: "New Tab", shortcut: "⌘T",
+                                          detail: "Another conversation in this workspace.")) { workspace.newConversation() }
         }
         .padding(.leading, 8)
         .padding(.trailing, 6)
@@ -412,8 +473,13 @@ private struct ConversationTabItem: View {
     @FocusState private var fieldFocused: Bool
 
     var body: some View {
-        HStack(spacing: 6) {
-            ConversationStatusIcon(conversation: conversation, selected: selected).frame(width: 12)
+        HStack(spacing: Theme.Space.xs + Theme.Space.xxs) {
+            // A fork's branch mark (its title, "… (fork)", is often cut off).
+            if conversation.forkOrigin != nil {
+                Image(systemName: "arrow.triangle.branch")
+                    .font(.toasty(Theme.Glyph.small, .semibold))
+                    .foregroundStyle(.secondary)
+            }
             if renaming {
                 TextField("Name", text: $draft)
                     .textFieldStyle(.plain)
@@ -430,9 +496,18 @@ private struct ConversationTabItem: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
-            Spacer(minLength: 22)
+            // Status right after the title, so it stays with its name.
+            if !renaming, TabStyle.hasStatus(conversation) {
+                ConversationStatusIcon(conversation: conversation, selected: selected)
+                    .frame(height: 16)
+            }
         }
-        .padding(.leading, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // Even padding at rest; on hover the close button takes the end and
+        // the title makes room for it.
+        .padding(.leading, Theme.Space.m)
+        .padding(.trailing, hovering && !renaming ? TabStyle.closeRoom : Theme.Space.m)
+        .animation(.easeOut(duration: 0.12), value: hovering)
         .frame(height: TabStyle.height)
         .background(TabBackground(selected: selected, hovering: hovering))
         .contentShape(Rectangle())
@@ -469,9 +544,8 @@ private struct ConversationTabItem: View {
 }
 
 /// A conversation's status (see `StatusColor`): orange dot waiting for you,
-/// spinner working, blue/red dot finished/stopped while you weren't looking.
-/// Otherwise a gray sparkle, or a branch for a fork (its title,
-/// "… (fork)", is usually cut off).
+/// spinner working, gray/red dot finished/stopped while you weren't
+/// looking; nothing when idle.
 struct ConversationStatusIcon: View {
     @ObservedObject var conversation: ClaudeConversation
     let selected: Bool
@@ -483,10 +557,6 @@ struct ConversationStatusIcon: View {
             ProgressView().controlSize(.small).scaleEffect(0.6).frame(width: 12, height: 12)
         } else if conversation.attention {
             StatusDot(color: StatusColor.done(conversation))
-        } else {
-            Image(systemName: conversation.forkOrigin != nil ? "arrow.triangle.branch" : "sparkle")
-                .font(.toasty(Theme.Glyph.small, .semibold))
-                .foregroundStyle(selected ? Color.secondary : Color.secondary.opacity(0.6))
         }
     }
 }
@@ -498,12 +568,14 @@ struct TerminalTabBar: View {
 
     var body: some View {
         FittingTabStrip(items: workspace.terminals, selectedID: workspace.selectedTerminalID,
-                        minWidth: 90, maxWidth: 180,
+                        minWidth: 80, maxWidth: 180,
+                        naturalWidth: { t in TabStyle.titleWidth(t.displayTitle) + Theme.Space.m * 2 + 1 },
                         pick: { if $0.id != workspace.selectedTerminalID { workspace.selectTerminal($0.id) } },
                         move: { workspace.moveTerminal($0, to: $1) }) { t in
             TerminalTabItem(session: t, selected: t.id == workspace.selectedTerminalID, workspace: workspace)
         } trailing: {
-            NewTabButton(help: "New Terminal") {
+            NewTabButton(tooltip: Tooltip(title: "New Terminal", shortcut: "⌥⌘T",
+                                          detail: "A shell in this workspace's folder.")) {
                 workspace.newTerminal()
                 AppDelegate.shared.windowController?.focusTerminal()
             }
@@ -519,19 +591,17 @@ private struct TerminalTabItem: View {
     @State private var hovering = false
 
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "terminal")
-                .font(.toasty(Theme.Size.caption))
-                .foregroundStyle(.secondary)
-                .frame(width: 12)
+        HStack(spacing: 0) {
             Text(session.displayTitle)
                 .font(.toasty(TabStyle.fontSize, selected ? .medium : .regular))
                 .foregroundStyle(selected ? .primary : .secondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
-            Spacer(minLength: 22)
         }
-        .padding(.leading, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, Theme.Space.m)
+        .padding(.trailing, hovering ? TabStyle.closeRoom : Theme.Space.m)
+        .animation(.easeOut(duration: 0.12), value: hovering)
         .frame(height: TabStyle.height)
         .background(TabBackground(selected: selected, hovering: hovering))
         .contentShape(Rectangle())
