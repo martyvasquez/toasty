@@ -701,7 +701,7 @@ final class Workspace: ObservableObject, Identifiable {
         selectedTerminalID = s.selectedTerminal.flatMap { id in terminals.contains { $0.id == id } ? id : nil } ?? terminals.first?.id
         terminalVisible = s.terminalVisible && !terminals.isEmpty
         inspectorVisible = s.inspectorVisible ?? false
-        inspectorTab = s.inspectorTab.flatMap(InspectorTab.init(rawValue:)) ?? .changes
+        inspectorTab = s.inspectorTab.flatMap(InspectorTab.init(saved:)) ?? .changes
         // (Not a new prompt that was still empty when Toasty quit.)
         teeUps = (s.teeUps ?? []).filter { !$0.isEmpty }
     }
@@ -738,26 +738,29 @@ struct TeeUpFeed: Equatable {
 
 /// The inspector's tabs.
 enum InspectorTab: String, CaseIterable, Identifiable {
-    case changes, usage, teeUp, activity
+    case changes, teeUp, activity
 
     var id: String { rawValue }
+
+    /// A saved tab, including the old Usage tab (now part of Activity).
+    init?(saved: String) {
+        if saved == "usage" { self = .activity } else { self.init(rawValue: saved) }
+    }
 
     var title: String {
         switch self {
         case .changes: "Changes"
-        case .usage: "Usage"
         case .teeUp: "Tee-Up"
         case .activity: "Activity"
         }
     }
 
     /// One matched set (same stroke, similar height): ± for a diff (the
-    /// branch means worktrees and forks elsewhere), a plain gauge, a list of
-    /// prompts, a heartbeat.
+    /// branch means worktrees and forks elsewhere), a list of prompts, a
+    /// heartbeat.
     var symbol: String {
         switch self {
         case .changes: "plus.forwardslash.minus"
-        case .usage: "gauge.with.needle"
         case .teeUp: "list.bullet"
         case .activity: "waveform.path.ecg"
         }
@@ -767,27 +770,25 @@ enum InspectorTab: String, CaseIterable, Identifiable {
     var symbolSize: CGFloat {
         switch self {
         case .changes, .activity: Theme.Size.body + 1
-        case .usage, .teeUp: Theme.Size.body
+        case .teeUp: Theme.Size.body
         }
     }
 
-    /// ⌃⌘1, ⌃⌘2, ⌃⌘3, ⌃⌘4
     /// One line for its tooltip: what the tab shows.
     var tooltipDetail: String {
         switch self {
         case .changes: "What Claude changed in this folder, file by file."
-        case .usage: "How full this tab's context is, and your plan's limits."
         case .teeUp: "Prompts written ahead, sent one after another."
-        case .activity: "Whether Claude is alive and what it's doing."
+        case .activity: "Whether Claude is alive, what it's doing, and how much this tab has used."
         }
     }
 
+    /// ⌃⌘1, ⌃⌘2, ⌃⌘3
     var shortcut: String {
         switch self {
         case .changes: "1"
-        case .usage: "2"
-        case .teeUp: "3"
-        case .activity: "4"
+        case .teeUp: "2"
+        case .activity: "3"
         }
     }
 }

@@ -66,7 +66,12 @@ struct TeeUpTab: View {
                     }
                     TeeUpNewRow { workspace.newTeeUp() }
                 }
-                .padding(TeeUpStyle.margin)
+                .padding(.horizontal, TeeUpStyle.margin)
+                .padding(.bottom, TeeUpStyle.margin)
+                // No margin above: the first row's text then sits level with
+                // the other tabs' first line (measured; its rows have room of
+                // their own above the text).
+                .padding(.top, 0)
             }
             .scrollBounceBehavior(.basedOnSize)
             // An empty tab is the row and, below it, the message.
@@ -86,7 +91,7 @@ struct TeeUpTab: View {
 
 private enum TeeUpStyle {
     /// Around the list and the editor.
-    static let margin: CGFloat = 10
+    static let margin = Theme.Inspector.edge - inset  // card text on the inspector's 20pt edge
     /// Between cards.
     static let gap: CGFloat = 6
     /// A card's text from its edge.

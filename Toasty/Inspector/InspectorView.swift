@@ -27,8 +27,6 @@ private struct InspectorWorkspace: View {
             switch workspace.inspectorTab {
             case .changes:
                 ChangesTab(workspace: workspace, changes: workspace.changes)
-            case .usage:
-                if let c = workspace.selected { UsageTab(conversation: c).id(c.id) } else { NoConversation() }
             case .teeUp:
                 TeeUpTab(workspace: workspace).id(workspace.id)
             case .activity:
@@ -87,10 +85,12 @@ struct InspectorEmpty: View {
     var detail: String?
 
     var body: some View {
-        VStack(spacing: 8) {
+        // As Things' empty lists: the icon large and faint, the words quiet.
+        VStack(spacing: Theme.Space.s) {
             Image(systemName: symbol)
-                .font(.toasty(Theme.Glyph.hero, .light))
-                .foregroundStyle(.tertiary)
+                .font(.toasty(Theme.Glyph.emptyState, .ultraLight))
+                .foregroundStyle(.quaternary)
+                .padding(.bottom, Theme.Space.xs)
             Text(title)
                 .font(.toasty(Theme.Size.control, .medium))
                 .foregroundStyle(.secondary)
@@ -107,23 +107,44 @@ struct InspectorEmpty: View {
     }
 }
 
-/// Small uppercase-free section title, like the sidebar's "Workspaces".
+/// A section, titled as the sidebar's headings (Things' headings): the
+/// title in the heading blue on a 24pt row, a hairline under it that
+/// starts a little left of the title, its accessory at the right.
 struct InspectorSection<Content: View, Accessory: View>: View {
     let title: String
     @ViewBuilder var accessory: () -> Accessory
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
                 Text(title)
-                    .font(.toasty(Theme.Size.caption, .semibold))
-                    .foregroundStyle(.secondary)
+                    .font(.toasty(Theme.Size.body, .semibold))
+                    .foregroundStyle(Theme.headingBlue)
                 Spacer(minLength: 8)
                 accessory()
             }
-            content()
+            .frame(height: Theme.Inspector.rowHeight)
+            Rectangle().fill(Theme.Stroke.rule).frame(height: 1).padding(.leading, -3)
+            VStack(alignment: .leading, spacing: Theme.Space.s) { content() }
+                .padding(.top, Theme.Space.s)
         }
+    }
+}
+
+/// A label and its value on one 24pt row.
+struct InspectorRow: View {
+    let title: String
+    let value: String
+    var valueStyle: AnyShapeStyle = AnyShapeStyle(.secondary)
+
+    var body: some View {
+        HStack {
+            Text(title).font(.toasty(Theme.Size.control)).foregroundStyle(Theme.Sidebar.titleColor).lineLimit(1)
+            Spacer(minLength: Theme.Space.s)
+            Text(value).font(.toasty(Theme.Size.control)).monospacedDigit().foregroundStyle(valueStyle)
+        }
+        .frame(height: Theme.Inspector.rowHeight)
     }
 }
 
@@ -195,9 +216,9 @@ private struct ChangesTab: View {
     private var loaded: some View {
         VStack(spacing: 0) {
             BranchHeader(changes: changes, workspace: workspace)
-                .padding(.horizontal, 14)
-                .padding(.top, 12)
-                .padding(.bottom, 10)
+                .padding(.horizontal, Theme.Inspector.edge)
+                .padding(.top, Theme.Inspector.top)
+                .padding(.bottom, Theme.Space.m)
             Rectangle().fill(Color.claudeSeparator).frame(height: 0.5)
             if changes.files.isEmpty {
                 InspectorEmpty(symbol: "checkmark.circle", title: "No Changes", detail: "The working tree matches the last commit.")
@@ -210,8 +231,8 @@ private struct ChangesTab: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, Theme.Inspector.edge - Theme.Space.s)
+                    .padding(.vertical, Theme.Space.s)
                 }
             }
         }
@@ -503,27 +524,19 @@ struct DiffPage: View {
 
 // MARK: - Usage
 
-private struct UsageTab: View {
+/// What a conversation has used (the context window, the plan's limits,
+/// the session's tokens and cost): the lower half of the Activity tab.
+struct UsageSections: View {
     @ObservedObject var conversation: ClaudeConversation
 
+    static func hasUsage(_ c: ClaudeConversation) -> Bool {
+        c.context != nil || c.usage != nil || !c.rateLimits.isEmpty
+    }
+
     var body: some View {
-        if conversation.context == nil && conversation.usage == nil && conversation.rateLimits.isEmpty {
-            InspectorEmpty(symbol: "gauge.with.dots.needle.50percent", title: "No Usage Yet",
-                           detail: conversation.phase == .idle && conversation.sessionID == nil
-                               ? "Usage shows here once the session starts." : "Usage shows here after Claude's first reply.")
-                .onAppear { conversation.refreshContextUsage() }
-        } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    if let context = conversation.context { ContextSection(context: context) }
-                    if !conversation.rateLimits.isEmpty { LimitsSection(limits: conversation.rateLimits) }
-                    if let usage = conversation.usage { SessionSection(usage: usage) }
-                }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .onAppear { conversation.refreshContextUsage() }
-        }
+        if let context = conversation.context { ContextSection(context: context) }
+        if !conversation.rateLimits.isEmpty { LimitsSection(limits: conversation.rateLimits) }
+        if let usage = conversation.usage { SessionSection(usage: usage) }
     }
 }
 
@@ -546,16 +559,11 @@ private struct ContextSection: View {
                   : fraction > 0.75 ? Color(nsColor: .systemOrange) : .accentColor)
             let used = context.categories.filter { $0.kind == "used" && $0.tokens > 0 }.sorted { $0.tokens > $1.tokens }
             if !used.isEmpty {
-                VStack(spacing: 5) {
+                VStack(spacing: 0) {
                     ForEach(used.prefix(7)) { c in
-                        HStack {
-                            Text(c.name).font(.toasty(Theme.Size.meta)).foregroundStyle(.secondary).lineLimit(1)
-                            Spacer(minLength: 8)
-                            Text(formatTokens(c.tokens)).font(.toasty(Theme.Size.meta)).foregroundStyle(.tertiary).monospacedDigit()
-                        }
+                        InspectorRow(title: c.name, value: formatTokens(c.tokens))
                     }
                 }
-                .padding(.top, 4)
             }
         }
     }
@@ -601,7 +609,7 @@ private struct SessionSection: View {
 
     var body: some View {
         InspectorSection(title: "This Session") {
-            VStack(spacing: 6) {
+            VStack(spacing: 0) {
                 row("Cost (estimate)", usage.costUSD < 0.01 && usage.costUSD > 0 ? "< $0.01" : String(format: "$%.2f", usage.costUSD))
                 row("Input tokens", formatTokens(usage.inputTokens))
                 row("Output tokens", formatTokens(usage.outputTokens))
@@ -613,11 +621,7 @@ private struct SessionSection: View {
     }
 
     private func row(_ title: String, _ value: String) -> some View {
-        HStack {
-            Text(title).font(.toasty(Theme.Size.meta)).foregroundStyle(.secondary)
-            Spacer(minLength: 8)
-            Text(value).font(.toasty(Theme.Size.meta)).monospacedDigit()
-        }
+        InspectorRow(title: title, value: value)
     }
 }
 

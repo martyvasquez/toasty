@@ -2,7 +2,8 @@ import SwiftUI
 
 /// The inspector's Activity tab: whether the selected conversation's Claude
 /// is alive and what it is doing, for long runs where the transcript alone
-/// doesn't say. Everything here is read from what Claude Code already
+/// doesn't say, and below it what the conversation has used (context,
+/// plan limits, tokens and cost). Everything here is read from what Claude Code already
 /// sends; nothing is asked of Claude.
 struct ActivityTab: View {
     @ObservedObject var conversation: ClaudeConversation
@@ -15,13 +16,14 @@ struct ActivityTab: View {
 
     var body: some View {
         if conversation.phase == .idle, conversation.backgroundTasks.isEmpty,
-           conversation.stopped == nil, lastTurn == nil {
+           conversation.stopped == nil, lastTurn == nil, !UsageSections.hasUsage(conversation) {
             InspectorEmpty(symbol: InspectorTab.activity.symbol, title: "No Activity Yet",
-                           detail: "What Claude is doing shows here while it works.")
+                           detail: "What Claude is doing, and what it has used, shows here once it starts.")
+                .onAppear { conversation.refreshContextUsage() }
         } else {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 22) {
+                    VStack(alignment: .leading, spacing: Theme.Inspector.sectionGap) {
                         StatusSection(conversation: conversation, activity: conversation.activity,
                                       lastTurn: lastTurn, now: context.date)
                         if conversation.phase == .working {
@@ -30,11 +32,15 @@ struct ActivityTab: View {
                         if !conversation.backgroundTasks.isEmpty {
                             BackgroundSection(conversation: conversation, now: context.date)
                         }
+                        UsageSections(conversation: conversation)
                     }
-                    .padding(14)
+                    .padding(.horizontal, Theme.Inspector.edge)
+                    .padding(.top, Theme.Inspector.top)
+                    .padding(.bottom, Theme.Inspector.edge)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
+            .onAppear { conversation.refreshContextUsage() }
         }
     }
 
@@ -95,14 +101,10 @@ private struct StatusSection: View {
                     }
                 }
                 if !rows.isEmpty {
-                    VStack(spacing: 6) {
+                    VStack(spacing: 0) {
                         ForEach(rows, id: \.title) { row in
-                            HStack {
-                                Text(row.title).font(.toasty(Theme.Size.meta)).foregroundStyle(.secondary)
-                                Spacer(minLength: 8)
-                                Text(row.value).font(.toasty(Theme.Size.meta)).monospacedDigit()
-                                    .foregroundStyle(row.warns ? AnyShapeStyle(Color(nsColor: .systemOrange)) : AnyShapeStyle(.primary))
-                            }
+                            InspectorRow(title: row.title, value: row.value,
+                                         valueStyle: row.warns ? AnyShapeStyle(Color(nsColor: .systemOrange)) : AnyShapeStyle(.secondary))
                         }
                     }
                 }

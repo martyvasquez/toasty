@@ -128,6 +128,18 @@ enum Theme {
         static let message: CGFloat = 14
     }
 
+    /// The inspector: the sidebar's measure, mirrored.
+    enum Inspector {
+        /// Content's margin from the column's edges (the sidebar's 13 + 7).
+        static let edge: CGFloat = 20
+        /// Content's margin under the bar: tighter than the sides.
+        static let top: CGFloat = 12
+        /// A label-and-value row (the sidebar's 24pt rhythm).
+        static let rowHeight: CGFloat = 24
+        /// Between sections.
+        static let sectionGap: CGFloat = 24
+    }
+
     // MARK: Elevation
 
     /// Surfaces that float over the page: the composer, request cards.
