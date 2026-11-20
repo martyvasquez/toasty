@@ -294,9 +294,8 @@ private struct TranscriptRows: View, Equatable {
     }
 
     private func spacing(before row: TranscriptRow, after previous: TranscriptRow) -> CGFloat {
-        if row.first?.startsTurn == true { return 34 }
-        if previous.first?.startsTurn == true { return 18 }
-        return 16
+        if row.first?.startsTurn == true { return Theme.Space.xxl }
+        return Theme.Space.l
     }
 
     private func forkAction(_ item: ClaudeItem) -> ((Bool) -> Void)? {
@@ -377,29 +376,17 @@ struct ClaudePeerMessage: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Button {
-                withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() }
-            } label: {
-                HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: Theme.Space.s) {
+            ClaudeDisclosureLine(expanded: $expanded) {
+                HStack(spacing: Theme.Space.xs + Theme.Space.xxs) {
                     Image(systemName: "bubble.left")
-                        .font(.toasty(Theme.Size.meta))
-                    Text("Message from @\(item.sender ?? "another session")")
-                        .font(.toasty(Theme.Size.control, .medium))
-                    if !expanded, !firstLine.isEmpty {
-                        Text("· " + firstLine).font(.toasty(Theme.Size.control)).lineLimit(1).truncationMode(.tail)
-                    }
-                    Image(systemName: "chevron.right")
-                        .font(.toasty(Theme.Glyph.small, .semibold))
-                        .rotationEffect(.degrees(expanded ? 90 : 0))
+                    Text("Message from @\(item.sender ?? "another session")").fontWeight(.medium)
+                    if !expanded, !firstLine.isEmpty { Text("· " + firstLine) }
                 }
-                .foregroundStyle(.secondary)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
             .help("A message from another Claude Code session")
             if expanded {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Theme.Space.s) {
                     ForEach(Array(ClaudeMarkdown.blocks(item.text, style: .init(cwd: cwd)).enumerated()), id: \.offset) { _, block in
                         switch block {
                         case .text(let s): ClaudeRichText(text: s)
@@ -409,9 +396,7 @@ struct ClaudePeerMessage: View {
                         }
                     }
                 }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: ClaudeStyle.cornerRadius, style: .continuous).fill(Color.claudeFill))
+                .claudeTranscriptCard()
             }
         }
         .accessibilityElement(children: .contain)
@@ -443,29 +428,17 @@ struct ClaudePlanRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Button {
-                withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: status.symbol)
-                        .font(.toasty(Theme.Size.meta))
-                        .foregroundStyle(status.color)
-                    Text(status.text).font(.toasty(Theme.Size.control, .medium))
-                    if !title.isEmpty {
-                        Text("· " + title).font(.toasty(Theme.Size.control)).lineLimit(1).truncationMode(.tail)
-                    }
-                    Image(systemName: "chevron.right")
-                        .font(.toasty(Theme.Glyph.small, .semibold))
-                        .rotationEffect(.degrees(expanded ? 90 : 0))
+        VStack(alignment: .leading, spacing: Theme.Space.s) {
+            ClaudeDisclosureLine(expanded: $expanded) {
+                HStack(spacing: Theme.Space.xs + Theme.Space.xxs) {
+                    Image(systemName: status.symbol).foregroundStyle(status.color)
+                    Text(status.text).fontWeight(.medium)
+                    if !title.isEmpty { Text("· " + title) }
                 }
-                .foregroundStyle(.secondary)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
             .disabled(plan.isEmpty)
             if expanded {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Theme.Space.s) {
                     ForEach(Array(ClaudeMarkdown.blocks(plan, style: .init(cwd: cwd)).enumerated()), id: \.offset) { _, block in
                         switch block {
                         case .text(let s): ClaudeRichText(text: s)
@@ -475,9 +448,7 @@ struct ClaudePlanRow: View {
                         }
                     }
                 }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: ClaudeStyle.cornerRadius, style: .continuous).fill(Color.claudeFill))
+                .claudeTranscriptCard()
             }
         }
         .accessibilityElement(children: .contain)
@@ -605,15 +576,19 @@ struct ClaudeItemView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity)
         case .error:
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            // The icon is centered on the first line (the text is an AppKit
+            // view, so SwiftUI can't align them by baseline).
+            HStack(alignment: .top, spacing: Theme.Space.s) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.toasty(Theme.Size.meta))
+                    .font(.toasty(Theme.Size.control))
                     .foregroundStyle(Color(nsColor: .systemRed))
-                ClaudeRichText(text: ClaudeMarkdown.inline(item.text, font: .systemFont(ofSize: 13), style: .init(cwd: cwd)))
+                    .frame(height: Theme.Size.control * 1.5)
+                ClaudeRichText(text: ClaudeMarkdown.inline(item.text, font: .systemFont(ofSize: Theme.Size.control), style: .init(cwd: cwd)))
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(RoundedRectangle(cornerRadius: ClaudeStyle.cornerRadius, style: .continuous)
+            .padding(.horizontal, Theme.Space.m)
+            .padding(.vertical, Theme.Space.s + Theme.Space.xxs)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                 .fill(Color(nsColor: .systemRed).opacity(0.08)))
         }
     }
@@ -643,8 +618,8 @@ struct ClaudeUserMessage: View {
                 }
                 if !item.text.isEmpty {
                     ClaudeRichText(text: Self.attributed(item.text), hugs: true)
-                        .padding(.horizontal, 15)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, Theme.Space.l)
+                        .padding(.vertical, Theme.Space.s)
                         .background(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous)
                             .fill(Theme.Fill.subtle))
                 }
@@ -779,21 +754,10 @@ struct ClaudeThinking: View {
     @State private var expanded = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Button {
-                withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() }
-            } label: {
-                HStack(spacing: 6) {
-                    Text(item.finalized ? "Thought" : "Thinking")
-                        .font(.toasty(Theme.Size.control, .medium))
-                    Image(systemName: "chevron.right")
-                        .font(.toasty(Theme.Glyph.small, .semibold))
-                        .rotationEffect(.degrees(expanded ? 90 : 0))
-                }
-                .foregroundStyle(.secondary)
-                .contentShape(Rectangle())
+        VStack(alignment: .leading, spacing: Theme.Space.s) {
+            ClaudeDisclosureLine(expanded: $expanded, running: !item.finalized) {
+                Text(item.finalized ? "Thought" : "Thinking")
             }
-            .buttonStyle(.plain)
             if expanded, !item.text.isEmpty {
                 ClaudeRichText(text: {
                     let s = NSMutableAttributedString()
@@ -804,10 +768,11 @@ struct ClaudeThinking: View {
                     s.addAttribute(.foregroundColor, value: NSColor.secondaryLabelColor, range: NSRange(location: 0, length: s.length))
                     return s
                 }())
-                .padding(.leading, 12)
+                .padding(.leading, Theme.Space.m)
                 .overlay(alignment: .leading) {
                     Rectangle().fill(Color.claudeSeparator).frame(width: 2)
                 }
+                .padding(.leading, Theme.Space.xs + 1)
             }
         }
     }

@@ -210,13 +210,12 @@ struct ClaudeToolGroup: View {
     let items: [ClaudeItem]
     let cwd: String
     @State private var expanded = false
-    @State private var hovering = false
 
     /// Every call failed or was rejected: the error lines say it all.
     private var allFailed: Bool { running == nil && items.allSatisfy { $0.resultIsError } }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Space.s) {
             if !allFailed { headlineButton }
             if expanded {
                 ClaudeToolList(items: items, cwd: cwd)
@@ -231,42 +230,18 @@ struct ClaudeToolGroup: View {
     }
 
     private var headlineButton: some View {
-            Button {
-                withAnimation(.easeOut(duration: 0.18)) { expanded.toggle() }
-            } label: {
-                HStack(spacing: 7) {
-                    ZStack {
-                        if running != nil {
-                            ProgressView().controlSize(.small).scaleEffect(0.55)
-                        } else {
-                            Image(systemName: "chevron.right")
-                                .font(.toasty(Theme.Glyph.small, .semibold))
-                                .rotationEffect(.degrees(expanded ? 90 : 0))
-                        }
-                    }
-                    .frame(width: 12, height: 12)
-                    Text(headline)
-                        .font(.toasty(Theme.Size.control))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    if let r = running, let elapsed = r.elapsed {
-                        Text(ClaudeToolInfo.duration(Int(elapsed)))
-                            .font(.toasty(Theme.Size.meta).monospacedDigit())
-                            .foregroundStyle(.tertiary)
-                    }
+        ClaudeDisclosureLine(expanded: $expanded, running: running != nil) {
+            HStack(spacing: Theme.Space.s - 1) {
+                Text(headline)
+                if let r = running, let elapsed = r.elapsed {
+                    Text(ClaudeToolInfo.duration(Int(elapsed)))
+                        .font(.toasty(Theme.Size.meta).monospacedDigit())
+                        .foregroundStyle(.tertiary)
                 }
-                .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                .padding(.horizontal, 6)
-                .frame(height: 24)
-                .background(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
-                    .fill((hovering ? Theme.Fill.hover : Color.clear)))
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .onHover { hovering = $0 }
-            .padding(.leading, -6)
-            .accessibilityLabel(headline)
-            .accessibilityHint(expanded ? "Hide details" : "Show details")
+        }
+        .accessibilityLabel(headline)
+        .accessibilityHint(expanded ? "Hide details" : "Show details")
     }
 
     /// The tool still running, if any.
@@ -337,9 +312,7 @@ struct ClaudeToolList: View {
                 ClaudeToolRow(item: item, cwd: cwd)
             }
         }
-        .background(RoundedRectangle(cornerRadius: ClaudeStyle.cornerRadius, style: .continuous).fill(Color.claudeFill))
-        .overlay(RoundedRectangle(cornerRadius: ClaudeStyle.cornerRadius, style: .continuous)
-            .strokeBorder(Theme.Stroke.border))
+        .claudeTranscriptCard(padding: 0)
     }
 }
 
@@ -490,7 +463,7 @@ struct ClaudeDiffView: View {
 
     private func attributed(_ lines: [(Character, String)]) -> NSAttributedString {
         let s = NSMutableAttributedString()
-        let font = NSFont.monospacedSystemFont(ofSize: 11.5, weight: .regular)
+        let font = NSFont.monospacedSystemFont(ofSize: Theme.Size.meta, weight: .regular)
         let para = NSMutableParagraphStyle()
         para.firstLineHeadIndent = 8
         para.headIndent = 22
@@ -544,10 +517,12 @@ struct ClaudeCodeBlock: View {
             ClaudeRichText(
                 text: ClaudeSyntax.highlight(
                     code, language: language,
-                    font: .monospacedSystemFont(ofSize: compact ? 12 : ClaudeTypography.codeSize, weight: .regular)),
+                    font: .monospacedSystemFont(ofSize: compact ? Theme.Size.meta : ClaudeTypography.codeSize, weight: .regular)),
                 insets: NSSize(width: compact ? 11 : ClaudeTypography.codeBlockPadding, height: compact ? 7 : 10))
-                .background(RoundedRectangle(cornerRadius: compact ? 7 : 8, style: .continuous)
-                    .fill(Color(nsColor: ClaudeTypography.codeBackground)))
+                .background(RoundedRectangle(cornerRadius: compact ? Theme.Radius.row : Theme.Radius.card, style: .continuous)
+                    .fill(Theme.Fill.faint))
+                .overlay(RoundedRectangle(cornerRadius: compact ? Theme.Radius.row : Theme.Radius.card, style: .continuous)
+                    .strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
                 .overlay(alignment: .topTrailing) {
                     if hovering { controls.padding(6).transition(.opacity) }
                 }
@@ -601,8 +576,8 @@ struct ClaudeTableBlock: View {
 
     var body: some View {
         ClaudeRichText(text: text)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
-                .strokeBorder(Color(nsColor: ClaudeTypography.tableBorder), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                .strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
     }
 }

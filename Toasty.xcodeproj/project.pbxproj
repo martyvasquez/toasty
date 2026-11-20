@@ -58,6 +58,7 @@
 		74ACC74A36424EC519A104A8 /* TeeUpTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D661119D726B8E0E3DD6411 /* TeeUpTab.swift */; };
 		74AD96205B972C48FB67E2B3 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A784151685B16B9E4F4EC6E /* SettingsWindow.swift */; };
 		78A6CA1B4CA929C128407E33 /* WorkspaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */; };
+		7AE223DDAF7373582139DE08 /* ClaudeDisclosure.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1501768BBE5EBFFAFD293A51 /* ClaudeDisclosure.swift */; };
 		810F05E5628D52043ACA62B8 /* KeyboardShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = A97DF3CFA988D518C8A2490B /* KeyboardShortcuts.swift */; };
 		8564E49059338213553F5F29 /* DictationDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 662BABDF0CE9D1BACB40CDDF /* DictationDebug.swift */; };
 		88B35CC67C795C3CAA432EA4 /* DictationSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 044EC2205DB30FAFEDB1F70B /* DictationSettings.swift */; };
@@ -140,6 +141,7 @@
 		07E44FEF143B34DDB7720C70 /* Vocabulary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Vocabulary.swift; sourceTree = "<group>"; };
 		080B0B6B44543BB4052752BD /* ContextVocabulary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextVocabulary.swift; sourceTree = "<group>"; };
 		0A1AC4F2009B67034788F88E /* ConversationColumn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationColumn.swift; sourceTree = "<group>"; };
+		1501768BBE5EBFFAFD293A51 /* ClaudeDisclosure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeDisclosure.swift; sourceTree = "<group>"; };
 		19CED90B88C38C1A6B695B76 /* PreviewDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewDebug.swift; sourceTree = "<group>"; };
 		1A5B8F16A6E5B2987A97AD1D /* ClaudeTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTypography.swift; sourceTree = "<group>"; };
 		1A784151685B16B9E4F4EC6E /* SettingsWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindow.swift; sourceTree = "<group>"; };
@@ -351,6 +353,7 @@
 				6E376E9D81389D2BAC3DC077 /* ClaudeAgent.swift */,
 				3A3D72521ECFC5F5DC717828 /* ClaudeConversation.swift */,
 				AEF18C42EDAF14F5AFAD03EE /* ClaudeConversationView.swift */,
+				1501768BBE5EBFFAFD293A51 /* ClaudeDisclosure.swift */,
 				DFFBD1A7316E98A070F3E2BE /* ClaudeMarkdown.swift */,
 				9CCEEDDC3B6D5A771D67C9DC /* ClaudeRequestCard.swift */,
 				A282903B9056A87BE022B22A /* ClaudeSDK.swift */,
@@ -663,6 +666,7 @@
 				B614E0D5DFBFC6A1EC6A58EB /* ClaudeConversation.swift in Sources */,
 				8905A680FA47042672972DFD /* ClaudeConversationView.swift in Sources */,
 				32C56AFA5E5541CBCFF3CF0D /* ClaudeDebug.swift in Sources */,
+				7AE223DDAF7373582139DE08 /* ClaudeDisclosure.swift in Sources */,
 				2E201587160057E35BDB263E /* ClaudeMarkdown.swift in Sources */,
 				6132779EEA82B2C34C56CDE9 /* ClaudeRequestCard.swift in Sources */,
 				EC9B61A31E4A0580C639F983 /* ClaudeSDK.swift in Sources */,

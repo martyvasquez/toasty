@@ -438,7 +438,7 @@ final class ComposerTextView: NSTextView {
         let attrs: [NSAttributedString.Key: Any] = [
             .font: font, .foregroundColor: NSColor.placeholderTextColor, .paragraphStyle: style,
         ]
-        let keyFont = NSFont.systemFont(ofSize: 10.5, weight: .medium)
+        let keyFont = NSFont.systemFont(ofSize: Theme.Size.caption, weight: .medium)
         let keyAttrs: [NSAttributedString.Key: Any] = [.font: keyFont, .foregroundColor: NSColor.tertiaryLabelColor]
         let key = "tab" as NSString
         let keySize = key.size(withAttributes: keyAttrs)

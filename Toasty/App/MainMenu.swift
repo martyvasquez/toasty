@@ -168,7 +168,7 @@ final class AboutPanel: NSObject {
 
     @objc func show(_ sender: Any?) {
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor,
+            .font: NSFont.systemFont(ofSize: Theme.Size.caption), .foregroundColor: NSColor.secondaryLabelColor,
             .paragraphStyle: { let p = NSMutableParagraphStyle(); p.alignment = .center; return p }(),
         ]
         let credits = NSMutableAttributedString(

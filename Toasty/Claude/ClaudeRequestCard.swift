@@ -10,14 +10,14 @@ struct ClaudeRequestCard: View {
     let request: ClaudePermissionRequest
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Theme.Space.m) {
             switch request.toolName {
             case "AskUserQuestion": ClaudeQuestionForm(conversation: conversation, request: request)
             case "ExitPlanMode": ClaudePlanApproval(conversation: conversation, request: request)
             default: ClaudePermissionPrompt(conversation: conversation, request: request)
             }
         }
-        .padding(16)
+        .padding(Theme.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous).fill(Color.claudeField))
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous).strokeBorder(Color.orange.opacity(0.45), lineWidth: 1))
@@ -49,11 +49,11 @@ struct ClaudePermissionPrompt: View {
     private var input: [String: Any] { request.input }
 
     var body: some View {
-        HStack(spacing: 7) {
+        HStack(spacing: Theme.Space.s) {
             Image(systemName: ClaudeToolInfo.icon(request.toolName)).foregroundStyle(Color.orange)
             Text(request.title ?? "Allow Claude to use \(ClaudeToolInfo.displayName(request.toolName))?")
-                .font(.toasty(Theme.Size.control, .semibold))
         }
+        .font(.toasty(Theme.Size.body, .semibold))
         if let d = request.description ?? (input["description"] as? String), !d.isEmpty,
            d != ClaudeToolInfo.summary(request.toolName, input, cwd: conversation.cwd),
            d != (input["file_path"] as? String) {
@@ -64,25 +64,26 @@ struct ClaudePermissionPrompt: View {
             Text(reason).font(.toasty(Theme.Size.caption)).foregroundStyle(.tertiary)
         }
 
-        HStack(spacing: 8) {
-            Button("Allow") { allow() }
-                .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.return, modifiers: .command)
-                .help("⌘⏎")
+        FeedbackField(placeholder: "Or tell Claude what to do instead, then ⏎", text: $feedback) {
+            let text = feedback.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { return }
+            conversation.respond(to: request, ["behavior": "deny", "message": text, "interrupt": false])
+        }
+
+        // Mac order: the default button last, Cancel's counterpart before it.
+        HStack(spacing: Theme.Space.s) {
             if !request.suggestions.isEmpty {
                 Button(alwaysLabel) { allow(always: true) }
             }
             Spacer()
             Button("Deny") { deny() }
                 .help("esc")
+            Button("Allow") { allow() }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.return, modifiers: .command)
+                .help("⌘⏎")
         }
         .controlSize(.regular)
-
-        FeedbackField(placeholder: "Or tell Claude what to do instead, then ⏎", text: $feedback) {
-            let text = feedback.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !text.isEmpty else { return }
-            conversation.respond(to: request, ["behavior": "deny", "message": text, "interrupt": false])
-        }
     }
 
     @ViewBuilder private var preview: some View {
@@ -158,16 +159,16 @@ struct ClaudeQuestionForm: View {
 
     var body: some View {
         ForEach(Array(questions.enumerated()), id: \.offset) { qi, q in
-            VStack(alignment: .leading, spacing: 7) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: Theme.Space.s) {
+                HStack(spacing: Theme.Space.s) {
                     if let header = q["header"] as? String, !header.isEmpty {
                         Text(header.uppercased())
                             .font(.toasty(Theme.Size.caption, .semibold))
-                            .padding(.horizontal, 5).padding(.vertical, 2)
+                            .padding(.horizontal, Theme.Space.xs + 1).padding(.vertical, Theme.Space.xxs)
                             .background(Color.orange.opacity(0.18), in: Capsule())
                     }
                     Text(q["question"] as? String ?? "")
-                        .font(.toasty(Theme.Size.control, .semibold))
+                        .font(.toasty(Theme.Size.body, .semibold))
                         .textSelection(.enabled)
                 }
                 let multi = q["multiSelect"] as? Bool ?? false
@@ -177,7 +178,7 @@ struct ClaudeQuestionForm: View {
                     Button {
                         toggle(qi, label, multi: multi)
                     } label: {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        HStack(alignment: .firstTextBaseline, spacing: Theme.Space.s) {
                             Image(systemName: multi ? (isOn ? "checkmark.square.fill" : "square")
                                                     : (isOn ? "largecircle.fill.circle" : "circle"))
                                 .foregroundStyle(isOn ? Color.accentColor : .secondary)
@@ -190,9 +191,9 @@ struct ClaudeQuestionForm: View {
                             }
                             Spacer(minLength: 0)
                         }
-                        .padding(.vertical, 5).padding(.horizontal, 8)
+                        .padding(.vertical, Theme.Space.xs + Theme.Space.xxs).padding(.horizontal, Theme.Space.s)
                         .background(isOn ? Color.accentColor.opacity(0.10) : Theme.Fill.faint,
-                                    in: RoundedRectangle(cornerRadius: Theme.Radius.small))
+                                    in: RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous))
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -203,15 +204,15 @@ struct ClaudeQuestionForm: View {
                     .onSubmit { if complete { submit() } }
             }
         }
-        HStack {
-            Button("Submit") { submit() }
-                .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.return, modifiers: .command)
-                .disabled(!complete)
+        HStack(spacing: Theme.Space.s) {
             Spacer()
             Button("Skip") {
                 conversation.respond(to: request, ["behavior": "deny", "message": "The user declined to answer.", "interrupt": true])
             }
+            Button("Submit") { submit() }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.return, modifiers: .command)
+                .disabled(!complete)
         }
     }
 
@@ -258,12 +259,13 @@ struct ClaudePlanApproval: View {
     @State private var feedback = ""
 
     var body: some View {
-        HStack(spacing: 7) {
+        HStack(spacing: Theme.Space.s) {
             Image(systemName: "list.bullet.clipboard").foregroundStyle(Color.orange)
-            Text("Ready to code? Here is Claude's plan:").font(.toasty(Theme.Size.control, .semibold))
+            Text("Ready to code? Here is Claude's plan:")
         }
+        .font(.toasty(Theme.Size.body, .semibold))
         HuggingScrollView(maxHeight: 320) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: Theme.Space.s) {
                 ForEach(Array(ClaudeMarkdown.blocks(request.input["plan"] as? String ?? "", style: .init(cwd: conversation.cwd)).enumerated()), id: \.offset) { _, block in
                     switch block {
                     case .text(let s): ClaudeRichText(text: s)
@@ -274,20 +276,11 @@ struct ClaudePlanApproval: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(10)
+            .padding(Theme.Space.m)
         }
-        .background(Theme.Fill.faint, in: RoundedRectangle(cornerRadius: Theme.Radius.row))
+        .background(Theme.Fill.faint, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
 
-        HStack(spacing: 8) {
-            if conversation.autoModeAvailable {
-                Button("Yes, Auto Mode") { approve("auto") }
-            }
-            Button("Yes, Auto-Accept Edits") { approve("acceptEdits") }
-                .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.return, modifiers: .command)
-            Button("Yes, Approve Edits Manually") { approve("default") }
-            Spacer()
-        }
         FeedbackField(placeholder: "No, keep planning: tell Claude what to change, then ⏎", text: $feedback) {
             let text = feedback.trimmingCharacters(in: .whitespacesAndNewlines)
             conversation.respond(to: request, [
@@ -295,6 +288,18 @@ struct ClaudePlanApproval: View {
                 "message": text.isEmpty ? "The user wants to keep planning." : text,
                 "interrupt": false,
             ])
+        }
+
+        // Mac order: the default button last.
+        HStack(spacing: Theme.Space.s) {
+            Spacer()
+            Button("Yes, Approve Edits Manually") { approve("default") }
+            if conversation.autoModeAvailable {
+                Button("Yes, Auto Mode") { approve("auto") }
+            }
+            Button("Yes, Auto-Accept Edits") { approve("acceptEdits") }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.return, modifiers: .command)
         }
     }
 
