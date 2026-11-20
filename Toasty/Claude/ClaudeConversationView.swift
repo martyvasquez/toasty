@@ -1108,7 +1108,7 @@ struct ClaudeComposerBox: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if !conversation.attachments.isEmpty || !conversation.files.isEmpty {
-                attachments.padding(.horizontal, 14).padding(.top, 12)
+                attachments.padding(.horizontal, Self.inset - Theme.Space.xxs).padding(.top, Theme.Space.m)
             }
             ClaudeComposer(
                 text: $conversation.draft,
@@ -1138,11 +1138,12 @@ struct ClaudeComposerBox: View {
                 onAcceptSuggestion: { conversation.acceptSuggestion() })
                 .frame(height: height)
                 .padding(.horizontal, Self.inset)
-                .padding(.top, 13)
+                .padding(.top, Theme.Space.m + 1)
 
             // One quiet row: attach and mode on the left, model and send on
-            // the right. Text-only controls; only send carries color.
-            HStack(spacing: 2) {
+            // the right. Gray controls; only send carries the accent (a
+            // risky mode is red, a live remote session green).
+            HStack(spacing: Theme.Space.xxs) {
                 ComposerIconButton(symbol: "plus", help: "Attach Files…", label: "Attach Files", action: attach)
                 ClaudeModeMenu(conversation: conversation)
                 Spacer(minLength: 8)
@@ -1151,18 +1152,19 @@ struct ClaudeComposerBox: View {
                 }
                 ClaudeModelMenu(conversation: conversation)
                 DictationMicButton(conversation: conversation.id)
-                sendButton.padding(.leading, 4)
+                sendButton.padding(.leading, Theme.Space.xs)
             }
+            // The + icon's glyph lines up with the text above it.
             .padding(.leading, Self.inset - 7)
-            .padding(.trailing, 9)
-            .padding(.top, 4)
-            .padding(.bottom, 9)
+            .padding(.trailing, Theme.Space.s)
+            .padding(.top, Theme.Space.xs)
+            .padding(.bottom, Theme.Space.s)
         }
         .background(RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
             .fill(Color.claudeField))
         .overlay(RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
             .strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
+        .raisedShadow()
         .contentShape(Rectangle())
         .onTapGesture { conversation.focusComposer() }
         // The slash command menu floats just above the box.
@@ -1429,9 +1431,9 @@ struct ClaudeModeMenu: View {
         }) { hovering in
             ClaudeChip(icon: current?.icon ?? "hand.raised",
                        title: Self.shortLabel(conversation.permissionMode),
-                       tint: conversation.permissionMode == "default" ? nil
-                           : conversation.permissionMode == "bypassPermissions" ? .red
-                           : conversation.permissionMode == "plan" ? .teal : .accentColor,
+                       // Only the risky mode is colored; the others say
+                       // themselves in words.
+                       tint: conversation.permissionMode == "bypassPermissions" ? .red : nil,
                        hovering: hovering)
         }
         .help("Permission mode (⇧⇥ to cycle)")
@@ -1735,15 +1737,15 @@ struct ClaudeChip: View {
     var hovering = false
 
     var body: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: Theme.Space.xs + 1) {
             if let icon {
-                Image(systemName: icon).font(.toasty(Theme.Size.caption, .medium))
+                Image(systemName: icon).font(.toasty(Theme.Size.meta, .medium))
             }
             if !title.isEmpty { Text(title).font(.toasty(Theme.Size.control, .medium)) }
             Image(systemName: "chevron.down").font(.toasty(Theme.Glyph.small, .semibold)).opacity(0.6)
         }
         .foregroundStyle(tint.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.secondary))
-        .padding(.horizontal, 8)
+        .padding(.horizontal, Theme.Space.s)
         .frame(height: 28)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
             .fill((hovering ? Theme.Fill.hover : Color.clear)))

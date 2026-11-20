@@ -71,6 +71,16 @@ enum Theme {
         static let large: CGFloat = 18
     }
 
+    // MARK: Elevation
+
+    /// Surfaces that float over the page: the composer, request cards.
+    /// One shadow, so they read as the same layer.
+    enum Elevation {
+        static let raisedColor = Color.black.opacity(0.10)
+        static let raisedRadius: CGFloat = 8
+        static let raisedY: CGFloat = 3
+    }
+
     // MARK: Space
 
     /// Spacing steps; use these for padding and gaps.
@@ -98,6 +108,13 @@ enum Theme {
         static let iconGap: CGFloat = 8
         /// Space above a heading (groups are set apart by space).
         static let headingSpaceAbove: CGFloat = 16
+    }
+}
+
+extension View {
+    /// The shadow of a surface floating over the page (`Theme.Elevation`).
+    func raisedShadow() -> some View {
+        shadow(color: Theme.Elevation.raisedColor, radius: Theme.Elevation.raisedRadius, y: Theme.Elevation.raisedY)
     }
 }
 

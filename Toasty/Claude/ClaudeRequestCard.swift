@@ -21,7 +21,7 @@ struct ClaudeRequestCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous).fill(Color.claudeField))
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous).strokeBorder(Color.orange.opacity(0.45), lineWidth: 1))
-        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
+        .raisedShadow()
     }
 }
 
