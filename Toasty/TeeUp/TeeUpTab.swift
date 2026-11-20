@@ -26,14 +26,14 @@ struct TeeUpTab: View {
     var body: some View {
         VStack(spacing: 0) {
             if workspace.teeUps.isEmpty {
+                controls
+                    .padding(.horizontal, Theme.Todo.inset)
+                    .padding(.top, Theme.Todo.openWiden)
                 InspectorEmpty(symbol: InspectorTab.teeUp.symbol, title: "Nothing Teed Up",
                                detail: "Write prompts ahead of time, then send each one to the open tab when you're ready.")
                     .background(DoubleClick { newAtEnd() })
             } else {
                 list
-            }
-            if let feed = workspace.teeUpFeed {
-                TeeUpFeedStatus(workspace: workspace, feed: feed).transition(.opacity)
             }
         }
         // Files dropped anywhere on the tab go on the open prompt, or
@@ -93,8 +93,11 @@ struct TeeUpTab: View {
                     // A click anywhere that isn't on a row (the list's empty
                     // space, the rest of the window) clears the selection.
                     .background { if selection != nil { ClickOutside { selection = nil } } }
-                    .background(AnchorView(anchor: rowsAnchor))
+                    // New Prompt and Auto-Send, always just under the last
+                    // prompt (as Things' "+ New List" and its button).
+                    controls
                 }
+                .background(AnchorView(anchor: rowsAnchor))
                 .padding(.horizontal, Theme.Todo.inset)
                 .padding(.bottom, Theme.Todo.inset)
                 // Room for an open first row's card to grow into.
@@ -157,6 +160,21 @@ struct TeeUpTab: View {
             // A sent or deleted prompt takes its selection with it.
             .onChange(of: workspace.teeUps.map(\.id)) { _, ids in
                 if let s = selection, !ids.contains(s) { selection = nil }
+            }
+        }
+    }
+
+    /// "+ New Prompt" and Auto-Send's buttons, then what Auto-Send is
+    /// doing while it runs.
+    private var controls: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            TeeUpControls(workspace: workspace) { newAtEnd() }
+            if let feed = workspace.teeUpFeed {
+                // On the titles' line, under "New Prompt".
+                TeeUpFeedStatus(workspace: workspace, feed: feed)
+                    .padding(.leading, Theme.Todo.rowLeading + Theme.Todo.box + Theme.Todo.boxGap - Theme.Inspector.edge)
+                    .padding(.top, -Theme.Space.xs)
+                    .transition(.opacity)
             }
         }
     }
@@ -493,6 +511,7 @@ private struct TeeUpCard: View {
                 TeeUpIconButton(symbol: item.isHeld ? "play" : "pause",
                                 help: item.isHeld ? "Include in Auto-Send" : "Hold Back from Auto-Send",
                                 action: hold)
+                TeeUpIconButton(symbol: "trash", help: "Delete", action: delete)
             }
             .padding(.top, Theme.Space.m)
             .padding(.trailing, Theme.Todo.actionTrailing - TeeUpStyle.textTrailing)
@@ -682,8 +701,7 @@ private struct ClickOutside: NSViewRepresentable {
             guard window != nil else { return }
             monitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
                 if let self, let window = self.window, event.window === window,
-                   !self.convert(self.bounds, to: nil).contains(event.locationInWindow),
-                   !KeepsTeeUpOpen.contains(event.locationInWindow, in: window) {
+                   !self.convert(self.bounds, to: nil).contains(event.locationInWindow) {
                     // After the click has gone where it was aimed: closing
                     // first would move things from under the pointer.
                     DispatchQueue.main.async { self.action() }
@@ -702,86 +720,76 @@ private struct ClickOutside: NSViewRepresentable {
     }
 }
 
-/// The Tee-Up tab's buttons in the inspector's footer, at its right end
-/// (as New Heading in the sidebar's): New Prompt and Auto-Send; while
-/// Auto-Send runs, Pause (or Resume) and Stop in Auto-Send's place.
-struct TeeUpBarButtons: View {
+/// Under the last prompt: the list's next, unwritten row (as Things' gray
+/// "New To-Do"). A plus in the boxes' column, "New Prompt" on the titles'
+/// line in placeholder gray, and Auto-Send's button at the row's end where
+/// the rows' marks are (Pause or Resume, and Stop, while it runs). Same
+/// height and edges as a prompt, so it reads as part of the list.
+private struct TeeUpControls: View {
     @ObservedObject var workspace: Workspace
+    let newPrompt: () -> Void
+    @State private var hovering = false
 
     var body: some View {
-        HStack(spacing: 0) {
-            if let id = workspace.teeUpEditingID {
-                // As Things' toolbar while a to-do is open: the open
-                // prompt's actions in place of the list's.
-                openActions(id)
-            } else {
-                listActions
-            }
-        }
-        // Clicking these doesn't close the open prompt they act on.
-        .background(KeepsTeeUpOpen())
-    }
-
-    @ViewBuilder private func openActions(_ id: UUID) -> some View {
-        let item = workspace.teeUps.first { $0.id == id }
-        button("arrow.up", Tooltip(title: "Send", detail: workspace.selected.map { "To “\($0.title)”." } ?? "Open a tab to send this prompt to.")) {
-            _ = workspace.sendTeeUp(id)
-        }
-        .disabled(workspace.selected == nil || item?.isEmpty != false)
-        button("trash", Tooltip(title: "Delete", detail: "Delete this prompt.")) { workspace.removeTeeUp(id) }
-        button("ellipsis", Tooltip(title: "More")) { more(id) }
-    }
-
-    /// The open prompt's other actions, in a menu under the pointer.
-    private func more(_ id: UUID) {
-        guard let i = workspace.teeUps.firstIndex(where: { $0.id == id }) else { return }
-        let item = workspace.teeUps[i]
-        let menu = NSMenu()
-        menu.addItem(ActionMenuItem("Move Up", enabled: i > 0) { workspace.moveTeeUp(id, to: i - 1) })
-        menu.addItem(ActionMenuItem("Move Down", enabled: i < workspace.teeUps.count - 1) { workspace.moveTeeUp(id, to: i + 1) })
-        menu.addItem(.separator())
-        let hold = ActionMenuItem("Hold Back from Auto-Send") { workspace.setTeeUpHeld(id, !item.isHeld) }
-        hold.state = item.isHeld ? .on : .off
-        menu.addItem(hold)
-        menu.addItem(ActionMenuItem("Attach Files…") {
-            let panel = NSOpenPanel()
-            panel.allowsMultipleSelection = true
-            panel.canChooseDirectories = false
-            panel.begin { if $0 == .OK { workspace.attachToTeeUp(panel.urls) } }
-        })
-        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
-    }
-
-    @ViewBuilder private var listActions: some View {
-            button("plus", Tooltip(title: "New Prompt", shortcut: "⌃⌘\(InspectorTab.teeUp.shortcut)",
-                                   detail: "Write a prompt to send later.")) { workspace.newTeeUp() }
-            if let feed = workspace.teeUpFeed {
-                if feed.paused != nil {
-                    button("play", Tooltip(title: "Resume", detail: "Carry on sending to “\(tab)”.")) { workspace.resumeTeeUpFeed() }
-                        .disabled(workspace.nextTeeUpToFeed == nil)
-                } else {
-                    button("pause", Tooltip(title: "Pause",
-                                            detail: "Send nothing more to “\(tab)” until you resume. Claude finishes what it has.")) {
-                        workspace.pauseTeeUpFeed()
-                    }
+        HStack(spacing: Theme.Todo.boxGap) {
+            Button(action: newPrompt) {
+                HStack(spacing: Theme.Todo.boxGap) {
+                    Image(systemName: "plus")
+                        .font(.toasty(Theme.Size.control, .medium))
+                        .frame(width: Theme.Todo.box, height: Theme.Todo.box)
+                    Text("New Prompt")
+                        .font(.toasty(Theme.Size.body))
                 }
-                button("stop", Tooltip(title: "Stop Auto-Send", detail: "The prompts that are left stay teed up.")) {
-                    workspace.stopTeeUpFeed()
-                }
-            } else {
-                button("play", Tooltip(title: "Auto-Send", detail: startHelp)) { workspace.requestTeeUpFeed() }
-                    .disabled(!canStart)
+                // Brightens to full ink on hover, as "+ New Workspace" and
+                // "+ New Terminal" do.
+                .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(Theme.Todo.placeholder))
+                // The app's bar-button capsule on hover, around the plus and
+                // the words (its padding hangs outside the row's edges, so
+                // the plus stays in the boxes' column).
+                .padding(.horizontal, Self.capsulePadding)
+                .frame(height: Theme.Control.height)
+                .contentShape(Capsule())
             }
+            .buttonStyle(BarButtonStyle(hovering: hovering))
+            .padding(.leading, -Self.capsulePadding)
+            .onHover { hovering = $0 }
+            .animation(.easeOut(duration: 0.12), value: hovering)
+            .tooltip(Tooltip(title: "New Prompt", shortcut: "⌃⌘\(InspectorTab.teeUp.shortcut)",
+                             detail: "Or press Space under a selected prompt, or double-click below the list."))
+            Spacer(minLength: Theme.Space.s)
+            HStack(spacing: 0) { feedButtons }
+                // The last glyph ends where the rows' marks do.
+                .padding(.trailing, -(Self.slot - Theme.Size.body) / 2)
+        }
+        .padding(.leading, Theme.Todo.rowLeading)
+        .padding(.trailing, Theme.Todo.rowTrailing)
+        .frame(height: Theme.Todo.rowHeight)
     }
 
-    /// The capsule's width: callers shift the buttons by its margin so the
-    /// last glyph, not its capsule, ends on their edge.
-    static let width: CGFloat = 32
-    static var margin: CGFloat { (width - Theme.Sidebar.iconSize) / 2 }
+    @ViewBuilder private var feedButtons: some View {
+        if let feed = workspace.teeUpFeed {
+            if feed.paused != nil {
+                button("play.fill", "Resume", "Carry on sending to “\(tab)”.") { workspace.resumeTeeUpFeed() }
+                    .disabled(workspace.nextTeeUpToFeed == nil)
+            } else {
+                button("pause.fill", "Pause", "Send nothing more to “\(tab)” until you resume. Claude finishes what it has.") {
+                    workspace.pauseTeeUpFeed()
+                }
+            }
+            button("stop.fill", "Stop Auto-Send", "The prompts that are left stay teed up.") { workspace.stopTeeUpFeed() }
+        } else {
+            button("play.fill", "Auto-Send", startHelp) { workspace.requestTeeUpFeed() }
+                .disabled(!canStart)
+        }
+    }
 
-    private func button(_ symbol: String, _ tooltip: Tooltip, action: @escaping () -> Void) -> some View {
-        BarIconButton(symbol: symbol, tooltip: tooltip, glyphSize: Theme.Size.body,
-                      size: CGSize(width: Self.width, height: Theme.Control.height), action: action)
+    /// A button's slot: the glyph centered in it (its hover capsule).
+    static let slot: CGFloat = 28
+    /// "New Prompt"'s capsule, past the plus and the words.
+    static let capsulePadding: CGFloat = 6
+
+    private func button(_ symbol: String, _ title: String, _ detail: String, action: @escaping () -> Void) -> some View {
+        TeeUpRowButton(symbol: symbol, tooltip: Tooltip(title: title, detail: detail), action: action)
     }
 
     private var tab: String { workspace.teeUpFeedTab?.title ?? "" }
@@ -837,6 +845,34 @@ private struct TeeUpFeedStatus: View {
         .padding(.horizontal, Theme.Inspector.edge)
         .padding(.vertical, Theme.Space.s)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// A button at a row's end: a small glyph in the rows' mark gray, full ink
+/// and the bar capsule under the pointer (as the footers' buttons), dimmer
+/// when it can't.
+private struct TeeUpRowButton: View {
+    let symbol: String
+    let tooltip: Tooltip
+    let action: () -> Void
+    @State private var hovering = false
+    @Environment(\.isEnabled) private var enabled
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.toasty(Theme.Size.meta, .medium))
+                .foregroundStyle(!enabled ? AnyShapeStyle(.quaternary)
+                                 : hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(Theme.Todo.mark))
+                .frame(width: TeeUpControls.slot, height: Theme.Control.height - 4)
+                .contentShape(Capsule())
+        }
+        // The app's bar-button capsule on hover, filled while pressed.
+        .buttonStyle(BarButtonStyle(hovering: hovering && enabled))
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .tooltip(tooltip)
+        .accessibilityLabel(tooltip.title)
     }
 }
 
@@ -1052,50 +1088,6 @@ struct ReorderLayout {
         if to <= i, i < from { return step }
         return 0
     }
-}
-
-/// Marks a region (the footer's buttons for the open prompt) where a click
-/// doesn't count as a click outside the open prompt.
-private struct KeepsTeeUpOpen: NSViewRepresentable {
-    @MainActor private static var regions: [WeakView] = []
-
-    private struct WeakView { weak var view: NSView? }
-
-    func makeNSView(context: Context) -> NSView {
-        let v = Region()
-        Self.regions.removeAll { $0.view == nil }
-        Self.regions.append(WeakView(view: v))
-        return v
-    }
-
-    func updateNSView(_ view: NSView, context: Context) {}
-
-    @MainActor static func contains(_ point: NSPoint, in window: NSWindow) -> Bool {
-        regions.contains { r in
-            guard let v = r.view, v.window === window, !v.isHiddenOrHasHiddenAncestor else { return false }
-            return v.convert(v.bounds, to: nil).contains(point)
-        }
-    }
-
-    private final class Region: NSView {
-        override func hitTest(_ point: NSPoint) -> NSView? { nil }
-    }
-}
-
-/// A menu item that runs a closure (the item keeps its target alive).
-@MainActor private func ActionMenuItem(_ title: String, enabled: Bool = true, handler: @escaping () -> Void) -> NSMenuItem {
-    let target = MenuAction(handler)
-    let item = NSMenuItem(title: title, action: enabled ? #selector(MenuAction.run) : nil, keyEquivalent: "")
-    item.target = target
-    item.representedObject = target
-    item.isEnabled = enabled
-    return item
-}
-
-private final class MenuAction: NSObject {
-    let handler: () -> Void
-    init(_ handler: @escaping () -> Void) { self.handler = handler }
-    @objc func run() { handler() }
 }
 
 /// A view's place in its window, for probes that need to know where it is

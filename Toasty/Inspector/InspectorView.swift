@@ -32,47 +32,37 @@ private struct InspectorWorkspace: View {
             case .activity:
                 if let c = workspace.selected { ActivityTab(conversation: c).id(c.id) } else { NoConversation(detail: "Open a tab to see what Claude is doing.") }
             }
-            if !workspace.terminalVisible || workspace.inspectorTab == .teeUp {
+            if !workspace.terminalVisible {
                 InspectorFooter(workspace: workspace)
             }
         }
     }
 }
 
-/// Under the inspector, laid out as the sidebar's footer: Terminal at the
-/// left while the terminal is hidden (one click brings it back, like
-/// Xcode's debug area button), and the tab's own buttons at the right.
+/// Under the inspector while the terminal is hidden, laid out as the
+/// sidebar's footer: "+ New Terminal" at the left.
 private struct InspectorFooter: View {
     @ObservedObject var workspace: Workspace
 
-    // The label's glyph on the inspector's 20pt edge; the last icon's
-    // glyph ends on it on the right (new terminals are the strip's +).
+    // The label's glyph on the inspector's 20pt edge.
     var body: some View {
         VStack(spacing: 0) {
-            // A bar of its own only at the column's foot: over the
-            // terminal, the buttons end the list instead (the split's line
-            // is under them).
-            if !workspace.terminalVisible {
-                Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1)
-            }
+            Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1)
             HStack(spacing: 0) {
-                if !workspace.terminalVisible { terminalButton }
+                terminalButton
                 Spacer(minLength: 0)
-                if workspace.inspectorTab == .teeUp {
-                    TeeUpBarButtons(workspace: workspace)
-                        .padding(.trailing, Theme.Inspector.edge - TeeUpBarButtons.margin)
-                }
             }
             .frame(height: Theme.Sidebar.footerHeight)
         }
     }
 
+    // "+ New Terminal", as "+ New Prompt" and "+ New Workspace": it opens
+    // a new terminal and shows them (⌃⌘T shows the ones there are).
     private var terminalButton: some View {
-        BarLabelButton(symbol: "terminal", title: "Terminal",
-                       tooltip: Tooltip(title: "Show Terminal", shortcut: "⌃⌘T",
-                                        detail: "A shell in this workspace's folder, under the inspector.")) {
-            workspace.showTerminal()
-            DispatchQueue.main.async { AppDelegate.shared.windowController?.focusTerminal() }
+        BarLabelButton(symbol: "plus", title: "New Terminal",
+                       tooltip: Tooltip(title: "New Terminal", shortcut: "⌥⌘T",
+                                        detail: "A shell in this workspace's folder, under the inspector. ⌃⌘T shows the terminals you have.")) {
+            AppDelegate.shared.windowController?.newTerminal(nil)
         }
         .padding(.leading, Theme.Inspector.edge - BarLabelButton.padding)
     }
@@ -87,6 +77,7 @@ private struct NoConversation: View {
 }
 
 // MARK: - Shared pieces
+
 
 /// A centered message for an empty tab.
 struct InspectorEmpty: View {
@@ -199,6 +190,19 @@ private struct ChangesTab: View {
     @ObservedObject var changes: GitChanges
 
     var body: some View {
+        content
+        // Keep it current while it's on screen: git status is cheap and
+        // takes no locks. Also right after each turn (ClaudeConversation).
+        .task(id: workspace.folder) {
+            changes.refresh()
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(3))
+                if NSApp.isActive { changes.refresh() }
+            }
+        }
+    }
+
+    @ViewBuilder private var content: some View {
         Group {
             switch changes.state {
             case .loading:
@@ -210,15 +214,6 @@ private struct ChangesTab: View {
                 InspectorEmpty(symbol: "exclamationmark.triangle", title: "Couldn't Read Git Status", detail: error)
             case .loaded:
                 loaded
-            }
-        }
-        // Keep it current while it's on screen: git status is cheap and
-        // takes no locks. Also right after each turn (ClaudeConversation).
-        .task(id: workspace.folder) {
-            changes.refresh()
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(3))
-                if NSApp.isActive { changes.refresh() }
             }
         }
     }
