@@ -86,7 +86,7 @@ struct PreviewToolbar: View {
     @FocusState private var addressFocused: Bool
 
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: Theme.Space.xxs) {
             PreviewDrawerControls(workspace: workspace)
             PreviewIconButton(symbol: session.isLoading ? "xmark" : "arrow.clockwise",
                               help: session.isLoading ? "Stop" : "Reload") {
@@ -102,10 +102,10 @@ struct PreviewToolbar: View {
                     session.open(session.address)
                     addressFocused = false
                 }
-                .padding(.horizontal, 8)
-                .frame(height: 24)
-                .background(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous).fill(Theme.Fill.subtle))
-                .padding(.horizontal, 4)
+                .padding(.horizontal, Theme.Space.m)
+                .frame(height: TabStyle.height)
+                .background(Capsule().fill(Theme.Fill.subtle))
+                .padding(.horizontal, Theme.Space.xs)
                 .accessibilityLabel("Address")
 
             ForEach(PreviewViewport.allCases) { viewport in
@@ -121,9 +121,9 @@ struct PreviewToolbar: View {
                 settings.desktopBeside.toggle()
             }
             .disabled(session.viewport != .desktop)
-            PreviewIconButton(symbol: session.commenting ? "plus.bubble.fill" : "plus.bubble",
+            PreviewIconButton(symbol: "plus.bubble",
                               help: session.commenting ? "Done Commenting (⇧⌘C or esc)" : "Comment on the Page (⇧⌘C)",
-                              tint: session.commenting ? .accentColor : nil) {
+                              selected: session.commenting) {
                 session.setCommenting(!session.commenting)
             }
             .disabled(session.url == nil || session.failure != nil)
@@ -132,7 +132,7 @@ struct PreviewToolbar: View {
             }
             .disabled(session.url == nil)
         }
-        .padding(.horizontal, 6)
+        .padding(.leading, TitlebarRow.edge - 6)
     }
 }
 
@@ -144,7 +144,9 @@ private enum PreviewBrowser {
     }
 }
 
-/// A toolbar button like the inspector's and the terminal strip's.
+/// A toolbar button in the header's style (`BarButtonStyle`): a hairline
+/// capsule on hover, filled when selected; its help as a tooltip, with a
+/// trailing "(shortcut)" in the tooltip's shortcut place.
 struct PreviewIconButton: View {
     let symbol: String
     let help: String
@@ -154,21 +156,25 @@ struct PreviewIconButton: View {
     @State private var hovering = false
     @Environment(\.isEnabled) private var enabled
 
+    private var tooltip: Tooltip {
+        guard help.hasSuffix(")"), let open = help.range(of: " (", options: .backwards) else { return Tooltip(title: help) }
+        return Tooltip(title: String(help[..<open.lowerBound]),
+                       shortcut: String(help[open.upperBound..<help.index(before: help.endIndex)]))
+    }
+
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.toasty(Theme.Size.meta, selected ? .semibold : .regular))
+                .font(.toasty(Theme.Size.control, .medium))
                 .foregroundStyle(tint.map(AnyShapeStyle.init)
                     ?? (selected || hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary)))
-                .frame(width: 26, height: 24)
-                .background(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
-                    .fill(selected ? Theme.Fill.selected : hovering && enabled ? Theme.Fill.hover : Color.clear))
-                .contentShape(Rectangle())
+                .frame(width: 30, height: TabStyle.height)
+                .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BarButtonStyle(hovering: hovering && enabled, active: selected))
         .opacity(enabled ? 1 : 0.35)
         .onHover { hovering = $0 }
-        .help(help)
+        .tooltip(tooltip)
         .accessibilityLabel(help)
         .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
