@@ -327,9 +327,6 @@ enum Theme {
         /// An idle workspace's dot in the status column (`StatusDot`, one
         /// size for every status): this faint.
         static let restDot = Color.primary.opacity(0.22)
-        /// A row's ⌘-number slot at its end (always kept, so status marks
-        /// before it line up).
-        static let shortcutWidth: CGFloat = 20
         /// From the window's top to the list's first row (Things: the first
         /// row's middle 47pt below the window buttons', at 72.5).
         static let listTop: CGFloat = 60

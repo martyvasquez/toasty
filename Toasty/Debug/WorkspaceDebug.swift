@@ -84,6 +84,8 @@ enum WorkspaceDebug {
                 else { store.renamingID = try target() }
             case "remove": store.removeHeading(try target())
             case "picker": store.stylingID = cmd["close"] as? Bool == true ? nil : try target()
+            case "dropTarget":  // as a workspace dragged over the heading's row ("off": true clears it)
+                store.dropHeadingID = cmd["off"] as? Bool == true ? nil : try target()
             case "style":  // {"icon":"star.fill","color":"yellow"}
                 store.setHeadingStyle(icon: cmd["icon"] as? String,
                                       color: (cmd["color"] as? String).flatMap(HeadingColor.init(rawValue:)),

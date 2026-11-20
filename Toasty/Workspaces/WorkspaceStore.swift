@@ -105,6 +105,9 @@ final class WorkspaceStore: ObservableObject {
     @Published var stylingID: UUID?
     /// The workspace or heading being dragged in the sidebar.
     @Published var draggingID: UUID?
+    /// The heading a dragged workspace is over: dropped there, it goes
+    /// under that heading (the heading is highlighted meanwhile).
+    @Published var dropHeadingID: UUID?
     /// Worktrees being created (placeholder rows in the sidebar).
     @Published var pendingWorktrees: [PendingWorktree] = []
     var windowFrame: NSRect?

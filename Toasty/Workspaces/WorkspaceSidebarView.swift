@@ -5,6 +5,22 @@ import UniformTypeIdentifiers
 /// native sidebar material and runs under the window buttons).
 struct WorkspaceSidebarView: View {
     @ObservedObject var store: WorkspaceStore
+    /// The row under the pointer (a heading or a workspace): its heading
+    /// shows its menu button, so the sidebar is plain at rest and a group
+    /// answers when you're in it.
+    @State private var hoveredRow: UUID?
+
+    /// The heading whose group the pointer is in.
+    private var hoveredHeading: UUID? {
+        guard let id = hoveredRow else { return nil }
+        if store.isHeading(id) { return id }
+        guard let w = store.workspaces.first(where: { $0.id == id }) else { return nil }
+        return (w.parent ?? w).headingID
+    }
+
+    private func hover(_ id: UUID, _ inside: Bool) {
+        if inside { hoveredRow = id } else if hoveredRow == id { hoveredRow = nil }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -14,7 +30,9 @@ struct WorkspaceSidebarView: View {
                         switch item {
                         case .heading(let id):
                             if let heading = store.headings.first(where: { $0.id == id }) {
-                                HeadingRow(heading: heading, store: store, first: item == store.items.first)
+                                HeadingRow(heading: heading, store: store, first: item == store.items.first,
+                                           inGroup: hoveredHeading == id)
+                                    .onHover { hover(id, $0) }
                                     .opacity(store.draggingID == id ? 0.35 : 1)
                                     .onDrag { drag(id) }
                                     .onDrop(of: [.toastyWorkspace], delegate: WorkspaceDropDelegate(target: id, store: store))
@@ -23,6 +41,7 @@ struct WorkspaceSidebarView: View {
                             // The workspace, then its worktrees.
                             ForEach(store.workspaces.filter { $0.id == id || $0.parentID == id }) { w in
                                 WorkspaceRow(workspace: w, store: store)
+                                    .onHover { hover(w.id, $0) }
                                     .opacity(dimmed(w) ? 0.35 : 1)
                                     // A worktree moves among its siblings; a
                                     // workspace moves with its worktrees.
@@ -81,7 +100,12 @@ struct WorkspaceSidebarView: View {
     private static func endDragWhenReleased(_ store: WorkspaceStore) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             guard store.draggingID != nil else { return }
-            if NSEvent.pressedMouseButtons & 1 == 0 { store.draggingID = nil } else { endDragWhenReleased(store) }
+            if NSEvent.pressedMouseButtons & 1 == 0 {
+                store.draggingID = nil
+                store.dropHeadingID = nil
+            } else {
+                endDragWhenReleased(store)
+            }
         }
     }
 
@@ -130,6 +154,10 @@ private struct HeadingRow: View {
     @ObservedObject var store: WorkspaceStore
     /// The sidebar's first row (no space above).
     let first: Bool
+    /// The pointer is over this heading or a workspace under it: its menu
+    /// button shows.
+    var inGroup = false
+    @State private var menuOpen = false
 
     @State private var draft = ""
     @FocusState private var fieldFocused: Bool
@@ -143,33 +171,66 @@ private struct HeadingRow: View {
         // a hairline on its bottom edge that starts a little left of the
         // title, as Things' project headings.
         VStack(alignment: .leading, spacing: 0) {
-        HStack(spacing: Theme.Sidebar.iconGap) {
+        HStack(spacing: Theme.Space.xs) {
             // Its icon in its color (Things' sidebar), then its name in the
-            // rows' ink, bold.
-            Image(systemName: heading.icon ?? HeadingStyle.defaultIcon)
-                .font(.toasty(Theme.Sidebar.iconSize, .medium))
-                .foregroundStyle(Theme.heading(heading.color))
-                .frame(width: Theme.Sidebar.iconWidth)
-        Group {
-                if isRenaming {
-                    TextField("Heading", text: $draft)
-                        .textFieldStyle(.plain)
-                        .focused($fieldFocused)
-                        .onSubmit(commit)
-                        .onExitCommand { store.renamingID = nil }
-                        .onAppear {
-                            draft = heading.name
-                            DispatchQueue.main.async { fieldFocused = true }
-                        }
-                        .onChange(of: fieldFocused) { _, focused in if !focused && isRenaming { commit() } }
-                } else {
-                    Text(heading.name)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+            // rows' ink, bold. Headings are labels, never selected (one
+            // highlight in the sidebar: the workspace you're in); a
+            // double-click here renames. (Not over the menu button: a
+            // double-click gesture there would hold its clicks back.)
+            HStack(spacing: Theme.Sidebar.iconGap) {
+                // On the drop target's blue, its icon takes the title's ink:
+                // its own color would clash with the highlight.
+                Image(systemName: heading.icon ?? HeadingStyle.defaultIcon)
+                    .font(.toasty(Theme.Sidebar.iconSize, .medium))
+                    .foregroundStyle(store.dropHeadingID == heading.id ? Theme.Sidebar.titleColor : Theme.heading(heading.color))
+                    .frame(width: Theme.Sidebar.iconWidth)
+                Group {
+                    if isRenaming {
+                        TextField("Heading", text: $draft)
+                            .textFieldStyle(.plain)
+                            .focused($fieldFocused)
+                            .onSubmit(commit)
+                            .onExitCommand { store.renamingID = nil }
+                            .onAppear {
+                                draft = heading.name
+                                DispatchQueue.main.async { fieldFocused = true }
+                            }
+                            .onChange(of: fieldFocused) { _, focused in if !focused && isRenaming { commit() } }
+                    } else {
+                        Text(heading.name)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
                 }
+                .font(.toasty(Theme.Size.body, .semibold))  // Things' area titles: 600
+                .foregroundStyle(Theme.Sidebar.titleColor)
             }
-        .font(.toasty(Theme.Size.body, .semibold))  // Things' area titles: 600
-        .foregroundStyle(Theme.Sidebar.titleColor)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) { store.renamingID = heading.id }
+
+            if !isRenaming {
+                // Its menu, at the row's right edge (as Things' headings'
+                // "•••", quieter), while the pointer is in its group (or
+                // its menu is open): the sidebar is plain at rest.
+                let shown = inGroup || menuOpen
+                ClaudePopUp(items: menuItems, onOpenChange: { menuOpen = $0 }) { hovering in
+                    // As the app's bar buttons: full ink and a hairline
+                    // capsule under the pointer.
+                    Image(systemName: "ellipsis")
+                        .font(.toasty(Theme.Size.meta, .semibold))
+                        .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(Theme.Sidebar.branchMark))
+                        .frame(width: Self.menuWidth, height: 20)
+                        .overlay(Capsule().strokeBorder(hovering ? Theme.Stroke.hover : Color.clear, lineWidth: 1))
+                        .contentShape(Capsule())
+                }
+                // The dots, not their capsule, end on the rows' right edge.
+                .padding(.trailing, -(Self.menuWidth - 14) / 2)
+                .tooltip("Heading Options")
+                .opacity(shown ? 1 : 0)
+                .allowsHitTesting(shown)
+                .animation(.easeOut(duration: 0.12), value: shown)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: Theme.Sidebar.rowHeight)
@@ -186,10 +247,11 @@ private struct HeadingRow: View {
         }
         .padding(.top, first ? 0 : Theme.Sidebar.headingSpaceAbove)
         .padding(.bottom, Theme.Sidebar.headingRule ? Theme.Space.xs : 0)
+        // A workspace dragged over it: lit in blue, the drop's target.
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+            .fill(store.dropHeadingID == heading.id ? Theme.Todo.selection : Color.clear)
+            .padding(.top, first ? 0 : Theme.Sidebar.headingSpaceAbove))
         .contentShape(Rectangle())
-        // Headings are labels, never selected (one highlight in the
-        // sidebar: the workspace you're in); double-click renames.
-        .onTapGesture(count: 2) { store.renamingID = heading.id }
         .popover(isPresented: Binding(get: { store.stylingID == heading.id },
                                       set: { if !$0, store.stylingID == heading.id { store.stylingID = nil } }),
                  arrowEdge: .trailing) {
@@ -208,6 +270,24 @@ private struct HeadingRow: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
+    }
+
+    /// The menu button's capsule (the dots are about 14 wide in it).
+    private static var menuWidth: CGFloat { 28 }
+
+    /// The heading's menu (its "•••"; the same things as its context menu).
+    private var menuItems: [PopoverMenu.Item] {
+        [
+            .init(title: "Rename", symbol: "pencil") { store.renamingID = heading.id },
+            .init(title: "Icon & Color…", symbol: "paintpalette") { store.stylingID = heading.id },
+            .init(title: "Move Up", symbol: "arrow.up", enabled: store.canMoveHeading(heading.id, by: -1)) {
+                store.moveHeading(heading.id, by: -1)
+            },
+            .init(title: "Move Down", symbol: "arrow.down", enabled: store.canMoveHeading(heading.id, by: 1)) {
+                store.moveHeading(heading.id, by: 1)
+            },
+            .init(title: "Remove Heading", symbol: "trash") { store.removeHeading(heading.id) },
+        ]
     }
 
     private func commit() {
@@ -299,36 +379,33 @@ private struct WorkspaceRow: View {
                         .truncationMode(.tail)
                 }
                 Spacer(minLength: 0)
-                // The row's status at its end: how long Claude has worked,
-                // then its mark (spinner, or a dot), then its ⌘-number.
+                // The row's end: a worktree's status mark, then one slot on
+                // the row's right edge for how long Claude has worked (once
+                // it's a minute) or the row's ⌘-number. Both end on the same
+                // edge; with both, the time comes first.
+                if !statusLeads { statusMark }
+                let number = activity.number(for: workspace)
                 if working && !waiting {
-                    // How long Claude has been at it, once it's a minute.
                     TimelineView(.periodic(from: .now, by: 30)) { context in
                         if let minutes = workingMinutes(now: context.date), minutes > 0 {
                             Text(Self.duration(minutes))
                                 .font(.toasty(Theme.Size.caption, .medium))
                                 .foregroundStyle(.tertiary)
                                 .monospacedDigit()
+                                .fixedSize()
                         }
                     }
                 }
                 // Its ⌘-number while it has something for you (⌘1 is the
                 // first such row from the top); it takes you to the tab.
-                if !statusLeads { statusMark }
-                // The number's slot is kept on every row, so status marks
-                // line up in one column whether or not a row has a number.
-                Group {
-                    if let number = activity.number(for: workspace) {
-                        Text("⌘\(number)")
-                            .font(.toasty(Theme.Size.caption, .medium))
-                            .foregroundStyle(.tertiary)
-                            .monospacedDigit()
-                            .accessibilityHidden(true)
-                    } else {
-                        Color.clear  // an empty frame would collapse
-                    }
+                if let number {
+                    Text("⌘\(number)")
+                        .font(.toasty(Theme.Size.caption, .medium))
+                        .foregroundStyle(.tertiary)
+                        .monospacedDigit()
+                        .fixedSize()
+                        .accessibilityHidden(true)
                 }
-                .frame(width: Theme.Sidebar.shortcutWidth, height: 14, alignment: .trailing)
             }
         }
         .frame(height: Theme.Sidebar.rowHeight)
@@ -476,8 +553,20 @@ private struct WorkspaceDropDelegate: DropDelegate {
     let target: UUID?
     let store: WorkspaceStore
 
+    /// A workspace (not a heading, not a worktree) dragged onto a heading's
+    /// row: the heading is the target. It lights up, nothing shuffles, and
+    /// a drop files the workspace under it.
+    private var nesting: Bool {
+        guard let dragging = store.draggingID, let target else { return false }
+        return store.isHeading(target) && !store.isHeading(dragging) && !store.isWorktree(dragging)
+    }
+
     func dropEntered(info: DropInfo) {
         guard let dragging = store.draggingID else { return }
+        if nesting {
+            store.dropHeadingID = target
+            return
+        }
         if let target {
             if store.isHeading(dragging) { store.moveHeading(dragging, to: target) }
             else if store.isWorktree(dragging) { store.moveWorktree(dragging, to: target) }
@@ -489,10 +578,18 @@ private struct WorkspaceDropDelegate: DropDelegate {
         }
     }
 
+    func dropExited(info: DropInfo) {
+        if store.dropHeadingID == target { store.dropHeadingID = nil }
+    }
+
     func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
     func validateDrop(info: DropInfo) -> Bool { store.draggingID != nil }
 
     func performDrop(info: DropInfo) -> Bool {
+        if nesting, let dragging = store.draggingID, let target {
+            store.move(dragging, toHeading: target)
+        }
+        store.dropHeadingID = nil
         store.draggingID = nil
         return true
     }

@@ -244,7 +244,7 @@ private struct PopoverMenuView: View {
                             .foregroundStyle(highlighted ? AnyShapeStyle(.primary) : AnyShapeStyle(Theme.headingBlue))
                     } else if let symbol = item.symbol {
                         Image(systemName: symbol).font(.toasty(Theme.Size.control))
-                            .foregroundStyle(Theme.headingBlue)
+                            .foregroundStyle(item.enabled ? AnyShapeStyle(Theme.headingBlue) : AnyShapeStyle(.tertiary))
                     } else {
                         Color.clear
                     }

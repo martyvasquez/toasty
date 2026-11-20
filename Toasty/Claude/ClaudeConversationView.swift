@@ -946,7 +946,7 @@ struct ClaudeBackgroundLine: View {
     var body: some View {
         let tasks = conversation.backgroundTasks
         ClaudePopUp(items: tasks.map { task in
-            ClaudePopUp.Item(title: "Stop “\(Self.short(task.description))”", symbol: "stop.circle") {
+            PopoverMenu.Item(title: "Stop “\(Self.short(task.description))”", symbol: "stop.circle") {
                 conversation.stopTask(task.id)
             }
         }) { hovering in
@@ -1640,10 +1640,10 @@ struct ClaudeRemoteControlMenu: View {
 
     static let symbol = "iphone.radiowaves.left.and.right"
 
-    private var items: [ClaudePopUp<ClaudeChip>.Item] {
+    private var items: [PopoverMenu.Item] {
         switch conversation.remoteControl {
         case .on(let url):
-            var list: [ClaudePopUp<ClaudeChip>.Item] = [
+            var list: [PopoverMenu.Item] = [
                 .init(title: "Remote Control Is On", subtitle: "Continue this session from claude.ai or the Claude app",
                       symbol: Self.symbol, enabled: false) {},
             ]
@@ -1688,19 +1688,14 @@ struct ClaudeRemoteControlMenu: View {
     }
 }
 
-/// A custom-drawn control that opens a native menu below itself
+/// A custom-drawn control that opens Toasty's own menu over itself
 /// (SwiftUI's Menu flattens custom labels on macOS).
 struct ClaudePopUp<Label: View>: View {
-    struct Item {
-        var title: String
-        var subtitle: String = ""
-        var symbol: String?
-        var checked = false
-        var enabled = true
-        var action: () -> Void
-    }
+    typealias Item = PopoverMenu.Item
 
     let items: [Item]
+    /// Told when its menu opens and closes.
+    var onOpenChange: (Bool) -> Void = { _ in }
     @ViewBuilder let label: (_ hovering: Bool) -> Label
     @State private var hovering = false
     @State private var menuOpen = false
@@ -1724,10 +1719,11 @@ struct ClaudePopUp<Label: View>: View {
         guard let view = anchor.view else { return }
         if menuOpen { PopoverMenu.shared.close(); return }
         menuOpen = true
-        PopoverMenu.shared.show(items.map {
-            PopoverMenu.Item(title: $0.title, subtitle: $0.subtitle, symbol: $0.symbol,
-                             checked: $0.checked, enabled: $0.enabled, action: $0.action)
-        }, from: view) { menuOpen = false }
+        onOpenChange(true)
+        PopoverMenu.shared.show(items, from: view) {
+            menuOpen = false
+            onOpenChange(false)
+        }
     }
 
     /// Where the menu opens from (the AppKit view behind the button).
