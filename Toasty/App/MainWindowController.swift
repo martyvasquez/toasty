@@ -155,10 +155,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         // hidden: the tabs start about 20pt after them (as Safari's).
         let inset: CGFloat = minX < 60 ? 86 - minX : 0
         if layout.leadingInset != inset { layout.leadingInset = inset }
-        if let handleLeading, abs(handleLeading.constant - minX) > 0.25 { handleLeading.constant = minX }
+        // The handles start clear of the column dividers' grab areas, so a
+        // drag or double-click on a divider reaches it.
+        let clear = SidebarHandle.dividerClearance
+        if let handleLeading, abs(handleLeading.constant - (minX + clear)) > 0.25 { handleLeading.constant = minX + clear }
         handleHost?.isHidden = PreviewDrawer.shared.hidesConversation
         if let content = window?.contentView, let inspectorHandleTrailing {
-            let offset = split.contentMaxX.map { $0 - content.bounds.width } ?? 0
+            let offset = (split.contentMaxX.map { $0 - content.bounds.width } ?? 0) - clear
             if abs(inspectorHandleTrailing.constant - offset) > 0.25 { inspectorHandleTrailing.constant = offset }
         }
         inspectorHandleHost?.isHidden = PreviewDrawer.shared.hidesConversation

@@ -17,10 +17,11 @@ final class MainSplitViewController: NSSplitViewController {
     /// Column frames changed (the titlebar row follows them).
     var onLayout: (() -> Void)?
 
-    /// The workspaces sidebar is one width, always: nothing resizes it, not
-    /// the user (its edge can't be dragged) and not the columns beside it
-    /// (the user, 2026-11-10: "It should be the same size no matter what").
-    static let sidebarWidth: CGFloat = 250
+    /// The workspaces sidebar's default width. The user can drag its edge
+    /// (the width is kept, `WorkspaceStore.sidebarWidth`) and double-click
+    /// it to come back to this; nothing else resizes it (not the columns
+    /// beside it, not the window).
+    static var sidebarWidth: CGFloat { WorkspaceStore.defaultSidebarWidth }
     static let minConversation: CGFloat = 440
     static let minTerminal: CGFloat = 280
 
@@ -57,10 +58,13 @@ final class MainSplitViewController: NSSplitViewController {
         let sidebar = NSHostingController(rootView: WorkspaceSidebarView(store: store))
         sidebar.sizingOptions = []
         sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebar)
-        sidebarItem.minimumThickness = Self.sidebarWidth
-        sidebarItem.maximumThickness = Self.sidebarWidth
+        sidebarItem.minimumThickness = WorkspaceStore.sidebarWidthRange.lowerBound
+        sidebarItem.maximumThickness = WorkspaceStore.sidebarWidthRange.upperBound
         sidebarItem.canCollapse = true
         sidebarItem.isCollapsed = !store.sidebarVisible
+        // Its width is the user's: the window and the other columns don't
+        // take from it (only a drag on its edge changes it).
+        sidebarItem.holdingPriority = .init(260)
 
         let content = ConversationColumnController(store: store)
         contentItem = NSSplitViewItem(viewController: content)
@@ -76,6 +80,8 @@ final class MainSplitViewController: NSSplitViewController {
         addSplitViewItem(sidebarItem)
         addSplitViewItem(contentItem)
         addSplitViewItem(terminalItem)
+        // Double-clicking a column's edge puts it back to its default width.
+        (splitView as? HairlineSplitView)?.onDoubleClickDivider = { [weak self] i in self?.resetColumn(atDivider: i) }
         // While the window resizes beside the preview it's the right column
         // that changes width, and `splitViewDidResizeSubviews` arrives before
         // its frame is set: the titlebar row would sit over the old width.
@@ -145,7 +151,7 @@ final class MainSplitViewController: NSSplitViewController {
     /// split view bring them back at another.
     func applySidebarWidth() {
         guard isViewLoaded, !sidebarItem.isCollapsed, !sidebarAnimating, view.window?.inLiveResize != true else { return }
-        let w = Self.sidebarWidth
+        let w = store.sidebarWidth
         guard abs(sidebarItem.viewController.view.frame.width - w) > 0.5 else { return }
         let was = applying
         applying = true
@@ -287,6 +293,14 @@ final class MainSplitViewController: NSSplitViewController {
                 PreviewSettings.shared.phoneColumnWidth = width
             }
         }
+        // The user dragged the sidebar's edge: remember its width.
+        if !sidebarAnimating, !drawerMode, !sidebarItem.isCollapsed, draggingDivider(0) {
+            let width = sidebarItem.viewController.view.frame.width
+            if abs(width - store.sidebarWidth) > 0.5, WorkspaceStore.sidebarWidthRange.contains(width) {
+                store.sidebarWidth = width
+                store.setNeedsSave()
+            }
+        }
         // The user collapsed the sidebar by dragging it closed.
         let sidebarShown = !sidebarItem.isCollapsed
         if !sidebarAnimating, !drawerMode, sidebarShown != store.sidebarVisible {
@@ -333,15 +347,65 @@ final class MainSplitViewController: NSSplitViewController {
 final class HairlineSplitView: NSSplitView {
     override var dividerThickness: CGFloat { 0.5 }
     override var dividerColor: NSColor { .separatorColor }
+
+    /// A double-click on a divider (its index): the column goes back to its
+    /// default width.
+    var onDoubleClickDivider: ((Int) -> Void)?
+
+    override func mouseDown(with event: NSEvent) {
+        if event.clickCount == 2, let onDoubleClickDivider {
+            let x = convert(event.locationInWindow, from: nil).x
+            // The divider nearest the click (clicks reach the split view
+            // itself only on a divider's grab area).
+            let edges = arrangedSubviews.dropLast().enumerated().filter { !isSubviewCollapsed($0.element) }
+                .map { ($0.offset, abs($0.element.frame.maxX - x)) }
+            if let nearest = edges.min(by: { $0.1 < $1.1 }), nearest.1 < 12 {
+                onDoubleClickDivider(nearest.0)
+                return
+            }
+        }
+        super.mouseDown(with: event)
+    }
 }
 
 extension MainSplitViewController {
     override func splitView(_ splitView: NSSplitView, effectiveRect proposedEffectiveRect: NSRect,
                             forDrawnRect drawnRect: NSRect, ofDividerAt dividerIndex: Int) -> NSRect {
-        // The sidebar's edge isn't a handle: its width is fixed.
-        if dividerIndex == 0 { return .zero }
         let r = super.splitView(splitView, effectiveRect: proposedEffectiveRect, forDrawnRect: drawnRect, ofDividerAt: dividerIndex)
         return r.insetBy(dx: -4, dy: 0)
+    }
+
+    /// A double-click on a column's edge: it goes back to its default width
+    /// (the convention for resizable sidebars).
+    func resetColumn(atDivider index: Int) {
+        guard let w = store.active else { return }
+        if index == 0 {
+            store.sidebarWidth = WorkspaceStore.defaultSidebarWidth
+            store.setNeedsSave()
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.2
+                ctx.allowsImplicitAnimation = true
+                applySidebarWidth()
+            }
+        } else if index == 1, !w.previewShowing {
+            store.rightColumnWidth = WorkspaceStore.defaultRightColumnWidth
+            store.setNeedsSave()
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.2
+                ctx.allowsImplicitAnimation = true
+                applyColumn()
+            }
+        }
+    }
+
+    /// The mouse is down on the divider at `index` (the user dragging it,
+    /// not the window being resized).
+    func draggingDivider(_ index: Int) -> Bool {
+        guard NSEvent.pressedMouseButtons & 1 != 0, view.window?.inLiveResize != true,
+              let window = view.window, splitView.arrangedSubviews.indices.contains(index) else { return false }
+        let edge = splitView.arrangedSubviews[index].frame.maxX
+        let x = splitView.convert(window.mouseLocationOutsideOfEventStream, from: nil).x
+        return abs(x - edge) < 12
     }
 }
 

@@ -1,5 +1,12 @@
 import SwiftUI
 
+extension SidebarHandle {
+    /// The handles' strips start this far from a column's divider, leaving
+    /// its grab area (4pt either side) to the divider; the pill is drawn
+    /// this much nearer the edge, so it stays where it was.
+    static let dividerClearance: CGFloat = 5
+}
+
 /// The sidebar's handle, as Things': a small pill just inside the
 /// conversation's left edge that appears when the pointer comes near and
 /// hides or shows the workspaces when clicked. With the sidebar hidden it
@@ -57,7 +64,7 @@ private struct EdgeHandle: View {
                     .fill(Theme.Sidebar.handle)
                     .frame(width: 8, height: 38)
                     .tooltipAnchor(pill)
-                    .padding(edge == .leading ? .leading : .trailing, 7.5)
+                    .padding(edge == .leading ? .leading : .trailing, 7.5 - SidebarHandle.dividerClearance)
                     .opacity(hovering ? 1 : 0)
             }
             .contentShape(Rectangle())

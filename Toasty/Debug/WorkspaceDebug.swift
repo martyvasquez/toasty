@@ -458,7 +458,7 @@ enum WorkspaceDebug {
         return [
             "active": store.workspaces.firstIndex { $0.id == store.activeID } ?? -1,
             "sidebarVisible": store.sidebarVisible,
-            "sidebarWidth": "\(Int(MainSplitViewController.sidebarWidth)) fixed, \(Int(AppDelegate.shared.windowController?.split.sidebarItem.viewController.view.frame.width ?? -1)) shown",
+            "sidebarWidth": "\(Int(store.sidebarWidth)) saved, \(Int(AppDelegate.shared.windowController?.split.sidebarItem.viewController.view.frame.width ?? -1)) shown",
             "renaming": store.renamingID.flatMap { id in store.workspaces.firstIndex { $0.id == id } } ?? -1,
             "windowTitle": wc?.window?.title ?? "",
             "windowFrame": wc?.window.map { NSStringFromRect($0.frame) } ?? "",

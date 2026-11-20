@@ -76,10 +76,15 @@ final class WorkspaceStore: ObservableObject {
     @Published private(set) var headings: [WorkspaceHeading] = []
     @Published private(set) var activeID: UUID?
     @Published var sidebarVisible = true
-    /// Width of the workspaces sidebar (kept when the user drags it).
+    /// Width of the workspaces sidebar (kept when the user drags its edge;
+    /// a double-click there puts it back to the default).
+    var sidebarWidth: CGFloat = WorkspaceStore.defaultSidebarWidth
+    static let defaultSidebarWidth: CGFloat = 250
+    static let sidebarWidthRange: ClosedRange<CGFloat> = 200...400
     /// Width of the right column and the inspector's share of its height:
     /// the same for every workspace, so switching never resizes anything.
-    var rightColumnWidth: CGFloat = 400
+    var rightColumnWidth: CGFloat = WorkspaceStore.defaultRightColumnWidth
+    static let defaultRightColumnWidth: CGFloat = 400
     var inspectorFraction: CGFloat = 0.55
     /// The workspace or heading whose name is being edited in the sidebar.
     @Published var renamingID: UUID?
@@ -102,6 +107,7 @@ final class WorkspaceStore: ObservableObject {
         var workspaces: [Workspace.Saved]
         var activeWorkspace: UUID?
         var sidebarVisible: Bool
+        var sidebarWidth: Double?
         var rightColumnWidth: Double?
         var inspectorFraction: Double?
         var windowFrame: String?
@@ -138,6 +144,8 @@ final class WorkspaceStore: ObservableObject {
             activeID = s.activeWorkspace.flatMap { id in workspaces.contains { $0.id == id } ? id : nil }
                 ?? workspaces.first?.id
             sidebarVisible = s.sidebarVisible
+            sidebarWidth = min(max(CGFloat(s.sidebarWidth ?? Double(Self.defaultSidebarWidth)),
+                                   Self.sidebarWidthRange.lowerBound), Self.sidebarWidthRange.upperBound)
             // Older state kept these per workspace: start from the active one's.
             let activeSaved = s.workspaces.first { $0.id == activeID } ?? s.workspaces.first
             rightColumnWidth = CGFloat(s.rightColumnWidth ?? activeSaved?.terminalWidth ?? Double(rightColumnWidth))
@@ -169,6 +177,7 @@ final class WorkspaceStore: ObservableObject {
     func save() {
         let s = Saved(workspaces: workspaces.map(\.saved), activeWorkspace: activeID,
                       sidebarVisible: sidebarVisible,
+                      sidebarWidth: Double(sidebarWidth),
                       rightColumnWidth: Double(rightColumnWidth),
                       inspectorFraction: Double(inspectorFraction),
                       windowFrame: windowFrame.map(NSStringFromRect),
