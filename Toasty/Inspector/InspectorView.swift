@@ -24,6 +24,7 @@ private struct InspectorWorkspace: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            InspectorPanelHeading(title: workspace.inspectorTab.title)
             switch workspace.inspectorTab {
             case .changes:
                 ChangesTab(workspace: workspace, changes: workspace.changes)
@@ -133,6 +134,30 @@ struct InspectorSection<Content: View, Accessory: View>: View {
     }
 }
 
+/// The open panel's name over a rule, at the top of the panel: the
+/// workspace sidebar's headings (body semibold in heading blue, a 24pt
+/// row, the rule a little wider than the text on both sides).
+struct InspectorPanelHeading: View {
+    let title: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title)
+                .font(.toasty(Theme.Size.body, .semibold))
+                .foregroundStyle(Theme.headingBlue)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: Theme.Sidebar.rowHeight)
+            Rectangle().fill(Theme.Stroke.rule).frame(height: 1).padding(.horizontal, -3)
+        }
+        .padding(.horizontal, Theme.Inspector.edge)
+        // No margin of its own above: the titlebar's extra height already
+        // sets it ~16pt under the tabs; each panel's content then starts
+        // ~14pt under the rule.
+        .accessibilityAddTraits(.isHeader)
+    }
+}
+
 /// A label and its value on one 24pt row.
 struct InspectorRow: View {
     let title: String
@@ -222,7 +247,7 @@ private struct ChangesTab: View {
         VStack(spacing: 0) {
             BranchHeader(changes: changes, workspace: workspace)
                 .padding(.horizontal, Theme.Inspector.edge)
-                .padding(.top, Theme.Inspector.top)
+                .padding(.top, Theme.Space.s + Theme.Space.xxs)
                 .padding(.bottom, Theme.Space.m)
             Rectangle().fill(Color.claudeSeparator).frame(height: 0.5)
             if changes.files.isEmpty {

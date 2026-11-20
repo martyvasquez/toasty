@@ -35,7 +35,7 @@ struct ActivityTab: View {
                         UsageSections(conversation: conversation)
                     }
                     .padding(.horizontal, Theme.Inspector.edge)
-                    .padding(.top, Theme.Inspector.top)
+                    .padding(.top, Theme.Space.s)
                     .padding(.bottom, Theme.Inspector.edge)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
