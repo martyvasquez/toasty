@@ -9,9 +9,6 @@ struct WorkspaceSidebarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Workspaces")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
                 Spacer()
                 Button { store.createWithFolderPicker() } label: {
                     Image(systemName: "plus")
@@ -25,25 +22,31 @@ struct WorkspaceSidebarView: View {
                 .accessibilityLabel("New Workspace")
             }
             .padding(.horizontal, 12)
-            .padding(.top, 10)
-            .padding(.bottom, 6)
+            .padding(.top, 2)
+            .padding(.bottom, 2)
 
             ScrollView {
                 VStack(spacing: 2) {
-                    ForEach(Array(store.workspaces.enumerated()), id: \.element.id) { i, w in
-                        WorkspaceRow(workspace: w, store: store)
-                            .opacity(store.draggingID.map { $0 == w.id || $0 == w.parentID } == true ? 0.35 : 1)
-                            .onDrag {
-                                // A worktree drags its parent (they move together).
-                                let id = w.parentID ?? w.id
-                                store.draggingID = id
-                                return NSItemProvider(item: id.uuidString.data(using: .utf8) as NSData?,
-                                                      typeIdentifier: UTType.toastyWorkspace.identifier)
+                    ForEach(store.items, id: \.self) { item in
+                        switch item {
+                        case .heading(let id):
+                            if let heading = store.headings.first(where: { $0.id == id }) {
+                                HeadingRow(heading: heading, store: store, first: item == store.items.first)
+                                    .opacity(store.draggingID == id ? 0.35 : 1)
+                                    .onDrag { drag(id) }
+                                    .onDrop(of: [.toastyWorkspace], delegate: WorkspaceDropDelegate(target: id, store: store))
                             }
-                            .onDrop(of: [.toastyWorkspace], delegate: WorkspaceDropDelegate(target: w.id, store: store))
-                        // Worktrees being created, after the last of the group.
-                        if !store.pendingWorktrees.isEmpty, isLastOfGroup(i) {
-                            ForEach(store.pendingWorktrees.filter { $0.parentID == (w.parentID ?? w.id) }) { p in
+                        case .workspace(let id):
+                            // The workspace, then its worktrees.
+                            ForEach(store.workspaces.filter { $0.id == id || $0.parentID == id }) { w in
+                                WorkspaceRow(workspace: w, store: store)
+                                    .opacity(dimmed(w) ? 0.35 : 1)
+                                    // A worktree drags its parent (they move together).
+                                    .onDrag { drag(id) }
+                                    .onDrop(of: [.toastyWorkspace], delegate: WorkspaceDropDelegate(target: w.id, store: store))
+                            }
+                            // Worktrees being created.
+                            ForEach(store.pendingWorktrees.filter { $0.parentID == id }) { p in
                                 PendingWorktreeRow(name: p.name)
                             }
                         }
@@ -53,8 +56,12 @@ struct WorkspaceSidebarView: View {
                         .frame(height: 40)
                         .contentShape(Rectangle())
                         .onDrop(of: [.toastyWorkspace], delegate: WorkspaceDropDelegate(target: nil, store: store))
+                        .contextMenu {
+                            Button("New Heading") { store.newHeading() }
+                        }
                 }
                 .padding(.horizontal, 8)
+                .animation(.easeInOut(duration: 0.15), value: store.items)
                 .animation(.easeInOut(duration: 0.15), value: store.workspaces.map(\.id))
             }
             .scrollIndicators(.never)
@@ -64,11 +71,91 @@ struct WorkspaceSidebarView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    /// Whether the workspace at `i` ends its group (a workspace and its
-    /// worktrees).
-    private func isLastOfGroup(_ i: Int) -> Bool {
-        let list = store.workspaces
-        return i == list.count - 1 || list[i + 1].parentID == nil
+    private func drag(_ id: UUID) -> NSItemProvider {
+        store.draggingID = id
+        return NSItemProvider(item: id.uuidString.data(using: .utf8) as NSData?,
+                              typeIdentifier: UTType.toastyWorkspace.identifier)
+    }
+
+    /// Whether a workspace's row is dimmed: it's being dragged, with its
+    /// parent, or under a heading being dragged.
+    private func dimmed(_ w: Workspace) -> Bool {
+        guard let dragging = store.draggingID else { return false }
+        let top = w.parent ?? w
+        return dragging == top.id || dragging == top.headingID
+    }
+}
+
+/// A heading over a group of workspaces (as in Things): its name in the
+/// accent color over a hairline.
+private struct HeadingRow: View {
+    let heading: WorkspaceHeading
+    @ObservedObject var store: WorkspaceStore
+    /// The sidebar's first row (no space above).
+    let first: Bool
+
+    @State private var draft = ""
+    @FocusState private var fieldFocused: Bool
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var isRenaming: Bool { store.renamingID == heading.id }
+
+    /// The accent color, softened on dark backgrounds (as Things does).
+    private var color: Color {
+        colorScheme == .dark ? Color.accentColor.mix(with: .white, by: 0.35) : .accentColor
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Group {
+                if isRenaming {
+                    TextField("Heading", text: $draft)
+                        .textFieldStyle(.plain)
+                        .focused($fieldFocused)
+                        .onSubmit(commit)
+                        .onExitCommand { store.renamingID = nil }
+                        .onAppear {
+                            draft = heading.name
+                            DispatchQueue.main.async { fieldFocused = true }
+                        }
+                        .onChange(of: fieldFocused) { _, focused in if !focused && isRenaming { commit() } }
+                } else {
+                    Text(heading.name)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            }
+            .font(.system(size: 12, weight: .bold))
+            .foregroundStyle(color)
+            .frame(height: 16)
+            .padding(.horizontal, 8)
+
+            Rectangle()
+                .fill(Color.primary.opacity(0.1))
+                .frame(height: 1)
+                .padding(.horizontal, 8)
+        }
+        .padding(.top, first ? 4 : 20)
+        .padding(.bottom, 3)
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { store.renamingID = heading.id }
+        .contextMenu {
+            Button("Rename…") { store.renamingID = heading.id }
+            Divider()
+            Button("Move Up") { store.moveHeading(heading.id, by: -1) }
+                .disabled(!store.canMoveHeading(heading.id, by: -1))
+            Button("Move Down") { store.moveHeading(heading.id, by: 1) }
+                .disabled(!store.canMoveHeading(heading.id, by: 1))
+            Divider()
+            Button("Remove Heading") { store.removeHeading(heading.id) }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+    }
+
+    private func commit() {
+        store.setHeadingName(draft, for: heading.id)
+        store.renamingID = nil
     }
 }
 
@@ -189,6 +276,18 @@ private struct WorkspaceRow: View {
                     .disabled(!store.canMove(workspace.id, by: -1))
                 Button("Move Down") { store.move(workspace.id, by: 1) }
                     .disabled(!store.canMove(workspace.id, by: 1))
+                if !store.headings.isEmpty {
+                    Menu("Move to Heading") {
+                        Button("No Heading") { store.move(workspace.id, toHeading: nil) }
+                            .disabled(workspace.headingID == nil)
+                        Divider()
+                        ForEach(store.headings) { h in
+                            Button(h.name) { store.move(workspace.id, toHeading: h.id) }
+                                .disabled(workspace.headingID == h.id)
+                        }
+                    }
+                }
+                Button("New Heading Above") { store.newHeading(above: workspace.id) }
                 Divider()
                 Button("Close Workspace") { store.requestClose(workspace.id) }
             }
@@ -200,7 +299,7 @@ private struct WorkspaceRow: View {
     /// Workspaces are always bold; their worktrees are a step below:
     /// smaller and regular weight. Selection shows in the background.
     private var nameFont: Font {
-        workspace.isWorktree ? .system(size: 12) : .system(size: 13, weight: .semibold)
+        workspace.isWorktree ? .system(size: 12) : .system(size: 13)
     }
 
     private func workingMinutes(now: Date) -> Int? {
@@ -257,14 +356,19 @@ extension UTType {
     static let toastyWorkspace = UTType(exportedAs: "com.martyvasquez.toasty.workspace")
 }
 
-/// Reorders workspaces live as a dragged workspace passes over others.
+/// Reorders workspaces live as a dragged workspace passes over others (or
+/// headings, as a dragged heading passes over rows).
 private struct WorkspaceDropDelegate: DropDelegate {
     let target: UUID?
     let store: WorkspaceStore
 
     func dropEntered(info: DropInfo) {
         guard let dragging = store.draggingID else { return }
-        if let target { store.move(dragging, to: target) } else { store.moveToEnd(dragging) }
+        if let target {
+            if store.isHeading(dragging) { store.moveHeading(dragging, to: target) } else { store.move(dragging, to: target) }
+        } else {
+            store.moveToEnd(dragging)
+        }
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }

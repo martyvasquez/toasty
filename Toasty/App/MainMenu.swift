@@ -86,6 +86,7 @@ enum MainMenu {
         let workspace = NSMenu(title: "Workspace")
         workspace.addItem(item("New Workspace…", #selector(W.newWorkspace(_:)), ""))
         workspace.addItem(item("Rename Workspace", #selector(W.renameWorkspace(_:)), "r", [.command, .control]))
+        workspace.addItem(item("New Heading", #selector(W.newHeading(_:)), ""))
         workspace.addItem(item("New Worktree…", #selector(W.newWorktree(_:)), "N"))
         workspace.addItem(item("Remove Worktree…", #selector(W.removeWorktree(_:)), ""))
         workspace.addItem(.separator())

@@ -289,6 +289,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     @objc func newWorkspace(_ sender: Any?) { store.createWithFolderPicker() }
     @objc func renameWorkspace(_ sender: Any?) { store.renameActive() }
+    @objc func newHeading(_ sender: Any?) { store.newHeading() }
     @objc func selectNextWorkspace(_ sender: Any?) { store.activateRelative(1) }
     @objc func selectPreviousWorkspace(_ sender: Any?) { store.activateRelative(-1) }
     @objc func jumpToAttention(_ sender: Any?) { store.jumpToAttention() }

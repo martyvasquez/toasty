@@ -32,9 +32,18 @@ enum WorkspaceDebug {
                 else { store.renamingID = try target().id }
             case "move": store.move(try target().id, by: cmd["by"] as? Int ?? 1)
             case "moveTo":
+                // "toHeading": dragged onto a heading's row (an index into the headings).
+                if let h = cmd["toHeading"] as? Int {
+                    guard store.headings.indices.contains(h) else { throw E("toHeading=") }
+                    store.move(try target().id, to: store.headings[h].id)
+                    break
+                }
                 guard let to = cmd["to"] as? Int, store.workspaces.indices.contains(to) else { throw E("to=") }
                 store.move(try target().id, to: store.workspaces[to].id)
             case "close": store.close(try target().id)
+            case "heading":  // "heading": index into the headings, or -1 for none
+                let h = cmd["heading"] as? Int ?? -1
+                store.move(try target().id, toHeading: store.headings.indices.contains(h) ? store.headings[h].id : nil)
             case "folder":
                 guard let path = cmd["path"] as? String else { throw E("path=") }
                 let w = try target()
@@ -42,6 +51,30 @@ enum WorkspaceDebug {
                 store.setNeedsSave()
             case "next": store.activateRelative(1)
             case "previous": store.activateRelative(-1)
+            default: throw E("unknown action \(action)")
+            }
+            return state()
+        }
+
+        // {"cmd":"heading","action":"new","above":2,"name":"Clients"} · rename|remove|move ("by") with "heading" (an index into the headings).
+        DebugControl.register("heading") { cmd in
+            let action = cmd["action"] as? String ?? "new"
+            @MainActor func target() throws -> UUID {
+                guard let i = cmd["heading"] as? Int, store.headings.indices.contains(i) else { throw E("heading=") }
+                return store.headings[i].id
+            }
+            switch action {
+            case "new":
+                store.newHeading(above: (cmd["above"] as? Int).flatMap { store.workspaces.indices.contains($0) ? store.workspaces[$0].id : nil })
+                if let name = cmd["name"] as? String, let id = store.renamingID {
+                    store.setHeadingName(name, for: id)
+                    store.renamingID = nil
+                }
+            case "rename":
+                if let name = cmd["name"] as? String { store.setHeadingName(name, for: try target()) }
+                else { store.renamingID = try target() }
+            case "remove": store.removeHeading(try target())
+            case "move": store.moveHeading(try target(), by: cmd["by"] as? Int ?? 1)
             default: throw E("unknown action \(action)")
             }
             return state()
@@ -415,6 +448,12 @@ enum WorkspaceDebug {
             "keepingAwake": Activity.shared.keepingAwake,
             "pendingWorktrees": store.pendingWorktrees.map(\.name),
             "toast": Activity.shared.toast.map { "\($0.title) | \($0.body) | \($0.location)" } ?? "",
+            "sidebar": store.items.map { item -> String in
+                switch item {
+                case .heading(let id): "# " + (store.headings.first { $0.id == id }?.name ?? "?")
+                case .workspace(let id): store.workspaces.first { $0.id == id }?.name ?? "?"
+                }
+            },
             "workspaces": store.workspaces.map { w -> [String: Any] in
                 [
                     "name": w.name,

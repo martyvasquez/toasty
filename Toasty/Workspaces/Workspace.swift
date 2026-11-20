@@ -35,6 +35,9 @@ final class Workspace: ObservableObject, Identifiable {
     @Published var diffFile: GitChanges.File?
     /// The workspace this one is a git worktree of (shown nested under it).
     var parentID: UUID?
+    /// The sidebar heading this workspace sits under (top-level workspaces
+    /// only; a worktree goes with its parent).
+    var headingID: UUID?
     /// Ignored files copied in when Toasty created this worktree (shown in
     /// its first tab's empty state).
     @Published var copiedFiles: [String] = []
@@ -647,6 +650,7 @@ final class Workspace: ObservableObject, Identifiable {
         var inspectorFraction: Double?
         var parentID: UUID?
         var teeUps: [TeeUp]?
+        var heading: UUID?
     }
 
     struct SavedConversation: Codable {
@@ -675,11 +679,13 @@ final class Workspace: ObservableObject, Identifiable {
               inspectorTab: inspectorTab.rawValue,
               inspectorFraction: nil,
               parentID: parentID,
-              teeUps: teeUps.isEmpty ? nil : teeUps)
+              teeUps: teeUps.isEmpty ? nil : teeUps,
+              heading: headingID)
     }
 
     convenience init(saved s: Saved) {
         self.init(id: s.id, name: s.name, folder: s.folder, parentID: s.parentID)
+        headingID = s.heading
         for c in s.conversations {
             let conv = ClaudeConversation(restoring: c.id, cwd: c.cwd, sessionID: c.sessionID, customTitle: c.customTitle)
             conv.workspace = self
