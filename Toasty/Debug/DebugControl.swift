@@ -180,14 +180,26 @@ enum DebugControl {
             let mods = modifiers(cmd["mods"] as? String)
             let right = cmd["button"] as? String == "right"
             let types: [NSEvent.EventType] = right ? [.rightMouseDown, .rightMouseUp] : [.leftMouseDown, .leftMouseUp]
-            for type in types {
+            func send(_ type: NSEvent.EventType, queued: Bool = false) {
                 if let e = NSEvent.mouseEvent(with: type, location: point, modifierFlags: mods,
                                               timestamp: ProcessInfo.processInfo.systemUptime,
                                               windowNumber: window.windowNumber, context: nil,
                                               eventNumber: 0, clickCount: count, pressure: 1) {
+                    // Queued: as the system delivers a click (it's the
+                    // app's current event while it's handled).
+                    if queued { NSApp.postEvent(e, atStart: false) }
                     // {"via":"app"}: through the app, where event monitors listen.
-                    if cmd["via"] as? String == "app" { NSApp.sendEvent(e) } else { window.sendEvent(e) }
+                    else if cmd["via"] as? String == "app" { NSApp.sendEvent(e) } else { window.sendEvent(e) }
                 }
+            }
+            // {"hold": seconds}: the button stays down that long, as a
+            // real click's does (the main queue runs in between), and the
+            // events come through the app's queue.
+            if let hold = cmd["hold"] as? Double {
+                send(types[0], queued: true)
+                DispatchQueue.main.asyncAfter(deadline: .now() + hold) { send(types[1], queued: true) }
+            } else {
+                types.forEach { send($0) }
             }
             return nil
         }

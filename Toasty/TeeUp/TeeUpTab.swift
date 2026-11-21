@@ -472,7 +472,12 @@ private struct TeeUpCard: View {
                     onFiles: { item.attach($0) },
                     onFilesTargeted: { filesTargeted = $0 },
                     fontSize: TeeUpStyle.fontSize,
-                    onBlur: { close(false) },
+                    // A click takes the keyboard on mouse-down: closing
+                    // then would shrink the card from under the pointer
+                    // before the mouse-up, and its buttons (Delete) would
+                    // never act. Clicks are ClickOutside's to close on;
+                    // only the keyboard leaving any other way closes here.
+                    onBlur: { if !Self.mouseIsDown { close(false) } },
                     titleSpacing: Theme.Todo.titleSpacing,
                     concealed: !editorShown)
                     .frame(height: max(TeeUpStyle.minText, min(height, 200)))
@@ -497,7 +502,7 @@ private struct TeeUpCard: View {
                 TeeUpIconButton(symbol: "paperclip", help: "Attach Files…", action: pick)
                 TeeUpIconButton(symbol: item.isHeld ? "play" : "pause",
                                 help: item.isHeld ? "Include in Auto-Send" : "Hold Back from Auto-Send",
-                                action: hold)
+                                action: { hold(); focusRequest += 1 })
                 TeeUpIconButton(symbol: "trash", help: "Delete", action: delete)
             }
             .padding(.top, Theme.Space.m)
@@ -551,6 +556,13 @@ private struct TeeUpCard: View {
             - Theme.Todo.box - Theme.Todo.boxGap)
     }
 
+    /// A mouse button is down (a click in progress).
+    private static var mouseIsDown: Bool {
+        if NSEvent.pressedMouseButtons != 0 { return true }
+        let type = NSApp.currentEvent?.type
+        return type == .leftMouseDown || type == .rightMouseDown || type == .leftMouseDragged
+    }
+
     private func pick() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
@@ -558,6 +570,7 @@ private struct TeeUpCard: View {
         panel.begin { response in
             guard response == .OK else { return }
             item.attach(panel.urls)
+            focusRequest += 1
         }
     }
 }
