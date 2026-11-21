@@ -45,6 +45,7 @@ final class PreviewScrollSync {
     /// A page scrolled (by the user, or as the other page's echo).
     func scrolled(in web: WKWebView, _ body: Any, syncOn: Bool) {
         guard let main, let twin else { return }
+        if (body as? [String: Any])?["kind"] as? String == "layout" { scheduleRebuild(); return }
         let id = ObjectIdentifier(web)
         let now = Date()
         if now.timeIntervalSince(lastScrollAt) > 0.25 {
@@ -55,7 +56,39 @@ final class PreviewScrollSync {
         if let leader, leader != id, now.timeIntervalSince(leaderAt) < 0.12 { return }
         leader = id
         leaderAt = now
-        apply(body, to: web === main ? twin : main)
+        let other = web === main ? twin : main
+        if (body as? [String: Any])?["kind"] as? String == "map" {
+            other.callAsyncJavaScript("window.__toastyScroll?.follow(s)", arguments: ["s": body], in: nil,
+                                      in: Self.world, completionHandler: nil)
+        } else {
+            apply(body, to: other)
+        }
+    }
+
+    // MARK: The position map
+
+    /// A page loaded or its layout changed: rebuild both pages' maps, once
+    /// things have settled a moment.
+    private var rebuild: DispatchWorkItem?
+    func scheduleRebuild() {
+        rebuild?.cancel()
+        let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.rebuildMaps() } }
+        rebuild = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
+    }
+
+    /// Each page describes its layout (the blocks it shows and where);
+    /// each is handed the other's and works out its own map from the two.
+    private func rebuildMaps() {
+        guard let main, let twin else { return }
+        Task { @MainActor [weak main, weak twin] in
+            guard let main, let twin,
+                  let a = try? await main.callAsyncJavaScript("return window.__toastyScroll?.describe()", contentWorld: Self.world),
+                  let b = try? await twin.callAsyncJavaScript("return window.__toastyScroll?.describe()", contentWorld: Self.world),
+                  !(a is NSNull), !(b is NSNull) else { return }
+            _ = try? await main.callAsyncJavaScript("window.__toastyScroll?.setMap(o)", arguments: ["o": b], contentWorld: Self.world)
+            _ = try? await twin.callAsyncJavaScript("window.__toastyScroll?.setMap(o)", arguments: ["o": a], contentWorld: Self.world)
+        }
     }
 
     /// Puts the twin where the main page is (side by side or sync just
@@ -67,6 +100,7 @@ final class PreviewScrollSync {
         main.callAsyncJavaScript("return window.__toastyScroll?.state()", arguments: [:], in: nil,
                                  in: Self.world) { [weak self, weak twin] result in
             guard let self, let twin, case .success(let state) = result, !(state is NSNull) else { return }
+            self.scheduleRebuild()
             twin.callAsyncJavaScript("window.__toastyScroll?.instant(s)", arguments: ["s": state], in: nil,
                                      in: Self.world, completionHandler: nil)
         }
@@ -219,25 +253,47 @@ final class PreviewScrollSync {
         if (isRoot(sc)) window.scrollTo({ top: y, behavior: "instant" });
         else sc.scrollTo({ top: y, behavior: "instant" });
       };
-      // Glide toward where the other page says to be: each frame, part of
-      // the way there. Per-event jumps are uneven (each element maps a bit
-      // differently); this evens them out and still keeps up with a flick.
-      const EASE = 0.35;
+      // Glide toward where the other page says to be, on a critically
+      // damped spring that also takes on the other page's speed: it eases
+      // in and out, and keeps pace with a steady scroll instead of trailing
+      // and catching up.
+      const W = 32;               // stiffness (rad/s): settles in about 0.15 s
       let glide = null;
       const glideTo = (sc, y) => {
         const m = metrics(sc);
         y = Math.max(0, Math.min(m.max, y));
-        if (glide && glide.sc === sc) { glide.goal = y; return; }
-        glide = { sc, goal: y, pos: m.top };
-        const step = () => {
-          if (!glide) return;
-          const g = glide, d = g.goal - g.pos;
-          g.pos = Math.abs(d) < 0.5 ? g.goal : g.pos + d * EASE;
-          muteUntil = performance.now() + 120;
-          jump(g.sc, g.pos);
-          if (g.pos === g.goal) { glide = null; return; }
-          requestAnimationFrame(step);
-        };
+        const now = performance.now();
+        if (glide && glide.sc === sc) {
+          const dt = (now - glide.goalAt) / 1000;
+          if (dt > 0.004) {
+            const v = (y - glide.goal) / dt;
+            glide.gv = dt < 0.1 ? glide.gv * 0.4 + v * 0.6 : 0;
+            glide.goal = y; glide.goalAt = now;
+          } else glide.goal = y;
+          return;
+        }
+        glide = { sc, goal: y, goalAt: now, gv: 0, pos: m.top, v: 0, last: now };
+        requestAnimationFrame(step);
+      };
+      const step = () => {
+        const g = glide;
+        if (!g) return;
+        const now = performance.now();
+        const dt = Math.min(1 / 30, Math.max(0.001, (now - g.last) / 1000));
+        g.last = now;
+        const age = (now - g.goalAt) / 1000;
+        // The other page's speed, fading as its news gets old (it may have
+        // stopped): held, it would carry this page past where it stopped.
+        const gv = g.gv * Math.exp(-age / 0.025);
+        g.v += (W * W * (g.goal - g.pos) + 2 * W * (gv - g.v)) * dt;
+        g.pos += g.v * dt;
+        const max = metrics(g.sc).max;
+        if (g.pos < 0 || g.pos > max) { g.pos = Math.max(0, Math.min(max, g.pos)); g.v = 0; }
+        muteUntil = now + 120;
+        if (Math.abs(g.goal - g.pos) < 1 && Math.abs(g.v) < 20 && age > 0.05) {
+          jump(g.sc, g.goal); glide = null; return;
+        }
+        jump(g.sc, g.pos);
         requestAnimationFrame(step);
       };
       const scrollerAround = (el) => {
@@ -291,6 +347,130 @@ final class PreviewScrollSync {
         glideTo(sc, metrics(sc).top + point - (b.top + s.line * b.height));
       };
 
+      // The position map. Each page describes the blocks it shows (by
+      // child index and tag, the same in both: it's one page) and where they
+      // are in its main scrolling area. Two pages' descriptions give pairs
+      // of positions that are the same place: each block's top and bottom.
+      // Blocks side by side (in either layout) count as one, from the
+      // first one's top to the lowest bottom, so a desktop row maps to its
+      // cards stacked on a phone. Between pairs it's a straight line, so
+      // the other page moves evenly, never jumps, and never goes back.
+      let map = null, mapSc = null;
+      const mainScroller = () => {
+        const r = rootScroller();
+        if (r.scrollHeight - innerHeight > 1) return r;
+        let best = r, area = 0;
+        for (const el of document.body.querySelectorAll("*")) {
+          const a = el.clientWidth * el.clientHeight;
+          if (a > area && scrollable(el)) { best = el; area = a; }
+        }
+        return best;
+      };
+      const describe = () => {
+        const sc = mainScroller();
+        const b = band(sc), m = metrics(sc);
+        const off = m.top - b.top;
+        let count = 0;
+        const blocks = (el, depth) => {
+          const out = [];
+          if (depth > 16) return out;
+          for (let i = 0; i < el.children.length && count < 6000; i++) {
+            const c = el.children[i];
+            const cs = getComputedStyle(c);
+            if (cs.display === "none" || cs.position === "fixed" || cs.position === "sticky") continue;
+            const r = c.getBoundingClientRect();
+            if (r.height <= 0 || r.width <= 0) continue;
+            count++;
+            const n = { k: i + c.tagName, t: r.top + off, b: r.bottom + off };
+            // Inside another scrolling area, places move with it: not in the map.
+            if (!scrollable(c)) n.c = blocks(c, depth + 1);
+            out.push(n);
+          }
+          return out;
+        };
+        const d = { href: location.origin + location.pathname, h: m.max + b.height,
+                    c: blocks(isRoot(sc) ? document.body : sc, 0) };
+        mapSc = sc;
+        return d;
+      };
+      const setMap = (other) => {
+        const mine = describe();
+        map = null;
+        if (!other || other.href !== mine.href) return;
+        const pts = [[0, 0], [mine.h, other.h]];
+        const match = (ac, bc) => {
+          const bi = new Map(bc.map((n) => [n.k, n]));
+          let run = [], aBot = -Infinity, bBot = -Infinity;
+          const flush = () => {
+            if (run.length === 1) {
+              const [x, y] = run[0];
+              pts.push([x.t, y.t], [x.b, y.b]);
+              if (x.c && y.c) match(x.c, y.c);
+            } else if (run.length) {
+              let at = Infinity, ab = -Infinity, bt = Infinity, bb = -Infinity;
+              for (const [x, y] of run) {
+                at = Math.min(at, x.t); ab = Math.max(ab, x.b); bt = Math.min(bt, y.t); bb = Math.max(bb, y.b);
+              }
+              pts.push([at, bt], [ab, bb]);
+            }
+            run = []; aBot = -Infinity; bBot = -Infinity;
+          };
+          for (const x of ac) {
+            const y = bi.get(x.k);
+            if (!y) continue;
+            // Starts above the run's bottom, in either layout: side by side.
+            if (!(run.length && (x.t < aBot - 1 || y.t < bBot - 1))) flush();
+            run.push([x, y]);
+            aBot = Math.max(aBot, x.b); bBot = Math.max(bBot, y.b);
+          }
+          flush();
+        };
+        match(mine.c, other.c);
+        pts.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+        const out = [];
+        for (const [x, y] of pts) {
+          if (x < 0 || x > mine.h) continue;
+          const last = out[out.length - 1];
+          if (last && x - last[0] < 0.5) continue;
+          out.push([x, Math.min(other.h, Math.max(y, last ? last[1] : 0))]);
+        }
+        map = out;
+      };
+      const lookup = (x) => {
+        let lo = 0, hi = map.length - 1;
+        if (x <= map[0][0]) return map[0][1];
+        if (x >= map[hi][0]) return map[hi][1];
+        while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (map[mid][0] <= x) lo = mid; else hi = mid; }
+        const [x0, y0] = map[lo], [x1, y1] = map[hi];
+        return y0 + (y1 - y0) * (x - x0) / (x1 - x0);
+      };
+      // The reading line slides from the top of the view to its bottom as
+      // the page scrolls from top to bottom: the top and the bottom of one
+      // page are the top and bottom of the other, with nothing in between.
+      const mapState = () => {
+        const m = metrics(mapSc), b = band(mapSc);
+        const f = m.max > 0 ? Math.max(0, Math.min(1, m.top / m.max)) : 0;
+        return { kind: "map", y: lookup(m.top + f * b.height), f };
+      };
+      const follow = (s) => {
+        if (!map || !mapSc) return;
+        glideTo(mapSc, s.y - s.f * band(mapSc).height);
+      };
+      const onMapScroller = (sc) => mapSc && (sc ? sc === mapSc : isRoot(mapSc));
+
+      // The layout changed (loaded, resized, content added): the map is redone.
+      let layoutTimer = 0;
+      const layoutChanged = () => {
+        clearTimeout(layoutTimer);
+        layoutTimer = setTimeout(() => { try { handler.postMessage({ kind: "layout" }); } catch {} }, 200);
+      };
+      new ResizeObserver(layoutChanged).observe(document.documentElement);
+      if (document.body) {
+        new ResizeObserver(layoutChanged).observe(document.body);
+        new MutationObserver(layoutChanged).observe(document.body, { childList: true, subtree: true });
+      }
+      addEventListener("load", layoutChanged);
+
       // The user taking hold of this page (wheel, trackpad, keys) ends a glide.
       for (const type of ["wheel", "keydown", "mousedown", "touchstart"])
         addEventListener(type, () => { if (glide) { glide = null; muteUntil = 0; } }, { capture: true, passive: true });
@@ -298,6 +478,10 @@ final class PreviewScrollSync {
       document.addEventListener("scroll", (e) => {
         if (performance.now() < muteUntil) return;
         const sc = e.target === document ? null : e.target;
+        if (map && onMapScroller(sc)) {
+          try { handler.postMessage(mapState()); } catch {}
+          return;
+        }
         queued = sc;
         if (pending) return;
         pending = true;
@@ -308,7 +492,8 @@ final class PreviewScrollSync {
         });
       }, { capture: true, passive: true });
 
-      window.__toastyScroll = { state: () => state(null), apply, instant: (s) => { apply(s); if (glide) { jump(glide.sc, glide.goal); glide = null; } } };
+      window.__toastyScroll = { state: () => map ? mapState() : state(null), describe, setMap, follow,
+        apply: (s) => s && s.kind === "map" ? follow(s) : apply(s), instant: (s) => { (s && s.kind === "map" ? follow : apply)(s); if (glide) { jump(glide.sc, glide.goal); glide = null; } } };
     })();
     """#
 }
