@@ -267,10 +267,9 @@ Claude's tools reach their conversation's workspace's browser
 which browser an agent drives. Closing the window only hides it. Claude's
 tools never open the window, bring it forward or take the keyboard
 (`navigate` used to show the panel). No tabs: a testing and
-inspection tool, not a general browser. Toolbar: back (⌘[, added at the user's
-request 2026-11-20; no forward), reload, workspace, address, phone or
-desktop, comment ("Open in default browser" was dropped 2026-11-20 to keep it
-minimal).
+inspection tool, not a general browser. Titlebar row: back (⌘[; no forward),
+reload, address. Footer: workspace, comment, phone/desktop, open in the
+default browser, show conversation, page size.
 - The titlebar's compass, at the end of the conversation tabs, is the
   indicator: accent-colored and pulsing while Claude is using the browser
   (a call running, or one ended in the last 3 s), filled while the window
@@ -284,7 +283,15 @@ minimal).
   `PopoverMenu`, the address in a `Theme.Fill.subtle` capsule, the chrome
   color and bar divider (the user, 2026-11-20: match the rest of the app
   before it ships). It was an AppKit `NSToolbar` with Liquid Glass capsules
-  for an afternoon. In a narrow window the address gives up room first.
+  for an afternoon. The row has only what a browser has: back, reload,
+  the address. Everything else is in a footer built as the composer's
+  control row (the user, 2026-11-20): the workspace chip on the left;
+  comment, phone/desktop, open in the default browser and show the
+  conversation (the one whose Claude last used this browser, else the
+  workspace's selected tab) as wide icon buttons in the middle; the page's
+  size on the right (dropped when there's no room). The window is never
+  narrower than a phone page with a margin (460 × 560 content minimum); a
+  short window gives the page less height and it scrolls.
 - While Claude uses a page whose window is closed, the page waits in
   `PreviewBackstage`: a 1-point, transparent, click-through window. Out of
   any window WebKit runs a page as hidden: no requestAnimationFrame at all
@@ -326,8 +333,7 @@ Not done / to decide after living with it:
 - No console view for the user (right-click ▸ Inspect Element opens
   Safari's Web Inspector if that's enabled). No forward button
   (two-finger swipe works). No touch emulation.
-- Chromium-only bugs: copy the address into Chrome (the toolbar's "Open in
-  default browser" button was dropped).
+- Chromium-only bugs: the footer's "Open in <default browser>".
 - Comments carry a selector, not source file and line.
 
 ## Screenshots from any app (⇧⌘0)

@@ -47,7 +47,10 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
         // height and window-button place, and the same corner radius.
         window.toolbar = NSToolbar(identifier: "PreviewWindow")
         window.toolbarStyle = .unified
-        window.minSize = NSSize(width: 480, height: 360)
+        // A phone page is never drawn smaller: the window is at least as
+        // wide as one with a margin either side. (A short window gives the
+        // page less height; it scrolls.)
+        window.contentMinSize = NSSize(width: 460, height: 560)
         window.backgroundColor = NSColor(Color.claudeChrome)
         super.init(window: window)
         window.delegate = self
@@ -247,6 +250,8 @@ private final class PreviewWindowModel: ObservableObject {
     /// The window buttons' center, from the titlebar's top: the row's
     /// controls share their line.
     @Published var buttonsMidY: CGFloat = 0
+    /// The row's height: the window buttons' band.
+    var barHeight: CGFloat { buttonsMidY > 0 ? buttonsMidY * 2 : 38 }
     /// Bumped by ⌘L: the address field takes the keyboard.
     @Published var focusAddress = 0
     /// A workspace picked in the row's menu.
@@ -257,16 +262,24 @@ private struct PreviewWindowRoot: View {
     @ObservedObject var model: PreviewWindowModel
 
     var body: some View {
-        if let (workspace, session) = model.shown {
-            // A view of its own per workspace: switching takes the shown
-            // page out of the window and puts the other one in, untouched.
-            PreviewWindowContent(workspace: workspace, session: session)
+        Group {
+            if let (workspace, session) = model.shown {
+                // A view of its own per workspace: switching takes the shown
+                // page out of the window and puts the other one in, untouched.
+                VStack(spacing: 0) {
+                    PreviewWindowContent(workspace: workspace, session: session)
+                    PreviewFooter(model: model, workspace: workspace, session: session)
+                }
                 .id(workspace.id)
-        } else {
-            InspectorEmpty(symbol: "safari", title: "No Workspace", detail: "Each workspace has a browser of its own.")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.claudeChrome)
+            } else {
+                InspectorEmpty(symbol: "safari", title: "No Workspace", detail: "Each workspace has a browser of its own.")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
+        // From right under the titlebar row (not the titlebar's full height).
+        .padding(.top, model.barHeight)
+        .background(Color.claudeChrome)
+        .ignoresSafeArea(edges: .top)
     }
 }
 
@@ -307,10 +320,9 @@ private struct PreviewWindowContent: View {
 
 /// The browser window's titlebar row, as the main window's (`TitlebarRow`):
 /// on the window buttons' line, in the window's chrome color, with the
-/// app's flat bar buttons (a hairline capsule on hover), its tooltips and
-/// its own menus. Back and reload; which workspace's browser this is (a menu
-/// of those with a page); the address, which takes the room there is (and
-/// gives it up first in a narrow window); phone or desktop; commenting.
+/// app's flat bar buttons (a hairline capsule on hover) and its tooltips.
+/// Only what a browser has: back, reload and the address. Everything else
+/// is in the footer (`PreviewFooter`).
 /// Hosted in the titlebar view: views under a transparent titlebar don't
 /// get clicks.
 private struct PreviewBar: View {
@@ -331,10 +343,12 @@ private struct PreviewBar: View {
         }
         .padding(.leading, Self.leading)
         .padding(.trailing, TitlebarRow.edge)
-        .frame(height: model.buttonsMidY > 0 ? model.buttonsMidY * 2 : nil)
-        .frame(maxHeight: .infinity, alignment: .top)
+        // The window buttons' band, as the main window's row; the
+        // titlebar's extra height below it belongs to the page.
+        .frame(height: model.barHeight)
         .background(ZStack { Color.claudeChrome; WindowDragArea() })
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1) }
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 }
 
@@ -357,9 +371,6 @@ private struct PreviewBarControls: View {
         }
         .disabled(!session.started)
 
-        PreviewWorkspaceMenu(model: model, workspace: workspace)
-            .layoutPriority(1)
-
         TextField("localhost:3000", text: $session.address)
             .textFieldStyle(.plain)
             .font(.toasty(Theme.Size.control))
@@ -374,32 +385,92 @@ private struct PreviewBarControls: View {
                 addressFocused = false
             }
             .padding(.horizontal, Theme.Space.m)
-            .frame(minWidth: 90, maxWidth: .infinity)
+            .frame(maxWidth: .infinity)
             .frame(height: TabStyle.height)
             .background(Capsule().fill(Theme.Fill.subtle))
-            .padding(.horizontal, Theme.Space.xs)
+            .padding(.leading, Theme.Space.xs)
             .accessibilityLabel("Address")
             .onChange(of: model.focusAddress) { addressFocused = true }
 
+    }
+}
+
+/// The browser window's footer, as the composer's control row: the
+/// workspace on the left (where the composer has its model), the tools in
+/// the middle as wide icon buttons, and the page's size on the right (where
+/// the composer has send). On the bars' surface, under a divider.
+private struct PreviewFooter: View {
+    @ObservedObject var model: PreviewWindowModel
+    @ObservedObject var workspace: Workspace
+    @ObservedObject var session: PreviewSession
+
+    /// The conversation "Show Conversation" goes to: the one whose Claude
+    /// last used this browser, else the workspace's selected tab.
+    private var conversation: ClaudeConversation? {
+        workspace.conversations.first { $0.id == session.lastAgentConversationID } ?? workspace.selected
+    }
+
+    var body: some View {
         HStack(spacing: 0) {
-            ForEach(PreviewViewport.allCases) { viewport in
-                BarIconButton(symbol: viewport.symbol,
-                              tooltip: Tooltip(title: "\(viewport.title) Size", shortcut: "⇧⌘M"),
-                              active: session.viewport == viewport, glyphSize: Theme.Size.body, size: Self.button) {
-                    session.setViewport(viewport, byUser: true)
+            PreviewWorkspaceMenu(model: model, workspace: workspace)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: Theme.Space.xxs) {
+                ComposerIconButton(symbol: "plus.bubble",
+                                   help: session.commenting ? "Or press esc." : "Click something in the page, or drag over an area, to tell Claude about it.",
+                                   label: session.commenting ? "Done Commenting (⇧⌘C)" : "Comment on the Page (⇧⌘C)",
+                                   active: session.commenting) {
+                    session.setCommenting(!session.commenting)
                 }
+                .disabled(!session.commenting && (session.url == nil || session.failure != nil))
+                let other: PreviewViewport = session.viewport == .mobile ? .desktop : .mobile
+                ComposerIconButton(symbol: session.viewport.symbol,
+                                   help: "The page is at \(session.viewport.title.lowercased()) size. Click for \(other.title.lowercased()) size.",
+                                   label: "\(session.viewport.title) Size (⇧⌘M)") {
+                    session.toggleViewport()
+                }
+                ComposerIconButton(symbol: "arrow.up.forward.app",
+                                   help: "The same address, in your own browser (its own cookies and logins).",
+                                   label: "Open in \(PreviewBrowser.name)") {
+                    if let url = session.url { NSWorkspace.shared.open(url) }
+                }
+                .disabled(session.url == nil)
+                ComposerIconButton(symbol: "text.bubble",
+                                   help: conversation.map { "“\($0.title)” in the main window\($0.id == session.lastAgentConversationID ? ", the conversation that last used this browser" : "")." }
+                                       ?? "This workspace has no conversation yet.",
+                                   label: "Show Conversation") {
+                    if let conversation { Activity.shared.show(conversation) }
+                }
+                .disabled(conversation == nil)
             }
+            ViewThatFits(in: .horizontal) {
+                Text(sizeText)
+                    .font(.toasty(Theme.Size.meta).monospacedDigit())
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .accessibilityLabel("Page size \(sizeText)")
+                Color.clear.frame(width: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .layoutPriority(2)
-        BarIconButton(symbol: "plus.bubble",
-                      tooltip: Tooltip(title: session.commenting ? "Done Commenting" : "Comment on the Page",
-                                       shortcut: "⇧⌘C",
-                                       detail: session.commenting ? nil : "Click something in the page, or drag over an area, to tell Claude about it."),
-                      active: session.commenting, glyphSize: Theme.Size.body, size: Self.button) {
-            session.setCommenting(!session.commenting)
-        }
-        .disabled(!session.commenting && (session.url == nil || session.failure != nil))
-        .layoutPriority(2)
+        .padding(.leading, Theme.Space.s)
+        .padding(.trailing, Theme.Space.m)
+        .padding(.vertical, Theme.Space.s)
+        .background(Theme.Surface.chrome)
+        .overlay(alignment: .top) { Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1) }
+    }
+
+    /// "390 × 844": the page's size as the site sees it.
+    private var sizeText: String {
+        let size = session.shownPageSize == .zero ? session.pageSize : session.shownPageSize
+        return "\(Int(size.width.rounded())) × \(Int(size.height.rounded()))"
+    }
+}
+
+/// The user's default browser, for "Open in …".
+private enum PreviewBrowser {
+    static var name: String {
+        guard let app = NSWorkspace.shared.urlForApplication(toOpen: URL(string: "http://localhost")!) else { return "Browser" }
+        return FileManager.default.displayName(atPath: app.path).replacingOccurrences(of: ".app", with: "")
     }
 }
 
@@ -423,7 +494,7 @@ private struct PreviewWorkspaceMenu: View {
 
     /// The chip hugs the name; a long one is shortened.
     private static func short(_ name: String) -> String {
-        name.count > 28 ? String(name.prefix(27)) + "…" : name
+        name.count > 24 ? String(name.prefix(23)) + "…" : name
     }
 
     var body: some View {
@@ -779,6 +850,8 @@ final class PreviewStage: NSView {
         canvas.setBoundsOrigin(.zero)
         canvas.setBoundsSize(page)
         session?.webView?.frame = NSRect(origin: .zero, size: page)
+        let size = page
+        DispatchQueue.main.async { [weak session] in session?.notePageSize(size) }
     }
 }
 

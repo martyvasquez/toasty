@@ -130,6 +130,9 @@ final class PreviewSession: NSObject, ObservableObject {
     /// Claude is using the browser: a tool call is running, or one ended a
     /// moment ago (so a run of calls reads as one stretch of use).
     @Published private(set) var agentActive = false
+    /// The conversation whose Claude last used this browser: the footer's
+    /// "Show Conversation" goes to it.
+    private(set) var lastAgentConversationID: UUID?
     private var agentCalls = 0
     private var agentIdle: Task<Void, Never>?
     /// When the page last went into the backstage.
@@ -213,8 +216,9 @@ final class PreviewSession: NSObject, ObservableObject {
 
     // MARK: Claude
 
-    /// A tool call from Claude started.
-    func agentBegan() {
+    /// A tool call from Claude, in `conversation`, started.
+    func agentBegan(from conversation: UUID? = nil) {
+        if let conversation { lastAgentConversationID = conversation }
         agentCalls += 1
         agentIdle?.cancel()
         agentIdle = nil
@@ -263,6 +267,13 @@ final class PreviewSession: NSObject, ObservableObject {
 
     /// The page's size as the site sees it (CSS pixels).
     var pageSize: CGSize { webView?.bounds.size ?? viewport.nominal }
+
+    /// The page's size as last laid out in the window (the footer shows it).
+    @Published private(set) var shownPageSize: CGSize = .zero
+
+    func notePageSize(_ size: CGSize) {
+        if abs(size.width - shownPageSize.width) > 0.5 || abs(size.height - shownPageSize.height) > 0.5 { shownPageSize = size }
+    }
 
     /// "mobile, 390×844" / "desktop, 1280×800": said with every tool result
     /// and comment, so Claude knows which layout it's looking at.

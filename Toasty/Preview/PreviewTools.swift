@@ -75,7 +75,7 @@ enum PreviewTools {
         let session = PreviewStore.shared.session(for: workspace)
         let input = call["input"] as? [String: Any] ?? [:]
         let name = call["tool"] as? String ?? ""
-        session.agentBegan()
+        session.agentBegan(from: conversation.id)
         Task {
             await session.readyForAgent()
             do {
