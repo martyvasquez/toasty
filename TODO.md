@@ -404,7 +404,23 @@ the iPhone/desktop toggle, show conversation, the size menu.
   stay with the desktop page; choosing a phone (⇧⌘M, or Claude's
   `set_viewport`) ends side by side. A page that can't open leaves the
   phone column empty. Not yet: comments on the phone page, a screenshot of
-  both for Claude, scroll sync (the layouts differ; probably never).
+  both for Claude.
+- Sync Scrolling (the user, 2026-11-21; `PreviewScrollSync.swift`): in side
+  by side, a footer button (arrows up and down) locks the two pages'
+  scrolling together; with it off, holding ⌘ as a scroll starts syncs that
+  scroll (the button turns blue while ⌘ is held). Shift was out: it turns
+  a wheel's scroll sideways. Each page describes its blocks (child index
+  and tag) and where they are; matched, their tops and bottoms make a map
+  from one page's positions to the other's (blocks side by side in either
+  layout count as one, so a desktop row spans its stacked phone cards),
+  redone when the layout changes. The reading line slides from the view's
+  top to its bottom as the page scrolls, so top and bottom match. The
+  follower moves on a spring that takes on the leader's speed. Inner
+  scrolling areas: each page's main scroller (the document, or its
+  biggest scrolling area) maps to the other's; other areas fall back to
+  matching the element at the line. Not yet: sites whose phone and
+  desktop markup differ (different components) only match where the
+  structure does.
   Comments (⇧⌘C): click an element or drag an area, type a note; Return
   sends or tees up per the field's Send | Tee-Up switch.
 
