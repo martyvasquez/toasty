@@ -583,6 +583,15 @@ private struct PreviewFooter: View {
                     session.setSideBySide(!session.sideBySide)
                     PreviewStore.shared.presenter?.fitSideBySide(of: session)
                 }
+                if session.sideBySide {
+                    BarIconButton(symbol: "arrow.up.and.down",
+                                  tooltip: Tooltip(title: session.scrollSync ? "Stop Syncing Scroll" : "Sync Scrolling",
+                                                   detail: session.scrollSync ? "Each page scrolls on its own."
+                                                       : "Scrolling either page scrolls the other to the same place."),
+                                  active: session.scrollSync, glyphSize: Theme.Size.body, size: Self.button) {
+                        session.setScrollSync(!session.scrollSync)
+                    }
+                }
                 BarIconButton(symbol: "text.bubble",
                               tooltip: Tooltip(title: "Show Conversation",
                                                detail: conversation.map { "“\($0.title)” in the main window\($0.id == session.lastAgentConversationID ? ", the conversation that last used this browser" : "")." }

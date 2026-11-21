@@ -165,6 +165,10 @@ final class PreviewSession: NSObject, ObservableObject {
     /// that load ends aren't followed back, which could go back and forth.
     private var mainFollowing = false
     private var twinFollowing = false
+    /// Scroll sync (experiment, `PreviewScrollSync`): in side by side,
+    /// scrolling either page scrolls the other to the same place.
+    @Published private(set) var scrollSync = UserDefaults.standard.bool(forKey: PreviewScrollSync.enabledKey)
+    private let scrollSyncer = PreviewScrollSync()
     /// The view showing the page, while the window is open.
     weak var stage: PreviewStage?
     private var observers: Set<AnyCancellable> = []
@@ -198,6 +202,7 @@ final class PreviewSession: NSObject, ObservableObject {
         let relay = MessageRelay(self)
         content.add(relay, contentWorld: .page, name: PreviewScripts.consoleHandler)
         content.add(relay, contentWorld: Self.world, name: PreviewScripts.pickerHandler)
+        PreviewScrollSync.install(on: configuration, relay: relay)
 
         let web = WKWebView(frame: NSRect(origin: .zero, size: viewport.nominal), configuration: configuration)
         web.navigationDelegate = self
@@ -217,6 +222,7 @@ final class PreviewSession: NSObject, ObservableObject {
             self.mirror(url, fromTwin: false)
         }.store(in: &observers)
         webView = web
+        scrollSyncer.main = web
         PreviewStore.shared.removeOrphanedData()
         updateBackstage()
         return web
@@ -317,6 +323,7 @@ final class PreviewSession: NSObject, ObservableObject {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = WKWebsiteDataStore(forIdentifier: workspaceID)
         configuration.applicationNameForUserAgent = "Version/18.5 Safari/605.1.15"
+        PreviewScrollSync.install(on: configuration, relay: MessageRelay(self))
         let web = WKWebView(frame: NSRect(origin: .zero, size: lastPhone.nominal), configuration: configuration)
         let delegate = TwinDelegate(self)
         twinDelegate = delegate
@@ -330,6 +337,7 @@ final class PreviewSession: NSObject, ObservableObject {
             self.mirror(url, fromTwin: true)
         }.store(in: &twinObservers)
         twin = web
+        scrollSyncer.twin = web
         if let url = webView?.url, failure == nil { synced = url.absoluteString; loadTwin(url) }
         return web
     }
@@ -353,6 +361,7 @@ final class PreviewSession: NSObject, ObservableObject {
             twin.stopLoading()
             twin.navigationDelegate = nil
             twin.uiDelegate = nil
+            twin.configuration.userContentController.removeAllScriptMessageHandlers()
             twin.removeFromSuperview()
         }
         twin = nil
@@ -385,7 +394,23 @@ final class PreviewSession: NSObject, ObservableObject {
         }
     }
 
-    fileprivate func twinLoadEnded() { twinFollowing = false }
+    fileprivate func twinLoadEnded() {
+        twinFollowing = false
+        if scrollSync { scrollSyncer.syncTwinToMain() }
+    }
+
+    /// Turn scroll sync on or off (side by side's footer button).
+    func setScrollSync(_ on: Bool) {
+        guard on != scrollSync else { return }
+        scrollSync = on
+        UserDefaults.standard.set(on, forKey: PreviewScrollSync.enabledKey)
+        if on { scrollSyncer.syncTwinToMain() }
+    }
+
+    fileprivate func scrolled(in web: WKWebView?, _ body: Any) {
+        guard scrollSync, sideBySide, let web else { return }
+        scrollSyncer.scrolled(in: web, body)
+    }
     fileprivate func twinFailed(_ error: Error) {
         twinFollowing = false
         let e = error as NSError
@@ -792,6 +817,7 @@ private final class MessageRelay: NSObject, WKScriptMessageHandler {
     init(_ session: PreviewSession) { self.session = session }
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == PreviewScrollSync.handler { session?.scrolled(in: message.webView, message.body); return }
         session?.received(message.name, message.body)
     }
 }
