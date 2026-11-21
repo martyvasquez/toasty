@@ -631,23 +631,35 @@ struct ClaudeUserMessage: View {
                     }
                 }
                 if !item.text.isEmpty {
-                    ClaudeRichText(text: Self.attributed(item.text), hugs: true)
+                    ClaudeRichText(text: Self.attributed(item.text, queued: item.queued), hugs: true)
                         // Solid blue with white text (as the Claude app's),
                         // Things' card corners: yours at a glance.
                         .padding(.horizontal, Theme.Space.l)
                         .padding(.vertical, Theme.Space.s + Theme.Space.xxs)
-                        .background(RoundedRectangle(cornerRadius: Theme.Radius.message, style: .continuous)
-                            .fill(Theme.bubbleBlue))
+                        .background(bubble)
                 }
             }
         }
+        .animation(.easeOut(duration: 0.2), value: item.queued)
     }
 
-    static func attributed(_ text: String) -> NSAttributedString {
+    /// Solid once Claude Code has it; a dashed outline while it waits in
+    /// line behind the running turn.
+    private var bubble: some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.message, style: .continuous)
+        return ZStack {
+            shape.fill(Theme.bubbleBlue).opacity(item.queued ? 0 : 1)
+            shape.strokeBorder(Theme.bubbleBlue, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                .opacity(item.queued ? 1 : 0)
+        }
+        .help(item.queued ? "Queued: Claude reads it when it's ready" : "")
+    }
+
+    static func attributed(_ text: String, queued: Bool = false) -> NSAttributedString {
         let font = ClaudeTypography.body
         return NSAttributedString(string: text, attributes: [
             .font: font,
-            .foregroundColor: NSColor(white: 1, alpha: 0.95),
+            .foregroundColor: queued ? NSColor.labelColor : NSColor(white: 1, alpha: 0.95),
             .paragraphStyle: ClaudeTypography.paragraphStyle(font: font, multiple: ClaudeTypography.inputLineHeightMultiple),
             .baselineOffset: ClaudeTypography.baselineOffset(font, ClaudeTypography.inputLineHeightMultiple),
         ])
@@ -1255,6 +1267,9 @@ struct ClaudeComposerBox: View {
         }
     }
 
+    /// A message sent now waits for the running turn.
+    private var queues: Bool { conversation.phase == .working }
+
     private var placeholder: String {
         if !conversation.requests.isEmpty { return "Claude is waiting for your answer above" }
         if conversation.phase == .working { return "Send a follow-up…" }
@@ -1262,7 +1277,9 @@ struct ClaudeComposerBox: View {
     }
 
     @ViewBuilder private var sendButton: some View {
-        if conversation.phase == .working {
+        // While Claude works, typing turns Stop into Send (it queues the
+        // message); Esc still stops.
+        if conversation.phase == .working && isEmpty {
             Button { conversation.interrupt() } label: {
                 ZStack {
                     Circle().fill(Color.primary.opacity(0.85))
@@ -1277,10 +1294,16 @@ struct ClaudeComposerBox: View {
         } else {
             Button { conversation.submit() } label: {
                 ZStack {
+                    // Hollow and dashed while Claude works: what you send
+                    // waits in line, like the dashed message it becomes.
                     Circle().fill(isEmpty ? Theme.Fill.selected : Color.accentColor)
+                        .opacity(queues ? 0 : 1)
+                    Circle().strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 1.5, dash: [3.5, 2.5]))
+                        .opacity(queues ? 1 : 0)
                     Image(systemName: "arrow.up")
                         .font(.toasty(Theme.Size.control, .semibold))
-                        .foregroundStyle(isEmpty ? AnyShapeStyle(.tertiary) : AnyShapeStyle(Color.white))
+                        .foregroundStyle(isEmpty ? AnyShapeStyle(.tertiary)
+                                         : queues ? AnyShapeStyle(Color.primary) : AnyShapeStyle(Color.white))
                 }
                 .frame(width: Theme.Control.height, height: Theme.Control.height)
                 .contentShape(Circle())
@@ -1288,7 +1311,8 @@ struct ClaudeComposerBox: View {
             }
             .buttonStyle(.plain)
             .disabled(isEmpty)
-            .tooltip("Send", shortcut: "⏎", detail: "⇧⏎ starts a new line.")
+            .tooltip(queues ? "Queue" : "Send", shortcut: "⏎",
+                     detail: queues ? "Claude reads it when it's ready. Esc stops Claude." : "⇧⏎ starts a new line.")
             .accessibilityLabel("Send")
         }
     }

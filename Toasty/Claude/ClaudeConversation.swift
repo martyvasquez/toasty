@@ -50,6 +50,9 @@ final class ClaudeItem: ObservableObject, Identifiable {
     var entryUUID: String?
     /// False while text is still streaming in.
     @Published var finalized: Bool
+    /// A prompt sent while Claude was working that Claude Code hasn't
+    /// picked up yet (drawn as a dashed outline until it does).
+    @Published var queued = false
 
     // Tool calls
     var toolName: String = ""
@@ -504,7 +507,19 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     /// tool call; no result of its own) or runs as the next turn, so results
     /// can't be counted against prompts: a turn's result ends the work
     /// unless a prompt is still waiting here.
-    private var waitingPrompts: Set<String> = []
+    private var waitingPrompts: Set<String> = [] {
+        didSet {
+            for (id, item) in queuedItems where !waitingPrompts.contains(id) {
+                // Picked up, or dropped with the turn that held it: either
+                // way it's no longer waiting in line.
+                item.queued = false
+                queuedItems[id] = nil
+            }
+        }
+    }
+    /// The transcript's dashed prompts, by prompt id, until Claude Code
+    /// takes them up.
+    private var queuedItems: [String: ClaudeItem] = [:]
     /// The prompt that started the running turn. While it's still in
     /// `waitingPrompts`, Claude Code hasn't taken the turn up at all.
     private var turnPrompt: String?
@@ -672,7 +687,11 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 return ["media_type": "image/png", "data": png.base64EncodedString()]
             }
         }
-        if !turnRunning {
+        if turnRunning {
+            // Claude is busy: it waits in Claude Code's queue.
+            item.queued = true
+            queuedItems[promptID] = item
+        } else {
             interrupted = false
             turnStarted = Date()
             activity.reset()
