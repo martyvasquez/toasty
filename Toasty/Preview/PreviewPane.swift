@@ -649,8 +649,10 @@ private struct PreviewPage: View {
                         .frame(width: geo.size.width, height: geo.size.height)
                         .background(Color.claudeChrome)
                 } else if let pick = session.pick {
-                    let field = CommentField.frame(for: pick.rect, fit: fit, pane: geo.size)
-                    CommentField(teeUp: settings.commentsTo == .teeUp) { note, other in
+                    let choosing = settings.commentsTo == .conversation && workspace.conversations.count > 1
+                    let field = CommentField.frame(for: pick.rect, fit: fit, pane: geo.size, wide: choosing)
+                    CommentField(teeUp: settings.commentsTo == .teeUp,
+                                 tabs: choosing ? CommentTabs(workspace: workspace, session: session) : nil) { note, other in
                         let to = other ? settings.commentsTo.other : settings.commentsTo
                         Task { await session.comment(note, in: workspace, to: to) }
                     } cancel: {
@@ -706,6 +708,8 @@ private struct PreviewFailure: View {
 /// Browser), ⇧Return to the other one; Esc drops the pick.
 private struct CommentField: View {
     let teeUp: Bool
+    /// Which tab it goes to, shown when the workspace has more than one.
+    let tabs: CommentTabs?
     /// `other`: ⇧Return, the destination the setting didn't choose.
     let submit: (_ note: String, _ other: Bool) -> Void
     let cancel: () -> Void
@@ -723,10 +727,11 @@ private struct CommentField: View {
     }
 
     /// Under the pick when there's room, else above it; always in the pane.
-    static func frame(for rect: CGRect, fit: PreviewViewport.Fit, pane: CGSize) -> CGRect {
+    /// `wide`: with room for the tab it goes to.
+    static func frame(for rect: CGRect, fit: PreviewViewport.Fit, pane: CGSize, wide: Bool = false) -> CGRect {
         let shown = CGRect(x: fit.display.minX + rect.minX * fit.scale, y: fit.display.minY + rect.minY * fit.scale,
                            width: rect.width * fit.scale, height: rect.height * fit.scale)
-        let width = min(300, max(120, pane.width - 16))
+        let width = min(wide ? 400 : 300, max(120, pane.width - 16))
         let x = min(max(8, shown.midX - width / 2), max(8, pane.width - width - 8))
         var y = shown.maxY + 8
         if y + height > pane.height - 8 { y = shown.minY - 8 - height }
@@ -745,6 +750,7 @@ private struct CommentField: View {
                 .focused($focused)
                 .onSubmit { submit(note, Self.shiftHeld) }
                 .onExitCommand(perform: cancel)
+            if let tabs { tabs.layoutPriority(1) }
             Text("↩").font(.toasty(Theme.Size.caption)).foregroundStyle(.tertiary)
                 .tooltipText(teeUp ? "Return adds the comment to Tee-Up. Shift-Return sends it to Claude now."
                             : "Return sends the comment to Claude. Shift-Return adds it to Tee-Up instead.")
@@ -755,6 +761,39 @@ private struct CommentField: View {
             .shadow(color: .black.opacity(0.22), radius: 8, y: 2))
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
         .onAppear { DispatchQueue.main.async { focused = true } }
+    }
+}
+
+/// In the comment field, when the workspace has more than one tab: the tab
+/// the comment goes to, which opens a menu of the workspace's tabs. The
+/// keyboard stays in the comment (Toasty's own menu doesn't take it).
+private struct CommentTabs: View {
+    @ObservedObject var workspace: Workspace
+    @ObservedObject var session: PreviewSession
+
+    var body: some View {
+        let current = session.commentTab(in: workspace)
+        ClaudePopUp(items: workspace.conversations.map { c in
+            PopoverMenu.Item(title: c.title, checked: c.id == current?.id) { session.commentTabID = c.id }
+        }) { hovering in
+            HStack(spacing: 4) {
+                Text(current?.title ?? "New Tab")
+                    .font(.toasty(Theme.Size.meta, .medium))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: 140, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                Image(systemName: "chevron.down").font(.toasty(Theme.Glyph.small, .semibold)).opacity(0.6)
+            }
+            .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+            .padding(.horizontal, 8)
+            .frame(height: 22)
+            .background(Capsule().fill(hovering ? Theme.Fill.selected : Theme.Fill.subtle))
+            .contentShape(Capsule())
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .tooltipText("The tab this comment goes to")
+        .accessibilityLabel("Comment goes to \(current?.title ?? "a new tab")")
     }
 }
 

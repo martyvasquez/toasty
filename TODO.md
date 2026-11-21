@@ -291,6 +291,13 @@ minimal).
   workspaces that aren't on view use the backstage the same way.
 - Comment mode works in the window as before; Esc or sending a comment keeps
   the keyboard in the browser window (it used to go back to the composer).
+  A comment to the conversation goes to the tab last selected in the
+  workspace the browser shows (not necessarily the one on screen in
+  Toasty). When that workspace has more than one tab, the comment field
+  shows that tab as a chip; clicking it lists the workspace's tabs to send
+  to another (the user, 2026-11-20). The pick lasts until commenting ends
+  and never selects the tab in Toasty. Tee-Up is the workspace's, so no
+  chip there.
 - A local link clicked in a terminal opens in the workspace's browser, and
   the window comes forward showing it (that's the user's own click). The page reloads
   whenever Claude finishes a turn in the workspace. Claude gets an MCP

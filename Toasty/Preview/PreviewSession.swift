@@ -113,6 +113,10 @@ final class PreviewSession: NSObject, ObservableObject {
     @Published private(set) var viewport: PreviewViewport
     @Published private(set) var console: [ConsoleEntry] = []
     @Published private(set) var commenting = false
+    /// The tab a comment goes to, when the user picked one in the comment
+    /// field; until then (and again after commenting ends), the
+    /// workspace's selected tab (`commentTab`).
+    @Published var commentTabID: UUID?
     @Published private(set) var pick: Pick?
     /// When a comment last went onto the Tee-Up list (the pane says so for
     /// a moment, since the list itself isn't in view).
@@ -424,6 +428,7 @@ final class PreviewSession: NSObject, ObservableObject {
     func setCommenting(_ on: Bool) {
         guard on != commenting else { return }
         commenting = on
+        commentTabID = nil
         pick = nil
         picker(on ? "start" : "stop")
         if on, let web = webView { web.window?.makeFirstResponder(web) }
@@ -444,6 +449,14 @@ final class PreviewSession: NSObject, ObservableObject {
     /// (whatever is being typed in the composer stays there), which ends
     /// commenting. To Tee-Up: a card on the workspace's list, and picking
     /// goes on, to gather several.
+    /// Where a comment to the conversation goes: the tab picked in the
+    /// comment field, else the one last selected in the workspace (which
+    /// isn't necessarily the one on screen: the browser window shows a
+    /// workspace of its own). Picking one never selects it in Toasty.
+    func commentTab(in workspace: Workspace) -> ClaudeConversation? {
+        workspace.conversations.first { $0.id == commentTabID } ?? workspace.selected
+    }
+
     func comment(_ note: String, in workspace: Workspace, to destination: PreviewSettings.CommentDestination) async {
         guard let pick else { return }
         let picture = try? await snapshot()
@@ -462,7 +475,7 @@ final class PreviewSession: NSObject, ObservableObject {
             teedUpAt = Date()
             cancelPick()  // back in the page, for the next pick (or Esc to finish)
         case .conversation:
-            (workspace.selected ?? workspace.newConversation()).post(line, images: images)
+            (commentTab(in: workspace) ?? workspace.newConversation()).post(line, images: images)
             leaveCommenting()
         }
     }

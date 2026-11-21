@@ -45,6 +45,10 @@ enum PreviewDebug {
             if let action = cmd["action"] as? String {
                 out["handled"] = NSApp.sendAction(NSSelectorFromString(action), to: nil, from: nil)
             }
+            // {"commentTab":1}: pick the active workspace's second tab in the comment field.
+            if let i = cmd["commentTab"] as? Int, w.conversations.indices.contains(i) { s.commentTabID = w.conversations[i].id }
+            out["commentTab"] = s.commentTab(in: w)?.title ?? ""
+            out["selectedTab"] = w.selected?.title ?? ""
             out["withPages"] = PreviewStore.shared.workspacesWithPages().map(\.name)
             out["activeWorkspace"] = w.name
             out["windowOpen"] = s.windowOpen
