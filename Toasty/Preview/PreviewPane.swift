@@ -559,7 +559,7 @@ private struct PreviewFooter: View {
             PreviewSizeMenu(session: session)
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        // Edges as the titlebar row's: the folder under the close button,
+        // Edges as the titlebar row's: the workspace name under the close button,
         // the size the row's margin from the right; the same band height,
         // the same divider on the page's side.
         .padding(.leading, max(0, model.buttonsMinX - ClaudeChip.padding))
@@ -639,7 +639,7 @@ private enum PreviewBrowser {
 }
 
 /// Which workspace's browser the window shows: its name with a chevron, as
-/// the composer's pop-ups, opening Toasty's own menu of the workspaces whose
+/// the composer's model, opening Toasty's own menu of the workspaces whose
 /// browser has a page (the one shown checked). Picking one changes only
 /// this window.
 private struct PreviewWorkspaceMenu: View {
@@ -661,15 +661,13 @@ private struct PreviewWorkspaceMenu: View {
         name.count > limit ? String(name.prefix(limit - 1)) + "…" : name
     }
 
-    /// The chip with `name` (none: just the folder), hugging it.
-    private func chip(_ name: String?, hovering: Bool) -> some View {
+    /// The chip: the name and a chevron, as the composer's model (no
+    /// icon: the name and its place say what it is), hugging it.
+    private func chip(_ name: String, hovering: Bool) -> some View {
         HStack(spacing: Theme.Space.xs + 1) {
-            Image(systemName: "folder").font(.toasty(Theme.Size.meta, .medium))
-            if let name {
-                Text(name)
-                    .font(.toasty(Theme.Size.control, .medium))
-                    .lineLimit(1)
-            }
+            Text(name)
+                .font(.toasty(Theme.Size.control, .medium))
+                .lineLimit(1)
             Image(systemName: "chevron.down").font(.toasty(Theme.Glyph.small, .semibold)).opacity(0.6)
         }
         .padding(.horizontal, ClaudeChip.padding)
@@ -684,12 +682,13 @@ private struct PreviewWorkspaceMenu: View {
         // The list is made when the menu opens: another workspace may have
         // been given a page since this was drawn.
         ClaudePopUp(items: [], makeItems: { items }) { hovering in
-            // It gives up room first in a narrow window: the name, a
-            // shorter name, then just the folder.
+            // It gives up room first in a narrow window: the name, then
+            // shorter and shorter.
             ViewThatFits(in: .horizontal) {
-                chip(Self.short(workspace.displayName, 24), hovering: hovering)
-                chip(Self.short(workspace.displayName, 12), hovering: hovering)
-                chip(nil, hovering: hovering)
+                chip(Self.short(workspace.displayName, 28), hovering: hovering)
+                chip(Self.short(workspace.displayName, 20), hovering: hovering)
+                chip(Self.short(workspace.displayName, 14), hovering: hovering)
+                chip(Self.short(workspace.displayName, 7), hovering: hovering)
             }
         }
         .tooltip(Tooltip(title: "Workspace", detail: "Which workspace's browser this window shows. Each has its own page, logins and storage."))

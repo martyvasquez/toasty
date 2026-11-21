@@ -327,7 +327,8 @@ the iPhone/desktop toggle, show conversation, the size menu.
   window's frame and switching back restores it (`PreviewDesktopFrame`).
   With no window open a desktop page is 1280×800. The size menu is always
   shown whole (the window's 460-point minimum leaves room for it); the
-  workspace chip gives up room first (name, shorter name, just the folder). A phone is laid out at
+  workspace chip (the name and a chevron, no icon) gives up room first:
+  shorter and shorter names. A phone is laid out at
   its real width and drawn smaller in a narrow window.
   Comments (⇧⌘C): click an element or drag an area, type a note; Return
   sends to the conversation or Tee-Up per Settings ▸ Browser ▸ Comments,
