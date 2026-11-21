@@ -15,9 +15,9 @@ struct ClaudeDisclosureLine<Label: View>: View {
     static var pillPadding: CGFloat { Theme.Space.s - Theme.Space.xxs }
     static var chevronWidth: CGFloat { 12 }
     static var chevronGap: CGFloat { Theme.Space.s - 1 }
-    /// The chevron hangs in the margin: the label's text starts exactly on
-    /// the replies' left edge.
-    static var hang: CGFloat { pillPadding + chevronWidth + chevronGap }
+    /// Only the hover pill's padding hangs out: the chevron sits on the
+    /// replies' left edge, so nothing breaks out of the composer's width.
+    static var hang: CGFloat { pillPadding + (chevronWidth - 7) / 2 }
 
     var body: some View {
         Button {

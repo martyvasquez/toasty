@@ -41,8 +41,9 @@ struct DictationMicButton: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .frame(width: 28, height: 28)
-            .contentShape(Circle())
+            // As wide as the composer's other icons (their hover oval).
+            .frame(width: ComposerIconButton.width, height: Theme.Control.height)
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }

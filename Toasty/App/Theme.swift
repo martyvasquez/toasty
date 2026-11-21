@@ -56,6 +56,22 @@ enum Theme {
             : .controlAccentColor
     })
 
+    // MARK: Surfaces
+
+    /// The opaque surfaces, darkest to lightest in dark mode. Every panel,
+    /// bar and card is one of these; a new surface picks a step rather than
+    /// a new gray.
+    enum Surface {
+        /// The page: the conversation, the window.
+        static var page: Color { .claudeBackground }
+        /// Bars and side panels: the tab row, the inspector, a field's footer.
+        static var chrome: Color { .claudeChrome }
+        /// Raised things you type into or answer: the composer, prompt cards.
+        static var field: Color { .claudeField }
+        /// Floating over everything: menus, tooltips.
+        static var floating: Color { Tooltip.background }
+    }
+
     // MARK: Fills
 
     /// Backgrounds laid over a surface: hover, selection, pressed, chips.

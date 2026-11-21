@@ -167,6 +167,22 @@ final class ConversationViews {
 
     final class Hosting: NSHostingView<ClaudeConversationView> {
         weak var conversation: ClaudeConversation?
+
+        /// The top safe area ends at the tab row's divider. The row is only
+        /// the window buttons' band (`TitlebarRow`); the titlebar's extra
+        /// height under it belongs to the conversation, so the transcript
+        /// scrolls (and fades) right up to the divider.
+        override var safeAreaInsets: NSEdgeInsets {
+            var insets = super.safeAreaInsets
+            // (In full screen the buttons live in another window: leave it be.)
+            guard let window, let button = window.standardWindowButton(.closeButton), button.window === window
+            else { return insets }
+            let height = window.frame.height
+            let barBottom = 2 * (height - button.convert(button.bounds, to: nil).midY)
+            let top = height - convert(bounds, to: nil).maxY
+            insets.top = min(insets.top, max(0, barBottom - top))
+            return insets
+        }
     }
 
     private var views: [(id: UUID, view: Hosting)] = []

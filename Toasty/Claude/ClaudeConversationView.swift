@@ -12,6 +12,11 @@ struct ClaudeConversationView: View {
     var body: some View {
         // The transcript scrolls under the composer and fades out above it.
         ClaudeTranscript(conversation: conversation, onRunInTerminal: onRunInTerminal)
+            // And fades out under the tab row, as it does above the composer:
+            // clipped to its own top edge (a scroll view otherwise draws up
+            // into the safe area, past the fade) with the fade on that edge.
+            .clipped()
+            .overlay(alignment: .top) { HeaderFade() }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 ClaudeBottomArea(conversation: conversation)
                     .background(alignment: .top) { ComposerFade() }
@@ -129,7 +134,8 @@ struct ClaudeTranscript: View {
                 // Exactly the composer's width and edges.
                 .frame(maxWidth: ClaudeTypography.composerWidth, alignment: .leading)
                 .padding(.horizontal, ClaudeStyle.horizontalPadding - 12)
-                .padding(.top, 26)
+                // Below the header's fade, so nothing is faded at rest.
+                .padding(.top, HeaderFade.height + 4)
                 .frame(maxWidth: .infinity)
             }
             .modifier(PinToBottom())
@@ -899,6 +905,26 @@ private struct ComposerFade: View {
     }
 }
 
+/// The page fading in under the tab row, so text scrolling up softly
+/// disappears into the header: fully hidden at the divider, then easing out
+/// along one smooth curve (a flat solid part shows as an edge on bright
+/// content, like a bubble). Shorter than the transcript's top padding, so
+/// nothing is faded at rest.
+private struct HeaderFade: View {
+    static let height: CGFloat = 36
+
+    var body: some View {
+        // Smoothstep from 1 to 0: no corner anywhere along the fade.
+        let stops = (0...8).map { i -> Gradient.Stop in
+            let t = Double(i) / 8
+            return .init(color: Color.claudeBackground.opacity(1 - t * t * (3 - 2 * t)), location: t)
+        }
+        LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom)
+            .frame(height: Self.height)
+            .allowsHitTesting(false)
+    }
+}
+
 struct ClaudeBottomArea: View {
     @ObservedObject var conversation: ClaudeConversation
 
@@ -992,6 +1018,8 @@ struct ClaudeComposerBox: View {
     static let radius = Theme.Radius.large
     /// Left edge shared by the text and the first control's glyph.
     static let inset = Theme.Space.l
+    /// The text area's height at rest: a little over two lines.
+    static var textMinHeight: CGFloat { ClaudeComposer.minHeight + 30 }
     @State private var height: CGFloat = ClaudeComposer.minHeight
     /// The slash command menu's highlighted row.
     @State private var commandIndex = 0
@@ -1149,35 +1177,44 @@ struct ClaudeComposerBox: View {
                 suggestion: conversation.phase == .idle && conversation.requests.isEmpty
                     && conversation.attachments.isEmpty && conversation.files.isEmpty ? conversation.suggestion : nil,
                 onAcceptSuggestion: { conversation.acceptSuggestion() })
-                .frame(height: height)
+                // Room for a couple of lines at rest; it grows as you type.
+                .frame(height: max(height, Self.textMinHeight), alignment: .top)
                 .padding(.horizontal, Self.inset)
-                .padding(.top, Theme.Space.m + 1)
+                .padding(.top, Theme.Space.l)
+                .padding(.bottom, Theme.Space.m)
 
-            // One quiet row: attach and mode on the left, model and send on
-            // the right. Gray controls; only send carries the accent (a
-            // risky mode is red, a live remote session green).
-            HStack(spacing: Theme.Space.xxs) {
-                ComposerIconButton(symbol: "plus", help: "Pictures and files for Claude to read. You can also paste or drop them.",
-                                   label: "Attach Files", action: attach)
-                ClaudeModeMenu(conversation: conversation)
-                Spacer(minLength: 8)
-                if conversation.remoteControlAvailable {
-                    ClaudeRemoteControlMenu(conversation: conversation)
-                }
+
+            // One quiet row, as Things' toolbar: the model on the left,
+            // send on the right, the icons grouped in the middle with wide
+            // hover ovals. The model is the only word. Gray controls; only
+            // send carries the accent (a risky mode is red, a live remote
+            // session green).
+            HStack(spacing: 0) {
                 ClaudeModelMenu(conversation: conversation)
-                DictationMicButton(conversation: conversation.id)
-                sendButton.padding(.leading, Theme.Space.xs)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: Theme.Space.xxs) {
+                    ComposerIconButton(symbol: "plus", help: "Pictures and files for Claude to read. You can also paste or drop them.",
+                                       label: "Attach Files", action: attach)
+                    ClaudeModeMenu(conversation: conversation)
+                    if conversation.remoteControlAvailable {
+                        ClaudeRemoteControlMenu(conversation: conversation)
+                    }
+                    DictationMicButton(conversation: conversation.id)
+                }
+                sendButton
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            // The + icon's glyph lines up with the text above it.
-            .padding(.leading, Self.inset - 7)
-            .padding(.trailing, Theme.Space.s)
-            .padding(.top, Theme.Space.xs)
-            .padding(.bottom, Theme.Space.s)
+            // The model's name lines up with the text above it.
+            .padding(.leading, Self.inset - ClaudeChip.padding)
+            .padding(.trailing, Theme.Space.s + 2)
+            .padding(.vertical, Theme.Space.s)
+            // The controls are the box's own footer, on the bars' surface.
+            .fieldFooter(radius: Self.radius)
             // Buttons, not text: the arrow, not the text field's I-beam.
             .pointerStyle(.default)
         }
         .background(RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
-            .fill(Color.claudeField))
+            .fill(Theme.Surface.field))
         .overlay(RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
             .strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
         .raisedShadow()
@@ -1423,18 +1460,6 @@ struct ClaudeModeMenu: View {
         modes.first { $0.id == mode }?.title ?? mode
     }
 
-    /// The chip's short name for a mode (the menu shows the full name).
-    static func shortLabel(_ mode: String) -> String {
-        switch mode {
-        case "default": "Ask Before Edits"
-        case "acceptEdits": "Accept Edits"
-        case "plan": "Plan"
-        case "auto": "Auto"
-        case "bypassPermissions": "Bypass Permissions"
-        default: mode
-        }
-    }
-
     var body: some View {
         let current = Self.modes.first { $0.id == conversation.permissionMode }
         let available = Self.modes.filter {
@@ -1446,13 +1471,15 @@ struct ClaudeModeMenu: View {
             }
         }) { hovering in
             ClaudeChip(icon: current?.icon ?? "hand.raised",
-                       title: Self.shortLabel(conversation.permissionMode),
-                       // Only the risky mode is colored; the others say
-                       // themselves in words.
+                       title: "",
+                       // Only the risky mode is colored; the menu and
+                       // tooltip name it.
                        tint: conversation.permissionMode == "bypassPermissions" ? .red : nil,
                        hovering: hovering)
         }
-        .tooltip("Permission Mode", shortcut: "⇧⇥", detail: "What Claude may do without asking. ⇧⇥ cycles through them.")
+        .tooltip(Self.label(conversation.permissionMode), shortcut: "⇧⇥",
+                 detail: "The permission mode: what Claude may do without asking. ⇧⇥ cycles through them.")
+        .accessibilityLabel("Permission Mode: \(Self.label(conversation.permissionMode))")
     }
 }
 
@@ -1678,11 +1705,12 @@ struct ClaudeRemoteControlMenu: View {
         let state = conversation.remoteControl
         ClaudePopUp(items: items) { hovering in
             ClaudeChip(icon: { if case .failed = state { "exclamationmark.triangle" } else { Self.symbol } }(),
-                       title: state.isOn ? "Remote" : state == .connecting ? "Connecting…" : "",
+                       title: "",
                        tint: state.isOn ? .green : { if case .failed = state { Color.orange } else { nil } }(),
                        hovering: hovering)
         }
-        .tooltip("Remote Control", detail: state.isOn ? "On: continue this session from claude.ai or the Claude app."
+        .tooltip(state == .connecting ? "Remote Control: Connecting…" : "Remote Control",
+                 detail: state.isOn ? "On: continue this session from claude.ai or the Claude app."
                                                       : "Continue this session from claude.ai or the Claude app.")
         .accessibilityLabel("Remote Control")
     }
@@ -1750,26 +1778,38 @@ struct ClaudePopUp<Label: View>: View {
     }
 }
 
-/// A small pop-up button label: optional icon, title and a chevron.
+/// A small pop-up button label: a title with a chevron (an icon before it
+/// when it has one), or with no title just an icon, as the composer's icon
+/// buttons.
 struct ClaudeChip: View {
+    /// The title's padding inside the hover capsule.
+    static let padding = Theme.Space.s + Theme.Space.xxs
     let icon: String?
     let title: String
     let tint: Color?
     var hovering = false
 
     var body: some View {
-        HStack(spacing: Theme.Space.xs + 1) {
-            if let icon {
-                Image(systemName: icon).font(.toasty(Theme.Size.meta, .medium))
+        Group {
+            if title.isEmpty, let icon {
+                Image(systemName: icon)
+                    .font(.toasty(Theme.Size.body, .regular))
+                    .frame(width: ComposerIconButton.width, height: Theme.Control.height)
+            } else {
+                HStack(spacing: Theme.Space.xs + 1) {
+                    if let icon {
+                        Image(systemName: icon).font(.toasty(Theme.Size.meta, .medium))
+                    }
+                    Text(title).font(.toasty(Theme.Size.control, .medium))
+                    Image(systemName: "chevron.down").font(.toasty(Theme.Glyph.small, .semibold)).opacity(0.6)
+                }
+                .padding(.horizontal, Self.padding)
+                .frame(height: Theme.Control.height)
             }
-            if !title.isEmpty { Text(title).font(.toasty(Theme.Size.control, .medium)) }
-            Image(systemName: "chevron.down").font(.toasty(Theme.Glyph.small, .semibold)).opacity(0.6)
         }
         // As the app's bar buttons: full ink and a hairline capsule under
         // the pointer (a tint, when it has one, stays its color).
         .foregroundStyle(tint.map { AnyShapeStyle($0) } ?? (hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary)))
-        .padding(.horizontal, Theme.Space.s + Theme.Space.xxs)
-        .frame(height: Theme.Control.height)
         .overlay(Capsule().strokeBorder(hovering ? Theme.Stroke.hover : Color.clear, lineWidth: 1))
         .contentShape(Capsule())
         .animation(.easeOut(duration: 0.12), value: hovering)
@@ -1780,6 +1820,8 @@ struct ClaudeChip: View {
 /// buttons: full ink and a hairline capsule under the pointer, filled
 /// while pressed.
 struct ComposerIconButton: View {
+    /// Wide, as Things' toolbar buttons: the hover oval is a long capsule.
+    static let width: CGFloat = 52
     let symbol: String
     let help: String
     let label: String
@@ -1791,7 +1833,7 @@ struct ComposerIconButton: View {
             Image(systemName: symbol)
                 .font(.toasty(Theme.Size.body, .regular))
                 .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                .frame(width: Theme.Control.height, height: Theme.Control.height)
+                .frame(width: Self.width, height: Theme.Control.height)
                 .contentShape(Capsule())
         }
         .buttonStyle(BarButtonStyle(hovering: hovering))
@@ -1799,6 +1841,15 @@ struct ComposerIconButton: View {
         .animation(.easeOut(duration: 0.12), value: hovering)
         .tooltip(label, detail: help)
         .accessibilityLabel(label)
+    }
+}
+
+extension View {
+    /// The footer of a field (the composer, a prompt card): a band of the
+    /// bars' surface along its bottom, following its corners.
+    func fieldFooter(radius: CGFloat) -> some View {
+        background(UnevenRoundedRectangle(bottomLeadingRadius: radius, bottomTrailingRadius: radius, style: .continuous)
+            .fill(Theme.Surface.chrome))
     }
 }
 
