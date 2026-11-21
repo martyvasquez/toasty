@@ -1722,6 +1722,9 @@ struct ClaudePopUp<Label: View>: View {
     typealias Item = PopoverMenu.Item
 
     let items: [Item]
+    /// Makes the items when the menu opens, for a menu whose items change
+    /// without this view being drawn again (else `items`).
+    var makeItems: (() -> [Item])? = nil
     /// Told when its menu opens and closes.
     var onOpenChange: (Bool) -> Void = { _ in }
     @ViewBuilder let label: (_ hovering: Bool) -> Label
@@ -1748,7 +1751,7 @@ struct ClaudePopUp<Label: View>: View {
         if menuOpen { PopoverMenu.shared.close(); return }
         menuOpen = true
         onOpenChange(true)
-        PopoverMenu.shared.show(items, from: view) {
+        PopoverMenu.shared.show(makeItems?() ?? items, from: view) {
             menuOpen = false
             onOpenChange(false)
         }

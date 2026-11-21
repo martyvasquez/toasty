@@ -64,6 +64,32 @@ enum PreviewDebug {
                 out["shownViewport"] = shown.viewport.rawValue
                 out["shownPage"] = "\(Int(shown.shownPageSize.width))x\(Int(shown.shownPageSize.height))"
             }
+            // {"click":[x, y]}: a click in the browser window, in points from its
+            // top-left (through the app, where menus' event monitors listen).
+            if let xy = cmd["click"] as? [Double], xy.count == 2, let window = PreviewStore.shared.presenter?.window {
+                let point = NSPoint(x: xy[0], y: window.frame.height - xy[1])
+                for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                    if let e = NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                                  windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) {
+                        NSApp.sendEvent(e)
+                    }
+                }
+            }
+            // {"menuShot":"/path.png"}: a picture of the menu open over the browser window.
+            if let path = cmd["menuShot"] as? String, let window = PreviewStore.shared.presenter?.window,
+               let panel = window.childWindows?.first(where: { $0.isVisible }) {
+                out["menuFrame"] = NSStringFromRect(panel.frame)
+                out["menuContentFitting"] = NSStringFromSize(panel.contentView?.fittingSize ?? .zero)
+                if let v = panel.contentView {
+                    let i = v.safeAreaInsets
+                    out["menuSafeArea"] = "\(i.top) \(i.left) \(i.bottom) \(i.right)"
+                    out["menuBounds"] = NSStringFromRect(v.bounds)
+                }
+                if let image = DebugControl.captureWindow(panel.windowNumber),
+                   let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) {
+                    try? png.write(to: URL(fileURLWithPath: path))
+                }
+            }
             // {"shot":"/path.png"}: a picture of the browser window itself.
             if let path = cmd["shot"] as? String, let window = PreviewStore.shared.presenter?.window,
                let image = DebugControl.captureWindow(window.windowNumber),

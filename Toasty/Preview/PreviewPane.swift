@@ -607,8 +607,9 @@ private struct PreviewSizeMenu: View {
 
     var body: some View {
         let label = "\(session.viewport.title) · \(Self.text(size))"
-        ViewThatFits(in: .horizontal) {
-            ClaudePopUp(items: items) { hovering in
+        // Always shown, whole: the window is never too narrow for it (the
+        // workspace chip gives up its room first).
+        ClaudePopUp(items: [], makeItems: { items }) { hovering in
                 HStack(spacing: Theme.Space.xs + 1) {
                     Text(label)
                         .font(.toasty(Theme.Size.meta).monospacedDigit())
@@ -621,13 +622,11 @@ private struct PreviewSizeMenu: View {
                 .overlay(Capsule().strokeBorder(hovering ? Theme.Stroke.hover : Color.clear, lineWidth: 1))
                 .contentShape(Capsule())
                 .fixedSize()
-            }
-            .tooltip(Tooltip(title: "Page Size",
-                             detail: session.viewport.isPhone ? "Which iPhone the page is shown as."
-                                 : "The desktop page is as big as the window: drag the window, or pick a size here."))
-            .accessibilityLabel("Page size: \(label)")
-            Color.clear.frame(width: 0, height: 0)
         }
+        .tooltip(Tooltip(title: "Page Size",
+                         detail: session.viewport.isPhone ? "Which iPhone the page is shown as."
+                             : "The desktop page is as big as the window: drag the window, or pick a size here."))
+        .accessibilityLabel("Page size: \(label)")
     }
 }
 
@@ -658,25 +657,40 @@ private struct PreviewWorkspaceMenu: View {
     }
 
     /// The chip hugs the name; a long one is shortened.
-    private static func short(_ name: String) -> String {
-        name.count > 24 ? String(name.prefix(23)) + "…" : name
+    private static func short(_ name: String, _ limit: Int) -> String {
+        name.count > limit ? String(name.prefix(limit - 1)) + "…" : name
+    }
+
+    /// The chip with `name` (none: just the folder), hugging it.
+    private func chip(_ name: String?, hovering: Bool) -> some View {
+        HStack(spacing: Theme.Space.xs + 1) {
+            Image(systemName: "folder").font(.toasty(Theme.Size.meta, .medium))
+            if let name {
+                Text(name)
+                    .font(.toasty(Theme.Size.control, .medium))
+                    .lineLimit(1)
+            }
+            Image(systemName: "chevron.down").font(.toasty(Theme.Glyph.small, .semibold)).opacity(0.6)
+        }
+        .padding(.horizontal, ClaudeChip.padding)
+        .frame(height: TabStyle.height)
+        .fixedSize()
+        .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+        .overlay(Capsule().strokeBorder(hovering ? Theme.Stroke.hover : Color.clear, lineWidth: 1))
+        .contentShape(Capsule())
     }
 
     var body: some View {
-        ClaudePopUp(items: items) { hovering in
-            HStack(spacing: Theme.Space.xs + 1) {
-                Image(systemName: "folder").font(.toasty(Theme.Size.meta, .medium))
-                Text(Self.short(workspace.displayName))
-                    .font(.toasty(Theme.Size.control, .medium))
-                    .lineLimit(1)
-                Image(systemName: "chevron.down").font(.toasty(Theme.Glyph.small, .semibold)).opacity(0.6)
+        // The list is made when the menu opens: another workspace may have
+        // been given a page since this was drawn.
+        ClaudePopUp(items: [], makeItems: { items }) { hovering in
+            // It gives up room first in a narrow window: the name, a
+            // shorter name, then just the folder.
+            ViewThatFits(in: .horizontal) {
+                chip(Self.short(workspace.displayName, 24), hovering: hovering)
+                chip(Self.short(workspace.displayName, 12), hovering: hovering)
+                chip(nil, hovering: hovering)
             }
-            .padding(.horizontal, ClaudeChip.padding)
-            .frame(height: TabStyle.height)
-            .fixedSize()
-            .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-            .overlay(Capsule().strokeBorder(hovering ? Theme.Stroke.hover : Color.clear, lineWidth: 1))
-            .contentShape(Capsule())
         }
         .tooltip(Tooltip(title: "Workspace", detail: "Which workspace's browser this window shows. Each has its own page, logins and storage."))
         .accessibilityLabel("Workspace: \(workspace.displayName)")

@@ -246,7 +246,11 @@ private struct PopoverMenuView: View {
                         Image(systemName: symbol).font(.toasty(Theme.Size.control))
                             .foregroundStyle(item.enabled ? AnyShapeStyle(Theme.headingBlue) : AnyShapeStyle(.tertiary))
                     } else {
-                        Color.clear
+                        // Room for a check, with a check's baseline: an
+                        // empty view has none, and the row's text would sit
+                        // on its bottom edge (pushed down, the menu taller
+                        // than it measured, its last row cut off).
+                        Image(systemName: "checkmark").font(.toasty(Theme.Size.meta, .semibold)).hidden()
                     }
                 }
                 .frame(width: 16)
