@@ -343,6 +343,18 @@ enum Theme {
         /// A worktree's branch mark in the status column: a step above the
         /// idle dot, well below a status.
         static let branchMark = Color.primary.opacity(0.35)
+        /// The rows' idle marks (a loose workspace's folder, a worktree's
+        /// branch): small and duller than the headings' icons; one gray.
+        static let folderIconSize: CGFloat = 12
+        static let restIcon = Color.primary.opacity(0.3)
+        /// A worktree's branch mark, near its name's 12pt letters; its
+        /// column and the gap to the name, tighter than the rows'.
+        static let branchIconSize: CGFloat = 9
+        static let branchWidth: CGFloat = 12
+        static let branchGap: CGFloat = 4
+        /// A worktree's indent under its workspace: its mark sits under the
+        /// workspace's name.
+        static let nestIndent: CGFloat = iconWidth + iconGap
         /// An idle workspace's dot in the status column (`StatusDot`, one
         /// size for every status): this faint.
         static let restDot = Color.primary.opacity(0.22)
