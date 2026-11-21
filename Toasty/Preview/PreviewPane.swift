@@ -466,7 +466,7 @@ private struct PreviewFooter: View {
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
                     .accessibilityLabel("Page size \(sizeText)")
-                Color.clear.frame(width: 0)
+                Color.clear.frame(width: 0, height: 0)
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
         }
