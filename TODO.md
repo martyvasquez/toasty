@@ -325,8 +325,8 @@ the iPhone/desktop toggle, show conversation, the size menu.
   dimmed). A desktop page is the window's page area, sized by dragging the
   window as in any browser; switching to an iPhone keeps the desktop
   window's frame and switching back restores it (`PreviewDesktopFrame`).
-  With no window open a desktop page is 1280×800. A phone the page is
-  is laid out at its real width and drawn smaller in a narrow window.
+  With no window open a desktop page is 1280×800. A phone is laid out at
+  its real width and drawn smaller in a narrow window.
   Comments (⇧⌘C): click an element or drag an area, type a note; Return
   sends to the conversation or Tee-Up per Settings ▸ Browser ▸ Comments,
   Shift-Return the other way.
