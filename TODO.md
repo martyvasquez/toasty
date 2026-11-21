@@ -266,9 +266,10 @@ Claude's tools reach their conversation's workspace's browser
 (`PreviewTools.handle`), never "the one on view", so switching never changes
 which browser an agent drives. Closing the window only hides it. Claude's
 tools never open the window, bring it forward or take the keyboard
-(`navigate` used to show the panel). No tabs, no back/forward: a testing and
-inspection tool, not a general browser. Toolbar: reload, workspace, address,
-phone or desktop, comment ("Open in default browser" was dropped 2026-11-20 to keep it
+(`navigate` used to show the panel). No tabs: a testing and
+inspection tool, not a general browser. Toolbar: back (⌘[, added at the user's
+request 2026-11-20; no forward), reload, workspace, address, phone or
+desktop, comment ("Open in default browser" was dropped 2026-11-20 to keep it
 minimal).
 - The titlebar's compass, at the end of the conversation tabs, is the
   indicator: accent-colored and pulsing while Claude is using the browser
@@ -319,7 +320,7 @@ Not done / to decide after living with it:
 - Turning the setting on or off reaches running conversations only when
   they restart (the SDK's `setMcpServers` could do it live).
 - No console view for the user (right-click ▸ Inspect Element opens
-  Safari's Web Inspector if that's enabled). No back/forward buttons
+  Safari's Web Inspector if that's enabled). No forward button
   (two-finger swipe works). No touch emulation.
 - Chromium-only bugs: copy the address into Chrome (the toolbar's "Open in
   default browser" button was dropped).

@@ -47,6 +47,8 @@ enum PreviewDebug {
             }
             // {"commentTab":1}: pick the active workspace's second tab in the comment field.
             if let i = cmd["commentTab"] as? Int, w.conversations.indices.contains(i) { s.commentTabID = w.conversations[i].id }
+            if cmd["back"] as? Bool == true { s.goBack() }
+            out["canGoBack"] = s.canGoBack
             out["commentTab"] = s.commentTab(in: w)?.title ?? ""
             out["selectedTab"] = w.selected?.title ?? ""
             out["withPages"] = PreviewStore.shared.workspacesWithPages().map(\.name)

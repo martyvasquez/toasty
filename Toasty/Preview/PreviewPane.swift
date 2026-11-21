@@ -257,6 +257,9 @@ private struct PreviewWindowContent: View {
             Button("Reload") { session.reload() }
                 .keyboardShortcut("r", modifiers: .command)
                 .hidden()
+            Button("Back") { session.goBack() }
+                .keyboardShortcut("[", modifiers: .command)
+                .hidden()
         }
         .onAppear {
             // Pick up where the workspace left off (its first time on view
@@ -266,7 +269,7 @@ private struct PreviewWindowContent: View {
     }
 }
 
-/// The browser window's toolbar, in AppKit: reload, which workspace's
+/// The browser window's toolbar, in AppKit: back, reload, which workspace's
 /// browser it shows (a menu of those with a page), the address (which takes
 /// the room there is, down to a narrow phone window), the page's size, and
 /// commenting. Bound to the shown workspace's browser.
@@ -279,12 +282,14 @@ private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDele
     /// A workspace picked from the menu.
     var choose: ((Workspace) -> Void)?
 
+    private static let back = NSToolbarItem.Identifier("back")
     private static let reload = NSToolbarItem.Identifier("reload")
     private static let workspaceID = NSToolbarItem.Identifier("workspace")
     private static let address = NSToolbarItem.Identifier("address")
     private static let size = NSToolbarItem.Identifier("size")
     private static let comment = NSToolbarItem.Identifier("comment")
 
+    private var backItem: NSToolbarItem?
     private var reloadItem: NSToolbarItem?
     private var sizeItem: NSToolbarItemGroup?
     private var commentItem: NSToolbarItem?
@@ -329,7 +334,7 @@ private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDele
         if field.currentEditor() != nil { field.window?.makeFirstResponder(nil) }
         field.stringValue = session?.address ?? ""
         guard let session else { update(); return }
-        session.$address.combineLatest(session.$isLoading, session.$started)
+        session.$address.combineLatest(session.$isLoading, session.$started, session.$canGoBack)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.update() }
             .store(in: &cancellables)
@@ -354,6 +359,7 @@ private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDele
         reloadItem?.label = loading ? "Stop" : "Reload"
         reloadItem?.toolTip = loading ? "Stop" : "Reload (⌘R)"
         reloadItem?.isEnabled = session?.started ?? false
+        backItem?.isEnabled = session?.canGoBack ?? false
         sizeItem?.isEnabled = session != nil
         if let session { sizeItem?.selectedIndex = PreviewViewport.allCases.firstIndex(of: session.viewport) ?? 0 }
         let commenting = session?.commenting ?? false
@@ -403,6 +409,8 @@ private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDele
         field.window?.makeFirstResponder(nil)
     }
 
+    @objc private func goBack() { session?.goBack() }
+
     @objc private func reloadOrStop() {
         guard let session else { return }
         if session.isLoading { session.stopLoading() } else { session.reload() }
@@ -431,7 +439,7 @@ private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDele
     // MARK: Toolbar delegate
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [Self.reload, Self.workspaceID, Self.address, Self.size, Self.comment]
+        [Self.back, Self.reload, Self.workspaceID, Self.address, Self.size, Self.comment]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -442,6 +450,16 @@ private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDele
                  willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
         let item: NSToolbarItem
         switch id {
+        case Self.back:
+            item = NSToolbarItem(itemIdentifier: id)
+            item.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Back")
+            item.label = "Back"
+            item.toolTip = "Back (⌘[)"
+            item.target = self
+            item.action = #selector(goBack)
+            item.isBordered = true
+            item.autovalidates = false
+            backItem = item
         case Self.reload:
             item = NSToolbarItem(itemIdentifier: id)
             item.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: "Reload")

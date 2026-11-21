@@ -94,6 +94,7 @@ final class KeyboardShortcuts: NSObject {
         if PreviewSettings.shared.enabled {
             groups.append(Group(title: "Browser", rows: [
                 menu("Show the browser window (in it: hide it)", #selector(W.togglePreview(_:))),
+                plain("Back", "⌘["),
                 plain("Reload", "⌘R"),
                 plain("Address", "⌘L"),
                 menu("Phone or desktop size", #selector(W.togglePreviewSize(_:))),

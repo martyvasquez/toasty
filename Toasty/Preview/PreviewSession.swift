@@ -108,6 +108,8 @@ final class PreviewSession: NSObject, ObservableObject {
     @Published var address: String
     @Published private(set) var url: URL?
     @Published private(set) var isLoading = false
+    /// There's a page before this one to go back to.
+    @Published private(set) var canGoBack = false
     @Published private(set) var progress: Double = 0
     @Published private(set) var failure: Failure?
     @Published private(set) var viewport: PreviewViewport
@@ -174,6 +176,7 @@ final class PreviewSession: NSObject, ObservableObject {
         web.isInspectable = true
         web.publisher(for: \.estimatedProgress).sink { [weak self] in self?.progress = $0 }.store(in: &observers)
         web.publisher(for: \.isLoading).sink { [weak self] in self?.isLoading = $0 }.store(in: &observers)
+        web.publisher(for: \.canGoBack).sink { [weak self] in self?.canGoBack = $0 }.store(in: &observers)
         web.publisher(for: \.url).sink { [weak self] url in
             guard let self, let url, url.absoluteString != "about:blank" else { return }
             self.url = url
@@ -348,6 +351,13 @@ final class PreviewSession: NSObject, ObservableObject {
     }
 
     func stopLoading() { webView?.stopLoading() }
+
+    /// The page before this one (the toolbar's back button, ⌘[).
+    func goBack() {
+        guard let web = webView, web.canGoBack else { return }
+        failure = nil
+        web.goBack()
+    }
 
     /// The other size, phone or desktop (⇧⌘M: the user's).
     func toggleViewport() {
