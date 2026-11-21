@@ -9,8 +9,8 @@ input; Claude Code (via its own features) decides what Claude does.
 Toasty runs the installed `claude` (terminal tabs and the bridge's
 `pathToClaudeCodeExecutable`), so Claude Code updates reach Toasty on their
 own. The Agent SDK is vendored and pinned
-(`Resources/Bridge/claude-agent-sdk-VERSION.txt`: 0.3.319, built for
-Claude Code 2.1.319). Both ship almost daily (19 releases Oct 14 - Nov 6),
+(`Resources/Bridge/claude-agent-sdk-VERSION.txt`: 0.3.330, built for
+Claude Code 2.1.330). Both ship almost daily (19 releases Oct 14 - Nov 6),
 so a build falls behind within days.
 
 Decided 2026-11-09: the SDK updates itself to match the installed `claude`;

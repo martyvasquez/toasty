@@ -263,7 +263,7 @@ struct ClaudeTranscript: View {
                 // Nothing to show without visible thinking (while it runs,
                 // the working line says "Thinking…").
                 continue
-            case .error, .notice:
+            case .error, .warning, .notice:
                 flush()
                 // The same note or error again, right after itself (a
                 // resume that fails the same way each time): shown once.
@@ -587,13 +587,15 @@ struct ClaudeItemView: View {
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity)
-        case .error:
+        case .error, .warning:
             // The icon is centered on the first line (the text is an AppKit
-            // view, so SwiftUI can't align them by baseline).
+            // view, so SwiftUI can't align them by baseline). A warning is
+            // the same card in orange: Claude Code carried on.
+            let tint = Color(nsColor: item.kind == .error ? .systemRed : .systemOrange)
             HStack(alignment: .top, spacing: Theme.Space.s) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.toasty(Theme.Size.control))
-                    .foregroundStyle(Color(nsColor: .systemRed))
+                    .foregroundStyle(tint)
                     .frame(height: Theme.Size.control * 1.5)
                 ClaudeRichText(text: ClaudeMarkdown.inline(item.text, font: .systemFont(ofSize: Theme.Size.control), style: .init(cwd: cwd)))
             }
@@ -601,7 +603,7 @@ struct ClaudeItemView: View {
             .padding(.vertical, Theme.Space.s + Theme.Space.xxs)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                .fill(Color(nsColor: .systemRed).opacity(0.08)))
+                .fill(tint.opacity(0.08)))
         }
     }
 }

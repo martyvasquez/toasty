@@ -156,7 +156,7 @@ enum ClaudeToolInfo {
         case "authentication_failed": "Claude Code isn't logged in. Run `claude` in the terminal (or `/login`) to sign in."
         case "billing_error": "There's a billing problem with your Claude account."
         case "rate_limit": "Rate limited. Claude Code will retry, or try again shortly."
-        case "invalid_request": "The request was invalid."
+        case "invalid_request": "The request was invalid. If it keeps happening, sign in again: run `claude` in the terminal (or `/login`)."
         case "server_error": "Anthropic's API had a server error."
         default: "Error: \(error)"
         }

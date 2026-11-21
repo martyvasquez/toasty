@@ -105,6 +105,14 @@ enum ClaudeDebug {
             return nil
         }
 
+        // Handle a message as if the SDK had sent it:
+        // {"cmd":"sdkMessage","message":{"type":"system","subtype":"informational","level":"warning","content":"…"}}
+        DebugControl.register("sdkMessage") { cmd in
+            guard let m = cmd["message"] as? [String: Any] else { throw E("message=") }
+            try conv().debugHandleSDK(m)
+            return nil
+        }
+
         // A long synthetic session: {"cmd":"longSession","turns":600} (3 rows per turn).
         // {"turns":60,"workspace":1}: into that workspace's selected tab.
         DebugControl.register("longSession") { cmd in

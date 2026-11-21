@@ -12,6 +12,9 @@ final class ClaudeItem: ObservableObject, Identifiable {
         case thinking
         case tool
         case notice
+        /// Claude Code's own warning (an informational message at level
+        /// `warning`, e.g. a settings file that isn't in effect).
+        case warning
         case error
         /// A message from another Claude Code session (cross-session
         /// messaging); `text` is its body, `sender` the session's name.
@@ -468,6 +471,9 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     private var suspectSDK: String?
     /// Prompts sent from the composer whose echo hasn't come back yet.
     private var sentPrompts: Set<String> = []
+    /// Claude Code's informational lines tied to a tool call, so a later
+    /// one for the same call updates the line instead of adding another.
+    private var informational: [String: ClaudeItem] = [:]
     /// The session has a name in Claude Code (so Claude Code's own title
     /// isn't applied again).
     private var named = false
@@ -1078,6 +1084,28 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             case "api_retry":
                 let attempt = m["attempt"] as? Int
                 status = "Retrying\(attempt.map { " (attempt \($0))" } ?? "")…"
+            case "informational":
+                // Claude Code's banner lines: hook feedback, status notes,
+                // warnings such as a settings file that failed validation.
+                // `info` only shows in the CLI's transcript mode.
+                guard let text = m["content"] as? String, !text.isEmpty else { return }
+                let kind: ClaudeItem.Kind
+                switch m["level"] as? String {
+                case "warning": kind = .warning
+                case "notice", "suggestion": kind = .notice
+                default: return
+                }
+                // Progress for the same tool call updates one line.
+                if let toolUseID = m["tool_use_id"] as? String {
+                    if let item = informational[toolUseID], item.kind == kind {
+                        item.text = text
+                        return
+                    }
+                    append(kind, text)
+                    informational[toolUseID] = items.last
+                } else {
+                    append(kind, text)
+                }
             default:
                 break
             }
@@ -1739,6 +1767,9 @@ extension ClaudeConversation {
             setPhase(.idle)
         }
     }
+
+    /// Debug: handle a message as if the SDK had sent it.
+    func debugHandleSDK(_ m: [String: Any]) { handleSDK(m) }
 
     /// Debug: show Markdown as if Claude had replied with it.
     func debugAppendReply(_ markdown: String) {
