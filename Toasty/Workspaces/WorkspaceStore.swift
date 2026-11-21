@@ -176,9 +176,6 @@ final class WorkspaceStore: ObservableObject {
             windowFrame = s.windowFrame.map(NSRectFromString)
             TeeUpImages.sweep(keeping: Set(workspaces.flatMap(\.teeUpImageNames)))
         }
-        if workspaces.isEmpty {
-            create(folder: NSHomeDirectory(), name: "Home")
-        }
         syncWorktrees()
         // Worktrees made or removed outside Toasty show up on coming back.
         NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification,
@@ -240,6 +237,9 @@ final class WorkspaceStore: ObservableObject {
                           parentID: parent?.id)
         w.store = self
         if withConversation { w.newConversation() }
+        // The first workspace (from the welcome page) opens with the
+        // inspector showing, so it's found from the start.
+        if workspaces.isEmpty { w.inspectorVisible = true }
         var list = workspaces
         if let parent, let i = list.firstIndex(where: { $0.id == parent.id }) {
             // A worktree goes after its parent's other worktrees.

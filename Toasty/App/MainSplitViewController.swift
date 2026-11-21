@@ -54,7 +54,7 @@ final class MainSplitViewController: NSSplitViewController {
         sidebarItem.minimumThickness = WorkspaceStore.sidebarWidthRange.lowerBound
         sidebarItem.maximumThickness = WorkspaceStore.sidebarWidthRange.upperBound
         sidebarItem.canCollapse = true
-        sidebarItem.isCollapsed = !store.sidebarVisible
+        sidebarItem.isCollapsed = !store.sidebarVisible || store.workspaces.isEmpty
         // Its width is the user's: the window and the other columns don't
         // take from it (only a drag on its edge changes it).
         sidebarItem.holdingPriority = .init(260)
@@ -83,16 +83,31 @@ final class MainSplitViewController: NSSplitViewController {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.showActiveWorkspace() }
             .store(in: &cancellables)
+        // Published values arrive before they're set: use the new ones.
         store.$sidebarVisible
             .removeDuplicates()
-            .sink { [weak self] visible in self?.applySidebar(wanted: visible) }
+            .sink { [weak self] visible in
+                guard let self else { return }
+                self.applySidebar(wanted: visible && !self.store.workspaces.isEmpty)
+            }
+            .store(in: &cancellables)
+        // With no workspaces the sidebar has nothing to show: hidden until
+        // the first one, which it slides in with.
+        store.$workspaces
+            .map(\.isEmpty)
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] empty in
+                guard let self else { return }
+                self.applySidebar(wanted: self.store.sidebarVisible && !empty)
+            }
             .store(in: &cancellables)
     }
 
-    /// Show the sidebar if the user wants it.
+    /// Show the sidebar if the user wants it (and there's a workspace).
     private func applySidebar(wanted: Bool? = nil, animated: Bool = true) {
         guard isViewLoaded else { return }
-        let visible = wanted ?? store.sidebarVisible
+        let visible = wanted ?? (store.sidebarVisible && !store.workspaces.isEmpty)
         guard sidebarItem.isCollapsed == visible else { return }
         guard animated, view.window != nil else {
             sidebarItem.isCollapsed = !visible
@@ -254,7 +269,7 @@ final class MainSplitViewController: NSSplitViewController {
         }
         // The user collapsed the sidebar by dragging it closed.
         let sidebarShown = !sidebarItem.isCollapsed
-        if !sidebarAnimating, sidebarShown != store.sidebarVisible {
+        if !sidebarAnimating, !store.workspaces.isEmpty, sidebarShown != store.sidebarVisible {
             store.sidebarVisible = sidebarShown
             store.setNeedsSave()
         }

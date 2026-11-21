@@ -12,8 +12,7 @@ struct ConversationColumn: View {
             if let workspace = store.active {
                 WorkspaceConversation(workspace: workspace)
             } else {
-                EmptyState(symbol: "folder", title: "No Workspace",
-                           button: "New Workspace…", shortcut: "⌘N") { store.createWithFolderPicker() }
+                WelcomeView(store: store)
             }
         }
     }

@@ -208,7 +208,7 @@ struct KeyboardShortcutsView: View {
     }
 }
 
-private struct KeyCap: View {
+struct KeyCap: View {
     let keys: String
 
     var body: some View {

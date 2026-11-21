@@ -15,9 +15,12 @@ struct SidebarHandle: View {
     @ObservedObject var store: WorkspaceStore
 
     var body: some View {
-        EdgeHandle(edge: .leading,
-                   tooltip: Tooltip(title: store.sidebarVisible ? "Hide Workspaces" : "Show Workspaces", shortcut: "⇧⌘S")) {
-            AppDelegate.shared.windowController?.toggleWorkspaces(nil)
+        // No workspaces: no sidebar to show.
+        if !store.workspaces.isEmpty {
+            EdgeHandle(edge: .leading,
+                       tooltip: Tooltip(title: store.sidebarVisible ? "Hide Workspaces" : "Show Workspaces", shortcut: "⇧⌘S")) {
+                AppDelegate.shared.windowController?.toggleWorkspaces(nil)
+            }
         }
     }
 }

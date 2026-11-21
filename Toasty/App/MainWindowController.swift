@@ -400,7 +400,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             return w != nil
         case #selector(toggleWorkspaces(_:)):
             item.title = store.sidebarVisible ? "Hide Workspaces" : "Show Workspaces"
-            return true
+            return !store.workspaces.isEmpty
         case #selector(closeTab(_:)):
             return terminalFocused ? w?.selectedTerminal != nil : w?.selected != nil
         case #selector(newTerminal(_:)), #selector(renameWorkspace(_:)),

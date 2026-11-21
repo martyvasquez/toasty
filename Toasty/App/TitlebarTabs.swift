@@ -73,8 +73,12 @@ struct TitlebarRow: View {
         // Things' toolbar); the titlebar's extra height below it belongs to
         // the content.
         .frame(height: layout.buttonsMidY > 0 ? layout.buttonsMidY * 2 : nil)
-        .background(ZStack { Color.claudeChrome; WindowDragArea() })
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1) }
+        // No workspace: the welcome page runs up under the window buttons,
+        // with no bar over it.
+        .background(ZStack { store.active == nil ? Color.claudeBackground : Color.claudeChrome; WindowDragArea() })
+        .overlay(alignment: .bottom) {
+            if store.active != nil { Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1) }
+        }
         .frame(maxHeight: .infinity, alignment: .top)
         .background(WindowDragArea())
     }
