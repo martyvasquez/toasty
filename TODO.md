@@ -45,6 +45,21 @@ Follow-ups:
   peer `isMeta` entries, session titles) and aren't covered by the SDK
   changelog. Move to `getSessionMessages` / `listSessions` where possible.
 
+## Setup check (launch)
+
+Built 2026-11-21 (`Claude/ClaudeSetup.swift`): every launch checks Claude
+Code (>= `minimumClaude`), sign-in (`claude auth status`) and Node; a sheet
+blocks the window until they pass. No "Don't Remind Me": no setup, no
+Toasty. Fix in Terminal runs the missing steps in a terminal in the sheet.
+
+Next:
+- **Toasty's own Node.** Without Homebrew, Fix in Terminal can't install
+  Node (nodejs.org's installer needs an admin password). Download the
+  official Node tarball into Application Support, like the SDK, so the
+  Node row never needs the user.
+- **Test from a fresh macOS user account** before sending Toasty to
+  someone: permission prompts and the full Fix run.
+
 ## Messaging between tabs
 
 Built so far: Fork (from any reply), tab names = Claude Code session names,

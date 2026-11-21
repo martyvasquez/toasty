@@ -32,7 +32,8 @@ final class TerminalView: NSView, NSTextInputClient, NSMenuItemValidation, Obser
     override var acceptsFirstResponder: Bool { true }
     override var isOpaque: Bool { true }
 
-    init(cwd: String) {
+    /// `command`: run it instead of an interactive shell (see `PTYProcess`).
+    init(cwd: String, command: String? = nil, shell: String = PTYProcess.loginShell) {
         vt = VTTerminal(cols: 80, rows: 24)
         super.init(frame: NSRect(x: 0, y: 0, width: 640, height: 400))
         wantsLayer = true
@@ -46,16 +47,16 @@ final class TerminalView: NSView, NSTextInputClient, NSMenuItemValidation, Obser
         vt.onPwdChanged = { [weak self] in
             DispatchQueue.main.async { guard let self else { return }; self.pwd = self.vt.pwd }
         }
-        start(cwd: cwd)
+        start(cwd: cwd, command: command, shell: shell)
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
-    private func start(cwd: String) {
+    private func start(cwd: String, command: String?, shell: String) {
         let cw = UInt16(renderer.font.cellWidth.rounded()), ch = UInt16(renderer.font.cellHeight)
         do {
-            let pty = try PTYProcess(shell: PTYProcess.loginShell, cwd: cwd, environment: PTYProcess.environment(),
-                                     cols: cols, rows: rows, cellWidth: cw, cellHeight: ch)
+            let pty = try PTYProcess(shell: shell, cwd: cwd, environment: PTYProcess.environment(),
+                                     cols: cols, rows: rows, cellWidth: cw, cellHeight: ch, command: command)
             let vt = self.vt
             vt.onWritePTY = { [weak pty] data in pty?.write(data) }
             pty.onOutput = { [weak self] bytes in
@@ -666,8 +667,8 @@ final class TerminalScrollView: NSView {
     private let document = FlippedView()
     private var syncing = false
 
-    init(cwd: String) {
-        terminal = TerminalView(cwd: cwd)
+    init(cwd: String, command: String? = nil, shell: String = PTYProcess.loginShell) {
+        terminal = TerminalView(cwd: cwd, command: command, shell: shell)
         super.init(frame: .zero)
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.hasVerticalScroller = true

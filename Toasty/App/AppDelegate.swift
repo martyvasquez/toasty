@@ -48,8 +48,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Vocabulary.preload()
         // ⇧⌘0 in any app: a screenshot into the open conversation.
         ScreenshotCapture.shared.start()
-        // Claude conversations need Claude Code and Node: say so if either
-        // is missing (quiet when both are there).
+        // Claude conversations need Claude Code (signed in) and Node: a
+        // sheet blocks the window until they're there (quiet when they are).
         ClaudeSetup.checkAtLaunch()
         // Updates: an hourly check; one installs when Toasty quits.
         Updater.shared.start()
@@ -99,7 +99,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let warning = Activity.shared.closeWarning(conversations: conversations, terminals: terminals, action: "quit"),
               !skipQuitConfirmation else { return .terminateNow }
         Activity.shared.confirm(warning, title: "Quit Toasty?", button: "Quit",
-                                cancel: { NSApp.reply(toApplicationShouldTerminate: false) },
+                                cancel: {
+                                    // The setup sheet's Quit Toasty closed it: bring it back.
+                                    ClaudeSetup.quitCancelled()
+                                    NSApp.reply(toApplicationShouldTerminate: false)
+                                },
                                 proceed: { NSApp.reply(toApplicationShouldTerminate: true) })
         return .terminateLater
     }

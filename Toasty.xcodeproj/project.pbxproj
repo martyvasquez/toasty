@@ -71,6 +71,7 @@
 		97DE64296BB25F566553E931 /* TerminalSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D608974EF68852F5E90292F3 /* TerminalSession.swift */; };
 		9872B09FC2AF652524111032 /* GitChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = B522B1F4E328C3F351D75754 /* GitChanges.swift */; };
 		9DDDDAA170037BD3E78B847C /* LocalServersWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D16EF1BA583C2893F7B6156 /* LocalServersWindow.swift */; };
+		A70C5DF7F990D3EDDA9B3F6C /* ClaudeSetupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DECF3C8E03F7A434A2FA30C /* ClaudeSetupTests.swift */; };
 		A83035FF59935DFD66E04BAC /* PreviewDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19CED90B88C38C1A6B695B76 /* PreviewDebug.swift */; };
 		AC946F3D12C8AAF3BB8D8BF1 /* TeeUp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CE9F5C6D66F52699F8558DC /* TeeUp.swift */; };
 		AC9DFC4D667B3EF0DACDCE40 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FDD4FA67F476B51448A8EB66 /* Assets.xcassets */; };
@@ -184,6 +185,7 @@
 		64C4D1DA3C7A21F286EE8D53 /* KeyCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyCodes.swift; sourceTree = "<group>"; };
 		662BABDF0CE9D1BACB40CDDF /* DictationDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationDebug.swift; sourceTree = "<group>"; };
 		6927A423E7E99E5F0D72EB08 /* WorkspaceSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSidebarView.swift; sourceTree = "<group>"; };
+		6DECF3C8E03F7A434A2FA30C /* ClaudeSetupTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSetupTests.swift; sourceTree = "<group>"; };
 		6E376E9D81389D2BAC3DC077 /* ClaudeAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeAgent.swift; sourceTree = "<group>"; };
 		6F3A8B4B872E5EC65743891C /* Fixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fixtures; path = Tests/Fixtures; sourceTree = SOURCE_ROOT; };
 		7197C0B2C7B32F9D55DA3648 /* PreviewScripts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewScripts.swift; sourceTree = "<group>"; };
@@ -474,6 +476,7 @@
 			isa = PBXGroup;
 			children = (
 				5FE3BEB622EF1F6E34C0F08C /* ClaudeSDKTests.swift */,
+				6DECF3C8E03F7A434A2FA30C /* ClaudeSetupTests.swift */,
 			);
 			path = ClaudeTests;
 			sourceTree = "<group>";
@@ -768,6 +771,7 @@
 			files = (
 				0F30004D432418E82D43BAD6 /* CaptureTests.swift in Sources */,
 				3C7A12F4E8E396CA83D229F1 /* ClaudeSDKTests.swift in Sources */,
+				A70C5DF7F990D3EDDA9B3F6C /* ClaudeSetupTests.swift in Sources */,
 				3EB73BEED88DCBC63A5AB238 /* PreviewTests.swift in Sources */,
 				725D93DDEC5C347B0656BBA1 /* ProcessTests.swift in Sources */,
 				F4C17D44C12AE3718AAED793 /* RepoPathsTests.swift in Sources */,

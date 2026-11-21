@@ -19,13 +19,16 @@ nonisolated final class PTYProcess: @unchecked Sendable {
 
     enum Failure: Error { case forkpty(Int32) }
 
-    /// Starts `shell` as a login shell (argv[0] = "-zsh") in `cwd`.
+    /// Starts `shell` as a login shell (argv[0] = "-zsh") in `cwd`. With
+    /// `command`, the shell runs it (interactive, so rc files load as in a
+    /// tab) and exits with its status.
     init(shell: String, cwd: String, environment: [String: String], cols: UInt16, rows: UInt16,
-         cellWidth: UInt16, cellHeight: UInt16) throws {
+         cellWidth: UInt16, cellHeight: UInt16, command: String? = nil) throws {
         // Everything the child needs is prepared before fork: after fork only
         // async-signal-safe calls are allowed.
         let argv0 = "-" + (shell as NSString).lastPathComponent
-        let argv: [UnsafeMutablePointer<CChar>?] = [strdup(argv0), nil]
+        let args = [argv0] + (command.map { ["-i", "-c", $0] } ?? [])
+        let argv: [UnsafeMutablePointer<CChar>?] = args.map { strdup($0) } + [nil]
         let envp: [UnsafeMutablePointer<CChar>?] = environment.map { strdup("\($0.key)=\($0.value)") } + [nil]
         let path = strdup(shell)!
         let dir = strdup(cwd)!
