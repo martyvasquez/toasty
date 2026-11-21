@@ -119,6 +119,10 @@ enum MainMenu {
         let servers = item("Local Servers", #selector(LocalServersWindowController.show(_:)), "")
         servers.target = LocalServersWindowController.shared
         window.addItem(servers)
+        // The browser window as it was left (hidden while it's turned off).
+        let browser = item("Browser", #selector(PreviewWindowMenu.showBrowser(_:)), "")
+        browser.target = PreviewWindowMenu.shared
+        window.addItem(browser)
         window.addItem(.separator())
         window.addItem(item("Show Next Tab", #selector(W.selectNextTab(_:)), arrow(NSRightArrowFunctionKey), [.command, .option]))
         window.addItem(item("Show Previous Tab", #selector(W.selectPreviousTab(_:)), arrow(NSLeftArrowFunctionKey), [.command, .option]))

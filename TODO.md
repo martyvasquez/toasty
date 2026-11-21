@@ -275,7 +275,11 @@ the iPhone/desktop toggle, show conversation, the size menu.
 - The titlebar's compass, at the end of the conversation tabs, is the
   indicator: accent-colored and pulsing while Claude is using the browser
   (a call running, or one ended in the last 3 s), filled while the window
-  is open on this workspace. A click (or ⇧⌘B) shows and focuses the window. In the window:
+  is open on this workspace. A click shows the window on this workspace.
+  ⇧⌘B (View ▸ Show Browser) and Window ▸ Browser go back to the window as
+  it was left, on whatever workspace it shows (never opened: this one);
+  the user, 2026-11-20: going back and showing this workspace's are two
+  things, and no extra button for it. In the window:
   ⇧⌘B or ⌘W hides it, ⌘R reloads, ⌘L goes to the address, ⇧⌘M switches
   phone/desktop (and sizes the window for it; Claude's `set_viewport`
   never moves the window), ⇧⌘C comments.

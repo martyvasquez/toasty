@@ -90,6 +90,15 @@ enum PreviewDebug {
                     try? png.write(to: URL(fileURLWithPath: path))
                 }
             }
+            // {"windowMenu":true}: Window ▸ Browser, as the menu does it.
+            if cmd["windowMenu"] as? Bool == true, let menu = NSApp.mainMenu?.items.first(where: { $0.submenu?.title == "Window" })?.submenu,
+               let i = menu.items.firstIndex(where: { $0.title == "Browser" }) {
+                menu.update()
+                out["windowMenuShown"] = !menu.items[i].isHidden
+                menu.performActionForItem(at: i)
+            }
+            // {"compass":true}: a click on the titlebar's compass (this workspace's browser).
+            if cmd["compass"] as? Bool == true { AppDelegate.shared.windowController?.showWorkspaceBrowser(w) }
             // {"shot":"/path.png"}: a picture of the browser window itself.
             if let path = cmd["shot"] as? String, let window = PreviewStore.shared.presenter?.window,
                let image = DebugControl.captureWindow(window.windowNumber),

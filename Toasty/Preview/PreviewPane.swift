@@ -16,10 +16,11 @@ import WebKit
 /// Which workspace it shows is the window's own (the user, 2026-11-20: the
 /// main window says which conversation I'm in, the browser which browser I'm
 /// inspecting; neither changes the other). Selecting a workspace in Toasty
-/// doesn't change it. What does: the workspace menu in its titlebar row, and
-/// asking for a workspace's browser from the main window (its compass, ⇧⌘B,
-/// ⇧⌘C, a local link clicked in its terminal). It's kept across launches; a
-/// workspace that closes gives way to another with a page open.
+/// doesn't change it. What does: the workspace menu in its footer, and
+/// asking for a workspace's browser from the main window (its compass, ⇧⌘C,
+/// a local link clicked in its terminal). ⇧⌘B and Window ▸ Browser only
+/// bring the window back as it was. It's kept across launches; a workspace
+/// that closes gives way to another with a page open.
 ///
 /// Closing the window hides it; every page keeps running. Claude's tools
 /// never open it, bring it forward or give it focus. Only the user does
@@ -712,10 +713,27 @@ private struct LoadingLine: View {
     }
 }
 
+// MARK: - Window menu
+
+/// Window ▸ Browser: back to the browser window as it was left (as ⇧⌘B),
+/// from any of Toasty's windows. Hidden while the browser is turned off.
+@MainActor
+final class PreviewWindowMenu: NSObject, NSMenuItemValidation {
+    static let shared = PreviewWindowMenu()
+
+    @objc func showBrowser(_ sender: Any?) { PreviewStore.shared.showWindow() }
+
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        item.isHidden = !PreviewSettings.shared.enabled
+        return PreviewSettings.shared.enabled
+    }
+}
+
 // MARK: - Indicator
 
 /// In the main window's titlebar, at the end of the conversation's tabs:
-/// the workspace's browser. Tinted while Claude is using it, filled while
+/// the workspace's browser. A click shows the browser window on this
+/// workspace (⇧⌘B and Window ▸ Browser go back to it as it was). Tinted while Claude is using it, filled while
 /// its window is open; a click brings the window forward. It's how the user
 /// sees what Claude does there without the browser taking any room.
 struct PreviewIndicator: View {
@@ -730,7 +748,8 @@ struct PreviewIndicator: View {
 
     var body: some View {
         Button {
-            AppDelegate.shared.windowController?.togglePreview(nil)
+            guard let workspace = WorkspaceStore.shared.workspaces.first(where: { $0.id == session.workspaceID }) else { return }
+            AppDelegate.shared.windowController?.showWorkspaceBrowser(workspace)
         } label: {
             Image(systemName: "safari")
                 .font(.toasty(Theme.Size.body, .medium))
@@ -744,7 +763,7 @@ struct PreviewIndicator: View {
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
         .animation(.easeOut(duration: 0.25), value: session.agentActive)
-        .tooltip(Tooltip(title: "Show Browser", shortcut: "⇧⌘B", detail: detail))
+        .tooltip(Tooltip(title: "Show This Workspace's Browser", detail: detail))
         .accessibilityLabel(session.agentActive ? "Browser, in use by Claude" : "Browser")
         .accessibilityHint("Shows the browser window")
         .padding(.leading, 4)

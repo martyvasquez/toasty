@@ -93,7 +93,7 @@ final class KeyboardShortcuts: NSObject {
         // The browser's, only while it's turned on.
         if PreviewSettings.shared.enabled {
             groups.append(Group(title: "Browser", rows: [
-                menu("Show the browser window (in it: hide it)", #selector(W.togglePreview(_:))),
+                menu("Back to the browser window, as you left it (in it: hide it)", #selector(W.togglePreview(_:))),
                 plain("Back", "⌘["),
                 plain("Reload", "⌘R"),
                 plain("Address", "⌘L"),

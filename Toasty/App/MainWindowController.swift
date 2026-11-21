@@ -276,14 +276,22 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         if w.inspectorVisible { w.hideInspector() } else { w.showInspector() }
     }
 
-    /// ⇧⌘B and the titlebar's browser button: bring the browser window
-    /// forward, showing this workspace's browser (asked for, so the window
-    /// switches to it; selecting a workspace alone doesn't). (Experimental; no menu item while it's
-    /// turned off.) From the browser window, the same keys put it away
-    /// (`PreviewWindowController`).
+    /// ⇧⌘B (View ▸ Show Browser): back to the browser window as it was
+    /// left, on whatever workspace it shows (the user, 2026-11-20: going
+    /// back to the browser and showing this workspace's are two things).
+    /// Never opened: it opens on this workspace. (Experimental; no menu
+    /// item while it's turned off.) From the browser window, the same keys
+    /// put it away (`PreviewWindowController`).
     @objc func togglePreview(_ sender: Any?) {
-        guard let w = store.active, PreviewSettings.shared.enabled else { return }
-        PreviewStore.shared.showWindow(w)
+        guard PreviewSettings.shared.enabled else { return }
+        PreviewStore.shared.showWindow()
+    }
+
+    /// The titlebar's compass: the browser window, showing this workspace's
+    /// browser (asked for, so the window switches to it).
+    func showWorkspaceBrowser(_ workspace: Workspace) {
+        guard PreviewSettings.shared.enabled else { return }
+        PreviewStore.shared.showWindow(workspace)
     }
 
     /// ⇧⌘M: the workspace's page at the other size, phone or desktop.
