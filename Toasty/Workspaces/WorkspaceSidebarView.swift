@@ -204,7 +204,7 @@ private struct HeadingRow: View {
                     }
                 }
                 .font(.toasty(Theme.Size.body, .semibold))  // Things' area titles: 600
-                .foregroundStyle(Theme.Sidebar.titleColor)
+                .foregroundStyle(.primary)  // full ink, a step above the rows' names
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .contentShape(Rectangle())
@@ -487,7 +487,7 @@ private struct WorkspaceRow: View {
     /// Things' sidebar weights: names regular, as its projects (400), under
     /// the headings' semibold, as its areas. A worktree's a size smaller.
     private var nameFont: Font {
-        .toasty(workspace.isWorktree ? Theme.Size.meta : Theme.Size.body, .regular)
+        .toasty(workspace.isWorktree ? Theme.Size.meta : Theme.Size.body, .medium)
     }
 
     private func workingMinutes(now: Date) -> Int? {
