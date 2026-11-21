@@ -135,15 +135,18 @@ tab is seen or dismissed.
 
 ## Activity (inspector tab)
 
-Built (2026-11-18): the inspector's fourth tab (⌃⌘4,
-`Inspector/ActivityTab.swift`), for long runs where it's unclear whether
-Claude is still alive. It follows the selected conversation and reads only
-what Claude Code already sends (no tokens). Status: working / waiting for
-you / idle / "No Activity for Nm" / "Claude Code Stopped", with this turn's
-time, "Last heard from Claude" (any message from Claude Code, including
-streamed text and `tool_progress` heartbeats) and tokens written. Now: each
-running tool call with its clock, and a subagent's current step. In the
-Background: `backgroundTasks` with running times; hover a row to stop it.
+Built (2026-11-18), redesigned 2026-11-21 on the inspector design system
+(`Inspector/InspectorKit.swift`; the user's Design canvas "Inspector
+System"): `Inspector/ActivityTab.swift`, for long runs where it's unclear
+whether Claude is still alive. It follows the selected conversation and
+reads only what Claude Code already sends (no tokens). Summary row: Working
+/ Waiting for You / Idle / No Activity / Stopped, the turn's clock, "Heard
+from Claude …" and tokens written. "Now": each running tool call with its
+clock (a command alone in mono, an agent's task with its current step).
+"In the Background": `backgroundTasks`; hover a row to stop it. "Usage"
+pinned at the bottom: context and plan-limit meters; "Details" opens the
+context breakdown and the session's cost and tokens. Empty: "Nothing
+Running".
 A `<task-notification>` in a resumed transcript now shows as a notice with
 its summary, not as raw markup.
 
@@ -219,6 +222,25 @@ the context menu. The list is saved with the workspace; pictures are PNGs in `Ap
   inspector tab is showing.
 - **Send the next one when Claude finishes** (a queue that runs itself).
 - **Drag a row onto a tab** to send it there instead of the open one.
+
+## Changes (inspector tab)
+
+Redesigned 2026-11-21: the branch as the summary row (sync chips, files and
++/− counts), files under "Uncommitted". The diff page
+(`Inspector/DiffDocument.swift`) has line numbers in a gutter, syntax colors,
+changed words marked, full-width tints, and ⌃⌘↑/↓ between files.
+
+Open (decide first):
+- **Read-only or not?** Proposed: Commit (message field), Push, and Open
+  Pull Request (`gh`); no discard or staging. Not yet decided by the user.
+
+Next (agreed order):
+- **Comment on a diff line → Claude**, like the browser's comments: the
+  file and line go with the note.
+- **"This conversation / All" filter**: which tab changed each file, from
+  its Edit/Write tool calls.
+- **Branch story**: ahead/behind main, last commit, "Compare with main".
+- Not checked: a very large diff (8,000-line cap) for speed.
 
 ## Git worktrees
 

@@ -81,6 +81,8 @@ final class KeyboardShortcuts: NSObject {
                 menu("Inspector: \(tab.title.lowercased())", #selector(W.showInspectorTab(_:)), tag: i)
             }
             + [
+                plain("In a diff: previous or next changed file", "⌃⌘↑ ⌃⌘↓"),
+                plain("In a diff: back to the conversation", "esc"),
                 menu("Terminal", #selector(W.toggleTerminal(_:))),
                 menu("New terminal", #selector(W.newTerminal(_:))),
                 menu("Clear terminal", #selector(TerminalView.clearTerminal(_:))),
