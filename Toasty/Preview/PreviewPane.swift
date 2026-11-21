@@ -47,10 +47,6 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
         // height and window-button place, and the same corner radius.
         window.toolbar = NSToolbar(identifier: "PreviewWindow")
         window.toolbarStyle = .unified
-        // A phone page is never drawn smaller: the window is at least as
-        // wide as one with a margin either side. (A short window gives the
-        // page less height; it scrolls.)
-        window.contentMinSize = NSSize(width: 460, height: 560)
         window.backgroundColor = NSColor(Color.claudeChrome)
         super.init(window: window)
         window.delegate = self
@@ -59,11 +55,21 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
         host.sizingOptions = []
         host.view.frame = NSRect(origin: .zero, size: size)
         window.contentViewController = host
+        // After the content: a content view controller sets its own limits.
+        window.contentMinSize = Self.minimumContent
         window.setContentSize(size)
         installBar()
 
         window.setFrameAutosaveName("PreviewWindow")
         if UserDefaults.standard.string(forKey: "NSWindow Frame PreviewWindow") == nil { place(window) }
+        // A frame saved smaller than the minimum (restoring skips it).
+        let least = window.frameRect(forContentRect: NSRect(origin: .zero, size: Self.minimumContent)).size
+        if window.frame.width < least.width || window.frame.height < least.height {
+            var frame = window.frame
+            frame.origin.y -= max(0, least.height - frame.height)
+            frame.size = NSSize(width: max(frame.width, least.width), height: max(frame.height, least.height))
+            window.setFrame(frame, display: false)
+        }
 
         model.choose = { [weak self] in self?.show($0) }
 
@@ -111,6 +117,18 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
     }
 
     func windowDidResize(_ notification: Notification) { updateButtonsLine() }
+
+    /// A phone page is never drawn smaller: the window is at least as wide
+    /// as one with a margin either side. (A short window gives the page
+    /// less height; it scrolls.)
+    static let minimumContent = NSSize(width: 460, height: 560)
+
+    /// However the window is resized (the SwiftUI content can loosen
+    /// `contentMinSize`), never below the minimum.
+    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        let least = sender.frameRect(forContentRect: NSRect(origin: .zero, size: Self.minimumContent)).size
+        return NSSize(width: max(frameSize.width, least.width), height: max(frameSize.height, least.height))
+    }
 
     /// Show `workspace`'s browser here instead of the one shown now. The one
     /// shown now is left as it is (only commenting on it ends: the comment
