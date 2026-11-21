@@ -342,19 +342,21 @@ private struct PreviewWindowContent: View {
 /// The browser window's titlebar row, as the main window's (`TitlebarRow`):
 /// on the window buttons' line, in the window's chrome color, with the
 /// app's flat bar buttons (a hairline capsule on hover) and its tooltips.
-/// Only what a browser has: back, reload and the address. Everything else
-/// is in the footer (`PreviewFooter`).
+/// Only what a browser has: back and reload, the address (centered in the
+/// window once it's at its widest), and opening the page in the user's
+/// own browser at the right end. Everything else is in the footer
+/// (`PreviewFooter`).
 /// Hosted in the titlebar view: views under a transparent titlebar don't
 /// get clicks.
 private struct PreviewBar: View {
     @ObservedObject var model: PreviewWindowModel
 
-    /// Room for the window buttons, as the main window's row leaves when
-    /// its sidebar is hidden.
-    static let leading: CGFloat = 78
+    /// Room for the window buttons and a clear gap after them (about a
+    /// window button's width, as Safari leaves).
+    static let leading: CGFloat = 90
 
     var body: some View {
-        HStack(spacing: Theme.Space.xxs) {
+        HStack(spacing: 0) {
             if let (workspace, session) = model.shown {
                 PreviewBarControls(model: model, workspace: workspace, session: session)
                     .id(workspace.id)
@@ -380,18 +382,28 @@ private struct PreviewBarControls: View {
     @FocusState private var addressFocused: Bool
 
     private static let button = CGSize(width: 32, height: TabStyle.height)
+    /// Back and reload, side by side.
+    private static let navigation = button.width * 2 + Theme.Space.xxs
+    /// The right end matches the left (window buttons, back, reload), so
+    /// the address between them is centered in the window.
+    private static let balance = PreviewBar.leading + navigation - TitlebarRow.edge
 
     var body: some View {
-        BarIconButton(symbol: "chevron.left", tooltip: Tooltip(title: "Back", shortcut: "⌘["),
-                      glyphSize: Theme.Size.body, size: Self.button) { session.goBack() }
-            .disabled(!session.canGoBack)
-        BarIconButton(symbol: session.isLoading ? "xmark" : "arrow.clockwise",
-                      tooltip: Tooltip(title: session.isLoading ? "Stop" : "Reload", shortcut: session.isLoading ? nil : "⌘R"),
-                      glyphSize: Theme.Size.body, size: Self.button) {
-            if session.isLoading { session.stopLoading() } else { session.reload() }
+        HStack(spacing: Theme.Space.xxs) {
+            BarIconButton(symbol: "chevron.left", tooltip: Tooltip(title: "Back", shortcut: "⌘["),
+                          glyphSize: Theme.Size.body, size: Self.button) { session.goBack() }
+                .disabled(!session.canGoBack)
+            BarIconButton(symbol: session.isLoading ? "xmark" : "arrow.clockwise",
+                          tooltip: Tooltip(title: session.isLoading ? "Stop" : "Reload", shortcut: session.isLoading ? nil : "⌘R"),
+                          glyphSize: Theme.Size.body, size: Self.button) {
+                if session.isLoading { session.stopLoading() } else { session.reload() }
+            }
+            .disabled(!session.started)
         }
-        .disabled(!session.started)
 
+        // Grows with the window to at most 640 points (about a column of
+        // conversation), then stays centered in it.
+        Spacer(minLength: Theme.Space.s)
         TextField("localhost:3000", text: $session.address)
             .textFieldStyle(.plain)
             .font(.toasty(Theme.Size.control))
@@ -406,16 +418,21 @@ private struct PreviewBarControls: View {
                 addressFocused = false
             }
             .padding(.horizontal, Theme.Space.m)
-            // At most about as wide as a column of conversation, from the
-            // left; the rest of the row stays empty, as the tab row's does.
-            .frame(maxWidth: 640)
             .frame(height: TabStyle.height)
             .background(Capsule().fill(Theme.Fill.subtle))
-            .padding(.leading, Theme.Space.xs)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: 640)
             .accessibilityLabel("Address")
             .onChange(of: model.focusAddress) { addressFocused = true }
+        Spacer(minLength: Theme.Space.s)
 
+        BarIconButton(symbol: "arrow.up.forward.app",
+                      tooltip: Tooltip(title: "Open in \(PreviewBrowser.name)",
+                                       detail: "The same address, in your own browser (its own cookies and logins)."),
+                      glyphSize: Theme.Size.body, size: Self.button) {
+            if let url = session.url { NSWorkspace.shared.open(url) }
+        }
+        .disabled(session.url == nil)
+        .frame(width: Self.balance, alignment: .trailing)
     }
 }
 
@@ -458,13 +475,6 @@ private struct PreviewFooter: View {
                               glyphSize: Theme.Size.body, size: Self.button) {
                     session.toggleViewport()
                 }
-                BarIconButton(symbol: "arrow.up.forward.app",
-                              tooltip: Tooltip(title: "Open in \(PreviewBrowser.name)",
-                                               detail: "The same address, in your own browser (its own cookies and logins)."),
-                              glyphSize: Theme.Size.body, size: Self.button) {
-                    if let url = session.url { NSWorkspace.shared.open(url) }
-                }
-                .disabled(session.url == nil)
                 BarIconButton(symbol: "text.bubble",
                               tooltip: Tooltip(title: "Show Conversation",
                                                detail: conversation.map { "“\($0.title)” in the main window\($0.id == session.lastAgentConversationID ? ", the conversation that last used this browser" : "")." }

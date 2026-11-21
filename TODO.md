@@ -268,8 +268,9 @@ which browser an agent drives. Closing the window only hides it. Claude's
 tools never open the window, bring it forward or take the keyboard
 (`navigate` used to show the panel). No tabs: a testing and
 inspection tool, not a general browser. Titlebar row: back (⌘[; no forward),
-reload, address. Footer: workspace, comment, phone/desktop, open in the
-default browser, show conversation, page size.
+reload, the address (at most 640 points, centered in the window), open in
+the default browser at the right end. Footer: workspace, comment,
+phone/desktop, show conversation, page size.
 - The titlebar's compass, at the end of the conversation tabs, is the
   indicator: accent-colored and pulsing while Claude is using the browser
   (a call running, or one ended in the last 3 s), filled while the window
@@ -286,8 +287,7 @@ default browser, show conversation, page size.
   for an afternoon. The row has only what a browser has: back, reload,
   the address. Everything else is in a footer built as the composer's
   control row (the user, 2026-11-20): the workspace chip on the left;
-  comment, phone/desktop, open in the default browser and show the
-  conversation (the one whose Claude last used this browser, else the
+  comment, phone/desktop and show the conversation (the one whose Claude last used this browser, else the
   workspace's selected tab) as wide icon buttons in the middle; the page's
   size on the right (dropped when there's no room). The window is never
   narrower than a phone page with a margin (460 × 560 content minimum); a
