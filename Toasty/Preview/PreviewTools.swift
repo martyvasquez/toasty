@@ -22,8 +22,9 @@ enum PreviewTools {
     private static let instructions = """
         The preview is a browser in Toasty, the app this conversation runs in, for the site the user is developing. \
         Use it for local dev servers: it leaves the user's own browser alone. \
-        It runs in the background in a window of its own, which the user opens when they want to watch: it may be hidden, and using it never shows it or interrupts the user. \
-        When they open it they see the same page you are using, and can use it too. \
+        Each workspace has its own, with its own cookies and storage; this conversation's is its workspace's. \
+        It runs in the background: the user's browser window, which shows the workspace they have selected, may be hidden or showing another workspace, and using the browser never shows it or interrupts the user. \
+        When they look at this workspace's browser they see the same page you are using, and can use it too. \
         It shows a page at one of two sizes, mobile (390 wide, iPhone user agent) or desktop (1280 wide); every result says which. \
         It is WebKit (Safari's engine), not Chromium. \
         The user can comment on things in the page: a comment arrives in their message with a CSS selector, the viewport and a screenshot with the thing outlined.
@@ -76,6 +77,7 @@ enum PreviewTools {
         let name = call["tool"] as? String ?? ""
         session.agentBegan()
         Task {
+            await session.readyForAgent()
             do {
                 reply(try await run(name, input, session: session))
             } catch {

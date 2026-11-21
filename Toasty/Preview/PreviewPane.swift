@@ -5,23 +5,31 @@ import WebKit
 
 // MARK: - Window
 
-/// A workspace's browser window: a native window of its own, apart from the
-/// main window, showing the workspace's `PreviewSession`. The session is the
-/// browser; this window is only a way to look at it. Closing the window
-/// hides it and lets go of the page's view, and the page keeps running for
-/// Claude: its tools never need the window, and never open it, bring it
-/// forward or give it focus. Only the user does that (the titlebar's
-/// indicator, ⇧⌘B, a local link clicked in a terminal, ⇧⌘C).
+/// The browser window: one native window, apart from the main window, that
+/// shows the browser of whichever workspace is selected in Toasty. Each
+/// workspace's browser (`PreviewSession`) is its own: its own cookies,
+/// storage and page, running whether this window shows it or not. Switching
+/// workspaces only changes which one is on view here; no page is reloaded,
+/// navigated or interrupted, and Claude's tools go on reaching their own
+/// workspace's browser (`PreviewTools` finds it from the conversation, never
+/// from this window).
+///
+/// Closing the window hides it; every page keeps running. Claude's tools
+/// never open it, bring it forward or give it focus. Only the user does
+/// that (the titlebar's indicator, ⇧⌘B, a local link clicked in a terminal,
+/// ⇧⌘C).
 @MainActor
 final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {
-    let workspace: Workspace
-    let session: PreviewSession
+    /// What the window shows: the selected workspace's browser.
+    private(set) var workspace: Workspace?
+    private(set) var session: PreviewSession?
+    private let model = PreviewWindowModel()
+    private let toolbar = PreviewToolbar()
     private var cancellables: Set<AnyCancellable> = []
+    private var titleCancellables: Set<AnyCancellable> = []
 
-    init(workspace: Workspace, session: PreviewSession) {
-        self.workspace = workspace
-        self.session = session
-        let size = Self.contentSize(for: session.viewport)
+    init(store: WorkspaceStore) {
+        let size = NSSize(width: 1280, height: 820)
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable],
                               backing: .buffered, defer: true)
@@ -34,33 +42,45 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
         super.init(window: window)
         window.delegate = self
 
-        let host = NSHostingController(rootView: PreviewWindowContent(workspace: workspace, session: session))
+        let host = NSHostingController(rootView: PreviewWindowRoot(model: model))
         host.sizingOptions = []
         host.view.frame = NSRect(origin: .zero, size: size)
         window.contentViewController = host
         window.setContentSize(size)
-
-        // Each workspace's browser keeps its own place on screen.
-        window.setFrameAutosaveName("PreviewWindow-\(workspace.id.uuidString)")
-        if UserDefaults.standard.string(forKey: "NSWindow Frame PreviewWindow-\(workspace.id.uuidString)") == nil {
-            place(window)
-        }
-
-        workspace.$name.combineLatest(session.$address)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _, _ in self?.updateTitle() }
-            .store(in: &cancellables)
-
-        toolbar = PreviewToolbar(session: session)
         window.toolbar = toolbar.toolbar
+
+        window.setFrameAutosaveName("PreviewWindow")
+        if UserDefaults.standard.string(forKey: "NSWindow Frame PreviewWindow") == nil { place(window) }
+
+        store.$activeID
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self, weak store] _ in self?.show(store?.active) }
+            .store(in: &cancellables)
     }
 
-    private var toolbar: PreviewToolbar!
-
-    /// ⌘L: the address field, as in any browser.
-    func focusAddress() { toolbar.focusAddress() }
-
     required init?(coder: NSCoder) { fatalError() }
+
+    /// Show `workspace`'s browser here instead of the one shown now. The one
+    /// shown now is left as it is (only commenting on it ends: the comment
+    /// field was in this window).
+    private func show(_ next: Workspace?) {
+        guard next !== workspace else { return }
+        session?.setCommenting(false)
+        session?.setWindowOpen(false)
+        workspace = next
+        session = next.map { PreviewStore.shared.session(for: $0) }
+        if window?.isVisible == true { session?.setWindowOpen(true) }
+        model.shown = workspace.flatMap { w in session.map { (w, $0) } }
+        toolbar.bind(session)
+        titleCancellables = []
+        if let workspace, let session {
+            workspace.$name.combineLatest(session.$url)
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _, _ in self?.updateTitle() }
+                .store(in: &titleCancellables)
+        }
+        updateTitle()
+    }
 
     /// The window's content at a viewport's own size: a phone with a little
     /// room either side, a desktop page at 1280 (both under the toolbar).
@@ -71,8 +91,8 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
         }
     }
 
-    /// First time: beside the main window if there's room on its screen,
-    /// else centered on it. Never larger than the screen.
+    /// First time: centered on the main window's screen, at desktop size
+    /// (never larger than the screen).
     private func place(_ window: NSWindow) {
         let main = AppDelegate.shared.windowController?.window
         guard let screen = main?.screen ?? NSScreen.main else { window.center(); return }
@@ -85,27 +105,32 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
         window.setFrame(frame, display: false)
     }
 
+    /// The workspace shown, for the Window menu, Mission Control and the
+    /// Dock (the toolbar shows the address).
     private func updateTitle() {
-        // For the Window menu, Mission Control and the Dock (the toolbar
-        // shows the address instead).
-        let page = session.url.map { PreviewSession.display($0) }
-        window?.title = [workspace.displayName, page].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " — ")
+        let page = session?.url.map { PreviewSession.display($0) }
+        let parts = [workspace?.displayName, page].compactMap { $0 }.filter { !$0.isEmpty }
+        window?.title = parts.isEmpty ? "Browser" : parts.joined(separator: " — ")
     }
 
     /// Show the window and bring it forward: the user asked for it.
     func reveal() {
         guard let window else { return }
-        session.setWindowOpen(true)
+        session?.setWindowOpen(true)
         if window.isMiniaturized { window.deminiaturize(nil) }
         showWindow(nil)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }
 
-    /// The viewport was changed by the user: the window takes its size
+    /// ⌘L: the address field, as in any browser.
+    func focusAddress() { toolbar.focusAddress() }
+
+    /// The user changed the shown page's size: the window takes it
     /// (keeping its top-left corner), if it's showing.
-    func fitViewport() {
-        guard let window, window.isVisible, !window.styleMask.contains(.fullScreen) else { return }
+    func fitViewport(of changed: PreviewSession) {
+        guard changed === session, let session, let window, window.isVisible,
+              !window.styleMask.contains(.fullScreen) else { return }
         let content = Self.contentSize(for: session.viewport)
         var frame = window.frameRect(forContentRect: NSRect(origin: .zero, size: content))
         let visible = window.screen?.visibleFrame ?? frame
@@ -118,11 +143,11 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
 
     // MARK: Window delegate
 
-    /// Closing only hides: the page, its console and Claude's use of it go
-    /// on. The page's view is let go of until the window is back.
+    /// Closing only hides: the pages, their consoles and Claude's use of
+    /// them go on. The shown page's view is let go of until the window is back.
     func windowWillClose(_ notification: Notification) {
-        session.setCommenting(false)
-        session.setWindowOpen(false)
+        session?.setCommenting(false)
+        session?.setWindowOpen(false)
     }
 
     // MARK: Commands (the main menu, while this window is key)
@@ -133,10 +158,10 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
     /// ⌘W closes the browser window (it has no tabs).
     @objc func closeTab(_ sender: Any?) { window?.performClose(nil) }
 
-    @objc func togglePreviewSize(_ sender: Any?) { session.toggleViewport() }
+    @objc func togglePreviewSize(_ sender: Any?) { session?.toggleViewport() }
 
     @objc func togglePreviewComment(_ sender: Any?) {
-        guard session.commenting || (session.url != nil && session.failure == nil) else { return }
+        guard let session, session.commenting || (session.url != nil && session.failure == nil) else { return }
         session.setCommenting(!session.commenting)
     }
 
@@ -149,9 +174,10 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
             item.title = "Close Browser"
             return true
         case #selector(togglePreviewSize(_:)):
-            item.title = session.viewport == .mobile ? "Show at Desktop Size" : "Show at Phone Size"
-            return true
+            item.title = session?.viewport == .mobile ? "Show at Desktop Size" : "Show at Phone Size"
+            return session != nil
         case #selector(togglePreviewComment(_:)):
+            guard let session else { return false }
             item.title = session.commenting ? "Done Commenting" : "Comment on the Page"
             return session.commenting || (session.url != nil && session.failure == nil)
         default:
@@ -160,8 +186,30 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
     }
 }
 
-/// The browser window's content: the page, and its controls in the window's
-/// toolbar.
+/// Which workspace's browser the window shows.
+@MainActor
+private final class PreviewWindowModel: ObservableObject {
+    @Published var shown: (Workspace, PreviewSession)?
+}
+
+private struct PreviewWindowRoot: View {
+    @ObservedObject var model: PreviewWindowModel
+
+    var body: some View {
+        if let (workspace, session) = model.shown {
+            // A view of its own per workspace: switching takes the shown
+            // page out of the window and puts the other one in, untouched.
+            PreviewWindowContent(workspace: workspace, session: session)
+                .id(workspace.id)
+        } else {
+            InspectorEmpty(symbol: "safari", title: "No Workspace", detail: "Each workspace has a browser of its own.")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.claudeChrome)
+        }
+    }
+}
+
+/// The page of the workspace shown, under the window's toolbar.
 private struct PreviewWindowContent: View {
     @ObservedObject var workspace: Workspace
     @ObservedObject var session: PreviewSession
@@ -178,7 +226,7 @@ private struct PreviewWindowContent: View {
         .background(Color.claudeChrome)
         .background {
             // ⌘L and ⌘R, as in any browser (this window's own keys).
-            Button("Address") { PreviewStore.shared.window(for: workspace.id)?.focusAddress() }
+            Button("Address") { PreviewStore.shared.presenter?.focusAddress() }
                 .keyboardShortcut("l", modifiers: .command)
                 .hidden()
             Button("Reload") { session.reload() }
@@ -186,7 +234,8 @@ private struct PreviewWindowContent: View {
                 .hidden()
         }
         .onAppear {
-            // Pick up where the workspace left off.
+            // Pick up where the workspace left off (its first time on view
+            // since launch, if Claude hasn't opened a page already).
             if !session.started, !session.address.isEmpty { session.open(session.address) }
         }
     }
@@ -194,27 +243,24 @@ private struct PreviewWindowContent: View {
 
 /// The browser window's toolbar, in AppKit: reload, the address (which
 /// takes the room there is, down to a narrow phone window), the page's
-/// size, commenting, and opening the page in the user's own browser.
+/// size, and commenting. Bound to the shown workspace's browser.
 @MainActor
 private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDelegate {
     let toolbar = NSToolbar(identifier: "PreviewWindow")
-    private let session: PreviewSession
+    private var session: PreviewSession?
     private var cancellables: Set<AnyCancellable> = []
 
     private static let reload = NSToolbarItem.Identifier("reload")
     private static let address = NSToolbarItem.Identifier("address")
     private static let size = NSToolbarItem.Identifier("size")
     private static let comment = NSToolbarItem.Identifier("comment")
-    private static let open = NSToolbarItem.Identifier("open")
 
     private var reloadItem: NSToolbarItem?
     private var sizeItem: NSToolbarItemGroup?
     private var commentItem: NSToolbarItem?
-    private var openItem: NSToolbarItem?
     private let field = NSTextField()
 
-    init(session: PreviewSession) {
-        self.session = session
+    override init() {
         super.init()
         toolbar.delegate = self
         toolbar.displayMode = .iconOnly
@@ -234,7 +280,16 @@ private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDele
             field.widthAnchor.constraint(greaterThanOrEqualToConstant: 120),
             field.widthAnchor.constraint(lessThanOrEqualToConstant: 2000),
         ])
+    }
 
+    /// Follow another workspace's browser (or none).
+    func bind(_ session: PreviewSession?) {
+        self.session = session
+        cancellables = []
+        // An address half typed for the other workspace doesn't carry over.
+        if field.currentEditor() != nil { field.window?.makeFirstResponder(nil) }
+        field.stringValue = session?.address ?? ""
+        guard let session else { update(); return }
         session.$address.combineLatest(session.$isLoading, session.$started)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.update() }
@@ -246,58 +301,59 @@ private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDele
     }
 
     func focusAddress() {
+        guard session != nil else { return }
         field.window?.makeFirstResponder(field)
         field.currentEditor()?.selectAll(nil)
     }
 
     private func update() {
+        field.isEnabled = session != nil
         // Not while the user is typing an address.
-        if field.currentEditor() == nil, field.stringValue != session.address { field.stringValue = session.address }
-        let loading = session.isLoading
+        if let session, field.currentEditor() == nil, field.stringValue != session.address { field.stringValue = session.address }
+        let loading = session?.isLoading ?? false
         reloadItem?.image = NSImage(systemSymbolName: loading ? "xmark" : "arrow.clockwise", accessibilityDescription: loading ? "Stop" : "Reload")
         reloadItem?.label = loading ? "Stop" : "Reload"
         reloadItem?.toolTip = loading ? "Stop" : "Reload (⌘R)"
-        reloadItem?.isEnabled = session.started
-        sizeItem?.selectedIndex = PreviewViewport.allCases.firstIndex(of: session.viewport) ?? 0
-        let pageOpen = session.url != nil && session.failure == nil
-        commentItem?.isEnabled = session.commenting || pageOpen
-        (commentItem?.view as? NSControl)?.isEnabled = session.commenting || pageOpen
+        reloadItem?.isEnabled = session?.started ?? false
+        sizeItem?.isEnabled = session != nil
+        if let session { sizeItem?.selectedIndex = PreviewViewport.allCases.firstIndex(of: session.viewport) ?? 0 }
+        let commenting = session?.commenting ?? false
+        let pageOpen = session.map { $0.url != nil && $0.failure == nil } ?? false
+        commentItem?.isEnabled = commenting || pageOpen
+        (commentItem?.view as? NSControl)?.isEnabled = commenting || pageOpen
         // Selected (filled) while commenting.
-        (commentItem?.view as? NSButton)?.state = session.commenting ? .on : .off
-        commentItem?.toolTip = session.commenting ? "Done Commenting (⇧⌘C or esc)" : "Comment on the Page (⇧⌘C)"
-        openItem?.isEnabled = session.url != nil
+        (commentItem?.view as? NSButton)?.state = commenting ? .on : .off
+        commentItem?.toolTip = commenting ? "Done Commenting (⇧⌘C or esc)" : "Comment on the Page (⇧⌘C)"
     }
 
     // MARK: Actions
 
     @objc private func submitAddress() {
-        session.open(field.stringValue)
+        session?.open(field.stringValue)
         field.window?.makeFirstResponder(nil)
     }
 
     @objc private func reloadOrStop() {
+        guard let session else { return }
         if session.isLoading { session.stopLoading() } else { session.reload() }
     }
 
     @objc private func pickSize(_ sender: NSToolbarItemGroup) {
         let all = PreviewViewport.allCases
         guard all.indices.contains(sender.selectedIndex) else { return }
-        session.setViewport(all[sender.selectedIndex], byUser: true)
+        session?.setViewport(all[sender.selectedIndex], byUser: true)
     }
 
     @objc private func toggleComment() {
+        guard let session else { return }
         session.setCommenting(!session.commenting)
         update()
-    }
-
-    @objc private func openElsewhere() {
-        if let url = session.url { NSWorkspace.shared.open(url) }
     }
 
     /// Esc in the address: put back what the page shows.
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
         guard selector == #selector(NSResponder.cancelOperation(_:)) else { return false }
-        field.stringValue = session.address
+        field.stringValue = session?.address ?? ""
         field.window?.makeFirstResponder(nil)
         return true
     }
@@ -305,7 +361,7 @@ private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDele
     // MARK: Toolbar delegate
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [Self.reload, Self.address, Self.size, Self.comment, Self.open]
+        [Self.reload, Self.address, Self.size, Self.comment]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -314,21 +370,16 @@ private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDele
 
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier,
                  willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
-        func button(_ symbol: String, _ label: String, _ action: Selector) -> NSToolbarItem {
-            let item = NSToolbarItem(itemIdentifier: id)
-            item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
-            item.label = label
-            item.toolTip = label
-            item.target = self
-            item.action = action
-            item.isBordered = true
-            item.autovalidates = false
-            return item
-        }
         let item: NSToolbarItem
         switch id {
         case Self.reload:
-            item = button("arrow.clockwise", "Reload", #selector(reloadOrStop))
+            item = NSToolbarItem(itemIdentifier: id)
+            item.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: "Reload")
+            item.label = "Reload"
+            item.target = self
+            item.action = #selector(reloadOrStop)
+            item.isBordered = true
+            item.autovalidates = false
             reloadItem = item
         case Self.address:
             item = NSToolbarItem(itemIdentifier: id)
@@ -355,9 +406,6 @@ private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDele
             item.label = "Comment"
             item.view = toggle
             commentItem = item
-        case Self.open:
-            item = button("arrow.up.forward.square", "Open in \(PreviewBrowser.name)", #selector(openElsewhere))
-            openItem = item
         default:
             return nil
         }
@@ -379,14 +427,6 @@ private struct LoadingLine: View {
                 .animation(.easeOut(duration: 0.3), value: session.isLoading)
         }
         .frame(height: 2)
-    }
-}
-
-/// The user's default browser, for the "Open in …" button.
-private enum PreviewBrowser {
-    static var name: String {
-        guard let app = NSWorkspace.shared.urlForApplication(toOpen: URL(string: "http://localhost")!) else { return "Browser" }
-        return FileManager.default.displayName(atPath: app.path).replacingOccurrences(of: ".app", with: "")
     }
 }
 

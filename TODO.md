@@ -248,16 +248,24 @@ that is gone (`PreviewDrawer`, `MainContainerController`, the preview's turn
 in the right column, ⇧⌘L, the phone column width).
 
 What it is now: a browser per workspace (`PreviewSession`, a WKWebView with
-its own cookies) that runs whether anything shows it or not, and a native
-window of its own for it (`PreviewWindowController`, one per workspace,
-frame remembered per workspace) that the user opens to watch or use the same
-live page. Closing the window only hides it: the page, console and Claude's
-use of it go on. Claude's tools never open the window, bring it forward or
-take the keyboard (`navigate` used to show the panel).
+its own data store: cookies, logins, storage, page state) that runs whether
+anything shows it or not, and one native window (`PreviewWindowController`,
+frame remembered) that shows the selected workspace's browser (the user,
+2026-11-20: multiple isolated sessions, one shared presentation window; it
+was one window per workspace for an afternoon). Switching workspaces swaps
+which page the window shows without reloading or navigating any of them.
+Claude's tools reach their conversation's workspace's browser
+(`PreviewTools.handle`), never "the one on view", so switching never changes
+which browser an agent drives. Closing the window only hides it. Claude's
+tools never open the window, bring it forward or take the keyboard
+(`navigate` used to show the panel). No tabs, no back/forward: a testing and
+inspection tool, not a general browser. Toolbar: reload, address, phone or
+desktop, comment ("Open in default browser" was dropped 2026-11-20 to keep it
+minimal).
 - The titlebar's compass, at the end of the conversation tabs, is the
   indicator: accent-colored and pulsing while Claude is using the browser
   (a call running, or one ended in the last 3 s), filled while the window
-  is open. A click (or ⇧⌘B) shows and focuses the window. In the window:
+  is open on this workspace. A click (or ⇧⌘B) shows and focuses the window. In the window:
   ⇧⌘B or ⌘W hides it, ⌘R reloads, ⌘L goes to the address, ⇧⌘M switches
   phone/desktop (and sizes the window for it; Claude's `set_viewport`
   never moves the window), ⇧⌘C comments.
@@ -269,11 +277,14 @@ take the keyboard (`navigate` used to show the panel).
   any window WebKit runs a page as hidden: no requestAnimationFrame at all
   and throttled timers, so animated UIs never settle. In the backstage it's
   visible to WebKit (60 fps rAF, full-rate timers, measured 2026-11-20).
-  When Claude goes idle the page leaves it and is throttled again.
+  When Claude goes idle the page leaves it and is throttled again. A call
+  that has just put a page there waits (up to ~0.5 s) for WebKit to report
+  it visible; without that the first call saw a hidden page. Pages of
+  workspaces that aren't on view use the backstage the same way.
 - Comment mode works in the window as before; Esc or sending a comment keeps
   the keyboard in the browser window (it used to go back to the composer).
-- A local link clicked in a terminal opens in the workspace's browser window
-  and brings it forward (that's the user's own click). The page reloads
+- A local link clicked in a terminal opens in the workspace's browser, and
+  the window comes forward showing it (that's the user's own click). The page reloads
   whenever Claude finishes a turn in the workspace. Claude gets an MCP
   server `preview` (navigate, screenshot, read_console, set_viewport,
   evaluate, click, type) in conversations started while it's on, relayed
@@ -295,9 +306,8 @@ Not done / to decide after living with it:
 - No console view for the user (right-click ▸ Inspect Element opens
   Safari's Web Inspector if that's enabled). No back/forward buttons
   (two-finger swipe works). No touch emulation.
-- Saved window frames (`NSWindow Frame PreviewWindow-<id>`) for workspaces
-  that are gone stay in defaults.
-- Chromium-only bugs: "Open in Chrome" is the answer for now.
+- Chromium-only bugs: copy the address into Chrome (the toolbar's "Open in
+  default browser" button was dropped).
 - Comments carry a selector, not source file and line.
 
 ## Screenshots from any app (⇧⌘0)

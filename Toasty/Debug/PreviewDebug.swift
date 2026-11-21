@@ -23,7 +23,7 @@ enum PreviewDebug {
             // window; {"window":true} shows it, false closes it.
             if let address = cmd["open"] as? String { s.open(address) }
             if let show = cmd["window"] as? Bool {
-                if show { PreviewStore.shared.showWindow(for: w) } else { PreviewStore.shared.window(for: w.id)?.close() }
+                if show { PreviewStore.shared.showWindow() } else { PreviewStore.shared.presenter?.close() }
             }
             if let v = (cmd["viewport"] as? String).flatMap(PreviewViewport.init(rawValue:)) { s.setViewport(v) }
             if let on = cmd["commenting"] as? Bool { s.setCommenting(on) }
@@ -44,7 +44,8 @@ enum PreviewDebug {
             out["windowOpen"] = s.windowOpen
             out["backstage"] = PreviewBackstage.shared.holding
             out["agentActive"] = s.agentActive
-            if let window = PreviewStore.shared.window(for: w.id)?.window {
+            if let window = PreviewStore.shared.presenter?.window {
+                out["windowShows"] = PreviewStore.shared.presenter?.workspace?.name ?? "" 
                 out["windowVisible"] = window.isVisible
                 out["windowKey"] = window.isKeyWindow
                 out["windowFrame"] = NSStringFromRect(window.frame)

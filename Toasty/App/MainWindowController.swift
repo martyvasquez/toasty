@@ -276,13 +276,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         if w.inspectorVisible { w.hideInspector() } else { w.showInspector() }
     }
 
-    /// ⇧⌘B and the titlebar's browser button: bring the workspace's
-    /// browser window forward. (Experimental; no menu item while it's
+    /// ⇧⌘B and the titlebar's browser button: bring the browser window
+    /// (showing this workspace's browser) forward. (Experimental; no menu item while it's
     /// turned off.) From the browser window, the same keys put it away
     /// (`PreviewWindowController`).
     @objc func togglePreview(_ sender: Any?) {
-        guard let w = store.active, PreviewSettings.shared.enabled else { return }
-        PreviewStore.shared.showWindow(for: w)
+        guard store.active != nil, PreviewSettings.shared.enabled else { return }
+        PreviewStore.shared.showWindow()
     }
 
     /// ⇧⌘M: the workspace's page at the other size, phone or desktop.
@@ -296,7 +296,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         guard let w = store.active, PreviewSettings.shared.enabled else { return }
         let session = PreviewStore.shared.session(for: w)
         guard session.url != nil, session.failure == nil else { return }
-        PreviewStore.shared.showWindow(for: w)
+        PreviewStore.shared.showWindow()
         session.setCommenting(true)
     }
 

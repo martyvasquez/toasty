@@ -126,6 +126,8 @@ final class PreviewSession: NSObject, ObservableObject {
     @Published private(set) var agentActive = false
     private var agentCalls = 0
     private var agentIdle: Task<Void, Never>?
+    /// When the page last went into the backstage.
+    private var backstagedAt: Date?
 
     private(set) var webView: WKWebView?
     /// The view showing the page, while the window is open.
@@ -196,7 +198,7 @@ final class PreviewSession: NSObject, ObservableObject {
     func updateBackstage() {
         guard let web = webView, stage == nil else { return }
         if agentActive, !windowOpen {
-            PreviewBackstage.shared.hold(web, size: viewport.nominal)
+            if PreviewBackstage.shared.hold(web, size: viewport.nominal) { backstagedAt = Date() }
         } else {
             PreviewBackstage.shared.release(web)
         }
@@ -211,6 +213,17 @@ final class PreviewSession: NSObject, ObservableObject {
         agentIdle = nil
         if !agentActive { agentActive = true }
         updateBackstage()
+    }
+
+    /// Just put in the backstage, WebKit takes a moment to run the page as
+    /// visible: a call that ran at once would still see a hidden page (no
+    /// animation frames). Wait for it, briefly.
+    func readyForAgent() async {
+        guard let since = backstagedAt, Date().timeIntervalSince(since) < 1, let web = webView, web.url != nil else { return }
+        for _ in 0..<12 {
+            if (try? await web.evaluateJavaScript("document.visibilityState")) as? String == "visible" { return }
+            try? await Task.sleep(for: .milliseconds(40))
+        }
     }
 
     /// A tool call from Claude ended.
@@ -343,7 +356,7 @@ final class PreviewSession: NSObject, ObservableObject {
         guard v != viewport else { return }
         viewport = v
         PreviewStore.shared.remember(self)
-        if byUser { PreviewStore.shared.window(for: workspaceID)?.fitViewport() }
+        if byUser { PreviewStore.shared.presenter?.fitViewport(of: self) }
         guard let web = webView else { return }
         web.customUserAgent = v.userAgent
         if let stage { stage.needsLayout = true } else { web.setFrameSize(v.nominal) }
@@ -526,16 +539,18 @@ final class PreviewBackstage {
         return w
     }()
 
-    func hold(_ web: WKWebView, size: CGSize) {
-        guard let content = window.contentView else { return }
-        if web.superview !== content {
-            content.addSubview(web)
-        }
+    /// Returns whether the page has just come in (it wasn't here already).
+    @discardableResult
+    func hold(_ web: WKWebView, size: CGSize) -> Bool {
+        guard let content = window.contentView else { return false }
+        let arriving = web.superview !== content
+        if arriving { content.addSubview(web) }
         web.frame = NSRect(origin: .zero, size: size)
         if !window.isVisible {
             if let screen = NSScreen.main { window.setFrameOrigin(NSPoint(x: screen.frame.minX, y: screen.frame.minY)) }
             window.orderFrontRegardless()
         }
+        return arriving
     }
 
     func release(_ web: WKWebView) {
@@ -671,14 +686,18 @@ extension PreviewSession: WKUIDelegate {
 
 // MARK: - Store
 
-/// The open workspaces' browsers and their windows, and what each last showed.
+/// The open workspaces' browsers, what each last showed, and the one window
+/// that shows the selected workspace's.
 @MainActor
 final class PreviewStore {
     static let shared = PreviewStore()
     private static let key = "PreviewState"
 
+    /// One per open workspace, each with its own cookies and storage. Claude
+    /// reaches the one of its conversation's workspace, whichever is on view.
     private var sessions: [UUID: PreviewSession] = [:]
-    private var windows: [UUID: PreviewWindowController] = [:]
+    /// The browser window, made the first time it's shown.
+    private(set) var presenter: PreviewWindowController?
     private var cleanedData = false
 
     func session(for workspace: Workspace) -> PreviewSession {
@@ -691,24 +710,14 @@ final class PreviewStore {
         return s
     }
 
-    /// The workspace's browser window, made the first time it's shown.
-    func window(for id: UUID) -> PreviewWindowController? { windows[id] }
-
-    /// Show the workspace's browser window and bring it forward. Only for
-    /// what the user does (Claude's tools never call this).
-    func showWindow(for workspace: Workspace) {
+    /// Show the browser window (it shows the selected workspace's browser)
+    /// and bring it forward. Only for what the user does: Claude's tools
+    /// never call this.
+    func showWindow() {
         guard PreviewSettings.shared.enabled else { return }
-        let controller = windows[workspace.id] ?? {
-            let c = PreviewWindowController(workspace: workspace, session: session(for: workspace))
-            windows[workspace.id] = c
-            return c
-        }()
+        let controller = presenter ?? PreviewWindowController(store: WorkspaceStore.shared)
+        presenter = controller
         controller.reveal()
-    }
-
-    private func closeWindow(_ id: UUID) {
-        windows[id]?.close()
-        windows[id] = nil
     }
 
     /// Keep a workspace's address and viewport for next time.
@@ -722,7 +731,6 @@ final class PreviewStore {
     private func prune() {
         let open = Set(WorkspaceStore.shared.workspaces.map(\.id))
         for (id, session) in sessions where !open.contains(id) {
-            closeWindow(id)
             session.close()
             sessions[id] = nil
         }
@@ -765,7 +773,8 @@ final class PreviewStore {
 
     /// The setting was turned off: every window and web view goes.
     func turnedOff() {
-        windows.keys.forEach(closeWindow)
+        presenter?.close()
+        presenter = nil
         sessions.values.forEach { $0.close() }
         sessions = [:]
     }
@@ -783,8 +792,9 @@ final class PreviewStore {
     }
 
     /// A link clicked in a terminal: a local address opens in that
-    /// workspace's browser window, brought forward. False when the browser
-    /// is off or the link isn't local: the default browser gets it.
+    /// workspace's browser, and the browser window comes forward (showing
+    /// it: the terminal is in the selected workspace). False when the
+    /// browser is off or the link isn't local: the default browser gets it.
     func open(_ url: URL, fromTerminal view: TerminalView) -> Bool {
         guard PreviewSettings.shared.enabled, Self.isLocal(url),
               let workspace = WorkspaceStore.shared.workspaces.first(where: { w in
@@ -793,7 +803,7 @@ final class PreviewStore {
         // "Listening on 0.0.0.0" means every interface; this Mac is one.
         let address = url.absoluteString.replacingOccurrences(of: "://0.0.0.0", with: "://localhost")
         session(for: workspace).open(address)
-        showWindow(for: workspace)
+        showWindow()
         return true
     }
 
