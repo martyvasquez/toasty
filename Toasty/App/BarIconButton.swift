@@ -8,6 +8,9 @@ struct BarIconButton: View {
     let symbol: String
     let tooltip: Tooltip
     var active = false
+    /// Something is on right now (dictation's look while listening): the
+    /// glyph and a light fill in the accent color.
+    var accent = false
     var glyphSize = Theme.Size.control
     /// The capsule around the glyph.
     var size = CGSize(width: 32, height: 24)
@@ -20,11 +23,12 @@ struct BarIconButton: View {
             Image(systemName: symbol)
                 .font(.toasty(glyphSize, .medium))
                 .foregroundStyle(!enabled ? AnyShapeStyle(.tertiary)
+                                 : accent ? AnyShapeStyle(Color.accentColor)
                                  : hovering || active ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
                 .frame(width: size.width, height: size.height)
                 .contentShape(Capsule())
         }
-        .buttonStyle(BarButtonStyle(hovering: hovering && enabled, active: active))
+        .buttonStyle(BarButtonStyle(hovering: hovering && enabled, active: active, accent: accent && enabled))
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
         .tooltip(tooltip)
@@ -36,11 +40,13 @@ struct BarIconButton: View {
 struct BarButtonStyle: ButtonStyle {
     var hovering: Bool
     var active = false
+    var accent = false
 
     func makeBody(configuration: Configuration) -> some View {
-        let filled = configuration.isPressed || active
+        let filled = configuration.isPressed || active || accent
         configuration.label
-            .background(Capsule().fill(filled ? Theme.Fill.pressed : Color.clear))
+            .background(Capsule().fill(accent ? Color.accentColor.opacity(configuration.isPressed || hovering ? 0.22 : 0.14)
+                                       : filled ? Theme.Fill.pressed : Color.clear))
             .overlay(Capsule().strokeBorder(hovering && !filled ? Theme.Stroke.hover : Color.clear, lineWidth: 1))
     }
 }

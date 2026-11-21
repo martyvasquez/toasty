@@ -312,3 +312,26 @@ final class PreviewScrollSync {
     })();
     """#
 }
+
+/// Whether ⌘ is down, for the footer's Sync Scrolling button (blue while
+/// held: scrolling now syncs). Watches Toasty's own key events; letting go
+/// in another app is missed, so leaving Toasty counts as letting go.
+@MainActor
+final class PreviewCommandKey: ObservableObject {
+    static let shared = PreviewCommandKey()
+    @Published private(set) var held = false
+    private var monitor: Any?
+    private var resign: NSObjectProtocol?
+
+    private init() {
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+            let down = event.modifierFlags.contains(.command)
+            if self?.held != down { self?.held = down }
+            return event
+        }
+        resign = NotificationCenter.default.addObserver(forName: NSApplication.didResignActiveNotification,
+                                                        object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { if self?.held == true { self?.held = false } }
+        }
+    }
+}

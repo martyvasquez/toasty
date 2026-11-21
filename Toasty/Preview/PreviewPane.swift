@@ -545,6 +545,7 @@ private struct PreviewFooter: View {
     @ObservedObject var model: PreviewWindowModel
     @ObservedObject var workspace: Workspace
     @ObservedObject var session: PreviewSession
+    @ObservedObject private var command = PreviewCommandKey.shared
 
     /// As the composer's icons: wide hover ovals (Things' toolbar), in the
     /// titlebar row's button style.
@@ -588,7 +589,8 @@ private struct PreviewFooter: View {
                                   tooltip: Tooltip(title: session.scrollSync ? "Stop Syncing Scroll" : "Sync Scrolling",
                                                    detail: session.scrollSync ? "Each page scrolls on its own."
                                                        : "Scrolling either page scrolls the other to the same place. Or hold ⌘ while scrolling to sync just then."),
-                                  active: session.scrollSync, glyphSize: Theme.Size.body, size: Self.button) {
+                                  active: session.scrollSync, accent: !session.scrollSync && command.held,
+                                  glyphSize: Theme.Size.body, size: Self.button) {
                         session.setScrollSync(!session.scrollSync)
                     }
                 }
