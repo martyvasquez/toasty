@@ -154,19 +154,9 @@ enum Theme {
         static let rowHeight: CGFloat = 24
         /// Between sections.
         static let sectionGap: CGFloat = 24
-        /// Lines added and removed: the sidebar headings' soft green and
-        /// pink, not the status green and red (dark, as sampled; deeper in
-        /// light mode so they read on the light inspector).
-        static let added = Color(nsColor: NSColor(name: nil) { a in
-            a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                ? NSColor(srgbRed: 0x7C / 255.0, green: 0xC4 / 255.0, blue: 0x7C / 255.0, alpha: 1)
-                : NSColor(srgbRed: 0x2F / 255.0, green: 0x85 / 255.0, blue: 0x3A / 255.0, alpha: 1)
-        })
-        static let removed = Color(nsColor: NSColor(name: nil) { a in
-            a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                ? NSColor(srgbRed: 0xEE / 255.0, green: 0x86 / 255.0, blue: 0xBC / 255.0, alpha: 1)
-                : NSColor(srgbRed: 0xC0 / 255.0, green: 0x3E / 255.0, blue: 0x80 / 255.0, alpha: 1)
-        })
+        /// Lines added and removed: git's green and red.
+        static let added = Color(nsColor: .systemGreen)
+        static let removed = Color(nsColor: .systemRed)
     }
 
     /// Lists of to-do-like rows (the Tee-Up prompts), as Things' to-dos.

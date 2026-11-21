@@ -10,7 +10,7 @@ import SwiftUI
 /// apart by space, never rules. One row. One empty state. Color means
 /// status: change letters, meters and headings are neutral; orange only
 /// when something needs you, red only for stopped; diff counts use the
-/// soft green and pink.
+/// git's green and red.
 
 // MARK: - Summary row
 
@@ -115,7 +115,7 @@ struct InspectorControl: View {
 
 // MARK: - Sections
 
-/// A section's heading: 12 semibold, secondary, Title Case, with an
+/// A section's heading: 12 semibold in the heading blue, Title Case, with an
 /// optional count (or other small accessory) at the right. 24 tall.
 struct InspectorSectionHeading<Accessory: View>: View {
     let title: String
@@ -125,7 +125,7 @@ struct InspectorSectionHeading<Accessory: View>: View {
         HStack(spacing: Theme.Space.s) {
             Text(title)
                 .font(.toasty(Theme.Size.meta, .semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.headingBlue)
                 .lineLimit(1)
             Spacer(minLength: Theme.Space.s)
             accessory()
@@ -277,7 +277,7 @@ struct ChangeLetter: View {
     }
 }
 
-/// Lines added and removed: mono 12, the soft heading green and pink.
+/// Lines added and removed: mono 12, git's green and red.
 struct DiffCounts: View {
     let added: Int?
     let removed: Int?
