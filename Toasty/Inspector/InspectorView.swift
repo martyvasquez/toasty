@@ -24,7 +24,6 @@ private struct InspectorWorkspace: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            InspectorPanelHeading(title: workspace.inspectorTab.title)
             switch workspace.inspectorTab {
             case .changes:
                 ChangesTab(workspace: workspace, changes: workspace.changes)
@@ -78,94 +77,6 @@ private struct NoConversation: View {
     }
 }
 
-// MARK: - Shared pieces
-
-
-/// A centered message for an empty tab.
-struct InspectorEmpty: View {
-    let symbol: String
-    let title: String
-    var detail: String?
-
-    var body: some View {
-        // As Things' empty lists: the icon large and faint, the words quiet.
-        VStack(spacing: Theme.Space.s) {
-            Image(systemName: symbol)
-                .font(.toasty(Theme.Glyph.emptyState, .ultraLight))
-                .foregroundStyle(.quaternary)
-                .padding(.bottom, Theme.Space.xs)
-            Text(title)
-                .font(.toasty(Theme.Size.control, .medium))
-                .foregroundStyle(.secondary)
-            if let detail {
-                Text(detail)
-                    .font(.toasty(Theme.Size.meta))
-                    .foregroundStyle(.tertiary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-/// The open panel's name over a rule, at the top of the panel: the
-/// workspace sidebar's headings (body semibold in heading blue, a 24pt
-/// row, the rule a little wider than the text on both sides).
-struct InspectorPanelHeading: View {
-    let title: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(title)
-                .font(.toasty(Theme.Size.body, .semibold))
-                .foregroundStyle(Theme.headingBlue)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: Theme.Sidebar.rowHeight)
-            Rectangle().fill(Theme.Stroke.rule).frame(height: 1).padding(.horizontal, -3)
-        }
-        .padding(.horizontal, Theme.Inspector.edge)
-        // No margin of its own above: the titlebar's extra height already
-        // sets it ~16pt under the tabs; each panel's content then starts
-        // ~14pt under the rule.
-        .accessibilityAddTraits(.isHeader)
-    }
-}
-
-/// A label and its value on one 24pt row.
-struct InspectorRow: View {
-    let title: String
-    let value: String
-    var valueStyle: AnyShapeStyle = AnyShapeStyle(.secondary)
-
-    var body: some View {
-        HStack {
-            Text(title).font(.toasty(Theme.Size.control)).foregroundStyle(Theme.Sidebar.titleColor).lineLimit(1)
-            Spacer(minLength: Theme.Space.s)
-            Text(value).font(.toasty(Theme.Size.control)).monospacedDigit().foregroundStyle(valueStyle)
-        }
-        .frame(height: Theme.Inspector.rowHeight)
-    }
-}
-
-/// A thin capsule meter.
-struct Meter: View {
-    let fraction: Double
-    var tint: Color = .accentColor
-
-    var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule().fill(Theme.Fill.subtle)
-                Capsule().fill(tint)
-                    .frame(width: max(fraction > 0 ? 4 : 0, geo.size.width * min(1, max(0, fraction))))
-            }
-        }
-        .frame(height: 5)
-    }
-}
 
 // MARK: - Changes
 
@@ -204,121 +115,92 @@ private struct ChangesTab: View {
 
     private var loaded: some View {
         VStack(spacing: 0) {
-            BranchHeader(changes: changes, workspace: workspace)
-                .padding(.horizontal, Theme.Inspector.edge)
-                .padding(.top, Theme.Space.s + Theme.Space.xxs)
-                .padding(.bottom, Theme.Space.m)
-            Rectangle().fill(Color.claudeSeparator).frame(height: 0.5)
+            BranchSummary(changes: changes, workspace: workspace)
             if changes.files.isEmpty {
                 InspectorEmpty(symbol: "checkmark.circle", title: "No Changes", detail: "The working tree matches the last commit.")
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 1) {
-                        ForEach(changes.files) { file in
-                            ChangedFileRow(file: file, selected: workspace.diffFile?.id == file.id) {
-                                workspace.diffFile = workspace.diffFile?.id == file.id ? nil : file
+                    InspectorListSection(title: "Uncommitted", count: changes.files.count) {
+                        LazyVStack(spacing: 0) {
+                            ForEach(changes.files) { file in
+                                ChangedFileRow(file: file, selected: workspace.diffFile?.id == file.id) {
+                                    workspace.diffFile = workspace.diffFile?.id == file.id ? nil : file
+                                }
                             }
                         }
                     }
-                    .padding(.horizontal, Theme.Inspector.edge - Theme.Space.s)
-                    .padding(.vertical, Theme.Space.s)
+                    .padding(.bottom, Theme.Space.l)
                 }
+                .scrollBounceBehavior(.basedOnSize)
             }
         }
     }
 }
 
-private struct BranchHeader: View {
+/// The summary row: the branch, whether it's on the remote (chips at the
+/// right), and what isn't committed.
+private struct BranchSummary: View {
     @ObservedObject var changes: GitChanges
     let workspace: Workspace
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Image(systemName: "arrow.triangle.branch")
-                    .font(.toasty(Theme.Size.meta, .medium))
-                    .foregroundStyle(.secondary)
-                Text(changes.branch ?? "Detached HEAD")
-                    .font(.toasty(Theme.Size.control, .semibold))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .layoutPriority(-1)  // the name gives way, not the pill
+        InspectorSummary(title: changes.branch ?? "Detached HEAD", detail: detail) {
+            InspectorGlyph(symbol: "arrow.triangle.branch")
+        } trailing: {
+            HStack(spacing: Theme.Space.xs) {
                 if workspace.isWorktree {
-                    WorktreeBadge(help: worktreeHelp)
+                    InspectorChip(text: "Worktree").tooltipText(worktreeHelp)
                 }
-                Spacer(minLength: 6)
                 SyncStatus(changes: changes)
             }
-            HStack(spacing: 6) {
-                Text(summary)
-                    .font(.toasty(Theme.Size.meta))
-                    .foregroundStyle(.secondary)
-                if !changes.files.isEmpty {
-                    Text("+\(changes.totalAdded)").foregroundStyle(Color(nsColor: .systemGreen))
-                        .font(.toasty(Theme.Size.meta, .medium)).monospacedDigit()
-                    Text("−\(changes.totalRemoved)").foregroundStyle(Color(nsColor: .systemRed))
-                        .font(.toasty(Theme.Size.meta, .medium)).monospacedDigit()
-                }
-                Spacer(minLength: 0)
-            }
         }
+    }
+
+    private var detail: Text {
+        let summary: String = switch changes.files.count {
+        case 0: "Everything committed"
+        case 1: "1 file not committed"
+        case let n: "\(n) files not committed"
+        }
+        guard !changes.files.isEmpty else { return Text(summary) }
+        let mono = Font.toasty(Theme.Size.meta, design: .monospaced)
+        return Text(summary + " · ")
+            + Text("+\(changes.totalAdded)").font(mono).foregroundColor(Theme.Inspector.added)
+            + Text(" ")
+            + Text("−\(changes.totalRemoved)").font(mono).foregroundColor(Theme.Inspector.removed)
     }
 
     private var worktreeHelp: String {
         let path = (workspace.folder as NSString).abbreviatingWithTildeInPath
         return workspace.parent.map { "Worktree of \($0.name) · \(path)" } ?? "Worktree · \(path)"
     }
-
-    private var summary: String {
-        switch changes.files.count {
-        case 0: "Everything committed"
-        case 1: "1 file not committed"
-        case let n: "\(n) files not committed"
-        }
-    }
 }
 
-/// "Worktree", styled like the ahead/behind badges beside it.
-private struct WorktreeBadge: View {
-    let help: String
-
-    var body: some View {
-        Text("Worktree")
-            .font(.toasty(Theme.Size.caption, .medium))
-            .foregroundStyle(.secondary)
-            .fixedSize()
-            .padding(.horizontal, 6)
-            .frame(height: 18)
-            .background(Capsule().fill(Theme.Fill.subtle))
-            .tooltipText(help)
-    }
-}
-
-/// Whether the branch's commits are on the remote, in words: "Pushed",
-/// "2 not pushed", "1 to pull", or "Not pushed" for a branch that has
-/// never been pushed; and "3 behind main" when the main branch has moved on.
+/// Whether the branch's commits are on the remote, as chips: "Pushed",
+/// "2 Not Pushed", "1 to Pull", or "Not Pushed" for a branch that has
+/// never been pushed; and "3 Behind main" when the main branch has moved on.
 private struct SyncStatus: View {
     @ObservedObject var changes: GitChanges
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Theme.Space.xs) {
             if changes.branch != nil, changes.behindBase > 0, let base = changes.base {
-                pill("arrow.down", "\(changes.behindBase) behind \(GitChanges.shortName(base))",
+                chip("arrow.down", "\(changes.behindBase) Behind \(GitChanges.shortName(base))",
                      help: "\(commits(changes.behindBase)) on \(base) this branch doesn't have")
             }
             if changes.branch == nil {
                 EmptyView()
             } else if changes.upstream == nil {
-                pill(nil, "Not pushed", help: "This branch isn't on a remote yet")
+                chip(nil, "Not Pushed", help: "This branch isn't on a remote yet")
             } else if changes.ahead == 0 && changes.behind == 0 {
-                pill("checkmark", "Pushed", help: "All commits are on \(changes.upstream ?? "the remote")")
+                chip(nil, "Pushed", help: "All commits are on \(changes.upstream ?? "the remote")")
             } else {
                 if changes.ahead > 0 {
-                    pill("arrow.up", "\(changes.ahead) not pushed",
+                    chip("arrow.up", "\(changes.ahead) Not Pushed",
                          help: "\(commits(changes.ahead)) not on \(changes.upstream ?? "the remote") yet")
                 }
                 if changes.behind > 0 {
-                    pill("arrow.down", "\(changes.behind) to pull",
+                    chip("arrow.down", "\(changes.behind) to Pull",
                          help: "\(commits(changes.behind)) on \(changes.upstream ?? "the remote") you don't have")
                 }
             }
@@ -327,72 +209,42 @@ private struct SyncStatus: View {
 
     private func commits(_ n: Int) -> String { n == 1 ? "1 commit" : "\(n) commits" }
 
-    private func pill(_ symbol: String?, _ text: String, help: String) -> some View {
-        HStack(spacing: 3) {
-            if let symbol { Image(systemName: symbol).font(.toasty(Theme.Glyph.small, .semibold)) }
-            Text(text).font(.toasty(Theme.Size.caption, .medium)).monospacedDigit()
-        }
-        .foregroundStyle(.secondary)
-        .fixedSize()
-        .padding(.horizontal, 6)
-        .frame(height: 18)
-        .background(Capsule().fill(Theme.Fill.subtle))
-        .tooltipText(help)
+    private func chip(_ symbol: String?, _ text: String, help: String) -> some View {
+        InspectorChip(text: text, symbol: symbol).tooltipText(help)
     }
 }
 
+/// A changed file: its letter, its name with the folder inline after it,
+/// and its line counts.
 private struct ChangedFileRow: View {
     let file: GitChanges.File
     let selected: Bool
     let action: () -> Void
-    @State private var hovering = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            StatusMark(status: file.status)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(file.name)
-                    .font(.toasty(Theme.Size.control, .medium))
-                    .strikethrough(file.status == .deleted, color: .secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                if !file.directory.isEmpty || file.oldPath != nil {
-                    Text(file.oldPath.map { "from \($0)" } ?? file.directory)
-                        .font(.toasty(Theme.Size.caption))
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                        .truncationMode(.head)
-                }
+        let deleted = file.status == .deleted
+        InspectorRow(label: Text(file.name)
+                        .font(.toasty(Theme.Size.control))
+                        .foregroundColor(deleted ? .secondary : .primary)
+                        .strikethrough(deleted, color: Color.primary.opacity(0.25)),
+                     detail: file.oldPath.map { "from \($0)" } ?? (file.directory.isEmpty ? nil : file.directory),
+                     selected: selected, hoverable: true) {
+            ChangeLetter(status: file.status)
+        } trailing: {
+            if file.added == nil && file.removed == nil {
+                Text("binary").font(.toasty(Theme.Size.meta, design: .monospaced)).foregroundStyle(.tertiary)
+            } else {
+                DiffCounts(added: file.added, removed: file.removed)
             }
-            Spacer(minLength: 6)
-            HStack(spacing: 5) {
-                if let a = file.added, a > 0 {
-                    Text("+\(a)").foregroundStyle(Color(nsColor: .systemGreen))
-                }
-                if let r = file.removed, r > 0 {
-                    Text("−\(r)").foregroundStyle(Color(nsColor: .systemRed))
-                }
-                if file.added == nil && file.removed == nil {
-                    Text("binary").foregroundStyle(.tertiary)
-                }
-            }
-            .font(.toasty(Theme.Size.caption, .medium))
-            .monospacedDigit()
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
-            .fill(selected ? Theme.Fill.accent : (hovering ? Theme.Fill.hover : Color.clear)))
-        .contentShape(Rectangle())
         .onTapGesture(perform: action)
-        .onHover { hovering = $0 }
         .tooltipText("\(file.status.label): \(file.path)")
         .contextMenu {
             Button(selected ? "Hide Diff" : "Show Diff", action: action)
             Divider()
-            Button("Open") { NSWorkspace.shared.open(file.url) }.disabled(file.status == .deleted)
+            Button("Open") { NSWorkspace.shared.open(file.url) }.disabled(deleted)
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([file.url]) }
-                .disabled(file.status == .deleted)
+                .disabled(deleted)
             Button("Copy Path") {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(file.url.path, forType: .string)
@@ -401,29 +253,6 @@ private struct ChangedFileRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(file.status.label) \(file.path)")
         .accessibilityAddTraits(.isButton)
-    }
-}
-
-/// The file's status as a letter in its color (Xcode's source control marks).
-struct StatusMark: View {
-    let status: GitChanges.Status
-
-    var body: some View {
-        Text(status.mark)
-            .font(.toasty(Theme.Size.caption, .bold, design: .rounded))
-            .foregroundStyle(color)
-            .frame(width: 16, height: 16)
-            .background(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous).fill(color.opacity(0.14)))
-    }
-
-    private var color: Color {
-        switch status {
-        case .added, .untracked: Color(nsColor: .systemGreen)
-        case .deleted: Color(nsColor: .systemRed)
-        case .renamed, .copied: Color(nsColor: .systemBlue)
-        case .conflicted: Color(nsColor: .systemOrange)
-        case .modified, .typeChanged: Color(nsColor: .systemOrange)
-        }
     }
 }
 
@@ -485,19 +314,14 @@ struct DiffPage: View {
             .tooltip("Back to Conversation", shortcut: "esc")
             .accessibilityLabel("Back to Conversation")
 
-            StatusMark(status: file.status)
+            ChangeLetter(status: file.status)
             VStack(alignment: .leading, spacing: 1) {
                 Text(file.name).font(.toasty(Theme.Size.control, .semibold)).lineLimit(1)
                 Text(file.directory.isEmpty ? file.status.label : "\(file.status.label) · \(file.directory)")
                     .font(.toasty(Theme.Size.caption)).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.head)
             }
             Spacer(minLength: 8)
-            if let a = file.added, a > 0 {
-                Text("+\(a)").foregroundStyle(Color(nsColor: .systemGreen)).font(.toasty(Theme.Size.meta, .medium)).monospacedDigit()
-            }
-            if let r = file.removed, r > 0 {
-                Text("−\(r)").foregroundStyle(Color(nsColor: .systemRed)).font(.toasty(Theme.Size.meta, .medium)).monospacedDigit()
-            }
+            DiffCounts(added: file.added, removed: file.removed)
             if files.count > 1, let i = position {
                 Text("\(i + 1) of \(files.count)")
                     .font(.toasty(Theme.Size.meta)).foregroundStyle(.tertiary).monospacedDigit()

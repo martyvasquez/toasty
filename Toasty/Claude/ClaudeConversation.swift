@@ -400,11 +400,11 @@ final class ClaudeConversation: ObservableObject, Identifiable {
 
         var title: String {
             switch type {
-            case "five_hour": "Current session (5 hours)"
-            case "seven_day": "This week"
-            case "seven_day_opus": "This week · Opus"
-            case "seven_day_sonnet": "This week · Sonnet"
-            case "overage": "Extra usage"
+            case "five_hour": "Current Session"
+            case "seven_day": "This Week"
+            case "seven_day_opus": "This Week · Opus"
+            case "seven_day_sonnet": "This Week · Sonnet"
+            case "overage": "Extra Usage"
             default: type.replacingOccurrences(of: "_", with: " ").capitalized
             }
         }

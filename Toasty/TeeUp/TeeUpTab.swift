@@ -25,12 +25,13 @@ struct TeeUpTab: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            TeeUpSummary(workspace: workspace)
             if workspace.teeUps.isEmpty {
-                controls
-                    .padding(.horizontal, Theme.Todo.inset)
-                    .padding(.top, Theme.Todo.openWiden)
-                InspectorEmpty(symbol: InspectorTab.teeUp.symbol, title: "Nothing Teed Up",
-                               detail: "Write prompts ahead of time, then send each one to the open tab when you're ready.")
+                InspectorListSection(title: "Queue") {
+                    NewPromptRow { newAtEnd() }
+                }
+                InspectorEmpty(symbol: InspectorTab.teeUp.symbol, title: "Write Prompts Ahead",
+                               detail: "Then send each one to the open tab when you're ready.")
                     .background(DoubleClick { newAtEnd() })
             } else {
                 list
@@ -53,6 +54,8 @@ struct TeeUpTab: View {
         let open = workspace.teeUpEditingID
         return ScrollViewReader { proxy in
             ScrollView {
+                InspectorSectionHeading(title: "Queue", count: workspace.teeUps.count)
+                    .padding(.top, Theme.Inspector.sectionGap)
                 VStack(spacing: 0) {
                     ReorderableStack(items: workspace.teeUps, spacing: 0,
                                      canDrag: { $0.id != open },
@@ -93,15 +96,14 @@ struct TeeUpTab: View {
                     // A click anywhere that isn't on a row (the list's empty
                     // space, the rest of the window) clears the selection.
                     .background { if selection != nil { ClickOutside { selection = nil } } }
-                    // New Prompt and Auto-Send, always just under the last
-                    // prompt (as Things' "+ New List" and its button).
-                    controls
+                    // New Prompt, always just under the last prompt (as
+                    // Things' "+ New List").
+                    NewPromptRow { newAtEnd() }
+                        .padding(.horizontal, -Theme.Todo.inset)
                 }
                 .background(AnchorView(anchor: rowsAnchor))
                 .padding(.horizontal, Theme.Todo.inset)
                 .padding(.bottom, Theme.Todo.inset)
-                // Room for an open first row's card to grow into.
-                .padding(.top, Theme.Todo.openWiden)
             }
             .scrollBounceBehavior(.basedOnSize)
             // A double-click in the empty space under the rows starts a new
@@ -164,21 +166,6 @@ struct TeeUpTab: View {
         }
     }
 
-    /// "+ New Prompt" and Auto-Send's buttons, then what Auto-Send is
-    /// doing while it runs.
-    private var controls: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            TeeUpControls(workspace: workspace) { newAtEnd() }
-            if let feed = workspace.teeUpFeed {
-                // On the titles' line, under "New Prompt".
-                TeeUpFeedStatus(workspace: workspace, feed: feed)
-                    .padding(.leading, Theme.Todo.rowLeading + Theme.Todo.box + Theme.Todo.boxGap - Theme.Inspector.edge)
-                    .padding(.top, -Theme.Space.xs)
-                    .transition(.opacity)
-            }
-        }
-    }
-
     private func newAtEnd() {
         selection = nil
         workspace.newTeeUp()
@@ -231,7 +218,7 @@ struct TeeUpTab: View {
 }
 
 private enum TeeUpStyle {
-    static let fontSize = Theme.Size.body
+    static let fontSize = Theme.Size.control
     /// From an open card's top to the composer: its first line is centered
     /// in a row's height, `Theme.Todo.cardTop` inside the card.
     static var cardTop: CGFloat {
@@ -249,12 +236,12 @@ private enum TeeUpStyle {
     static let textTrailing: CGFloat = 16
     /// The composer's own space above its first line.
     static let composerInset: CGFloat = 3
-    /// One line of body text in the composer.
-    static let lineHeight: CGFloat = 17
+    /// One line of text in the composer.
+    static let lineHeight: CGFloat = 16
     static let pictureSize: CGFloat = 36
     /// The editor's line pitch at `fontSize`, as it draws (measured on
     /// screen), for the stand-in text shown while a card animates.
-    static let editorLinePitch: CGFloat = 20
+    static let editorLinePitch: CGFloat = 19
     /// A row opening and closing (Things': about a quarter second).
     /// Measured from Things at 60fps: a quartic ease-out, most of the way
     /// in the first 100ms, settled by a quarter second (snappy, then soft).
@@ -591,7 +578,7 @@ private struct TeeUpBox: View {
     }
 
     var body: some View {
-        let side = Theme.Todo.box - 2
+        let side = Theme.Todo.box
         let shape = RoundedRectangle(cornerRadius: 4, style: .continuous)
         let ready = target != nil
         Button {
@@ -601,8 +588,8 @@ private struct TeeUpBox: View {
         } label: {
             ZStack {
                 shape.fill(checked ? Color.accentColor : Color.clear)
-                shape.strokeBorder(checked ? Color.accentColor : (hovering && ready ? Color.secondary : Theme.Todo.mark),
-                                   style: StrokeStyle(lineWidth: 1.25, dash: held && !checked ? [2, 2] : []))
+                shape.strokeBorder(checked ? Color.accentColor : (hovering && ready ? Color.secondary : Color.primary.opacity(0.25)),
+                                   style: StrokeStyle(lineWidth: 1, dash: held && !checked ? [2, 2] : []))
                 if checked || (hovering && ready) {
                     Image(systemName: "arrow.up")
                         .font(.toasty(Theme.Glyph.small, .bold))
@@ -720,76 +707,88 @@ private struct ClickOutside: NSViewRepresentable {
     }
 }
 
-/// Under the last prompt: the list's next, unwritten row (as Things' gray
-/// "New To-Do"). A plus in the boxes' column, "New Prompt" on the titles'
-/// line in placeholder gray, and Auto-Send's button at the row's end where
-/// the rows' marks are (Pause or Resume, and Stop, while it runs). Same
-/// height and edges as a prompt, so it reads as part of the list.
-private struct TeeUpControls: View {
+
+/// The summary row: how many prompts are teed up, or what Auto-Send is
+/// doing, and its controls at the trailing edge (play; pause or resume,
+/// and stop while it runs).
+private struct TeeUpSummary: View {
     @ObservedObject var workspace: Workspace
-    let newPrompt: () -> Void
-    @State private var hovering = false
 
     var body: some View {
-        HStack(spacing: Theme.Todo.boxGap) {
-            Button(action: newPrompt) {
-                HStack(spacing: Theme.Todo.boxGap) {
-                    Image(systemName: "plus")
-                        .font(.toasty(Theme.Size.control, .medium))
-                        .frame(width: Theme.Todo.box, height: Theme.Todo.box)
-                    Text("New Prompt")
-                        .font(.toasty(Theme.Size.body))
-                }
-                // Brightens to full ink on hover, as "+ New Workspace" and
-                // "+ New Terminal" do.
-                .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(Theme.Todo.placeholder))
-                // The app's bar-button capsule on hover, around the plus and
-                // the words (its padding hangs outside the row's edges, so
-                // the plus stays in the boxes' column).
-                .padding(.horizontal, Self.capsulePadding)
-                .frame(height: Theme.Control.height)
-                .contentShape(Capsule())
+        TimelineView(.periodic(from: .now, by: 0.5)) { context in
+            InspectorSummary(title: title, detail: Text(detail(now: context.date))) {
+                lead
+            } trailing: {
+                HStack(spacing: Theme.Space.xxs) { controls }
+                    .padding(.trailing, -6)
             }
-            .buttonStyle(BarButtonStyle(hovering: hovering))
-            .padding(.leading, -Self.capsulePadding)
-            .onHover { hovering = $0 }
-            .animation(.easeOut(duration: 0.12), value: hovering)
-            .tooltip(Tooltip(title: "New Prompt", shortcut: "⌃⌘\(InspectorTab.teeUp.shortcut)",
-                             detail: "Or press Space under a selected prompt, or double-click below the list."))
-            Spacer(minLength: Theme.Space.s)
-            HStack(spacing: 0) { feedButtons }
-                // The last glyph ends where the rows' marks do.
-                .padding(.trailing, -(Self.slot - Theme.Size.body) / 2)
         }
-        .padding(.leading, Theme.Todo.rowLeading)
-        .padding(.trailing, Theme.Todo.rowTrailing)
-        .frame(height: Theme.Todo.rowHeight)
     }
 
-    @ViewBuilder private var feedButtons: some View {
+    private var left: Int { workspace.teeUps.filter { !$0.isHeld }.count }
+
+    @ViewBuilder private var lead: some View {
         if let feed = workspace.teeUpFeed {
             if feed.paused != nil {
-                button("play.fill", "Resume", "Carry on sending to “\(tab)”.") { workspace.resumeTeeUpFeed() }
-                    .disabled(workspace.nextTeeUpToFeed == nil)
+                StatusDot(color: StatusColor.needsInput)
             } else {
-                button("pause.fill", "Pause", "Send nothing more to “\(tab)” until you resume. Claude finishes what it has.") {
+                ProgressView().controlSize(.small).scaleEffect(0.7)
+            }
+        } else {
+            InspectorGlyph(symbol: InspectorTab.teeUp.symbol)
+        }
+    }
+
+    private var title: String {
+        if let feed = workspace.teeUpFeed { return feed.paused != nil ? "Auto-Send Paused" : "Auto-Sending" }
+        return workspace.teeUps.isEmpty ? "Nothing Teed Up" : "\(workspace.teeUps.count) Teed Up"
+    }
+
+    private func detail(now: Date) -> String {
+        guard let feed = workspace.teeUpFeed else {
+            return workspace.teeUps.isEmpty ? "Auto-send is off."
+                : "Send one now, or start auto-send to work through them in order."
+        }
+        let count = "\(left) left"
+        if let reason = feed.paused {
+            return "\(count) · " + (reason.isEmpty ? "resumes when you press play." : reason)
+        }
+        var state: String
+        if let at = feed.nextAt {
+            state = "Next in \(max(1, Int(at.timeIntervalSince(now).rounded(.up))))s"
+        } else if feed.checking != nil {
+            state = "Checking Claude's reply…"
+        } else {
+            state = "Sending to “\(tab)”"
+        }
+        state += " · \(count)"
+        if let verdict = feed.verdict, !verdict.isEmpty { state += ". \(verdict)" }
+        return state
+    }
+
+    @ViewBuilder private var controls: some View {
+        if let feed = workspace.teeUpFeed {
+            if feed.paused != nil {
+                InspectorControl(symbol: "play.fill", tooltip: Tooltip(title: "Resume", detail: "Carry on sending to “\(tab)”.")) {
+                    workspace.resumeTeeUpFeed()
+                }
+                .disabled(workspace.nextTeeUpToFeed == nil)
+            } else {
+                InspectorControl(symbol: "pause.fill",
+                                 tooltip: Tooltip(title: "Pause", detail: "Send nothing more to “\(tab)” until you resume. Claude finishes what it has.")) {
                     workspace.pauseTeeUpFeed()
                 }
             }
-            button("stop.fill", "Stop Auto-Send", "The prompts that are left stay teed up.") { workspace.stopTeeUpFeed() }
+            InspectorControl(symbol: "stop.fill",
+                             tooltip: Tooltip(title: "Stop Auto-Send", detail: "The prompts that are left stay teed up.")) {
+                workspace.stopTeeUpFeed()
+            }
         } else {
-            button("play.fill", "Auto-Send", startHelp) { workspace.requestTeeUpFeed() }
-                .disabled(!canStart)
+            InspectorControl(symbol: "play.fill", tooltip: Tooltip(title: "Auto-Send", detail: startHelp)) {
+                workspace.requestTeeUpFeed()
+            }
+            .disabled(!canStart)
         }
-    }
-
-    /// A button's slot: the glyph centered in it (its hover capsule).
-    static let slot: CGFloat = 28
-    /// "New Prompt"'s capsule, past the plus and the words.
-    static let capsulePadding: CGFloat = 6
-
-    private func button(_ symbol: String, _ title: String, _ detail: String, action: @escaping () -> Void) -> some View {
-        TeeUpRowButton(symbol: symbol, tooltip: Tooltip(title: title, detail: detail), action: action)
     }
 
     private var tab: String { workspace.teeUpFeedTab?.title ?? "" }
@@ -804,75 +803,20 @@ private struct TeeUpControls: View {
     }
 }
 
-/// While Auto-Send runs: what it's doing, and below it why it paused (or
-/// what the reply check decided), in full. A quiet line under the list.
-private struct TeeUpFeedStatus: View {
-    @ObservedObject var workspace: Workspace
-    let feed: TeeUpFeed
-
-    var body: some View {
-        let detail = (feed.paused ?? feed.verdict).flatMap { $0.isEmpty ? nil : $0 }
-        VStack(alignment: .leading, spacing: Theme.Space.xxs) {
-            HStack(spacing: Theme.Space.xs) {
-                Group {
-                    if feed.paused != nil {
-                        Text("Paused")
-                    } else if let at = feed.nextAt {
-                        TimelineView(.periodic(from: .now, by: 0.25)) { context in
-                            Text("Next in \(max(1, Int(at.timeIntervalSince(context.date).rounded(.up))))s")
-                                .monospacedDigit()
-                        }
-                        .fixedSize()
-                    } else if feed.checking != nil {
-                        Text("Checking Claude's reply…")
-                    } else {
-                        Text("Sending to “\(workspace.teeUpFeedTab?.title ?? "")”")
-                    }
-                }
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                Text("· \(workspace.teeUps.filter { !$0.isHeld }.count) left").foregroundStyle(.tertiary).fixedSize()
-            }
-            if let detail {
-                Text(detail)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .font(.toasty(Theme.Size.meta))
-        .padding(.horizontal, Theme.Inspector.edge)
-        .padding(.vertical, Theme.Space.s)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-/// A button at a row's end: a small glyph in the rows' mark gray, full ink
-/// and the bar capsule under the pointer (as the footers' buttons), dimmer
-/// when it can't.
-private struct TeeUpRowButton: View {
-    let symbol: String
-    let tooltip: Tooltip
+/// "+ New Prompt" as the queue's last row: the plus in the boxes' slot,
+/// the words quiet.
+private struct NewPromptRow: View {
     let action: () -> Void
-    @State private var hovering = false
-    @Environment(\.isEnabled) private var enabled
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: symbol)
-                .font(.toasty(Theme.Size.meta, .medium))
-                .foregroundStyle(!enabled ? AnyShapeStyle(.quaternary)
-                                 : hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(Theme.Todo.mark))
-                .frame(width: TeeUpControls.slot, height: Theme.Control.height - 4)
-                .contentShape(Capsule())
+            InspectorRow(label: InspectorRow<InspectorRowIcon, EmptyView>.label("New Prompt", quiet: true), hoverable: true) {
+                InspectorRowIcon(symbol: "plus", style: AnyShapeStyle(.tertiary))
+            } trailing: { EmptyView() }
         }
-        // The app's bar-button capsule on hover, filled while pressed.
-        .buttonStyle(BarButtonStyle(hovering: hovering && enabled))
-        .onHover { hovering = $0 }
-        .animation(.easeOut(duration: 0.12), value: hovering)
-        .tooltip(tooltip)
-        .accessibilityLabel(tooltip.title)
+        .buttonStyle(.plain)
+        .tooltip(Tooltip(title: "New Prompt", shortcut: "⌃⌘\(InspectorTab.teeUp.shortcut)",
+                         detail: "Or press Space under a selected prompt, or double-click below the list."))
     }
 }
 

@@ -2,12 +2,10 @@ import SwiftUI
 
 /// The inspector's Activity tab: whether the selected conversation's Claude
 /// is alive and what it is doing, for long runs where the transcript alone
-/// doesn't say. Laid out by how often each part matters: the status as one
-/// large line at the top, then what is running (this turn's steps and the
-/// background tasks, one list in Tee-Up's row measure), and at the bottom
-/// what the conversation has used, as meters that open into the details.
-/// Everything here is read from what Claude Code already sends; nothing is
-/// asked of Claude.
+/// doesn't say. The inspector's skeleton (InspectorKit): the status as the
+/// summary row, then "Now" (this turn's steps) and "In the Background",
+/// and Usage pinned above the footer. Everything here is read from what
+/// Claude Code already sends; nothing is asked of Claude.
 struct ActivityTab: View {
     @ObservedObject var conversation: ClaudeConversation
 
@@ -18,30 +16,25 @@ struct ActivityTab: View {
     static let quietAfter: TimeInterval = 180
 
     var body: some View {
-        if conversation.phase == .idle, conversation.backgroundTasks.isEmpty,
-           conversation.stopped == nil, lastTurn == nil, !UsageDock.hasUsage(conversation) {
-            InspectorEmpty(symbol: InspectorTab.activity.symbol, title: "No Activity Yet",
-                           detail: "What Claude is doing, and what it has used, shows here once it starts.")
-                .onAppear { conversation.refreshContextUsage() }
-        } else {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                VStack(spacing: 0) {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            VStack(spacing: 0) {
+                StatusSummary(conversation: conversation, activity: conversation.activity,
+                              lastTurn: lastTurn, now: context.date)
+                if conversation.phase == .working || !conversation.backgroundTasks.isEmpty {
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 0) {
-                            StatusHeader(conversation: conversation, activity: conversation.activity,
-                                         lastTurn: lastTurn, now: context.date)
-                            RunningList(conversation: conversation, activity: conversation.activity, now: context.date)
-                        }
-                        .padding(.horizontal, Theme.Inspector.edge)
-                        .padding(.top, Theme.Space.m)
-                        .padding(.bottom, Theme.Space.l)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        RunningSections(conversation: conversation, activity: conversation.activity, now: context.date)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.bottom, Theme.Space.l)
                     }
-                    UsageDock(conversation: conversation)
+                    .scrollBounceBehavior(.basedOnSize)
+                } else {
+                    InspectorEmpty(symbol: InspectorTab.activity.symbol, title: "Nothing Running",
+                                   detail: "Commands and agents show here while Claude works.")
                 }
+                UsageSection(conversation: conversation)
             }
-            .onAppear { conversation.refreshContextUsage() }
         }
+        .onAppear { conversation.refreshContextUsage() }
     }
 
     /// The reply that ended the last turn, if it carries when and how long.
@@ -71,10 +64,9 @@ struct ActivityTab: View {
 
 // MARK: - Status
 
-/// The one line that answers "is Claude alive?": a mark, the state in the
-/// panel's title size, the turn's clock at the right, and one quiet line
-/// under it with the evidence.
-private struct StatusHeader: View {
+/// The summary row: is Claude alive? A spinner or a status dot, the state,
+/// the turn's clock, and the evidence under it.
+private struct StatusSummary: View {
     @ObservedObject var conversation: ClaudeConversation
     @ObservedObject var activity: ClaudeTurnActivity
     let lastTurn: ClaudeItem?
@@ -96,30 +88,13 @@ private struct StatusHeader: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.xxs) {
-            HStack(alignment: .center, spacing: Theme.Todo.boxGap) {
-                mark.frame(width: Theme.Todo.box, height: Theme.Todo.box)
-                Text(title)
-                    .font(.toasty(Theme.Size.title, .semibold))
-                    .lineLimit(1)
-                Spacer(minLength: Theme.Space.s)
-                if let clock {
-                    Text(clock)
-                        .font(.toasty(Theme.Size.title))
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                }
-            }
-            if let detail {
-                Text(detail)
-                    .font(.toasty(Theme.Size.meta))
-                    .foregroundStyle(health == .quiet ? AnyShapeStyle(Color(nsColor: .systemOrange)) : AnyShapeStyle(.secondary))
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.leading, Theme.Todo.box + Theme.Todo.boxGap)
-            }
+        InspectorSummary(title: title, detail: detail.map { text in
+            health == .quiet ? Text(text).foregroundColor(StatusColor.needsInput) : Text(text)
+        }) {
+            mark
+        } trailing: {
+            if let clock { InspectorValue(clock) }
         }
-        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder private var mark: some View {
@@ -131,7 +106,7 @@ private struct StatusHeader: View {
         case .quiet:
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.toasty(Theme.Size.meta))
-                .foregroundStyle(Color(nsColor: .systemOrange))
+                .foregroundStyle(StatusColor.needsInput)
         case .stopped:
             StatusDot(color: StatusColor.stopped)
         case .idle:
@@ -180,40 +155,37 @@ private struct StatusHeader: View {
     }
 }
 
-// MARK: - Running
+// MARK: - Now, In the Background
 
-/// What is running: this turn's steps (each tool call with its clock, or
-/// thinking / writing between calls), then the background tasks under a
-/// quiet caption.
-private struct RunningList: View {
+private struct RunningSections: View {
     @ObservedObject var conversation: ClaudeConversation
     @ObservedObject var activity: ClaudeTurnActivity
     let now: Date
 
     var body: some View {
-        let working = conversation.phase == .working
+        let running = conversation.runningTools
         let background = conversation.backgroundTasks
-        if working || !background.isEmpty {
-            VStack(alignment: .leading, spacing: 0) {
-                if working {
-                    let running = conversation.runningTools
+        VStack(alignment: .leading, spacing: 0) {
+            if conversation.phase == .working {
+                InspectorListSection(title: "Now", count: running.isEmpty ? nil : running.count) {
                     if running.isEmpty {
-                        ActivityRow(symbol: symbol, title: Text(verb), tooltip: verb, detail: nil, time: nil)
+                        InspectorRow(label: InspectorRow<InspectorRowIcon, EmptyView>.label(verb)) {
+                            InspectorRowIcon(symbol: symbol)
+                        } trailing: { EmptyView() }
                     } else {
                         ForEach(running) { item in
                             RunningTool(item: item, cwd: conversation.cwd, now: now)
                         }
                     }
                 }
-                if !background.isEmpty {
-                    ActivityCaption(text: "In the Background")
-                        .padding(.top, working ? Theme.Space.m : 0)
+            }
+            if !background.isEmpty {
+                InspectorListSection(title: "In the Background", count: background.count) {
                     ForEach(background) { task in
                         BackgroundRow(task: task, now: now) { conversation.stopTask(task.id) }
                     }
                 }
             }
-            .padding(.top, Theme.Space.l)
         }
     }
 
@@ -236,20 +208,6 @@ private struct RunningList: View {
     }
 }
 
-/// A small group label inside a panel: quieter than a heading, no rule.
-private struct ActivityCaption: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(.toasty(Theme.Size.meta, .medium))
-            .foregroundStyle(.tertiary)
-            .frame(height: Theme.Inspector.rowHeight, alignment: .bottom)
-            .padding(.bottom, Theme.Space.xxs)
-            .accessibilityAddTraits(.isHeader)
-    }
-}
-
 private struct RunningTool: View {
     @ObservedObject var item: ClaudeItem
     let cwd: String
@@ -257,12 +215,22 @@ private struct RunningTool: View {
 
     var body: some View {
         let summary = ClaudeToolInfo.summary(item.toolName, item.input, cwd: cwd)
-        let verb = ClaudeToolInfo.activeVerb(item.toolName)
-        ActivityRow(symbol: ClaudeToolInfo.icon(item.toolName),
-                    title: ActivityRow.title(verb: verb, summary: summary, code: item.toolName == "Bash"),
-                    tooltip: summary.isEmpty ? verb : verb + " " + summary,
-                    detail: subagentStep,
-                    time: seconds.map { ClaudeToolInfo.duration($0) })
+        InspectorRow(label: InspectorRow<InspectorRowIcon, AnyView>.label(label(summary), code: item.toolName == "Bash"),
+                     progress: subagentStep) {
+            InspectorRowIcon(symbol: ClaudeToolInfo.icon(item.toolName))
+        } trailing: {
+            AnyView(Group { if let seconds { InspectorValue(ClaudeToolInfo.duration(seconds)) } })
+        }
+        .tooltip(Tooltip(title: ClaudeToolInfo.activeVerb(item.toolName) + (summary.isEmpty ? "" : " " + summary), plain: true))
+    }
+
+    /// A command or an agent's task on its own (the icon says which); any
+    /// other step with its verb ("Reading queue.ts").
+    private func label(_ summary: String) -> String {
+        switch item.toolName {
+        case "Bash", "Task", "Agent" where !summary.isEmpty: return summary
+        default: return ClaudeToolInfo.activeVerb(item.toolName) + (summary.isEmpty ? "…" : " " + summary)
+        }
     }
 
     /// How long the call has run: Claude Code's own count when it sends
@@ -293,27 +261,28 @@ private struct BackgroundRow: View {
 
     var body: some View {
         let text = task.description.isEmpty ? name : ClaudeBackgroundLine.short(task.description)
-        ActivityRow(symbol: symbol,
-                    title: Text(text).font(isShell ? .toasty(Theme.Size.control, design: .monospaced) : .toasty(Theme.Size.body)),
-                    tooltip: text,
-                    detail: nil,
-                    time: hovering ? nil : ClaudeToolInfo.duration(max(0, Int(now.timeIntervalSince(task.started)))))
-            .overlay(alignment: .trailing) {
+        InspectorRow(label: InspectorRow<InspectorRowIcon, AnyView>.label(text, code: isShell), hoverable: true) {
+            InspectorRowIcon(symbol: symbol)
+        } trailing: {
+            AnyView(Group {
                 if hovering {
                     Button(action: stop) {
                         Image(systemName: "stop.circle")
-                            .font(.toasty(Theme.Size.body))
+                            .font(.toasty(Theme.Size.control))
                             .foregroundStyle(.secondary)
-                            .frame(width: 20, height: Theme.Todo.rowHeight)
+                            .frame(width: 20, height: 20)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .tooltip("Stop Task")
                     .accessibilityLabel("Stop")
+                } else {
+                    InspectorValue(ClaudeToolInfo.duration(max(0, Int(now.timeIntervalSince(task.started)))))
                 }
-            }
-            .contentShape(Rectangle())
-            .onHover { hovering = $0 }
+            })
+        }
+        .onHover { hovering = $0 }
+        .tooltip(Tooltip(title: text, plain: true))
     }
 
     private var kind: String { task.type.lowercased() }
@@ -334,106 +303,42 @@ private struct BackgroundRow: View {
     }
 }
 
-/// One running thing in Tee-Up's row measure: a glyph in the to-do box's
-/// slot, one line of text (cut in the middle, the whole of it in a
-/// tooltip), an optional second line, and its clock at the right.
-private struct ActivityRow: View {
-    let symbol: String
-    let title: Text
-    let tooltip: String
-    let detail: String?
-    let time: String?
+// MARK: - Usage (pinned)
 
-    /// "Running" in the body face and a shell command in monospace.
-    static func title(verb: String, summary: String, code: Bool) -> Text {
-        guard !summary.isEmpty else { return Text(verb + "…").font(.toasty(Theme.Size.body)) }
-        let rest = code ? Text(summary).font(.toasty(Theme.Size.control, design: .monospaced))
-                        : Text(summary).font(.toasty(Theme.Size.body))
-        return Text(verb + " ").font(.toasty(Theme.Size.body)).foregroundColor(.secondary) + rest
-    }
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Theme.Todo.boxGap) {
-            Image(systemName: symbol)
-                .font(.toasty(Theme.Size.control))
-                .foregroundStyle(Theme.Todo.mark)
-                .frame(width: Theme.Todo.box)
-            VStack(alignment: .leading, spacing: Theme.Space.xxs) {
-                title
-                    .font(.toasty(Theme.Size.body))
-                    .foregroundStyle(Theme.Sidebar.titleColor)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .tooltip(Tooltip(title: tooltip, plain: true))
-                if let detail {
-                    Text(detail)
-                        .font(.toasty(Theme.Size.meta))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-            }
-            Spacer(minLength: Theme.Space.s)
-            if let time {
-                Text(time)
-                    .font(.toasty(Theme.Size.control))
-                    .foregroundStyle(.tertiary)
-                    .monospacedDigit()
-            }
-        }
-        .padding(.vertical, (Theme.Todo.rowHeight - 17) / 2)
-        .frame(minHeight: Theme.Todo.rowHeight)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-// MARK: - Usage
-
-/// The bottom of the tab: the context window and the plan's limits as
-/// meters. A click opens what fills the context and the session's totals
-/// above them.
-struct UsageDock: View {
+/// Pinned above the footer: the context window and the plan's limits as
+/// meters. "Details" opens what fills the context and the session's
+/// totals above them.
+struct UsageSection: View {
     @ObservedObject var conversation: ClaudeConversation
     @AppStorage("activityUsageDetails") private var expanded = false
-    @State private var hovering = false
 
     static func hasUsage(_ c: ClaudeConversation) -> Bool {
         c.context != nil || c.usage != nil || !c.rateLimits.isEmpty
     }
 
     var body: some View {
-        if UsageDock.hasUsage(conversation) {
-            VStack(alignment: .leading, spacing: Theme.Space.m) {
+        if UsageSection.hasUsage(conversation) {
+            VStack(alignment: .leading, spacing: 0) {
+                InspectorSectionHeading(title: "Usage") {
+                    DetailsButton(expanded: $expanded)
+                }
                 if expanded { details.transition(.opacity) }
                 if let context = conversation.context {
                     let fraction = context.maxTokens > 0 ? Double(context.totalTokens) / Double(context.maxTokens) : context.percentage / 100
-                    MeterRow(title: "Context", disclosure: expanded,
-                             value: "\(Int((fraction * 100).rounded()))% · \(ActivityTab.tokens(context.totalTokens)) of \(ActivityTab.tokens(context.maxTokens))",
-                             fraction: fraction,
-                             tint: fraction > 0.9 ? Color(nsColor: .systemRed) : fraction > 0.7 ? Color(nsColor: .systemOrange) : .accentColor)
+                    InspectorMeter(title: "Context",
+                                   value: "\(Int((fraction * 100).rounded()))% · \(ActivityTab.tokens(context.totalTokens)) of \(ActivityTab.tokens(context.maxTokens))",
+                                   fraction: fraction)
                 }
                 ForEach(conversation.rateLimits) { limit in
                     if let u = limit.utilization {
-                        MeterRow(title: limit.title, disclosure: nil,
-                                 value: limitValue(limit, u),
-                                 fraction: u,
-                                 tint: limit.status == "rejected" ? Color(nsColor: .systemRed)
-                                     : limit.status == "allowed_warning" ? Color(nsColor: .systemOrange) : .accentColor)
+                        InspectorMeter(title: limit.title, value: limitValue(limit, u), fraction: u,
+                                       warns: limit.status == "rejected")
                     } else if limit.status == "rejected" {
-                        MeterRow(title: limit.title, disclosure: nil, value: "Limit reached", fraction: 1, tint: Color(nsColor: .systemRed))
+                        InspectorMeter(title: limit.title, value: "Limit reached", fraction: 1, warns: true)
                     }
                 }
             }
-            .padding(.horizontal, Theme.Inspector.edge)
-            .padding(.top, Theme.Space.m)
-            .padding(.bottom, Theme.Space.l)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            .onTapGesture { withAnimation(.easeOut(duration: 0.18)) { expanded.toggle() } }
-            .onHover { hovering = $0 }
-            .tooltip(Tooltip(title: expanded ? "Hide Details" : "Show Details",
-                             detail: "What fills the context window, and this session's tokens and cost."))
-            .accessibilityAddTraits(.isButton)
+            .padding(.bottom, Theme.Space.m)
         }
     }
 
@@ -448,58 +353,48 @@ struct UsageDock: View {
         VStack(alignment: .leading, spacing: 0) {
             if let context = conversation.context {
                 let used = context.categories.filter { $0.kind == "used" && $0.tokens > 0 }.sorted { $0.tokens > $1.tokens }
-                if !used.isEmpty {
-                    ActivityCaption(text: "In the Context Window")
-                    ForEach(used.prefix(7)) { c in
-                        InspectorRow(title: c.name, value: ActivityTab.tokens(c.tokens))
-                    }
-                }
+                ForEach(used.prefix(7)) { c in valueRow(c.name, ActivityTab.tokens(c.tokens)) }
             }
             if let usage = conversation.usage {
-                ActivityCaption(text: "This Session").padding(.top, Theme.Space.s)
-                InspectorRow(title: "Cost (estimate)",
-                             value: usage.costUSD < 0.01 && usage.costUSD > 0 ? "< $0.01" : String(format: "$%.2f", usage.costUSD))
-                InspectorRow(title: "Tokens in / out",
-                             value: "\(ActivityTab.tokens(usage.inputTokens)) / \(ActivityTab.tokens(usage.outputTokens))")
-                InspectorRow(title: "Cache reads / writes",
-                             value: "\(ActivityTab.tokens(usage.cacheReadTokens)) / \(ActivityTab.tokens(usage.cacheWriteTokens))")
-                InspectorRow(title: "API time", value: ClaudeToolInfo.duration(Int(usage.apiDuration.rounded())))
+                if conversation.context != nil { Color.clear.frame(height: Theme.Space.s) }
+                valueRow("Cost (estimate)", usage.costUSD < 0.01 && usage.costUSD > 0 ? "< $0.01" : String(format: "$%.2f", usage.costUSD))
+                valueRow("Tokens In / Out", "\(ActivityTab.tokens(usage.inputTokens)) / \(ActivityTab.tokens(usage.outputTokens))")
+                valueRow("Cache Reads / Writes", "\(ActivityTab.tokens(usage.cacheReadTokens)) / \(ActivityTab.tokens(usage.cacheWriteTokens))")
+                valueRow("API Time", ClaudeToolInfo.duration(Int(usage.apiDuration.rounded())))
             }
         }
+        .padding(.bottom, Theme.Space.s)
+    }
+
+    /// A detail: the row's text, its value at the right.
+    private func valueRow(_ title: String, _ value: String) -> some View {
+        HStack(spacing: Theme.Space.s) {
+            Text(title).font(.toasty(Theme.Size.control)).lineLimit(1)
+            Spacer(minLength: Theme.Space.s)
+            Text(value).font(.toasty(Theme.Size.meta)).monospacedDigit().foregroundStyle(.secondary)
+        }
+        .frame(height: Theme.Inspector.rowHeight)
+        .padding(.horizontal, Theme.Inspector.edge)
     }
 }
 
-/// A label and its value over a thin meter.
-private struct MeterRow: View {
-    let title: String
-    /// Whether the details are open, for the row that opens them.
-    let disclosure: Bool?
-    let value: String
-    let fraction: Double
-    let tint: Color
+/// "Details" / "Hide" at a section heading's right.
+private struct DetailsButton: View {
+    @Binding var expanded: Bool
+    @State private var hovering = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: Theme.Space.xs) {
-                Text(title)
-                    .font(.toasty(Theme.Size.control))
-                    .foregroundStyle(Theme.Sidebar.titleColor)
-                    .lineLimit(1)
-                if let disclosure {
-                    Image(systemName: "chevron.right")
-                        .font(.toasty(Theme.Glyph.small, .semibold))
-                        .foregroundStyle(.tertiary)
-                        .rotationEffect(.degrees(disclosure ? -90 : 0))
-                }
-                Spacer(minLength: Theme.Space.s)
-                Text(value)
-                    .font(.toasty(Theme.Size.control))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            Meter(fraction: fraction, tint: tint)
+        Button {
+            withAnimation(.easeOut(duration: 0.18)) { expanded.toggle() }
+        } label: {
+            Text(expanded ? "Hide" : "Details")
+                .font(.toasty(Theme.Size.caption))
+                .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                .contentShape(Rectangle())
         }
-        .accessibilityElement(children: .combine)
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .tooltip(Tooltip(title: expanded ? "Hide Details" : "Show Details",
+                         detail: "What fills the context window, and this session's tokens and cost."))
     }
 }
