@@ -334,6 +334,22 @@ the iPhone/desktop toggle, show conversation, the size menu.
   workspace chip (the name and a chevron, no icon) gives up room first:
   shorter and shorter names. A phone is laid out at
   its real width and drawn smaller in a narrow window.
+- Side by side (the user, 2026-11-20, for a big monitor: one page at both
+  sizes, one address bar): a footer button (laptop and phone) shows the
+  desktop page with the iPhone page in a column to its right, and the
+  window grows by that column so the desktop page keeps its width (and
+  gives it back when turned off). The phone is a second web view (`twin`
+  in `PreviewSession`) on the workspace's data store, so one login. The
+  address, back and reload (and the reload at the end of a turn) drive
+  both; a page either one goes to, the other follows (a load that's
+  following the other page doesn't lead back until it ends, so redirects
+  can't ping-pong). In side by side the footer has a second size menu,
+  which iPhone (kept per workspace; also the phone ⇧⌘M goes to); the
+  window changes width with it. Claude's tools, the console and comments
+  stay with the desktop page; choosing a phone (⇧⌘M, or Claude's
+  `set_viewport`) ends side by side. A page that can't open leaves the
+  phone column empty. Not yet: comments on the phone page, a screenshot of
+  both for Claude, scroll sync (the layouts differ; probably never).
   Comments (⇧⌘C): click an element or drag an area, type a note; Return
   sends to the conversation or Tee-Up per Settings ▸ Browser ▸ Comments,
   Shift-Return the other way.

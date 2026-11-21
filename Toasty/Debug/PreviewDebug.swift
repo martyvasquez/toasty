@@ -31,11 +31,21 @@ enum PreviewDebug {
             }
             if let v = (cmd["viewport"] as? String).flatMap(PreviewViewport.init(rawValue:)) { s.setViewport(v) }
             if let on = cmd["commenting"] as? Bool { s.setCommenting(on) }
+            // {"twinPhone":"mobile-max"}: side by side's iPhone menu.
+            if let v = (cmd["twinPhone"] as? String).flatMap(PreviewViewport.init(rawValue:)) { s.setTwinPhone(v) }
+            // {"sideBySide":true}: the footer's side-by-side button.
+            if let on = cmd["sideBySide"] as? Bool {
+                s.setSideBySide(on)
+                PreviewStore.shared.presenter?.fitSideBySide(of: s)
+            }
             var out: [String: Any] = ["enabled": true, "address": s.address, "loading": s.isLoading]
             out["url"] = s.url?.absoluteString ?? ""
             out["viewport"] = s.viewportDescription
             out["failure"] = s.failure?.reason ?? ""
             out["commenting"] = s.commenting
+            out["sideBySide"] = s.sideBySide
+            out["twinURL"] = s.twin?.url?.absoluteString ?? ""
+            if let twin = s.twin { out["twinFrame"] = NSStringFromRect(twin.convert(twin.bounds, to: nil)) }
             if let pick = s.pick { out["pick"] = "\(pick.kind.rawValue) \(pick.selector) \(pick.rect)" }
             out["console"] = s.console.map { "[\($0.level)] \($0.text)" }
             out["hosted"] = s.stage != nil

@@ -119,7 +119,7 @@ final class PreviewSession: NSObject, ObservableObject {
     @Published private(set) var failure: Failure?
     @Published private(set) var viewport: PreviewViewport
     /// The phone ⇧⌘M goes back to from desktop: the one last shown.
-    private(set) var lastPhone: PreviewViewport = .mobile
+    @Published private(set) var lastPhone: PreviewViewport = .mobile
     @Published private(set) var console: [ConsoleEntry] = []
     @Published private(set) var commenting = false
     /// The tab a comment goes to, when the user picked one in the comment
@@ -146,6 +146,24 @@ final class PreviewSession: NSObject, ObservableObject {
     private var backstagedAt: Date?
 
     private(set) var webView: WKWebView?
+    /// Side by side (experiment): the desktop page and, beside it, the same
+    /// page as an iPhone shows it, in a second web view (`twin`) on the same
+    /// data store (one login). The address, back and reload drive both, and
+    /// a page either one goes to, the other follows. Claude's tools, the
+    /// console and comments stay with the desktop page (`webView`).
+    @Published private(set) var sideBySide = UserDefaults.standard.bool(forKey: PreviewSession.sideBySideKey)
+    nonisolated static let sideBySideKey = "PreviewSideBySide"
+    private(set) var twin: WKWebView?
+    private var twinDelegate: TwinDelegate?
+    private var twinObservers: Set<AnyCancellable> = []
+    /// The address both pages were last put on: a page reaching it again
+    /// isn't news for the other one.
+    private var synced: String?
+    /// A web view loading because the other one went somewhere: its own
+    /// address changes (server redirects, a phone site's m. address) until
+    /// that load ends aren't followed back, which could go back and forth.
+    private var mainFollowing = false
+    private var twinFollowing = false
     /// The view showing the page, while the window is open.
     weak var stage: PreviewStage?
     private var observers: Set<AnyCancellable> = []
@@ -153,11 +171,13 @@ final class PreviewSession: NSObject, ObservableObject {
     private static let world = WKContentWorld.world(name: "ToastyPreview")
     private static let consoleLimit = 500
 
-    init(workspaceID: UUID, address: String, viewport: PreviewViewport) {
+    init(workspaceID: UUID, address: String, viewport: PreviewViewport, phone: PreviewViewport? = nil) {
         self.workspaceID = workspaceID
         self.address = address
         self.viewport = viewport
+        if let phone, phone.isPhone { lastPhone = phone }
         if viewport.isPhone { lastPhone = viewport }
+        if viewport.isPhone { sideBySide = false }
     }
 
     // MARK: Web view
@@ -193,6 +213,7 @@ final class PreviewSession: NSObject, ObservableObject {
             self.url = url
             self.address = Self.display(url)
             PreviewStore.shared.remember(self)
+            self.mirror(url, fromTwin: false)
         }.store(in: &observers)
         webView = web
         PreviewStore.shared.removeOrphanedData()
@@ -271,6 +292,104 @@ final class PreviewSession: NSObject, ObservableObject {
             web.removeFromSuperview()
         }
         webView = nil
+        dropTwin()
+    }
+
+    // MARK: Side by side
+
+    /// Show the iPhone page beside the desktop one, or stop.
+    func setSideBySide(_ on: Bool) {
+        guard on != sideBySide else { return }
+        sideBySide = on
+        UserDefaults.standard.set(on, forKey: Self.sideBySideKey)
+        if on {
+            if viewport.isPhone { setViewport(.desktop, byUser: true) }
+            if let url = webView?.url, failure == nil { synced = url.absoluteString; loadTwin(url) }
+        } else {
+            dropTwin()
+        }
+    }
+
+    /// The iPhone page, made when side by side is first shown.
+    func twinWeb() -> WKWebView {
+        if let twin { return twin }
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = WKWebsiteDataStore(forIdentifier: workspaceID)
+        configuration.applicationNameForUserAgent = "Version/18.5 Safari/605.1.15"
+        let web = WKWebView(frame: NSRect(origin: .zero, size: lastPhone.nominal), configuration: configuration)
+        let delegate = TwinDelegate(self)
+        twinDelegate = delegate
+        web.navigationDelegate = delegate
+        web.uiDelegate = delegate
+        web.allowsBackForwardNavigationGestures = true
+        web.customUserAgent = lastPhone.userAgent
+        web.isInspectable = true
+        web.publisher(for: \.url).sink { [weak self] url in
+            guard let self, let url, url.absoluteString != "about:blank" else { return }
+            self.mirror(url, fromTwin: true)
+        }.store(in: &twinObservers)
+        twin = web
+        if let url = webView?.url, failure == nil { synced = url.absoluteString; loadTwin(url) }
+        return web
+    }
+
+    /// Which iPhone the page beside the desktop one is (side by side's
+    /// own size menu). Also the phone ⇧⌘M goes to.
+    func setTwinPhone(_ v: PreviewViewport) {
+        guard v.isPhone, v != lastPhone else { return }
+        let old = lastPhone
+        lastPhone = v
+        PreviewStore.shared.remember(self)
+        PreviewStore.shared.presenter?.fitTwinPhone(of: self, from: old)
+        guard let twin else { return }
+        twin.customUserAgent = v.userAgent
+        if twin.url != nil { twinFollowing = true; twin.reload() }
+    }
+
+    private func dropTwin() {
+        twinObservers = []
+        if let twin {
+            twin.stopLoading()
+            twin.navigationDelegate = nil
+            twin.uiDelegate = nil
+            twin.removeFromSuperview()
+        }
+        twin = nil
+        twinDelegate = nil
+        twinFollowing = false
+        mainFollowing = false
+    }
+
+    private func loadTwin(_ url: URL) {
+        guard let twin else { return }
+        twinFollowing = true
+        if url.isFileURL { twin.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent()) } else { twin.load(URLRequest(url: url)) }
+    }
+
+    /// One page went to `url` (a link, a form, a script changing the
+    /// address): the other goes there too.
+    private func mirror(_ url: URL, fromTwin: Bool) {
+        guard sideBySide, twin != nil else { return }
+        let key = url.absoluteString
+        guard key != synced else { return }
+        if fromTwin {
+            guard !twinFollowing, let web = webView else { return }
+            synced = key
+            mainFollowing = true
+            if url.isFileURL { web.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent()) } else { web.load(URLRequest(url: url)) }
+        } else {
+            guard !mainFollowing else { synced = key; return }
+            synced = key
+            loadTwin(url)
+        }
+    }
+
+    fileprivate func twinLoadEnded() { twinFollowing = false }
+    fileprivate func twinFailed(_ error: Error) {
+        twinFollowing = false
+        let e = error as NSError
+        if e.domain == NSURLErrorDomain, e.code == NSURLErrorCancelled { return }
+        log("warn", "The iPhone page couldn't load: \(e.localizedDescription)")
     }
 
     /// The page's size as the site sees it (CSS pixels).
@@ -327,6 +446,8 @@ final class PreviewSession: NSObject, ObservableObject {
         started = true
         failure = nil
         address = Self.display(target)
+        synced = target.absoluteString
+        if sideBySide, twin != nil { loadTwin(target) }
         if target.isFileURL {
             web().loadFileURL(target, allowingReadAccessTo: target.deletingLastPathComponent())
         } else {
@@ -367,6 +488,9 @@ final class PreviewSession: NSObject, ObservableObject {
     func reload() {
         guard let web = webView, web.url != nil, failure == nil else { open(address); return }
         web.reload()
+        if sideBySide, let twin {
+            if twin.url != nil { twinFollowing = true; twin.reload() } else if let url = web.url { loadTwin(url) }
+        }
     }
 
     func stopLoading() { webView?.stopLoading() }
@@ -375,6 +499,14 @@ final class PreviewSession: NSObject, ObservableObject {
     func goBack() {
         guard let web = webView, web.canGoBack else { return }
         failure = nil
+        if sideBySide, twin != nil, let back = web.backForwardList.backItem?.url {
+            // Both to the page before, whatever the iPhone page's own history.
+            synced = back.absoluteString
+            mainFollowing = true
+            web.goBack()
+            loadTwin(back)
+            return
+        }
         web.goBack()
     }
 
@@ -387,6 +519,7 @@ final class PreviewSession: NSObject, ObservableObject {
     /// window for it; Claude's never moves the window.
     func setViewport(_ v: PreviewViewport, byUser: Bool = false) {
         guard v != viewport else { return }
+        if v.isPhone, sideBySide { setSideBySide(false) }
         viewport = v
         if v.isPhone { lastPhone = v }
         PreviewStore.shared.remember(self)
@@ -612,6 +745,36 @@ struct PreviewError: LocalizedError {
     init(_ description: String) { errorDescription = description }
 }
 
+/// The iPhone page's navigation and new windows (side by side). It has no
+/// console, comments or dialogs of its own: those are the desktop page's.
+private final class TwinDelegate: NSObject, WKNavigationDelegate, WKUIDelegate {
+    weak var session: PreviewSession?
+    init(_ session: PreviewSession) { self.session = session }
+
+    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
+        let scheme = action.request.url?.scheme?.lowercased() ?? ""
+        return ["http", "https", "file", "about", "blob", "data"].contains(scheme) ? .allow : .cancel
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        MainActor.assumeIsolated { session?.twinLoadEnded() }
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        MainActor.assumeIsolated { session?.twinFailed(error) }
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        MainActor.assumeIsolated { session?.twinFailed(error) }
+    }
+
+    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
+                 for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        if action.targetFrame == nil { webView.load(action.request) }
+        return nil
+    }
+}
+
 /// The user content controller keeps its handlers alive; this keeps it from
 /// keeping the session alive.
 private final class MessageRelay: NSObject, WKScriptMessageHandler {
@@ -640,6 +803,7 @@ extension PreviewSession: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         if commenting { picker("start") }
+        mainFollowing = false
         finishLoad(nil)
     }
 
@@ -657,6 +821,7 @@ extension PreviewSession: WKNavigationDelegate {
     }
 
     private func failed(_ error: Error) {
+        mainFollowing = false
         let e = error as NSError
         // Stopped by the user, or replaced by another load.
         if e.domain == NSURLErrorDomain, e.code == NSURLErrorCancelled { return }
@@ -748,7 +913,8 @@ final class PreviewStore {
         if let s = sessions[workspace.id] { return s }
         let saved = (UserDefaults.standard.dictionary(forKey: Self.key)?[workspace.id.uuidString] as? [String: String]) ?? [:]
         let s = PreviewSession(workspaceID: workspace.id, address: saved["address"] ?? "",
-                               viewport: saved["viewport"].flatMap(PreviewViewport.init(rawValue:)) ?? .mobile)
+                               viewport: saved["viewport"].flatMap(PreviewViewport.init(rawValue:)) ?? .mobile,
+                               phone: saved["phone"].flatMap(PreviewViewport.init(rawValue:)))
         sessions[workspace.id] = s
         return s
     }
@@ -773,7 +939,8 @@ final class PreviewStore {
     /// Keep a workspace's address and viewport for next time.
     func remember(_ session: PreviewSession) {
         var all = UserDefaults.standard.dictionary(forKey: Self.key) ?? [:]
-        all[session.workspaceID.uuidString] = ["address": session.address, "viewport": session.viewport.rawValue]
+        all[session.workspaceID.uuidString] = ["address": session.address, "viewport": session.viewport.rawValue,
+                                               "phone": session.lastPhone.rawValue]
         UserDefaults.standard.set(all, forKey: Self.key)
     }
 

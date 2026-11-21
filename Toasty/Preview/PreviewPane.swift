@@ -231,6 +231,33 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
         window.setFrame(frame, display: true, animate: true)
     }
 
+    /// Side by side was turned on: the window grows to the right (as far as
+    /// its screen allows) so the desktop page keeps its width beside the
+    /// phone's column; turned off, it gives that room back.
+    func fitSideBySide(of changed: PreviewSession) {
+        guard changed === session, let session, let window, window.isVisible,
+              !window.styleMask.contains(.fullScreen) else { return }
+        let column = session.lastPhone.nominal.width + 40
+        var frame = window.frame
+        let visible = window.screen?.visibleFrame ?? frame
+        frame.size.width += session.sideBySide ? column : -column
+        frame.size.width = min(max(frame.width, window.frameRect(forContentRect: NSRect(origin: .zero, size: Self.minimumContent)).width), visible.width)
+        frame.origin.x = min(max(visible.minX, frame.minX), visible.maxX - frame.width)
+        window.setFrame(frame, display: true, animate: true)
+    }
+
+    /// Side by side's iPhone changed: the window changes width by as much as
+    /// its column did, so the desktop page keeps its size.
+    func fitTwinPhone(of changed: PreviewSession, from old: PreviewViewport) {
+        guard changed === session, let session, session.sideBySide, let window, window.isVisible,
+              !window.styleMask.contains(.fullScreen) else { return }
+        var frame = window.frame
+        let visible = window.screen?.visibleFrame ?? frame
+        frame.size.width = min(frame.width + session.lastPhone.nominal.width - old.nominal.width, visible.width)
+        frame.origin.x = min(max(visible.minX, frame.minX), visible.maxX - frame.width)
+        window.setFrame(frame, display: true, animate: true)
+    }
+
     /// Whether the window was last sized for a phone (else it's the
     /// user's desktop window).
     private var sizedForPhone = false
@@ -548,6 +575,14 @@ private struct PreviewFooter: View {
                               glyphSize: Theme.Size.body, size: Self.button) {
                     session.toggleViewport()
                 }
+                BarIconButton(symbol: "macbook.and.iphone",
+                              tooltip: Tooltip(title: session.sideBySide ? "Just the Desktop Page" : "Desktop and \(session.lastPhone.title) Side by Side",
+                                               detail: session.sideBySide ? "The iPhone page goes away."
+                                                   : "The same page at both sizes, one address: a page either one goes to, the other follows."),
+                              active: session.sideBySide, glyphSize: Theme.Size.body, size: Self.button) {
+                    session.setSideBySide(!session.sideBySide)
+                    PreviewStore.shared.presenter?.fitSideBySide(of: session)
+                }
                 BarIconButton(symbol: "text.bubble",
                               tooltip: Tooltip(title: "Show Conversation",
                                                detail: conversation.map { "“\($0.title)” in the main window\($0.id == session.lastAgentConversationID ? ", the conversation that last used this browser" : "")." }
@@ -557,8 +592,13 @@ private struct PreviewFooter: View {
                 }
                 .disabled(conversation == nil)
             }
-            PreviewSizeMenu(session: session)
-                .frame(maxWidth: .infinity, alignment: .trailing)
+            HStack(spacing: Theme.Space.xxs) {
+                PreviewSizeMenu(session: session)
+                if session.sideBySide, !session.viewport.isPhone {
+                    PreviewSizeMenu(session: session, twin: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
         // Edges as the titlebar row's: the workspace name under the close button,
         // the size the row's margin from the right; the same band height,
@@ -579,6 +619,8 @@ private struct PreviewFooter: View {
 /// too narrow for it.
 private struct PreviewSizeMenu: View {
     @ObservedObject var session: PreviewSession
+    /// Side by side's second menu: which iPhone the page beside it is.
+    var twin = false
 
     static let desktopPresets = [CGSize(width: 1280, height: 800), CGSize(width: 1440, height: 900),
                                  CGSize(width: 1920, height: 1080)]
@@ -588,6 +630,13 @@ private struct PreviewSizeMenu: View {
     private static func text(_ s: CGSize) -> String { "\(Int(s.width.rounded())) × \(Int(s.height.rounded()))" }
 
     private var items: [PopoverMenu.Item] {
+        if twin {
+            return PreviewViewport.allCases.filter(\.isPhone).map { v in
+                PopoverMenu.Item(title: v.title, subtitle: Self.text(v.nominal), checked: session.lastPhone == v) {
+                    session.setTwinPhone(v)
+                }
+            }
+        }
         if session.viewport.isPhone {
             return PreviewViewport.allCases.filter(\.isPhone).map { v in
                 PopoverMenu.Item(title: v.title, subtitle: Self.text(v.nominal), checked: session.viewport == v) {
@@ -607,7 +656,8 @@ private struct PreviewSizeMenu: View {
     }
 
     var body: some View {
-        let label = "\(session.viewport.title) · \(Self.text(size))"
+        let label = twin ? "\(session.lastPhone.title) · \(Self.text(session.lastPhone.nominal))"
+            : "\(session.viewport.title) · \(Self.text(size))"
         // Always shown, whole: the window is never too narrow for it (the
         // workspace chip gives up its room first).
         ClaudePopUp(items: [], makeItems: { items }) { hovering in
@@ -624,8 +674,8 @@ private struct PreviewSizeMenu: View {
                 .contentShape(Capsule())
                 .fixedSize()
         }
-        .tooltip(Tooltip(title: "Page Size",
-                         detail: session.viewport.isPhone ? "Which iPhone the page is shown as."
+        .tooltip(Tooltip(title: twin ? "iPhone Size" : "Page Size",
+                         detail: twin || session.viewport.isPhone ? "Which iPhone the page is shown as."
                              : "The desktop page is as big as the window: drag the window, or pick a size here."))
         .accessibilityLabel("Page size: \(label)")
     }
@@ -812,7 +862,11 @@ private struct PreviewPage: View {
     @State private var teedUp = false
 
     var body: some View {
-        GeometryReader { geo in
+        GeometryReader { whole in
+          let twin = session.sideBySide && !session.viewport.isPhone
+          let column = twin ? PreviewTwinColumn.width(for: session.lastPhone) : 0
+          HStack(spacing: 0) {
+          GeometryReader { geo in
             let fit = session.viewport.fit(in: geo.size)
             ZStack(alignment: .topLeading) {
                 Color.claudeChrome
@@ -854,6 +908,14 @@ private struct PreviewPage: View {
                         .transition(.opacity)
                 }
             }
+          }
+          .frame(width: max(0, whole.size.width - column))
+          if twin {
+              PreviewTwinColumn(session: session)
+                  .frame(width: column)
+                  .overlay(alignment: .leading) { Rectangle().fill(Theme.Stroke.barDivider).frame(width: 1) }
+          }
+          }
         }
         .clipped()
         .task(id: session.teedUpAt) {
@@ -1054,4 +1116,92 @@ final class PreviewStage: NSView {
 
 private final class PreviewCanvas: NSView {
     override var isFlipped: Bool { true }
+}
+
+
+// MARK: - Side by side
+
+/// The iPhone page beside the desktop one (side by side): laid out at the
+/// phone's real size, drawn smaller when the window is short, centered in
+/// a column of its own.
+private struct PreviewTwinColumn: View {
+    @ObservedObject var session: PreviewSession
+
+    static let margin: CGFloat = 20
+    static func width(for phone: PreviewViewport) -> CGFloat { phone.nominal.width + margin * 2 }
+
+    var body: some View {
+        GeometryReader { geo in
+            let inner = CGSize(width: max(1, geo.size.width - Self.margin * 2), height: max(1, geo.size.height - Self.margin * 2))
+            let fit = session.lastPhone.fit(in: inner)
+            ZStack(alignment: .topLeading) {
+                Color.claudeChrome
+                // Nothing beside the desktop page's "Can't Open" (a blank phone).
+                if session.windowOpen, session.failure == nil {
+                    PreviewTwinHost(session: session, page: fit.page)
+                        .frame(width: fit.display.width, height: fit.display.height)
+                        .overlay(Rectangle().strokeBorder(Color.claudeSeparator, lineWidth: 0.5))
+                        .offset(x: Self.margin + fit.display.minX, y: Self.margin + fit.display.minY)
+                }
+            }
+        }
+    }
+}
+
+private struct PreviewTwinHost: NSViewRepresentable {
+    let session: PreviewSession
+    let page: CGSize
+
+    func makeNSView(context: Context) -> PreviewTwinStage { PreviewTwinStage() }
+
+    func updateNSView(_ stage: PreviewTwinStage, context: Context) {
+        stage.show(session, page: page)
+    }
+
+    static func dismantleNSView(_ stage: PreviewTwinStage, coordinator: ()) {
+        stage.clear()
+    }
+}
+
+/// As `PreviewStage`, for the iPhone page: laid out at the phone's size and
+/// scaled to the room it has.
+final class PreviewTwinStage: NSView {
+    private let canvas = PreviewCanvas()
+    private weak var session: PreviewSession?
+    private var page: CGSize = .zero
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.masksToBounds = true
+        addSubview(canvas)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override var isFlipped: Bool { true }
+
+    func show(_ session: PreviewSession, page: CGSize) {
+        self.page = page
+        self.session = session
+        // A last update on the way out mustn't make the page again.
+        guard session.sideBySide else { clear(); return }
+        let web = session.twinWeb()
+        if web.superview !== canvas { canvas.addSubview(web) }
+        needsLayout = true
+    }
+
+    func clear() {
+        if let web = session?.twin, web.superview === canvas { web.removeFromSuperview() }
+        session = nil
+    }
+
+    override func layout() {
+        super.layout()
+        guard page.width > 0, page.height > 0, bounds.width > 0 else { return }
+        canvas.frame = bounds
+        canvas.setBoundsOrigin(.zero)
+        canvas.setBoundsSize(page)
+        session?.twin?.frame = NSRect(origin: .zero, size: page)
+    }
 }
