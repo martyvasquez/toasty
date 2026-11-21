@@ -351,13 +351,25 @@ the iPhone/desktop toggle, show conversation, the size menu.
   workspaces that aren't on view use the backstage the same way.
 - Comment mode works in the window as before; Esc or sending a comment keeps
   the keyboard in the browser window (it used to go back to the composer).
-  A comment to the conversation goes to the tab last selected in the
-  workspace the browser shows (not necessarily the one on screen in
-  Toasty). When that workspace has more than one tab, the comment field
-  shows that tab as a chip; clicking it lists the workspace's tabs to send
-  to another (the user, 2026-11-20). The pick lasts until commenting ends
-  and never selects the tab in Toasty. Tee-Up is the workspace's, so no
-  chip there.
+  The comment box is the composer's own text view (the user, 2026-11-21:
+  dictation works there too): two lines at rest, growing to six, then
+  scrolling; Return sends, Shift-Return a new line, Esc drops the pick; a
+  small mic in its bottom row. Dictation targets it while it has the
+  keyboard (it has its own id, so the conversation's mic doesn't light;
+  vocabulary from its workspace). Pictures and files go with a comment
+  (the user, 2026-11-21): pasted, dropped on the text, the + button, or
+  ⇧⌘0, whose screenshot goes to a comment open in the browser window
+  before any composer; they follow the page's own picture, and a Tee-Up
+  card gets them too. It has a second row: a Send |
+  Tee-Up switch (sticky; it's the Settings ▸ Browser ▸ Comments choice)
+  and, with Send and more than one tab in the workspace, "to [tab ▾]".
+  By default a comment goes to the tab last selected in the workspace the
+  browser shows (not necessarily the one on screen in Toasty). The tab
+  menu's first item, Last Active Tab, is that default; picking a tab pins
+  it (a pin glyph on the chip) for later comments too, until Last Active
+  Tab is picked again or the tab closes. Pinning never selects the tab in
+  Toasty, and isn't remembered across launches. Tee-Up is the
+  workspace's, so no tab there.
 - A local link clicked in a terminal opens in the workspace's browser, and
   the window comes forward showing it (that's the user's own click). The page reloads
   whenever Claude finishes a turn in the workspace. Claude gets an MCP
@@ -394,8 +406,7 @@ the iPhone/desktop toggle, show conversation, the size menu.
   phone column empty. Not yet: comments on the phone page, a screenshot of
   both for Claude, scroll sync (the layouts differ; probably never).
   Comments (⇧⌘C): click an element or drag an area, type a note; Return
-  sends to the conversation or Tee-Up per Settings ▸ Browser ▸ Comments,
-  Shift-Return the other way.
+  sends or tees up per the field's Send | Tee-Up switch.
 
 Not done / to decide after living with it:
 - The indicator shows only the workspace on screen; Claude using the
@@ -414,8 +425,8 @@ Not done / to decide after living with it:
 ## Screenshots from any app (⇧⌘0)
 
 Built 2026-11-10 (`Toasty/Screenshot/`): ⇧⌘0 in any app runs the system's
-area/window picker and attaches the picture to the open conversation's
-composer. It doesn't send, and Toasty stays in the background so several
+area/window picker and attaches the picture to a comment open in the
+browser (since 2026-11-21), else the open conversation's composer. It doesn't send, and Toasty stays in the background so several
 can be taken (the user's choices). Nothing is saved: the file
 `screencapture` writes is read and deleted at once. Settings ▸ Screenshots
 turns the any-app shortcut off (then it works only in Toasty). Needs Screen

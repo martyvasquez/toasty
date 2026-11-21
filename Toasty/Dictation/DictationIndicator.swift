@@ -7,6 +7,9 @@ import SwiftUI
 /// Click: start a hands-free dictation, or finish one.
 struct DictationMicButton: View {
     let conversation: UUID
+    /// As wide as the composer's other icons; smaller in the comment field.
+    var width: CGFloat = ComposerIconButton.width
+    var height: CGFloat = Theme.Control.height
     @ObservedObject private var dictation = DictationController.shared
     @State private var hovering = false
 
@@ -42,7 +45,7 @@ struct DictationMicButton: View {
                 }
             }
             // As wide as the composer's other icons (their hover oval).
-            .frame(width: ComposerIconButton.width, height: Theme.Control.height)
+            .frame(width: width, height: height)
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)

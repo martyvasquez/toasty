@@ -4,9 +4,9 @@ import os
 import SwiftUI
 
 /// ⇧⌘0, in any app: drag an area (or Space for a window) exactly as with
-/// ⇧⌘4, and the screenshot is attached to the prompt last typed in: the open
-/// conversation's composer, or a prompt in the Tee-Up tab (the new one, or
-/// one open for editing). Toasty stays in the background, so several can be
+/// ⇧⌘4, and the screenshot is attached to an open browser comment, else the
+/// prompt last typed in: the open conversation's composer, or a prompt in
+/// the Tee-Up tab (the new one, or one open for editing). Toasty stays in the background, so several can be
 /// taken in a row.
 ///
 /// The picture is taken by the system's `screencapture`, which writes a file;
@@ -132,12 +132,27 @@ final class ScreenshotCapture: NSObject {
     /// The conversation on screen in Toasty.
     private var conversation: ClaudeConversation? { AppDelegate.shared.store.active?.selected }
 
-    /// The prompt field with the text cursor in the main window (it keeps
+    /// Where a screenshot goes: a comment open in the browser window, else
+    /// the prompt field with the text cursor in the main window (it keeps
     /// it while Toasty is in the background), if it takes pictures: the
     /// composer, or one of the Tee-Up tab's.
     private var focusedPrompt: ComposerTextView? {
+        if let browser = PreviewStore.shared.presenter?.window, browser.isVisible,
+           let comment = Self.prompt(in: browser.contentView) {
+            return comment
+        }
         let view = AppDelegate.shared.windowController?.window?.firstResponder as? ComposerTextView
         return view?.coordinator?.parent.onPasteImage == nil ? nil : view
+    }
+
+    /// A visible prompt field that takes pictures, in `view`.
+    private static func prompt(in view: NSView?) -> ComposerTextView? {
+        guard let view, !view.isHiddenOrHasHiddenAncestor else { return nil }
+        if let field = view as? ComposerTextView, field.coordinator?.parent.onPasteImage != nil, !field.visibleRect.isEmpty {
+            return field
+        }
+        for sub in view.subviews { if let found = prompt(in: sub) { return found } }
+        return nil
     }
 
     private func finished(_ file: URL, status: Int32, prompt: ComposerTextView?) {
@@ -245,7 +260,7 @@ struct ScreenshotSettingsView: View {
                         Text("\(ScreenshotCapture.shortcutLabel) couldn't be set up as a shortcut for every app. It still works in Toasty.")
                             .foregroundStyle(.orange)
                     }
-                    Text("Press \(ScreenshotCapture.shortcutLabel) in any app, then drag over an area, or press Space to pick a window. The screenshot is attached to the prompt you were last typing in Toasty (the open conversation's, or one in Tee-Up) and isn't saved anywhere else.")
+                    Text("Press \(ScreenshotCapture.shortcutLabel) in any app, then drag over an area, or press Space to pick a window. The screenshot is attached to a comment open in the browser, else to the prompt you were last typing in Toasty (the open conversation's, or one in Tee-Up), and isn't saved anywhere else.")
                     Text("Toasty stays in the background, so you can take several before coming back. While this is off, \(ScreenshotCapture.shortcutLabel) works only in Toasty.")
                 }
                 .foregroundStyle(.secondary)

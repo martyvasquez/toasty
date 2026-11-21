@@ -860,6 +860,8 @@ private struct PreviewPage: View {
     @ObservedObject var session: PreviewSession
     @ObservedObject private var settings = PreviewSettings.shared
     @State private var teedUp = false
+    /// The comment field's height (it grows as the comment does).
+    @State private var commentHeight = CommentField.restingHeight
 
     var body: some View {
         GeometryReader { whole in
@@ -882,12 +884,11 @@ private struct PreviewPage: View {
                         .frame(width: geo.size.width, height: geo.size.height)
                         .background(Color.claudeChrome)
                 } else if let pick = session.pick {
-                    let choosing = settings.commentsTo == .conversation && workspace.conversations.count > 1
-                    let field = CommentField.frame(for: pick.rect, fit: fit, pane: geo.size, wide: choosing)
-                    CommentField(teeUp: settings.commentsTo == .teeUp,
-                                 tabs: choosing ? CommentTabs(workspace: workspace, session: session) : nil) { note, other in
-                        let to = other ? settings.commentsTo.other : settings.commentsTo
-                        Task { await session.comment(note, in: workspace, to: to) }
+                    let choosing = workspace.conversations.count > 1
+                    let field = CommentField.frame(for: pick.rect, fit: fit, pane: geo.size, height: commentHeight)
+                    CommentField(destination: $settings.commentsTo, workspace: workspace.id, height: $commentHeight,
+                                 tabs: choosing ? CommentTabs(workspace: workspace, session: session) : nil) { note, images, files in
+                        Task { await session.comment(note, images: images, files: files, in: workspace, to: settings.commentsTo) }
                     } cancel: {
                         session.cancelPick()
                     }
@@ -944,35 +945,54 @@ private struct PreviewFailure: View {
     }
 }
 
-/// Where a comment is typed: a small field by the thing that was picked.
-/// Return sends it to the conversation or adds it to Tee-Up (Settings ▸
-/// Browser), ⇧Return to the other one; Esc drops the pick.
+/// Where a comment is typed: a box by the thing that was picked, the
+/// composer's own text (so dictation, Right Option, works in it too). Two
+/// lines at rest; it grows with the comment, then scrolls. Under it, where
+/// the comment goes: Send (to a tab of the conversation, now) or Tee-Up
+/// (onto the workspace's list), a choice that stays for the next comment
+/// (it's Settings ▸ Browser ▸ Comments); with Send and more than one tab,
+/// which tab. Pictures and files can go with it: pasted, dropped on the
+/// text, picked with +, or a ⇧⌘0 screenshot (which comes here while a
+/// comment is open). Return does what's chosen, Shift-Return starts a new
+/// line, Esc drops the pick.
 private struct CommentField: View {
-    let teeUp: Bool
+    @Binding var destination: PreviewSettings.CommentDestination
+    /// For dictation's vocabulary (the field isn't a conversation).
+    let workspace: UUID
+    /// The whole field's height, for placing it by the pick.
+    @Binding var height: CGFloat
     /// Which tab it goes to, shown when the workspace has more than one.
     let tabs: CommentTabs?
-    /// `other`: ⇧Return, the destination the setting didn't choose.
-    let submit: (_ note: String, _ other: Bool) -> Void
+    let submit: (_ note: String, _ images: [NSImage], _ files: [URL]) -> Void
     let cancel: () -> Void
     @State private var note = ""
-    @FocusState private var focused: Bool
+    @State private var images: [NSImage] = []
+    @State private var files: [URL] = []
+    @State private var textHeight = ClaudeComposer.minHeight
+    @State private var focusToken = 0
+    /// Dictation's target id for this field (its own, so the conversation's
+    /// mic doesn't light up too).
+    @State private var dictationID = UUID()
 
-    static let height: CGFloat = 34
-
-    /// Shift held for the Return just pressed: on the keyboard now, or on
-    /// the key event being handled.
-    private static var shiftHeld: Bool {
-        if NSEvent.modifierFlags.contains(.shift) { return true }
-        guard let event = NSApp.currentEvent, event.type == .keyDown else { return false }
-        return event.modifierFlags.contains(.shift)
-    }
+    private static let fontSize = Theme.Size.control
+    private static let lineHeight = ceil(ClaudeTypography.lineHeight(.systemFont(ofSize: fontSize), ClaudeTypography.inputLineHeightMultiple))
+    /// Two lines at rest, six before it scrolls.
+    private static let textMin = lineHeight * 2 + 6
+    private static let textMax = lineHeight * 6 + 6
+    private static let footer: CGFloat = 24
+    private static let padding: CGFloat = 8
+    static let restingHeight = textMin + footer + padding * 2 + 6
+    /// The row of pictures and files, when there are any (with the room
+    /// over it for their remove buttons, and the gap under it).
+    private static let thumb: CGFloat = 40
+    private static let attachmentsRow = thumb + 5 + 6
+    static let width: CGFloat = 420
 
     /// Under the pick when there's room, else above it; always in the pane.
-    /// `wide`: with room for the tab it goes to.
-    static func frame(for rect: CGRect, fit: PreviewViewport.Fit, pane: CGSize, wide: Bool = false) -> CGRect {
+    static func frame(for rect: CGRect, fit: PreviewViewport.Fit, pane: CGSize, height: CGFloat) -> CGRect {
         let shown = CGRect(x: fit.display.minX + rect.minX * fit.scale, y: fit.display.minY + rect.minY * fit.scale,
                            width: rect.width * fit.scale, height: rect.height * fit.scale)
-        let width = min(wide ? 400 : 300, max(120, pane.width - 16))
+        let width = min(Self.width, max(120, pane.width - 16))
         let x = min(max(8, shown.midX - width / 2), max(8, pane.width - width - 8))
         var y = shown.maxY + 8
         if y + height > pane.height - 8 { y = shown.minY - 8 - height }
@@ -980,50 +1000,208 @@ private struct CommentField: View {
         return CGRect(x: x, y: y, width: width, height: height)
     }
 
+    private var teeUp: Bool { destination == .teeUp }
+
     var body: some View {
-        HStack(spacing: 7) {
-            Image(systemName: "plus.bubble")
-                .font(.toasty(Theme.Size.meta))
-                .foregroundStyle(Color.accentColor)
-            TextField(teeUp ? "Comment for Tee-Up" : "Comment for Claude", text: $note)
-                .textFieldStyle(.plain)
-                .font(.toasty(Theme.Size.control))
-                .focused($focused)
-                .onSubmit { submit(note, Self.shiftHeld) }
-                .onExitCommand(perform: cancel)
-            if let tabs { tabs.layoutPriority(1) }
-            Text("↩").font(.toasty(Theme.Size.caption)).foregroundStyle(.tertiary)
-                .tooltipText(teeUp ? "Return adds the comment to Tee-Up. Shift-Return sends it to Claude now."
-                            : "Return sends the comment to Claude. Shift-Return adds it to Tee-Up instead.")
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 7) {
+                Image(systemName: "plus.bubble")
+                    .font(.toasty(Theme.Size.meta))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(height: Self.lineHeight + 6)
+                ClaudeComposer(text: $note, height: $textHeight,
+                               placeholder: teeUp ? "Comment for Tee-Up" : "Comment for Claude",
+                               focusToken: focusToken,
+                               onSubmit: { submit(note, images, files) },
+                               onEscape: { cancel(); return true },
+                               onShiftTab: {},
+                               onPasteImage: { images.append($0) },
+                               onFiles: add,
+                               dictationID: dictationID,
+                               dictationWorkspace: workspace,
+                               fontSize: Self.fontSize,
+                               maxTextHeight: Self.textMax)
+                    .frame(height: max(textHeight, Self.textMin), alignment: .top)
+            }
+            if !images.isEmpty || !files.isEmpty { attachments }
+            HStack(spacing: 6) {
+                CommentDestinationSwitch(destination: $destination) { focusToken += 1 }
+                if let tabs, !teeUp {
+                    Text("to").font(.toasty(Theme.Size.meta)).foregroundStyle(.secondary).fixedSize()
+                    tabs
+                }
+                Spacer(minLength: 4)
+                CommentIconButton(symbol: "plus", tip: "Pictures and files to go with the comment. You can also paste or drop them, or press \(ScreenshotCapture.shortcutLabel) for a screenshot.",
+                                  label: "Attach Files", action: pick)
+                DictationMicButton(conversation: dictationID, width: 30, height: 22)
+                Text("↩").font(.toasty(Theme.Size.caption)).foregroundStyle(.tertiary)
+                    .fixedSize()
+                    .tooltipText(teeUp ? "Return adds the comment to Tee-Up. Shift-Return starts a new line."
+                                : "Return sends the comment to Claude. Shift-Return starts a new line.")
+            }
+            .frame(height: Self.footer)
         }
         .padding(.horizontal, 10)
-        .frame(height: Self.height)
+        .padding(.vertical, Self.padding)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).fill(Color.claudeField)
             .shadow(color: .black.opacity(0.22), radius: 8, y: 2))
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
-        .onAppear { DispatchQueue.main.async { focused = true } }
+        .onAppear {
+            height = Self.restingHeight
+            DispatchQueue.main.async { focusToken += 1 }
+        }
+        .onChange(of: textHeight) { _, _ in resize() }
+        .onChange(of: images.count + files.count) { _, _ in resize() }
+    }
+
+    private func resize() {
+        height = Self.restingHeight + max(0, textHeight - Self.textMin)
+            + (images.isEmpty && files.isEmpty ? 0 : Self.attachmentsRow)
+    }
+
+    /// Images go in as pictures, anything else by path (as the composer).
+    private func add(_ urls: [URL]) {
+        for url in urls {
+            let type = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType
+            if type?.conforms(to: .image) == true, let image = NSImage(contentsOf: url) {
+                images.append(image)
+            } else if !files.contains(url) {
+                files.append(url)
+            }
+        }
+        focusToken += 1
+    }
+
+    private func pick() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.begin { response in
+            if response == .OK { add(panel.urls) } else { focusToken += 1 }
+        }
+    }
+
+    private var attachments: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Theme.Space.s) {
+                ForEach(Array(images.enumerated()), id: \.offset) { i, image in
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: Self.thumb, height: Self.thumb)
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous).strokeBorder(Theme.Stroke.border))
+                        .overlay(alignment: .topTrailing) {
+                            RemoveAttachmentButton(label: "Remove Image") { images.remove(at: i); focusToken += 1 }
+                        }
+                }
+                ForEach(files, id: \.self) { url in
+                    AttachedFileChip(url: url, height: Self.thumb)
+                        .overlay(alignment: .topTrailing) {
+                            RemoveAttachmentButton(label: "Remove \(url.lastPathComponent)") {
+                                files.removeAll { $0 == url }
+                                focusToken += 1
+                            }
+                        }
+                }
+            }
+            .padding(.top, 5).padding(.trailing, 5)
+        }
+        .frame(height: Self.thumb + 5)
+        .padding(.leading, 22)
+    }
+}
+
+/// A small icon button in the comment field's bottom row (the mic's size).
+private struct CommentIconButton: View {
+    let symbol: String
+    let tip: String
+    let label: String
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.toasty(Theme.Size.body))
+                .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                .frame(width: 30, height: 22)
+                .background(Capsule().strokeBorder(hovering ? Theme.Stroke.hover : Color.clear, lineWidth: 1))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .focusable(false)
+        .onHover { hovering = $0 }
+        .tooltipText(tip)
+        .accessibilityLabel(label)
+    }
+}
+
+/// Send or Tee-Up, side by side in a capsule; the chosen one stands out.
+/// The keyboard stays in the comment (`refocus`).
+private struct CommentDestinationSwitch: View {
+    @Binding var destination: PreviewSettings.CommentDestination
+    let refocus: () -> Void
+
+    var body: some View {
+        HStack(spacing: 2) {
+            segment(.conversation, "Send", "arrow.up", "Send the comment to Claude now, with a screenshot.")
+            segment(.teeUp, "Tee-Up", "text.badge.plus", "Add the comment to the workspace's Tee-Up list and go on commenting.")
+        }
+        .padding(2)
+        .background(Capsule().fill(Theme.Fill.subtle))
+        .fixedSize()
+    }
+
+    private func segment(_ value: PreviewSettings.CommentDestination, _ title: String, _ symbol: String, _ tip: String) -> some View {
+        let on = destination == value
+        return Button {
+            destination = value
+            refocus()
+        } label: {
+            HStack(spacing: 3) {
+                Image(systemName: symbol).font(.toasty(Theme.Glyph.small, .semibold))
+                Text(title).font(.toasty(Theme.Size.meta, .medium))
+            }
+            .foregroundStyle(on ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+            .padding(.horizontal, 8)
+            .frame(height: 18)
+            .background(Capsule().fill(on ? Theme.Fill.pressed : .clear))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .focusable(false)
+        .tooltipText(tip)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 }
 
 /// In the comment field, when the workspace has more than one tab: the tab
-/// the comment goes to, which opens a menu of the workspace's tabs. The
+/// the comment goes to, which opens a menu: Last Active Tab (the default:
+/// whichever tab was last selected in the workspace), then each tab, to pin
+/// it for this and later comments. A pin glyph marks a pinned tab. The
 /// keyboard stays in the comment (Toasty's own menu doesn't take it).
 private struct CommentTabs: View {
     @ObservedObject var workspace: Workspace
     @ObservedObject var session: PreviewSession
 
     var body: some View {
+        let pinned = session.pinnedCommentTab(in: workspace)
         let current = session.commentTab(in: workspace)
-        ClaudePopUp(items: workspace.conversations.map { c in
-            PopoverMenu.Item(title: c.title, checked: c.id == current?.id) { session.commentTabID = c.id }
-        }) { hovering in
+        let items = [PopoverMenu.Item(title: "Last Active Tab", subtitle: workspace.selected?.title ?? "",
+                                      checked: pinned == nil) { session.commentTabID = nil }]
+            + workspace.conversations.map { c in
+                PopoverMenu.Item(title: c.title, checked: c.id == pinned?.id) { session.commentTabID = c.id }
+            }
+        ClaudePopUp(items: items) { hovering in
             HStack(spacing: 4) {
-                Text(current?.title ?? "New Tab")
+                if pinned != nil {
+                    Image(systemName: "pin.fill").font(.toasty(Theme.Glyph.small)).opacity(0.7)
+                }
+                Text(Self.short(current?.title ?? "New Tab", 24))
                     .font(.toasty(Theme.Size.meta, .medium))
                     .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: 140, alignment: .leading)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .fixedSize()
                 Image(systemName: "chevron.down").font(.toasty(Theme.Glyph.small, .semibold)).opacity(0.6)
             }
             .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
@@ -1032,9 +1210,14 @@ private struct CommentTabs: View {
             .background(Capsule().fill(hovering ? Theme.Fill.selected : Theme.Fill.subtle))
             .contentShape(Capsule())
         }
-        .fixedSize(horizontal: false, vertical: true)
-        .tooltipText("The tab this comment goes to")
-        .accessibilityLabel("Comment goes to \(current?.title ?? "a new tab")")
+        .fixedSize()
+        .tooltipText(pinned == nil ? "Goes to the last active tab. Click to pin a tab."
+                                   : "Pinned to this tab for later comments. Click to change.")
+        .accessibilityLabel("Comment goes to \(current?.title ?? "a new tab")\(pinned == nil ? "" : ", pinned")")
+    }
+
+    private static func short(_ s: String, _ n: Int) -> String {
+        s.count <= n ? s : String(s.prefix(n - 1)).trimmingCharacters(in: .whitespaces) + "…"
     }
 }
 

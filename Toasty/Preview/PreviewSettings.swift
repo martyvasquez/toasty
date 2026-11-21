@@ -45,7 +45,6 @@ final class PreviewSettings: ObservableObject {
 
         var id: String { rawValue }
 
-        var other: CommentDestination { self == .teeUp ? .conversation : .teeUp }
 
         var title: String {
             switch self {
@@ -104,9 +103,9 @@ struct PreviewSettingsView: View {
     private var commentsDetail: String {
         switch settings.commentsTo {
         case .conversation:
-            "Return sends a comment to the open conversation at once, with a screenshot of the page. Shift-Return adds it to Tee-Up instead."
+            "Return sends a comment to the open conversation at once, with a screenshot of the page. You can also switch to Tee-Up in the comment itself."
         case .teeUp:
-            "Return adds a comment to the workspace's Tee-Up list, with a screenshot of the page, and you can go on commenting. Send them when you're ready, one by one or with Auto-Send. Shift-Return sends a comment to the conversation instead."
+            "Return adds a comment to the workspace's Tee-Up list, with a screenshot of the page, and you can go on commenting. Send them when you're ready, one by one or with Auto-Send. You can also switch to Send in the comment itself."
         }
     }
 }

@@ -122,9 +122,10 @@ final class PreviewSession: NSObject, ObservableObject {
     @Published private(set) var lastPhone: PreviewViewport = .mobile
     @Published private(set) var console: [ConsoleEntry] = []
     @Published private(set) var commenting = false
-    /// The tab a comment goes to, when the user picked one in the comment
-    /// field; until then (and again after commenting ends), the
-    /// workspace's selected tab (`commentTab`).
+    /// The tab comments go to, when the user pinned one in the comment
+    /// field; nil follows the workspace's last active tab (`commentTab`).
+    /// It stays for later comments until the user picks Last Active Tab
+    /// (or the tab closes).
     @Published var commentTabID: UUID?
     @Published private(set) var pick: Pick?
     /// When a comment last went onto the Tee-Up list (the pane says so for
@@ -591,7 +592,6 @@ final class PreviewSession: NSObject, ObservableObject {
     func setCommenting(_ on: Bool) {
         guard on != commenting else { return }
         commenting = on
-        commentTabID = nil
         pick = nil
         picker(on ? "start" : "stop")
         if on, let web = webView { web.window?.makeFirstResponder(web) }
@@ -612,15 +612,23 @@ final class PreviewSession: NSObject, ObservableObject {
     /// (whatever is being typed in the composer stays there), which ends
     /// commenting. To Tee-Up: a card on the workspace's list, and picking
     /// goes on, to gather several.
-    /// Where a comment to the conversation goes: the tab picked in the
+    /// Where a comment to the conversation goes: the tab pinned in the
     /// comment field, else the one last selected in the workspace (which
     /// isn't necessarily the one on screen: the browser window shows a
     /// workspace of its own). Picking one never selects it in Toasty.
     func commentTab(in workspace: Workspace) -> ClaudeConversation? {
-        workspace.conversations.first { $0.id == commentTabID } ?? workspace.selected
+        pinnedCommentTab(in: workspace) ?? workspace.selected
     }
 
-    func comment(_ note: String, in workspace: Workspace, to destination: PreviewSettings.CommentDestination) async {
+    /// The pinned tab, while it's still open.
+    func pinnedCommentTab(in workspace: Workspace) -> ClaudeConversation? {
+        commentTabID.flatMap { id in workspace.conversations.first { $0.id == id } }
+    }
+
+    /// `attached`, `files`: what the user added to the comment (pasted,
+    /// dropped, picked, or a ⇧⌘0 screenshot), after the page's own picture.
+    func comment(_ note: String, images attached: [NSImage] = [], files: [URL] = [],
+                 in workspace: Workspace, to destination: PreviewSettings.CommentDestination) async {
         guard let pick else { return }
         let picture = try? await snapshot()
         var images: [NSImage] = []
@@ -629,16 +637,18 @@ final class PreviewSession: NSObject, ObservableObject {
             image.addRepresentation(picture)
             images.append(image)
         }
+        images += attached
         let line = Self.commentLine(pick, note: note, viewport: viewport)
         switch destination {
         case .teeUp:
             var item = TeeUp(text: line)
             images.forEach { item.attach($0) }
+            if !files.isEmpty { item.attach(files) }
             workspace.addTeeUp(item)
             teedUpAt = Date()
             cancelPick()  // back in the page, for the next pick (or Esc to finish)
         case .conversation:
-            (commentTab(in: workspace) ?? workspace.newConversation()).post(line, images: images)
+            (commentTab(in: workspace) ?? workspace.newConversation()).post(line, images: images, files: files)
             leaveCommenting()
         }
     }

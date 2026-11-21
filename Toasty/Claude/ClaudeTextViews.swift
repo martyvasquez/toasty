@@ -191,6 +191,9 @@ struct ClaudeComposer: NSViewRepresentable {
     var onKeyCommand: ((Selector) -> Bool)?
     /// The conversation, so dictation can show its state on this composer.
     var dictationID: UUID?
+    /// The workspace, for dictation's vocabulary, when `dictationID` isn't
+    /// one of its conversations (the browser's comment field).
+    var dictationWorkspace: UUID? = nil
     /// Claude Code's suggested next prompt: ghost text while empty, Tab
     /// takes it.
     var suggestion: String? = nil
@@ -204,6 +207,8 @@ struct ClaudeComposer: NSViewRepresentable {
     /// Drawn invisibly (still taking typing): a stand-in shows the text
     /// while the view around it animates.
     var concealed = false
+    /// The tallest the box grows before it scrolls.
+    var maxTextHeight: CGFloat = ClaudeComposer.maxHeight
 
     /// One line of text at rest; the box grows as you type.
     static var minHeight: CGFloat {
@@ -249,6 +254,7 @@ struct ClaudeComposer: NSViewRepresentable {
         view.placeholder = placeholder
         view.suggestion = suggestion
         view.dictationID = dictationID
+        view.dictationWorkspace = dictationWorkspace
         view.string = text
 
         scroll.documentView = view
@@ -265,6 +271,7 @@ struct ClaudeComposer: NSViewRepresentable {
         context.coordinator.parent = self
         guard let view = scroll.documentView as? ComposerTextView else { return }
         view.dictationID = dictationID
+        view.dictationWorkspace = dictationWorkspace
         if view.suggestion != suggestion { view.suggestion = suggestion }
         if view.string != text {
             view.string = text
@@ -349,11 +356,11 @@ struct ClaudeComposer: NSViewRepresentable {
                 return false
             }
             h += view.textContainerInset.height * 2
-            let clamped = min(ClaudeComposer.maxHeight, max(ClaudeComposer.minHeight, ceil(h)))
+            let clamped = min(parent.maxTextHeight, max(ClaudeComposer.minHeight, ceil(h)))
             if abs(clamped - parent.height) > 0.5 {
                 parent.height = clamped
             }
-            view.enclosingScrollView?.hasVerticalScroller = h > ClaudeComposer.maxHeight
+            view.enclosingScrollView?.hasVerticalScroller = h > parent.maxTextHeight
         }
 
         func textView(_ textView: NSTextView, doCommandBy selector: Selector) -> Bool {
@@ -403,6 +410,8 @@ final class ComposerTextView: NSTextView {
     weak var coordinator: ClaudeComposer.Coordinator?
     /// The conversation this composer belongs to (dictation's target id).
     var dictationID: UUID?
+    /// Its workspace, when `dictationID` isn't one of its conversations.
+    var dictationWorkspace: UUID?
 
     /// No system badge beside the cursor (Siri, dictation, input source).
     override func preferredTextAccessoryPlacement() -> NSTextCursorAccessoryPlacement { .invisible }

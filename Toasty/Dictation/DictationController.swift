@@ -6,9 +6,10 @@ import os
 /// insertion into the composer in the order dictations were made. Never
 /// submits: text is only inserted at the caret.
 ///
-/// Target (the user's choice): only a Claude composer. The composer with the
-/// focus at the press, else the visible conversation's composer, which is
-/// then focused. With no composer on screen, the press does nothing.
+/// Target (the user's choice): only a Claude composer (or the browser's
+/// comment field, which is one). The composer with the focus at the press,
+/// else the visible conversation's composer, which is then focused. With no
+/// composer on screen, the press does nothing.
 @MainActor
 final class DictationController: ObservableObject {
     static let shared = DictationController()
@@ -131,8 +132,7 @@ final class DictationController: ObservableObject {
             return
         }
         nextJob += 1
-        let workspace = WorkspaceStore.shared.workspaces
-            .first { $0.conversations.contains { $0.id == view.dictationID } }
+        let workspace = Self.workspace(of: view)
         let input = Self.contextInput(workspace: workspace, conversation: view.dictationID)
         let context = Task.detached(priority: .userInitiated) {
             // The repo index too, while you speak (cached for a minute).
@@ -408,8 +408,15 @@ extension DictationController {
 
     /// The workspace of the visible composer (for its project vocabulary).
     var currentFolder: String? {
-        guard let id = Self.currentComposer()?.dictationID else { return nil }
-        return WorkspaceStore.shared.workspaces.first { $0.conversations.contains { $0.id == id } }?.folder
+        Self.currentComposer().flatMap(Self.workspace(of:))?.folder
+    }
+
+    /// The composer's workspace: the one its conversation is in, or the
+    /// one it names (the browser's comment field).
+    static func workspace(of view: ComposerTextView) -> Workspace? {
+        let all = WorkspaceStore.shared.workspaces
+        return all.first { $0.conversations.contains { $0.id == view.dictationID } }
+            ?? all.first { $0.id == view.dictationWorkspace }
     }
 }
 
