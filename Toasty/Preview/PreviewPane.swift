@@ -586,7 +586,7 @@ private struct PreviewFooter: View {
                 if session.sideBySide {
                     BarIconButton(symbol: "arrow.up.and.down",
                                   tooltip: Tooltip(title: session.scrollSync ? "Stop Syncing Scroll" : "Sync Scrolling",
-                                                   detail: session.scrollSync ? "Each page scrolls on its own. Or hold ⌘ while scrolling to scroll one page alone."
+                                                   detail: session.scrollSync ? "Each page scrolls on its own."
                                                        : "Scrolling either page scrolls the other to the same place. Or hold ⌘ while scrolling to sync just then."),
                                   active: session.scrollSync, glyphSize: Theme.Size.body, size: Self.button) {
                         session.setScrollSync(!session.scrollSync)

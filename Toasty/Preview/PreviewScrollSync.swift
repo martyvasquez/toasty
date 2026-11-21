@@ -27,8 +27,8 @@ final class PreviewScrollSync {
     /// page's scrolling is ours (an echo) until it has been still a moment.
     private var leader: ObjectIdentifier?
     private var leaderAt = Date.distantPast
-    /// Whether the scroll going on now syncs: the setting, flipped while ⌘
-    /// is held as it starts. Decided when scrolling starts and kept until it
+    /// Whether the scroll going on now syncs: always with the footer's lock
+    /// on; otherwise while ⌘ is held as it starts. Decided when scrolling starts and kept until it
     /// has stopped a moment, so letting go of ⌘ mid-flick doesn't cut the
     /// momentum off.
     private var gestureSyncs = false
@@ -48,7 +48,7 @@ final class PreviewScrollSync {
         let id = ObjectIdentifier(web)
         let now = Date()
         if now.timeIntervalSince(lastScrollAt) > 0.25 {
-            gestureSyncs = syncOn != NSEvent.modifierFlags.contains(.command)
+            gestureSyncs = syncOn || NSEvent.modifierFlags.contains(.command)
         }
         lastScrollAt = now
         guard gestureSyncs else { return }
