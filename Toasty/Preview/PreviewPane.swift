@@ -342,9 +342,9 @@ private struct PreviewWindowContent: View {
 /// The browser window's titlebar row, as the main window's (`TitlebarRow`):
 /// on the window buttons' line, in the window's chrome color, with the
 /// app's flat bar buttons (a hairline capsule on hover) and its tooltips.
-/// Only what a browser has: back and reload, the address (centered in the
-/// window once it's at its widest), and opening the page in the user's
-/// own browser at the right end. Everything else is in the footer
+/// Only what a browser has: back and reload, the address (filling the room
+/// in a narrow window, centered in a wide one), and opening the page in the
+/// user's own browser at the right end. Everything else is in the footer
 /// (`PreviewFooter`).
 /// Hosted in the titlebar view: views under a transparent titlebar don't
 /// get clicks.
@@ -384,26 +384,56 @@ private struct PreviewBarControls: View {
     private static let button = CGSize(width: 32, height: TabStyle.height)
     /// Back and reload, side by side.
     private static let navigation = button.width * 2 + Theme.Space.xxs
-    /// The right end matches the left (window buttons, back, reload), so
-    /// the address between them is centered in the window.
-    private static let balance = PreviewBar.leading + navigation - TitlebarRow.edge
+    /// Between the address and the buttons either side of it.
+    private static let gap = Theme.Space.s
+    static let addressMax: CGFloat = 640
 
     var body: some View {
-        HStack(spacing: Theme.Space.xxs) {
-            BarIconButton(symbol: "chevron.left", tooltip: Tooltip(title: "Back", shortcut: "⌘["),
-                          glyphSize: Theme.Size.body, size: Self.button) { session.goBack() }
-                .disabled(!session.canGoBack)
-            BarIconButton(symbol: session.isLoading ? "xmark" : "arrow.clockwise",
-                          tooltip: Tooltip(title: session.isLoading ? "Stop" : "Reload", shortcut: session.isLoading ? nil : "⌘R"),
-                          glyphSize: Theme.Size.body, size: Self.button) {
-                if session.isLoading { session.stopLoading() } else { session.reload() }
+        GeometryReader { geo in
+            let place = Self.address(in: geo.size.width)
+            ZStack(alignment: .leading) {
+                HStack(spacing: Theme.Space.xxs) {
+                    BarIconButton(symbol: "chevron.left", tooltip: Tooltip(title: "Back", shortcut: "⌘["),
+                                  glyphSize: Theme.Size.body, size: Self.button) { session.goBack() }
+                        .disabled(!session.canGoBack)
+                    BarIconButton(symbol: session.isLoading ? "xmark" : "arrow.clockwise",
+                                  tooltip: Tooltip(title: session.isLoading ? "Stop" : "Reload", shortcut: session.isLoading ? nil : "⌘R"),
+                                  glyphSize: Theme.Size.body, size: Self.button) {
+                        if session.isLoading { session.stopLoading() } else { session.reload() }
+                    }
+                    .disabled(!session.started)
+                    Spacer(minLength: 0)
+                    BarIconButton(symbol: "arrow.up.forward.app",
+                                  tooltip: Tooltip(title: "Open in \(PreviewBrowser.name)",
+                                                   detail: "The same address, in your own browser (its own cookies and logins)."),
+                                  glyphSize: Theme.Size.body, size: Self.button) {
+                        if let url = session.url { NSWorkspace.shared.open(url) }
+                    }
+                    .disabled(session.url == nil)
+                }
+                addressField
+                    .frame(width: place.width)
+                    .offset(x: place.x)
             }
-            .disabled(!session.started)
+            .frame(height: geo.size.height)
         }
+    }
 
-        // Grows with the window to at most 640 points (about a column of
-        // conversation), then stays centered in it.
-        Spacer(minLength: Theme.Space.s)
+    /// Where the address goes in a row `width` wide (the row starts after
+    /// the window buttons' room and ends at the right margin): as wide as
+    /// there is room for, to 640 points, and as near the window's center as
+    /// that room allows. In a narrow window it fills the room between
+    /// reload and Open in; in a wide one it's centered in the window.
+    static func address(in width: CGFloat) -> (x: CGFloat, width: CGFloat) {
+        let first = navigation + gap
+        let last = width - button.width - gap
+        let w = max(0, min(addressMax, last - first))
+        let center = (width + PreviewBar.leading + TitlebarRow.edge) / 2 - PreviewBar.leading
+        let x = min(max(first, center - w / 2), last - w)
+        return (x, w)
+    }
+
+    private var addressField: some View {
         TextField("localhost:3000", text: $session.address)
             .textFieldStyle(.plain)
             .font(.toasty(Theme.Size.control))
@@ -420,19 +450,8 @@ private struct PreviewBarControls: View {
             .padding(.horizontal, Theme.Space.m)
             .frame(height: TabStyle.height)
             .background(Capsule().fill(Theme.Fill.subtle))
-            .frame(maxWidth: 640)
             .accessibilityLabel("Address")
             .onChange(of: model.focusAddress) { addressFocused = true }
-        Spacer(minLength: Theme.Space.s)
-
-        BarIconButton(symbol: "arrow.up.forward.app",
-                      tooltip: Tooltip(title: "Open in \(PreviewBrowser.name)",
-                                       detail: "The same address, in your own browser (its own cookies and logins)."),
-                      glyphSize: Theme.Size.body, size: Self.button) {
-            if let url = session.url { NSWorkspace.shared.open(url) }
-        }
-        .disabled(session.url == nil)
-        .frame(width: Self.balance, alignment: .trailing)
     }
 }
 

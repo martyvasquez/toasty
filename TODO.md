@@ -268,7 +268,8 @@ which browser an agent drives. Closing the window only hides it. Claude's
 tools never open the window, bring it forward or take the keyboard
 (`navigate` used to show the panel). No tabs: a testing and
 inspection tool, not a general browser. Titlebar row: back (⌘[; no forward),
-reload, the address (at most 640 points, centered in the window), open in
+reload, the address (fills the room in a narrow window; at most 640
+points, centered in the window, in a wide one), open in
 the default browser at the right end. Footer: workspace, comment,
 phone/desktop, show conversation, page size.
 - The titlebar's compass, at the end of the conversation tabs, is the
