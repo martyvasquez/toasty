@@ -110,31 +110,6 @@ struct InspectorEmpty: View {
     }
 }
 
-/// A section, titled as the sidebar's headings (Things' headings): the
-/// title in the heading blue on a 24pt row, a hairline under it that
-/// starts a little left of the title, its accessory at the right.
-struct InspectorSection<Content: View, Accessory: View>: View {
-    let title: String
-    @ViewBuilder var accessory: () -> Accessory
-    @ViewBuilder var content: () -> Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(title)
-                    .font(.toasty(Theme.Size.body, .semibold))
-                    .foregroundStyle(Theme.headingBlue)
-                Spacer(minLength: 8)
-                accessory()
-            }
-            .frame(height: Theme.Inspector.rowHeight)
-            Rectangle().fill(Theme.Stroke.rule).frame(height: 1).padding(.leading, -3)
-            VStack(alignment: .leading, spacing: Theme.Space.s) { content() }
-                .padding(.top, Theme.Space.s)
-        }
-    }
-}
-
 /// The open panel's name over a rule, at the top of the panel: the
 /// workspace sidebar's headings (body semibold in heading blue, a 24pt
 /// row, the rule a little wider than the text on both sides).
@@ -175,16 +150,8 @@ struct InspectorRow: View {
     }
 }
 
-extension InspectorSection where Accessory == EmptyView {
-    init(title: String, @ViewBuilder content: @escaping () -> Content) {
-        self.title = title
-        self.accessory = { EmptyView() }
-        self.content = content
-    }
-}
-
 /// A thin capsule meter.
-private struct Meter: View {
+struct Meter: View {
     let fraction: Double
     var tint: Color = .accentColor
 
@@ -197,15 +164,6 @@ private struct Meter: View {
             }
         }
         .frame(height: 5)
-    }
-}
-
-private func formatTokens(_ n: Int) -> String {
-    switch n {
-    case 1_000_000...: String(format: "%.1fM", Double(n) / 1_000_000)
-    case 10_000...: "\(n / 1000)k"
-    case 1000...: String(format: "%.1fk", Double(n) / 1000)
-    default: "\(n)"
     }
 }
 
@@ -550,119 +508,6 @@ struct DiffPage: View {
         }
         .padding(.horizontal, 14)
         .frame(height: 48)
-    }
-}
-
-// MARK: - Usage
-
-/// What a conversation has used (the context window, the plan's limits,
-/// the session's tokens and cost): the lower half of the Activity tab.
-struct UsageSections: View {
-    @ObservedObject var conversation: ClaudeConversation
-
-    static func hasUsage(_ c: ClaudeConversation) -> Bool {
-        c.context != nil || c.usage != nil || !c.rateLimits.isEmpty
-    }
-
-    /// Which of them: the context window (shown first, above the status),
-    /// or the plan's limits and the session's totals (after the activity).
-    var part: Part = .totals
-
-    enum Part { case context, totals }
-
-    var body: some View {
-        switch part {
-        case .context:
-            if let context = conversation.context { ContextSection(context: context) }
-        case .totals:
-            if !conversation.rateLimits.isEmpty { LimitsSection(limits: conversation.rateLimits) }
-            if let usage = conversation.usage { SessionSection(usage: usage) }
-        }
-    }
-}
-
-private struct ContextSection: View {
-    let context: ClaudeConversation.ContextUsage
-
-    var body: some View {
-        let fraction = context.maxTokens > 0 ? Double(context.totalTokens) / Double(context.maxTokens) : context.percentage / 100
-        InspectorSection(title: "Context Window") {
-            Text("\(formatTokens(context.totalTokens)) of \(formatTokens(context.maxTokens))")
-                .font(.toasty(Theme.Size.caption)).foregroundStyle(.tertiary).monospacedDigit()
-        } content: {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text("\(Int((fraction * 100).rounded()))%")
-                    .font(.toasty(Theme.Size.display, .semibold))
-                    .monospacedDigit()
-                Text("used").font(.toasty(Theme.Size.meta)).foregroundStyle(.secondary)
-            }
-            Meter(fraction: fraction, tint: fraction > 0.9 ? Color(nsColor: .systemRed)
-                  : fraction > 0.75 ? Color(nsColor: .systemOrange) : .accentColor)
-            let used = context.categories.filter { $0.kind == "used" && $0.tokens > 0 }.sorted { $0.tokens > $1.tokens }
-            if !used.isEmpty {
-                VStack(spacing: 0) {
-                    ForEach(used.prefix(7)) { c in
-                        InspectorRow(title: c.name, value: formatTokens(c.tokens))
-                    }
-                }
-            }
-        }
-    }
-}
-
-private struct LimitsSection: View {
-    let limits: [ClaudeConversation.RateLimit]
-
-    var body: some View {
-        InspectorSection(title: "Plan Limits") {
-            VStack(alignment: .leading, spacing: 12) {
-                ForEach(limits) { limit in
-                    VStack(alignment: .leading, spacing: 5) {
-                        HStack {
-                            Text(limit.title).font(.toasty(Theme.Size.meta))
-                            Spacer(minLength: 8)
-                            if let u = limit.utilization {
-                                Text("\(Int((u * 100).rounded()))%")
-                                    .font(.toasty(Theme.Size.meta, .medium)).monospacedDigit()
-                                    .foregroundStyle(limit.status == "allowed" ? .secondary : .primary)
-                            } else if limit.status == "rejected" {
-                                Text("Limit reached").font(.toasty(Theme.Size.meta, .medium))
-                                    .foregroundStyle(Color(nsColor: .systemRed))
-                            }
-                        }
-                        if let u = limit.utilization {
-                            Meter(fraction: u, tint: limit.status == "rejected" ? Color(nsColor: .systemRed)
-                                  : limit.status == "allowed_warning" ? Color(nsColor: .systemOrange) : .accentColor)
-                        }
-                        if let resets = limit.resetsAt {
-                            Text("Resets \(resets.formatted(resets.timeIntervalSinceNow < 86_400 ? .dateTime.hour().minute() : .dateTime.weekday().hour().minute()))")
-                                .font(.toasty(Theme.Size.caption)).foregroundStyle(.tertiary)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private struct SessionSection: View {
-    let usage: ClaudeConversation.Usage
-
-    var body: some View {
-        InspectorSection(title: "This Session") {
-            VStack(spacing: 0) {
-                row("Cost (estimate)", usage.costUSD < 0.01 && usage.costUSD > 0 ? "< $0.01" : String(format: "$%.2f", usage.costUSD))
-                row("Input tokens", formatTokens(usage.inputTokens))
-                row("Output tokens", formatTokens(usage.outputTokens))
-                row("Cache reads", formatTokens(usage.cacheReadTokens))
-                row("Cache writes", formatTokens(usage.cacheWriteTokens))
-                row("API time", ClaudeToolInfo.duration(Int(usage.apiDuration.rounded())))
-            }
-        }
-    }
-
-    private func row(_ title: String, _ value: String) -> some View {
-        InspectorRow(title: title, value: value)
     }
 }
 

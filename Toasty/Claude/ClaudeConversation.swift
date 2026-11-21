@@ -1752,6 +1752,19 @@ extension ClaudeConversation {
             stopped = nil
             turnRunning = true
             setPhase(.working)
+            debugFakeActivity("usage")
+        case "usage":
+            context = ContextUsage(totalTokens: 412_000, maxTokens: 1_000_000, percentage: 41.2, categories: [
+                .init(name: "Messages", tokens: 380_000, kind: "used"),
+                .init(name: "System tools", tokens: 18_000, kind: "used"),
+                .init(name: "Skills", tokens: 6600, kind: "used"),
+                .init(name: "System prompt", tokens: 4500, kind: "used"),
+                .init(name: "Memory files", tokens: 598, kind: "used"),
+            ])
+            rateLimits = [RateLimit(type: "five_hour", status: "allowed", utilization: 0.34, resetsAt: now.addingTimeInterval(9000)),
+                          RateLimit(type: "seven_day", status: "allowed_warning", utilization: 0.78, resetsAt: now.addingTimeInterval(300_000))]
+            usage = Usage(costUSD: 4.82, inputTokens: 1_240_000, outputTokens: 48_000, cacheReadTokens: 9_800_000,
+                          cacheWriteTokens: 610_000, turns: 14, apiDuration: 912)
         case "stopped":
             debugFakeActivity("idle")
             stopped = Stopped(date: now.addingTimeInterval(-95), status: 1)
