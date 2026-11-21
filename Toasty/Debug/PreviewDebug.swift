@@ -25,6 +25,10 @@ enum PreviewDebug {
             if let show = cmd["window"] as? Bool {
                 if show { PreviewStore.shared.showWindow() } else { PreviewStore.shared.presenter?.close() }
             }
+            // {"showWorkspace":"name"}: pick it in the window's workspace menu.
+            if let name = cmd["showWorkspace"] as? String {
+                PreviewStore.shared.presenter?.show(WorkspaceStore.shared.workspaces.first { $0.name == name })
+            }
             if let v = (cmd["viewport"] as? String).flatMap(PreviewViewport.init(rawValue:)) { s.setViewport(v) }
             if let on = cmd["commenting"] as? Bool { s.setCommenting(on) }
             var out: [String: Any] = ["enabled": true, "address": s.address, "loading": s.isLoading]
@@ -41,6 +45,8 @@ enum PreviewDebug {
             if let action = cmd["action"] as? String {
                 out["handled"] = NSApp.sendAction(NSSelectorFromString(action), to: nil, from: nil)
             }
+            out["withPages"] = PreviewStore.shared.workspacesWithPages().map(\.name)
+            out["activeWorkspace"] = w.name
             out["windowOpen"] = s.windowOpen
             out["backstage"] = PreviewBackstage.shared.holding
             out["agentActive"] = s.agentActive

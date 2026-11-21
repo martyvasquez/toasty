@@ -710,14 +710,21 @@ final class PreviewStore {
         return s
     }
 
-    /// Show the browser window (it shows the selected workspace's browser)
-    /// and bring it forward. Only for what the user does: Claude's tools
-    /// never call this.
-    func showWindow() {
+    /// Show the browser window and bring it forward, showing `workspace`'s
+    /// browser if one is given (the user asked for that one), else what it
+    /// showed. Only for what the user does: Claude's tools never call this.
+    func showWindow(_ workspace: Workspace? = nil) {
         guard PreviewSettings.shared.enabled else { return }
         let controller = presenter ?? PreviewWindowController(store: WorkspaceStore.shared)
         presenter = controller
+        if let workspace { controller.show(workspace) }
         controller.reveal()
+    }
+
+    /// The workspaces whose browser has a page (made by the user or by
+    /// Claude), in the sidebar's order: what the window's menu offers.
+    func workspacesWithPages() -> [Workspace] {
+        WorkspaceStore.shared.workspaces.filter { sessions[$0.id]?.webView != nil }
     }
 
     /// Keep a workspace's address and viewport for next time.
@@ -792,8 +799,7 @@ final class PreviewStore {
     }
 
     /// A link clicked in a terminal: a local address opens in that
-    /// workspace's browser, and the browser window comes forward (showing
-    /// it: the terminal is in the selected workspace). False when the
+    /// workspace's browser, and the browser window comes forward showing it. False when the
     /// browser is off or the link isn't local: the default browser gets it.
     func open(_ url: URL, fromTerminal view: TerminalView) -> Bool {
         guard PreviewSettings.shared.enabled, Self.isLocal(url),
@@ -803,7 +809,7 @@ final class PreviewStore {
         // "Listening on 0.0.0.0" means every interface; this Mac is one.
         let address = url.absoluteString.replacingOccurrences(of: "://0.0.0.0", with: "://localhost")
         session(for: workspace).open(address)
-        showWindow()
+        showWindow(workspace)
         return true
     }
 

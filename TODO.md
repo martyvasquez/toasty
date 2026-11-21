@@ -250,17 +250,25 @@ in the right column, ⇧⌘L, the phone column width).
 What it is now: a browser per workspace (`PreviewSession`, a WKWebView with
 its own data store: cookies, logins, storage, page state) that runs whether
 anything shows it or not, and one native window (`PreviewWindowController`,
-frame remembered) that shows the selected workspace's browser (the user,
+frame remembered) that shows one workspace's browser (the user,
 2026-11-20: multiple isolated sessions, one shared presentation window; it
-was one window per workspace for an afternoon). Switching workspaces swaps
-which page the window shows without reloading or navigating any of them.
+was one window per workspace for an afternoon). Which one is the window's
+own choice (the user, 2026-11-20: the main window decides which conversation
+I'm in, the browser which browser I'm inspecting; neither changes the
+other): a menu in its toolbar (folder, name, chevron) lists the workspaces
+whose browser has a page, and selecting a workspace in Toasty doesn't change
+it. Asking for a workspace's browser from the main window does (its compass,
+⇧⌘B, ⇧⌘C, a local link clicked in its terminal). The choice is kept across
+launches (`PreviewWindowWorkspace`); first time, Toasty's selected workspace;
+if it closes, another with a page, else Toasty's. Switching swaps which page
+the window shows without reloading or navigating any of them.
 Claude's tools reach their conversation's workspace's browser
 (`PreviewTools.handle`), never "the one on view", so switching never changes
 which browser an agent drives. Closing the window only hides it. Claude's
 tools never open the window, bring it forward or take the keyboard
 (`navigate` used to show the panel). No tabs, no back/forward: a testing and
-inspection tool, not a general browser. Toolbar: reload, address, phone or
-desktop, comment ("Open in default browser" was dropped 2026-11-20 to keep it
+inspection tool, not a general browser. Toolbar: reload, workspace, address,
+phone or desktop, comment ("Open in default browser" was dropped 2026-11-20 to keep it
 minimal).
 - The titlebar's compass, at the end of the conversation tabs, is the
   indicator: accent-colored and pulsing while Claude is using the browser

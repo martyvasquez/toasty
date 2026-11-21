@@ -6,13 +6,20 @@ import WebKit
 // MARK: - Window
 
 /// The browser window: one native window, apart from the main window, that
-/// shows the browser of whichever workspace is selected in Toasty. Each
-/// workspace's browser (`PreviewSession`) is its own: its own cookies,
-/// storage and page, running whether this window shows it or not. Switching
-/// workspaces only changes which one is on view here; no page is reloaded,
-/// navigated or interrupted, and Claude's tools go on reaching their own
-/// workspace's browser (`PreviewTools` finds it from the conversation, never
-/// from this window).
+/// shows one workspace's browser. Each workspace's browser
+/// (`PreviewSession`) is its own: its own cookies, storage and page, running
+/// whether this window shows it or not. Switching only changes which one is
+/// on view here; no page is reloaded, navigated or interrupted, and Claude's
+/// tools go on reaching their own workspace's browser (`PreviewTools` finds
+/// it from the conversation, never from this window).
+///
+/// Which workspace it shows is the window's own (the user, 2026-11-20: the
+/// main window says which conversation I'm in, the browser which browser I'm
+/// inspecting; neither changes the other). Selecting a workspace in Toasty
+/// doesn't change it. What does: the workspace menu in the toolbar, and
+/// asking for a workspace's browser from the main window (its compass, ⇧⌘B,
+/// ⇧⌘C, a local link clicked in its terminal). It's kept across launches; a
+/// workspace that closes gives way to another with a page open.
 ///
 /// Closing the window hides it; every page keeps running. Claude's tools
 /// never open it, bring it forward or give it focus. Only the user does
@@ -20,7 +27,7 @@ import WebKit
 /// ⇧⌘C).
 @MainActor
 final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {
-    /// What the window shows: the selected workspace's browser.
+    /// The workspace whose browser the window shows.
     private(set) var workspace: Workspace?
     private(set) var session: PreviewSession?
     private let model = PreviewWindowModel()
@@ -52,41 +59,59 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
         window.setFrameAutosaveName("PreviewWindow")
         if UserDefaults.standard.string(forKey: "NSWindow Frame PreviewWindow") == nil { place(window) }
 
-        store.$activeID
+        toolbar.choose = { [weak self] in self?.show($0) }
+
+        // The workspace it showed last time, else the one selected in Toasty.
+        let saved = UserDefaults.standard.string(forKey: Self.shownKey).flatMap(UUID.init(uuidString:))
+        show(store.workspaces.first { $0.id == saved } ?? store.active)
+
+        // The workspace shown was closed: another with a page open, else the
+        // one selected in Toasty.
+        store.$workspaces
             .receive(on: DispatchQueue.main)
-            .sink { [weak self, weak store] _ in self?.show(store?.active) }
+            .sink { [weak self, weak store] list in
+                guard let self, let store, let shown = self.workspace, !list.contains(where: { $0 === shown }) else { return }
+                self.show(PreviewStore.shared.workspacesWithPages().first ?? store.active)
+            }
             .store(in: &cancellables)
     }
+
+    private static let shownKey = "PreviewWindowWorkspace"
+
 
     required init?(coder: NSCoder) { fatalError() }
 
     /// Show `workspace`'s browser here instead of the one shown now. The one
     /// shown now is left as it is (only commenting on it ends: the comment
-    /// field was in this window).
-    private func show(_ next: Workspace?) {
+    /// field was in this window). Toasty's selected workspace is untouched.
+    func show(_ next: Workspace?) {
         guard next !== workspace else { return }
+        if let next { UserDefaults.standard.set(next.id.uuidString, forKey: Self.shownKey) }
         session?.setCommenting(false)
         session?.setWindowOpen(false)
         workspace = next
         session = next.map { PreviewStore.shared.session(for: $0) }
         if window?.isVisible == true { session?.setWindowOpen(true) }
         model.shown = workspace.flatMap { w in session.map { (w, $0) } }
-        toolbar.bind(session)
+        toolbar.bind(session, workspace: workspace)
         titleCancellables = []
         if let workspace, let session {
             workspace.$name.combineLatest(session.$url)
                 .receive(on: DispatchQueue.main)
-                .sink { [weak self] _, _ in self?.updateTitle() }
+                .sink { [weak self] _, _ in
+                    self?.updateTitle()
+                    self?.toolbar.updateWorkspace()
+                }
                 .store(in: &titleCancellables)
         }
         updateTitle()
     }
 
-    /// The window's content at a viewport's own size: a phone with a little
-    /// room either side, a desktop page at 1280 (both under the toolbar).
+    /// The window's content at a viewport's own size: a phone with room
+    /// either side (enough for the whole toolbar), a desktop page at 1280 (both under the toolbar).
     private static func contentSize(for viewport: PreviewViewport) -> NSSize {
         switch viewport {
-        case .mobile: NSSize(width: 480, height: 880)
+        case .mobile: NSSize(width: 540, height: 880)
         case .desktop: NSSize(width: 1280, height: 820)
         }
     }
@@ -241,16 +266,21 @@ private struct PreviewWindowContent: View {
     }
 }
 
-/// The browser window's toolbar, in AppKit: reload, the address (which
-/// takes the room there is, down to a narrow phone window), the page's
-/// size, and commenting. Bound to the shown workspace's browser.
+/// The browser window's toolbar, in AppKit: reload, which workspace's
+/// browser it shows (a menu of those with a page), the address (which takes
+/// the room there is, down to a narrow phone window), the page's size, and
+/// commenting. Bound to the shown workspace's browser.
 @MainActor
-private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDelegate {
+private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDelegate, NSMenuDelegate {
     let toolbar = NSToolbar(identifier: "PreviewWindow")
     private var session: PreviewSession?
+    private weak var workspace: Workspace?
     private var cancellables: Set<AnyCancellable> = []
+    /// A workspace picked from the menu.
+    var choose: ((Workspace) -> Void)?
 
     private static let reload = NSToolbarItem.Identifier("reload")
+    private static let workspaceID = NSToolbarItem.Identifier("workspace")
     private static let address = NSToolbarItem.Identifier("address")
     private static let size = NSToolbarItem.Identifier("size")
     private static let comment = NSToolbarItem.Identifier("comment")
@@ -259,6 +289,8 @@ private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDele
     private var sizeItem: NSToolbarItemGroup?
     private var commentItem: NSToolbarItem?
     private let field = NSTextField()
+    private let picker = PreviewWorkspaceButton()
+    private let pickerMenu = NSMenu()
 
     override init() {
         super.init()
@@ -280,11 +312,18 @@ private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDele
             field.widthAnchor.constraint(greaterThanOrEqualToConstant: 120),
             field.widthAnchor.constraint(lessThanOrEqualToConstant: 2000),
         ])
+
+        pickerMenu.delegate = self
+        picker.menu = pickerMenu
+        picker.setAccessibilityLabel("Workspace")
+        picker.toolTip = "Which workspace's browser this shows"
     }
 
     /// Follow another workspace's browser (or none).
-    func bind(_ session: PreviewSession?) {
+    func bind(_ session: PreviewSession?, workspace: Workspace?) {
         self.session = session
+        self.workspace = workspace
+        updateWorkspace()
         cancellables = []
         // An address half typed for the other workspace doesn't carry over.
         if field.currentEditor() != nil { field.window?.makeFirstResponder(nil) }
@@ -326,6 +365,37 @@ private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDele
         commentItem?.toolTip = commenting ? "Done Commenting (⇧⌘C or esc)" : "Comment on the Page (⇧⌘C)"
     }
 
+    func updateWorkspace() {
+        picker.set(title: workspace?.displayName ?? "No Workspace")
+    }
+
+    /// The menu, as it is when opened: the workspaces with a page, the one
+    /// shown checked, in the sidebar's order.
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        var list = PreviewStore.shared.workspacesWithPages()
+        if let workspace, !list.contains(where: { $0 === workspace }) {
+            list = WorkspaceStore.shared.workspaces.filter { w in w === workspace || list.contains { $0 === w } }
+        }
+        for w in list {
+            let item = NSMenuItem(title: w.displayName, action: #selector(pick(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = w
+            item.state = w === workspace ? .on : .off
+            menu.addItem(item)
+        }
+        if list.isEmpty {
+            let none = NSMenuItem(title: "No workspace has a page open", action: nil, keyEquivalent: "")
+            none.isEnabled = false
+            menu.addItem(none)
+        }
+    }
+
+    @objc private func pick(_ item: NSMenuItem) {
+        guard let w = item.representedObject as? Workspace else { return }
+        choose?(w)
+    }
+
     // MARK: Actions
 
     @objc private func submitAddress() {
@@ -361,7 +431,7 @@ private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDele
     // MARK: Toolbar delegate
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [Self.reload, Self.address, Self.size, Self.comment]
+        [Self.reload, Self.workspaceID, Self.address, Self.size, Self.comment]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -381,6 +451,14 @@ private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDele
             item.isBordered = true
             item.autovalidates = false
             reloadItem = item
+        case Self.workspaceID:
+            item = NSToolbarItem(itemIdentifier: id)
+            item.label = "Workspace"
+            item.view = picker
+            item.isBordered = true
+            // In a window too narrow for everything, this goes to the
+            // overflow menu before the page's own controls.
+            item.visibilityPriority = .low
         case Self.address:
             item = NSToolbarItem(itemIdentifier: id)
             item.label = "Address"
@@ -411,6 +489,50 @@ private final class PreviewToolbar: NSObject, NSToolbarDelegate, NSTextFieldDele
         }
         DispatchQueue.main.async { [weak self] in self?.update() }
         return item
+    }
+}
+
+/// The workspace menu's button: a folder, the workspace's name and a
+/// chevron; a click opens the menu under it.
+private final class PreviewWorkspaceButton: NSButton {
+    init() {
+        super.init(frame: .zero)
+        bezelStyle = .toolbar
+        isBordered = false
+        image = NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
+        imagePosition = .imageLeading
+        imageHugsTitle = true
+        lineBreakMode = .byTruncatingTail
+        translatesAutoresizingMaskIntoConstraints = false
+        widthAnchor.constraint(lessThanOrEqualToConstant: 220).isActive = true
+        setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    func set(title: String) {
+        let text = NSMutableAttributedString(string: " \(title) ", attributes: [
+            .font: NSFont.systemFont(ofSize: NSFont.systemFontSize, weight: .medium),
+            .foregroundColor: NSColor.labelColor,
+        ])
+        if let chevron = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: 9, weight: .semibold)) {
+            let attachment = NSTextAttachment()
+            attachment.image = chevron
+            text.append(NSAttributedString(attachment: attachment))
+            text.addAttribute(.foregroundColor, value: NSColor.secondaryLabelColor,
+                              range: NSRange(location: text.length - 1, length: 1))
+        }
+        attributedTitle = text
+        setAccessibilityValue(title)
+        invalidateIntrinsicContentSize()
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard let menu else { return }
+        highlight(true)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: bounds.height + 6), in: self)
+        highlight(false)
     }
 }
 
