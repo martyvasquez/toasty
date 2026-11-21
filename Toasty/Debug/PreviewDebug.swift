@@ -53,6 +53,14 @@ enum PreviewDebug {
             out["selectedTab"] = w.selected?.title ?? ""
             out["withPages"] = PreviewStore.shared.workspacesWithPages().map(\.name)
             out["activeWorkspace"] = w.name
+            // {"browserFrame":"{{x, y}, {w, h}}"}: move the browser window (for pictures).
+            if let f = cmd["browserFrame"] as? String { PreviewStore.shared.presenter?.window?.setFrame(NSRectFromString(f), display: true) }
+            // {"shot":"/path.png"}: a picture of the browser window itself.
+            if let path = cmd["shot"] as? String, let window = PreviewStore.shared.presenter?.window,
+               let image = DebugControl.captureWindow(window.windowNumber),
+               let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) {
+                try? png.write(to: URL(fileURLWithPath: path))
+            }
             out["windowOpen"] = s.windowOpen
             out["backstage"] = PreviewBackstage.shared.holding
             out["agentActive"] = s.agentActive

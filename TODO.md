@@ -278,9 +278,13 @@ minimal).
   ⇧⌘B or ⌘W hides it, ⌘R reloads, ⌘L goes to the address, ⇧⌘M switches
   phone/desktop (and sizes the window for it; Claude's `set_viewport`
   never moves the window), ⇧⌘C comments.
-- The toolbar is AppKit (`NSToolbar`): SwiftUI's bridged toolbar kept the
-  address at a fixed width and sent everything to the overflow menu in a
-  phone-size window.
+- Its titlebar row is Toasty's own, built as the main window's
+  (`PreviewBar`, hosted in the titlebar view, on the window buttons' line):
+  `BarIconButton`s, Toasty's tooltips, the workspace chip opening
+  `PopoverMenu`, the address in a `Theme.Fill.subtle` capsule, the chrome
+  color and bar divider (the user, 2026-11-20: match the rest of the app
+  before it ships). It was an AppKit `NSToolbar` with Liquid Glass capsules
+  for an afternoon. In a narrow window the address gives up room first.
 - While Claude uses a page whose window is closed, the page waits in
   `PreviewBackstage`: a 1-point, transparent, click-through window. Out of
   any window WebKit runs a page as hidden: no requestAnimationFrame at all

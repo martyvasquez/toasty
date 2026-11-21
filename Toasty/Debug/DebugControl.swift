@@ -424,7 +424,7 @@ enum DebugControl {
 
     /// CGWindowListCreateImage, looked up at runtime (it's unavailable to
     /// Swift in the current SDK).
-    private static func captureWindow(_ number: Int) -> CGImage? {
+    static func captureWindow(_ number: Int) -> CGImage? {
         guard let handle = dlopen(nil, RTLD_NOW),
               let sym = dlsym(handle, "CGWindowListCreateImage") else { return nil }
         let fn = unsafeBitCast(sym, to: CaptureFn.self)
