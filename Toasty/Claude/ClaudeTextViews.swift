@@ -89,6 +89,20 @@ final class ClaudeOutputTextView: NSTextView {
     private var usedWidths: [Int: CGFloat] = [:]
     private var lastKey: Int?
 
+    /// Copied (or dragged) text has ordinary newlines. The rendered text
+    /// breaks lines inside a paragraph with line separators (U+2028, see
+    /// `ClaudeMarkdown.lineBreaks`), which other apps and command-line
+    /// tools don't treat as the end of a line.
+    override func writeSelection(to pboard: NSPasteboard, types: [NSPasteboard.PasteboardType]) -> Bool {
+        guard super.writeSelection(to: pboard, types: types) else { return false }
+        // After all the types are written (the text view fills them in
+        // lazily, so the plain text isn't there to change any earlier).
+        if let text = pboard.string(forType: .string), text.contains("\u{2028}") {
+            pboard.setString(text.replacingOccurrences(of: "\u{2028}", with: "\n"), forType: .string)
+        }
+        return true
+    }
+
     /// Width of the text laid out without wrapping.
     var naturalWidth: CGFloat {
         _ = height(forWidth: 100_000)

@@ -505,6 +505,9 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     /// can't be counted against prompts: a turn's result ends the work
     /// unless a prompt is still waiting here.
     private var waitingPrompts: Set<String> = []
+    /// The prompt that started the running turn. While it's still in
+    /// `waitingPrompts`, Claude Code hasn't taken the turn up at all.
+    private var turnPrompt: String?
     /// Counts results, for the check that a waiting prompt did start.
     private var resultCount = 0
     private var lastAssistantText = ""
@@ -673,6 +676,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             interrupted = false
             turnStarted = Date()
             activity.reset()
+            turnPrompt = promptID
         }
         // A message sent while Claude works is queued by Claude Code: see
         // `waitingPrompts`.
@@ -690,6 +694,9 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         requests.removeAll()
         workspace?.pauseTeeUpFeed(for: self, because: "Interrupted")
         agent?.send(["type": "interrupt"])
+        if let prompt = turnPrompt, turnRunning, !launching, agent?.isRunning == true {
+            confirmInterrupt(of: prompt, after: resultCount)
+        }
     }
 
     func respond(to request: ClaudePermissionRequest, _ response: [String: Any]) {
@@ -1628,6 +1635,29 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 self.markTurnEnd(at: Date(), duration: nil)
                 self.turnStarted = nil
                 self.setPhase(.idle)
+                self.refreshContextUsage()
+            }
+        }
+    }
+
+    /// After Stop: Claude Code answers an interrupt with the turn's result.
+    /// If it never took the turn's prompt up, it has nothing to interrupt
+    /// and no result is coming, so end the turn here rather than show
+    /// "working" (with a Stop that does nothing) for good.
+    private func confirmInterrupt(of prompt: String, after count: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.turnRunning, self.interrupted, self.resultCount == count,
+                      self.turnPrompt == prompt, self.waitingPrompts.contains(prompt) else { return }
+                self.waitingPrompts.removeAll()
+                self.turnRunning = false
+                self.finishStreaming()
+                self.markTurnEnd(at: Date(), duration: nil)
+                self.turnStarted = nil
+                self.interrupted = false
+                self.requests.removeAll()
+                self.setPhase(.idle)
+                self.append(.error, "Claude Code never picked up that message, so there was nothing to stop. Send it again.")
                 self.refreshContextUsage()
             }
         }

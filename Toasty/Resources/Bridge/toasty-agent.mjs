@@ -19,7 +19,6 @@
 //
 // The SDK is the bundled copy unless TOASTY_SDK_PATH names another sdk.mjs
 // (one Toasty downloaded to match the installed `claude`; see ClaudeSDK.swift).
-import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 
 const out = (msg) => process.stdout.write(JSON.stringify(msg) + "\n");
@@ -213,10 +212,15 @@ async function start(msg) {
   process.exit(0);
 }
 
-const rl = createInterface({ input: process.stdin });
-rl.on("line", async (line) => {
+async function handle(line) {
   let msg;
-  try { msg = JSON.parse(line); } catch { return; }
+  try {
+    msg = JSON.parse(line);
+  } catch {
+    // Never silently: a dropped prompt looks like Claude working forever.
+    out({ type: "error", message: "Toasty's bridge couldn't read a message from Toasty, so it wasn't sent to Claude Code." });
+    return;
+  }
   try {
     switch (msg.type) {
       case "start":
@@ -286,8 +290,25 @@ rl.on("line", async (line) => {
   } catch (e) {
     out({ type: "error", message: String(e?.message ?? e) });
   }
+}
+
+// One JSON message per line, and a line ends at "\n" only. (Not
+// node:readline: it also ends a line at U+2028 and U+2029, which JSON allows
+// unescaped inside a string. A prompt holding one, e.g. text pasted from an
+// app that uses line separators, arrived as fragments that didn't parse.)
+process.stdin.setEncoding("utf8");
+let partial = [];
+process.stdin.on("data", (chunk) => {
+  let from = 0;
+  for (let at; (at = chunk.indexOf("\n", from)) >= 0; from = at + 1) {
+    partial.push(chunk.slice(from, at));
+    const line = partial.join("");
+    partial = [];
+    if (line) handle(line);
+  }
+  if (from < chunk.length) partial.push(chunk.slice(from));
 });
-rl.on("close", () => {
+process.stdin.on("end", () => {
   // Toasty closed the tab or quit: end the session cleanly.
   closed = true;
   wake?.();
