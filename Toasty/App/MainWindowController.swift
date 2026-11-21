@@ -8,7 +8,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     let store: WorkspaceStore
     let layout = WindowLayout()
     private(set) var split: MainSplitViewController!
-    private var container: MainContainerController!
     private var titlebarHost: NSView?
     private var titlebarLeading: NSLayoutConstraint?
     /// The sidebar handle's strip, at the conversation's leading edge.
@@ -43,9 +42,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         split.onLayout = { [weak self] in self?.updateTitlebar() }
         // Size the content before handing it to the window, which otherwise
         // shrinks to the split view's fitting size.
-        container = MainContainerController(store: store, split: split)
-        container.view.setFrameSize(NSSize(width: 1280, height: 820))
-        window.contentViewController = container
+        split.view.setFrameSize(NSSize(width: 1280, height: 820))
+        window.contentViewController = split
 
         if let frame = store.windowFrame, NSScreen.screens.contains(where: { $0.visibleFrame.intersects(frame) }) {
             window.setFrame(frame, display: false)
@@ -147,9 +145,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     }
 
     private func updateTitlebar() {
-        // With the conversation put away for the page (`PreviewDrawer`),
-        // the row runs from the window's edge.
-        let minX = PreviewDrawer.shared.hidesConversation ? 0 : split.contentMinX
+        let minX = split.contentMinX
         if let titlebarLeading, abs(titlebarLeading.constant - minX) > 0.25 { titlebarLeading.constant = minX }
         // The window buttons sit over the conversation when the sidebar is
         // hidden: the tabs start about 20pt after them (as Safari's).
@@ -159,12 +155,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         // drag or double-click on a divider reaches it.
         let clear = SidebarHandle.dividerClearance
         if let handleLeading, abs(handleLeading.constant - (minX + clear)) > 0.25 { handleLeading.constant = minX + clear }
-        handleHost?.isHidden = PreviewDrawer.shared.hidesConversation
         if let content = window?.contentView, let inspectorHandleTrailing {
             let offset = (split.contentMaxX.map { $0 - content.bounds.width } ?? 0) - clear
             if abs(inspectorHandleTrailing.constant - offset) > 0.25 { inspectorHandleTrailing.constant = offset }
         }
-        inspectorHandleHost?.isHidden = PreviewDrawer.shared.hidesConversation
         // The row's controls center on the window buttons' line.
         if let button = window?.standardWindowButton(.closeButton), let bar = button.superview {
             let r = button.convert(button.bounds, to: bar)
@@ -227,7 +221,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             focusTerminal()
         } else {
             w.newConversation()
-            PreviewDrawer.shared.reveal()
         }
     }
 
@@ -259,14 +252,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         guard let w = store.active else { return }
         if terminalFocused { w.selectTerminalRelative(delta) } else {
             w.selectRelative(delta)
-            PreviewDrawer.shared.reveal()
         }
     }
 
     /// ⌃⌘T: show and focus the terminal; hide it when it already has focus.
     @objc func toggleTerminal(_ sender: Any?) {
         guard let w = store.active else { return }
-        if !w.terminalVisible || w.previewShowing {
+        if !w.terminalVisible {
             w.showTerminal()
             DispatchQueue.main.async { self.focusTerminal() }
         } else if !terminalFocused, sender is NSMenuItem {
@@ -281,40 +273,31 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     /// ⌃⌘I: show or hide the inspector (the top of the right column).
     @objc func toggleInspector(_ sender: Any?) {
         guard let w = store.active else { return }
-        if w.inspectorVisible, !w.previewShowing { w.hideInspector() } else { w.showInspector() }
+        if w.inspectorVisible { w.hideInspector() } else { w.showInspector() }
     }
 
-    /// ⇧⌘B and the titlebar button: the preview takes the right column, or
-    /// gives it back. (Experimental; no menu item while it's turned off.)
+    /// ⇧⌘B and the titlebar's browser button: bring the workspace's
+    /// browser window forward. (Experimental; no menu item while it's
+    /// turned off.) From the browser window, the same keys put it away
+    /// (`PreviewWindowController`).
     @objc func togglePreview(_ sender: Any?) {
         guard let w = store.active, PreviewSettings.shared.enabled else { return }
-        let hadTerminalFocus = terminalFocused
-        if w.previewShowing { w.hidePreview() } else { w.showPreview() }
-        if hadTerminalFocus, w.previewShowing { window?.makeFirstResponder(nil) }
+        PreviewStore.shared.showWindow(for: w)
     }
 
-    /// ⇧⌘M: the page at the other size, phone or desktop (while the
-    /// preview is showing).
+    /// ⇧⌘M: the workspace's page at the other size, phone or desktop.
     @objc func togglePreviewSize(_ sender: Any?) {
-        guard let w = store.active, w.previewShowing else { return }
-        let session = PreviewStore.shared.session(for: w)
-        session.setViewport(session.viewport == .mobile ? .desktop : .mobile)
+        guard let w = store.active, PreviewSettings.shared.enabled else { return }
+        PreviewStore.shared.session(for: w).toggleViewport()
     }
 
-    /// ⇧⌘L: a desktop page beside the conversation, or across the window
-    /// with the conversation a drawer over it (`PreviewDrawer`).
-    @objc func togglePreviewLayout(_ sender: Any?) {
-        guard let w = store.active, w.previewShowing,
-              PreviewStore.shared.session(for: w).viewport == .desktop else { return }
-        PreviewSettings.shared.desktopBeside.toggle()
-    }
-
-    /// ⇧⌘C: start or stop commenting on the page (while the preview shows one).
+    /// ⇧⌘C: comment on the workspace's page, in its browser window.
     @objc func togglePreviewComment(_ sender: Any?) {
-        guard let w = store.active, w.previewShowing else { return }
+        guard let w = store.active, PreviewSettings.shared.enabled else { return }
         let session = PreviewStore.shared.session(for: w)
-        guard session.commenting || (session.url != nil && session.failure == nil) else { return }
-        session.setCommenting(!session.commenting)
+        guard session.url != nil, session.failure == nil else { return }
+        PreviewStore.shared.showWindow(for: w)
+        session.setCommenting(true)
     }
 
     /// ⌃⌘1…3: show an inspector tab. Tee-Up by its shortcut is for typing
@@ -335,13 +318,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     }
 
     @objc func toggleWorkspaces(_ sender: Any?) {
-        // A desktop page has the whole window: the workspaces and the
-        // conversation are a drawer over it, slid out or put away together.
-        let drawer = PreviewDrawer.shared
-        if drawer.active {
-            drawer.setOpen(!drawer.open)
-            return
-        }
         store.sidebarVisible.toggle()
         store.setNeedsSave()
     }
@@ -385,45 +361,37 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         let w = store.active
         switch item.action {
         case #selector(toggleTerminal(_:)):
-            item.title = w?.terminalVisible == true && w?.previewShowing != true ? "Hide Terminal" : "Show Terminal"
+            item.title = w?.terminalVisible == true ? "Hide Terminal" : "Show Terminal"
             return w != nil
         case #selector(toggleInspector(_:)):
-            item.title = w?.inspectorVisible == true && w?.previewShowing != true ? "Hide Inspector" : "Show Inspector"
+            item.title = w?.inspectorVisible == true ? "Hide Inspector" : "Show Inspector"
             return w != nil
         case #selector(togglePreview(_:)):
-            // No menu item or shortcut while the preview is turned off.
+            // No menu items or shortcuts while the browser is turned off.
             item.isHidden = !PreviewSettings.shared.enabled
-            item.title = w?.previewShowing == true ? "Hide Preview" : "Show Preview"
+            item.title = "Show Browser"
             return w != nil && !item.isHidden
         case #selector(togglePreviewSize(_:)):
             item.isHidden = !PreviewSettings.shared.enabled
-            let showing = w?.previewShowing == true
-            let phone = showing && w.map { PreviewStore.shared.session(for: $0).viewport == .mobile } == true
-            item.title = phone ? "Show at Desktop Size" : "Show at Phone Size"
-            return showing && !item.isHidden
-        case #selector(togglePreviewLayout(_:)):
-            item.isHidden = !PreviewSettings.shared.enabled
-            item.title = PreviewSettings.shared.desktopBeside ? "Show Page Across the Window" : "Show Page Beside the Conversation"
-            return !item.isHidden && w.map { $0.previewShowing && PreviewStore.shared.session(for: $0).viewport == .desktop } == true
+            guard let w, !item.isHidden else { return false }
+            item.title = PreviewStore.shared.session(for: w).viewport == .mobile ? "Show at Desktop Size" : "Show at Phone Size"
+            return true
         case #selector(togglePreviewComment(_:)):
             item.isHidden = !PreviewSettings.shared.enabled
-            guard let w, w.previewShowing, !item.isHidden else { return false }
+            item.title = "Comment on the Page"
+            guard let w, !item.isHidden else { return false }
             let session = PreviewStore.shared.session(for: w)
-            item.title = session.commenting ? "Done Commenting" : "Comment on the Page"
-            return session.commenting || (session.url != nil && session.failure == nil)
+            return session.url != nil && session.failure == nil
         case #selector(showInspectorTab(_:)):
-            item.state = w?.inspectorVisible == true && w?.previewShowing != true && InspectorTab.allCases.indices.contains(item.tag)
+            item.state = w?.inspectorVisible == true && InspectorTab.allCases.indices.contains(item.tag)
                 && w?.inspectorTab == InspectorTab.allCases[item.tag] ? .on : .off
             return w != nil
         case #selector(toggleRightColumn(_:)):
-            item.title = w?.rightColumnVisible == true && w?.previewShowing != true
+            item.title = w?.rightColumnVisible == true
                 ? "Hide Inspector and Terminal" : "Show Inspector and Terminal"
             return w != nil
         case #selector(toggleWorkspaces(_:)):
-            let drawer = PreviewDrawer.shared
-            item.title = drawer.active
-                ? (drawer.open ? "Hide Workspaces and Conversation" : "Show Workspaces and Conversation")
-                : store.sidebarVisible ? "Hide Workspaces" : "Show Workspaces"
+            item.title = store.sidebarVisible ? "Hide Workspaces" : "Show Workspaces"
             return true
         case #selector(closeTab(_:)):
             return terminalFocused ? w?.selectedTerminal != nil : w?.selected != nil

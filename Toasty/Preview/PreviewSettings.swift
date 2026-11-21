@@ -1,25 +1,25 @@
 import AppKit
 import SwiftUI
 
-/// Whether the preview browser exists at all (Settings ▸ Preview, off by
-/// default). Experimental, and the one place Toasty gives Claude tools of its
-/// own (BUILD_PLAN §1), so off means off: no titlebar button, no menu item or
+/// Whether the browser exists at all (Settings ▸ Browser, off by default).
+/// Experimental, and the one place Toasty gives Claude tools of its own
+/// (BUILD_PLAN §1), so off means off: no titlebar indicator, no menu item or
 /// shortcut, no web view, and conversations start without the `preview` MCP
 /// server, exactly as Claude Code is by itself.
 ///
+/// It's a browser per workspace that Claude drives in the background, and a
+/// window of its own for it that the user opens when they want to look (it
+/// was a panel in the main window until 2026-11-20; the user: the main
+/// window is for conversations, the browser is a tool beside it).
+///
 /// Everything the feature is lives in `Toasty/Preview/`. To remove it,
 /// delete that folder, `Debug/PreviewDebug.swift` and `Tests/PreviewTests`,
-/// then what's outside them: the preview's turn in the right column
-/// (`previewVisible` in `Workspace.swift`, `MainSplitViewController`,
-/// `TitlebarTabs`, `MainWindowController`, `MainMenu`), the drawer the
-/// conversation becomes when a desktop page needs the whole window
-/// (`PreviewDrawer`: `MainContainerController`, `drawerMode` in
-/// `MainSplitViewController`, and its uses in `TitlebarTabs`,
-/// `MainWindowController` and `Activity`), local links clicked
-/// in a terminal (`TerminalView.open`), the settings pane
-/// (`SettingsWindow`), the bridge's MCP relay
-/// (`toasty-agent.mjs`; `ClaudeConversation`: `mcpServers`, `mcp_call`),
-/// App Transport Security in `project.yml`, and the two exceptions in
+/// then what's outside them: the indicator in the titlebar (`TitlebarTabs`),
+/// its commands (`MainWindowController`, `MainMenu`, `KeyboardShortcuts`),
+/// local links clicked in a terminal (`TerminalView.open`), the settings
+/// pane (`SettingsWindow`), the bridge's MCP relay (`toasty-agent.mjs`;
+/// `ClaudeConversation`: `mcpServers`, `mcp_call`, the reload at a turn's
+/// end), App Transport Security in `project.yml`, and the two exceptions in
 /// `BUILD_PLAN.md` §1.
 @MainActor
 final class PreviewSettings: ObservableObject {
@@ -33,19 +33,6 @@ final class PreviewSettings: ObservableObject {
             if !enabled { PreviewStore.shared.turnedOff() }
         }
     }
-
-    /// A desktop page beside the conversation, in the room that's left
-    /// (drawn smaller in less than 1280 points), and not across the whole
-    /// window with the conversation a drawer over it (`PreviewDrawer`). One
-    /// choice for every workspace, made from the preview's controls or ⇧⌘L.
-    @Published var desktopBeside: Bool {
-        didSet {
-            guard desktopBeside != oldValue else { return }
-            UserDefaults.standard.set(desktopBeside, forKey: Self.besideKey)
-            PreviewDrawer.shared.changed.send()
-        }
-    }
-    private static let besideKey = "PreviewDesktopBeside"
 
     /// Where a comment goes when it's finished with Return.
     /// (⇧Return sends it to the other one.)
@@ -72,36 +59,25 @@ final class PreviewSettings: ObservableObject {
     }
     private static let commentsKey = "PreviewCommentsTo"
 
-    /// The preview's column at phone size: the phone and a little room
-    /// either side, until the user drags it to another width. (A desktop
-    /// page takes all the room there is instead.)
-    var phoneColumnWidth: CGFloat {
-        get { (UserDefaults.standard.object(forKey: Self.phoneWidthKey) as? Double).map { CGFloat($0) } ?? Self.defaultPhoneColumnWidth }
-        set { UserDefaults.standard.set(Double(newValue), forKey: Self.phoneWidthKey) }
-    }
-    static let defaultPhoneColumnWidth: CGFloat = 430
-    private static let phoneWidthKey = "PreviewPhoneColumnWidth"
-
     private init() {
         enabled = UserDefaults.standard.bool(forKey: Self.key)
-        desktopBeside = UserDefaults.standard.bool(forKey: Self.besideKey)
         commentsTo = UserDefaults.standard.string(forKey: Self.commentsKey).flatMap(CommentDestination.init(rawValue:)) ?? .conversation
     }
 }
 
-/// Settings ▸ Preview.
+/// Settings ▸ Browser.
 struct PreviewSettingsView: View {
     @ObservedObject private var settings = PreviewSettings.shared
 
     var body: some View {
         Form {
             Section {
-                Toggle("Preview browser", isOn: $settings.enabled)
+                Toggle("Browser", isOn: $settings.enabled)
             } footer: {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Experimental. A browser beside the conversation (⇧⌘B) for the site you're developing, at phone or desktop size (⇧⌘M switches). Comment on anything in the page to send it to the conversation you have open (or to Tee-Up, below), and Claude can open pages, take screenshots and read the console there instead of in your own browser.")
-                    Text("A desktop page takes the whole window, and its left edge (or ⇧⌘S) slides your workspaces and the conversation over it. ⇧⌘L puts the page beside the conversation instead, drawn smaller when there isn't room for it.")
-                    Text("Claude gets the preview's tools in conversations started after you turn this on. While it's off, the preview isn't in Toasty at all and Claude Code runs exactly as it does by itself.")
+                    Text("Experimental. A browser for the site you're developing, one per workspace, that Claude can use to open pages, click, type, take screenshots and read the console, instead of your own browser.")
+                    Text("It runs in the background and has a window of its own, which never opens or comes forward by itself. The compass at the end of the tabs shows when Claude is using it; click it (or press ⇧⌘B) to watch, or to use the same page yourself. The page is at phone or desktop size (⇧⌘M switches). Comment on anything in it to send it to the conversation you have open (or to Tee-Up, below).")
+                    Text("Claude gets the browser's tools in conversations started after you turn this on. While it's off, the browser isn't in Toasty at all and Claude Code runs exactly as it does by itself.")
                 }
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

@@ -22,7 +22,7 @@ enum PreviewViewport: String, CaseIterable, Identifiable {
         }
     }
 
-    /// The page's size when the pane has room (and when it isn't on screen).
+    /// The page's size when the window has room (and when it isn't open).
     var nominal: CGSize {
         switch self {
         case .mobile: CGSize(width: 390, height: 844)
@@ -74,9 +74,10 @@ enum PreviewViewport: String, CaseIterable, Identifiable {
     }
 }
 
-/// One workspace's preview: its page, console and comments. The web view is
-/// made the first time the preview is used and kept while the workspace is
-/// open, on screen or not.
+/// One workspace's browser: its page, console and comments. The web view is
+/// made the first time the browser is used (by the user or by Claude) and
+/// kept while the workspace is open, whether its window is open or not.
+/// The window (`PreviewWindowController`) only shows it.
 @MainActor
 final class PreviewSession: NSObject, ObservableObject {
     struct ConsoleEntry: Identifiable {
@@ -118,9 +119,16 @@ final class PreviewSession: NSObject, ObservableObject {
     @Published private(set) var teedUpAt: Date?
     /// A page has been asked for (the start screen is over).
     @Published private(set) var started = false
+    /// The browser window is open (shown, or minimized): the page is in it.
+    @Published private(set) var windowOpen = false
+    /// Claude is using the browser: a tool call is running, or one ended a
+    /// moment ago (so a run of calls reads as one stretch of use).
+    @Published private(set) var agentActive = false
+    private var agentCalls = 0
+    private var agentIdle: Task<Void, Never>?
 
     private(set) var webView: WKWebView?
-    /// The view showing the page, while the pane is on screen.
+    /// The view showing the page, while the window is open.
     weak var stage: PreviewStage?
     private var observers: Set<AnyCancellable> = []
     private var loadWaiters: [(String?) -> Void] = []
@@ -168,7 +176,54 @@ final class PreviewSession: NSObject, ObservableObject {
         }.store(in: &observers)
         webView = web
         PreviewStore.shared.removeOrphanedData()
+        updateBackstage()
         return web
+    }
+
+    func setWindowOpen(_ open: Bool) {
+        if windowOpen != open { windowOpen = open }
+        // After the window has taken the page, or let go of it.
+        DispatchQueue.main.async { [weak self] in self?.updateBackstage() }
+    }
+
+    /// While Claude is using the page and its window is closed, the page
+    /// waits in `PreviewBackstage`, so WebKit runs it as a visible page:
+    /// animation frames, timers at full rate. Out of any window it would be
+    /// a hidden page, with no animation frames at all (an animated UI
+    /// would never settle before a screenshot). When Claude is done, the
+    /// page leaves it and is throttled again, so a page nobody is using
+    /// doesn't use the Mac.
+    func updateBackstage() {
+        guard let web = webView, stage == nil else { return }
+        if agentActive, !windowOpen {
+            PreviewBackstage.shared.hold(web, size: viewport.nominal)
+        } else {
+            PreviewBackstage.shared.release(web)
+        }
+    }
+
+    // MARK: Claude
+
+    /// A tool call from Claude started.
+    func agentBegan() {
+        agentCalls += 1
+        agentIdle?.cancel()
+        agentIdle = nil
+        if !agentActive { agentActive = true }
+        updateBackstage()
+    }
+
+    /// A tool call from Claude ended.
+    func agentEnded() {
+        agentCalls = max(0, agentCalls - 1)
+        guard agentCalls == 0 else { return }
+        agentIdle?.cancel()
+        agentIdle = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            self?.agentActive = false
+            self?.updateBackstage()
+        }
     }
 
     /// Let go of the web view (the feature was turned off, or the workspace closed).
@@ -180,6 +235,7 @@ final class PreviewSession: NSObject, ObservableObject {
             web.navigationDelegate = nil
             web.uiDelegate = nil
             web.configuration.userContentController.removeAllScriptMessageHandlers()
+            PreviewBackstage.shared.release(web)
             web.removeFromSuperview()
         }
         webView = nil
@@ -276,12 +332,18 @@ final class PreviewSession: NSObject, ObservableObject {
 
     func stopLoading() { webView?.stopLoading() }
 
-    func setViewport(_ v: PreviewViewport) {
+    /// The other size, phone or desktop (⇧⌘M: the user's).
+    func toggleViewport() {
+        setViewport(viewport == .mobile ? .desktop : .mobile, byUser: true)
+    }
+
+    /// Show the page at `v`. The user's change (`byUser`) also sizes the
+    /// window for it; Claude's never moves the window.
+    func setViewport(_ v: PreviewViewport, byUser: Bool = false) {
         guard v != viewport else { return }
         viewport = v
         PreviewStore.shared.remember(self)
-        // A desktop page may need the whole window (and a phone never does).
-        PreviewDrawer.shared.changed.send()
+        if byUser { PreviewStore.shared.window(for: workspaceID)?.fitViewport() }
         guard let web = webView else { return }
         web.customUserAgent = v.userAgent
         if let stage { stage.needsLayout = true } else { web.setFrameSize(v.nominal) }
@@ -429,13 +491,62 @@ final class PreviewSession: NSObject, ObservableObject {
         }
     }
 
-    /// Esc in the page: done commenting, back to the composer (unless the
-    /// conversation is put away: then the page keeps the keyboard).
+    /// Esc in the page, or a comment sent: done commenting. The keyboard
+    /// stays in the browser window (the user is looking at it).
     func leaveCommenting() {
         setCommenting(false)
-        guard !PreviewDrawer.shared.hidesConversation else { return }
-        WorkspaceStore.shared.workspaces.first { $0.id == workspaceID }?.selected?.focusComposer()
     }
+}
+
+/// Where a page Claude is using waits while its window is closed: a window
+/// of one point, transparent, above the others (so nothing covers it) and
+/// passing every click through, on every Space. WebKit sees its page in a
+/// visible window and runs it as one; nobody sees anything. The page keeps
+/// its own size: it's laid out and pictured at that size, only what's
+/// painted to the screen is the one point.
+@MainActor
+final class PreviewBackstage {
+    static let shared = PreviewBackstage()
+
+    private lazy var window: NSWindow = {
+        let w = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 1, height: 1),
+                        styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        w.isReleasedWhenClosed = false
+        w.alphaValue = 0
+        w.isOpaque = false
+        w.backgroundColor = .clear
+        w.hasShadow = false
+        w.ignoresMouseEvents = true
+        w.level = .statusBar
+        w.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary, .transient]
+        w.isExcludedFromWindowsMenu = true
+        w.hidesOnDeactivate = false
+        w.contentView = NSView(frame: NSRect(x: 0, y: 0, width: 1, height: 1))
+        w.contentView?.clipsToBounds = true
+        return w
+    }()
+
+    func hold(_ web: WKWebView, size: CGSize) {
+        guard let content = window.contentView else { return }
+        if web.superview !== content {
+            content.addSubview(web)
+        }
+        web.frame = NSRect(origin: .zero, size: size)
+        if !window.isVisible {
+            if let screen = NSScreen.main { window.setFrameOrigin(NSPoint(x: screen.frame.minX, y: screen.frame.minY)) }
+            window.orderFrontRegardless()
+        }
+    }
+
+    func release(_ web: WKWebView) {
+        guard let content = window.contentView, web.superview === content else { return }
+        web.removeFromSuperview()
+        if content.subviews.isEmpty { window.orderOut(nil) }
+    }
+
+    #if DEBUG
+    var holding: Int { window.contentView?.subviews.count ?? 0 }
+    #endif
 }
 
 struct PreviewError: LocalizedError {
@@ -506,20 +617,21 @@ extension PreviewSession: WKNavigationDelegate {
 // MARK: - Dialogs and new windows
 
 extension PreviewSession: WKUIDelegate {
-    /// Links that ask for a new window open in the preview itself.
+    /// Links that ask for a new window open in the same page.
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         if action.targetFrame == nil { webView.load(action.request) }
         return nil
     }
 
-    /// The page's alert/confirm/prompt: asked as a sheet while the preview is
-    /// on screen; otherwise dismissed (and noted in the console, so Claude
-    /// knows it happened) rather than leaving the page waiting unseen.
+    /// The page's alert/confirm/prompt: asked as a sheet on the browser
+    /// window while it's open and Toasty is in front (a sheet doesn't bring
+    /// the window forward); otherwise dismissed (and noted in the console,
+    /// so Claude knows it happened) rather than leaving the page waiting unseen.
     private func ask(_ kind: String, _ message: String, cancel: Bool, field: String? = nil,
                      completion: @escaping (_ confirmed: Bool, _ text: String?) -> Void) {
         guard let window = webView?.window, window.isVisible, NSApp.isActive else {
-            log("warn", "\(kind)(\"\(message)\") was dismissed: the preview wasn't in front.")
+            log("warn", "\(kind)(\"\(message)\") was dismissed: the browser window wasn't open.")
             completion(false, nil)
             return
         }
@@ -559,13 +671,14 @@ extension PreviewSession: WKUIDelegate {
 
 // MARK: - Store
 
-/// The open workspaces' previews, and what each last showed.
+/// The open workspaces' browsers and their windows, and what each last showed.
 @MainActor
 final class PreviewStore {
     static let shared = PreviewStore()
     private static let key = "PreviewState"
 
     private var sessions: [UUID: PreviewSession] = [:]
+    private var windows: [UUID: PreviewWindowController] = [:]
     private var cleanedData = false
 
     func session(for workspace: Workspace) -> PreviewSession {
@@ -576,6 +689,26 @@ final class PreviewStore {
                                viewport: saved["viewport"].flatMap(PreviewViewport.init(rawValue:)) ?? .mobile)
         sessions[workspace.id] = s
         return s
+    }
+
+    /// The workspace's browser window, made the first time it's shown.
+    func window(for id: UUID) -> PreviewWindowController? { windows[id] }
+
+    /// Show the workspace's browser window and bring it forward. Only for
+    /// what the user does (Claude's tools never call this).
+    func showWindow(for workspace: Workspace) {
+        guard PreviewSettings.shared.enabled else { return }
+        let controller = windows[workspace.id] ?? {
+            let c = PreviewWindowController(workspace: workspace, session: session(for: workspace))
+            windows[workspace.id] = c
+            return c
+        }()
+        controller.reveal()
+    }
+
+    private func closeWindow(_ id: UUID) {
+        windows[id]?.close()
+        windows[id] = nil
     }
 
     /// Keep a workspace's address and viewport for next time.
@@ -589,6 +722,7 @@ final class PreviewStore {
     private func prune() {
         let open = Set(WorkspaceStore.shared.workspaces.map(\.id))
         for (id, session) in sessions where !open.contains(id) {
+            closeWindow(id)
             session.close()
             sessions[id] = nil
         }
@@ -620,7 +754,7 @@ final class PreviewStore {
     }
 
     /// Claude finished a turn in `workspace`: reload its page, so the
-    /// preview shows what was just changed without relying on the dev
+    /// browser shows what was just changed without relying on the dev
     /// server's hot reload. Not while the user is in the middle of a comment
     /// (the pick would be lost), and never makes a preview that isn't open.
     func turnEnded(in workspace: Workspace) {
@@ -629,12 +763,11 @@ final class PreviewStore {
         session.reload()
     }
 
-    /// The setting was turned off: every web view goes, and the right column
-    /// goes back to the inspector and terminal.
+    /// The setting was turned off: every window and web view goes.
     func turnedOff() {
+        windows.keys.forEach(closeWindow)
         sessions.values.forEach { $0.close() }
         sessions = [:]
-        for w in WorkspaceStore.shared.workspaces { w.hidePreview() }
     }
 
     /// A web address on this Mac or by IP address (a dev server), not a site
@@ -650,8 +783,8 @@ final class PreviewStore {
     }
 
     /// A link clicked in a terminal: a local address opens in that
-    /// workspace's preview (which takes the right column). False when the
-    /// preview is off or the link isn't local: the browser gets it.
+    /// workspace's browser window, brought forward. False when the browser
+    /// is off or the link isn't local: the default browser gets it.
     func open(_ url: URL, fromTerminal view: TerminalView) -> Bool {
         guard PreviewSettings.shared.enabled, Self.isLocal(url),
               let workspace = WorkspaceStore.shared.workspaces.first(where: { w in
@@ -659,8 +792,8 @@ final class PreviewStore {
               }) else { return false }
         // "Listening on 0.0.0.0" means every interface; this Mac is one.
         let address = url.absoluteString.replacingOccurrences(of: "://0.0.0.0", with: "://localhost")
-        workspace.showPreview()
         session(for: workspace).open(address)
+        showWindow(for: workspace)
         return true
     }
 

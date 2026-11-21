@@ -90,15 +90,16 @@ final class KeyboardShortcuts: NSObject {
                 menu("Keyboard shortcuts", #selector(KeyboardShortcuts.showKeyboardShortcuts(_:))),
             ].compactMap { $0 }),
         ]
-        // The preview's, only while it's turned on.
+        // The browser's, only while it's turned on.
         if PreviewSettings.shared.enabled {
-            groups.append(Group(title: "Preview", rows: [
-                menu("Show or hide the preview", #selector(W.togglePreview(_:))),
+            groups.append(Group(title: "Browser", rows: [
+                menu("Show the browser window (in it: hide it)", #selector(W.togglePreview(_:))),
+                plain("Reload", "⌘R"),
+                plain("Address", "⌘L"),
                 menu("Phone or desktop size", #selector(W.togglePreviewSize(_:))),
-                menu("Desktop page beside the conversation, or across the window", #selector(W.togglePreviewLayout(_:))),
                 menu("Comment on the page", #selector(W.togglePreviewComment(_:))),
-                plain("Send a comment to Claude", "↩"),
-                plain("Add a comment to the message instead", "⇧↩"),
+                plain("Finish a comment (Settings ▸ Browser says where it goes)", "↩"),
+                plain("Finish a comment the other way (Claude or Tee-Up)", "⇧↩"),
                 plain("Done commenting", "esc"),
             ].compactMap { $0 }))
         }

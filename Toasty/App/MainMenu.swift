@@ -68,10 +68,11 @@ enum MainMenu {
         view.addItem(item("Show Terminal", #selector(W.toggleTerminal(_:)), "t", [.command, .control]))
         view.addItem(item("Show Inspector", #selector(W.toggleInspector(_:)), "i", [.command, .control]))
         view.addItem(item("Hide Inspector and Terminal", #selector(W.toggleRightColumn(_:)), "d", [.command, .shift]))
-        // Hidden (shortcut and all) while the preview is turned off.
-        view.addItem(item("Show Preview", #selector(W.togglePreview(_:)), "b", [.command, .shift]))
+        // Hidden (shortcut and all) while the browser is turned off. The
+        // browser window answers them for itself while it's key
+        // (`PreviewWindowController`).
+        view.addItem(item("Show Browser", #selector(W.togglePreview(_:)), "b", [.command, .shift]))
         view.addItem(item("Show at Phone Size", #selector(W.togglePreviewSize(_:)), "m", [.command, .shift]))
-        view.addItem(item("Show Page Beside the Conversation", #selector(W.togglePreviewLayout(_:)), "l", [.command, .shift]))
         view.addItem(item("Comment on the Page", #selector(W.togglePreviewComment(_:)), "c", [.command, .shift]))
         view.addItem(.separator())
         for (i, tab) in InspectorTab.allCases.enumerated() {

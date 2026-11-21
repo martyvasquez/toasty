@@ -38,7 +38,7 @@ struct InspectorHandle: View {
         @ObservedObject var workspace: Workspace
 
         var body: some View {
-            let shown = workspace.rightColumnVisible && !workspace.previewShowing
+            let shown = workspace.rightColumnVisible
             EdgeHandle(edge: .trailing,
                        tooltip: Tooltip(title: shown ? "Hide Inspector and Terminal" : "Show Inspector", shortcut: "⇧⌘D")) {
                 AppDelegate.shared.windowController?.toggleRightColumn(nil)

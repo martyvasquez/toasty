@@ -233,82 +233,71 @@ Later:
   from the lockfile (npm/pnpm/yarn/bun, uv/poetry, bundler, SwiftPM) and run
   the install in the worktree's terminal tab so the output is visible.
 
-## Preview browser (experimental)
+## Browser (experimental; was "Preview")
 
-Built 2026-11-10 (`Toasty/Preview/`), off by default in Settings ▸ Preview.
+Built 2026-11-10 (`Toasty/Preview/`), off by default in Settings ▸ Browser.
 The user may remove it again: everything outside that folder is listed at
 the top of `PreviewSettings.swift`. Principles 1 and 2 in `BUILD_PLAN.md`
 §1 carry the exceptions it needed.
 
-What it is: a WKWebView in a right-hand panel of its own (⇧⌘B, or the
-compass button in the titlebar), one per workspace with its own cookies,
-for the site being developed. It and the inspector/terminal column are
-never open together: showing one swaps the other out, and closing the
-preview brings back what was there. It always opens at full width, with the
-conversation at its minimum, and its controls sit in the titlebar row above
-it (the user's layout, 2026-11-10; it began as an inspector tab).
-A desktop page is drawn at its real size (the user's call, 2026-11-10: a
-shrunken page isn't a preview, and hiding the sidebar wasn't enough on a
-16" screen). So a desktop page takes the whole window, whatever the
-window's width, and the workspaces and
-conversation become a drawer over its left side (`PreviewDrawer`,
-`MainContainerController`): ⇧⌘S or the drawer's own right edge (a flush
-strip with a chevron, the whole of it a button, which stays at the window's
-left edge while the drawer is away; the user, 2026-11-11, in place of a
-button among the preview's controls) slides it out or puts it away, and nothing else does (no hover,
-no timer, clicking the page leaves it). While it's away the titlebar shows
-the open conversation as its tab would (name and status; click to bring
-the drawer out), and that conversation gets no toast. A new tab, switching
-tabs, or opening a notification brings the drawer out. The other way is a
-toggle (⇧⌘L, or the split button in the preview's controls; one choice for
-every workspace, kept): the page beside the conversation in the room that's
-left, drawn smaller under 1280 points. The user, 2026-11-11: a shrunken
-page is fine when it's chosen and the drawer is the default; and nothing
-switches between the two by itself any more (the window's width used to,
-at 1970 points). At phone size the page is always beside the conversation.
-At phone size the preview is a sidebar of its own width (430 by default:
-the phone and a little room; dragging its edge sets another, kept apart
-from the inspector's) and the conversation gets the rest. A phone is never
-drawn smaller for a short window: its page is shorter and scrolls.
-Discussed and left for later: moving the activity toast to
-the upper-left while the preview is open. Phone (390×844,
-iPhone user agent) or desktop (1280 wide) size, ⇧⌘M to switch; the page is always laid out
-at its real width and drawn smaller in a narrow column. Comment mode (⇧⌘C): click
-an element or drag an area, type a note, and a screenshot plus one line
-(selector, viewport, URL) go to the open conversation. Return sends it at
-once as its own prompt (the user's choice 2026-11-10, "experiment with it");
-Settings ▸ Preview ▸ Comments (2026-11-18, the user's idea: they want them
-teed up, others may want them sent): Return sends to the conversation
-(default) or adds a Tee-Up card with the screenshot and keeps picking;
-Shift-Return does the other one (the user's call, 2026-11-18; it used to add
-the comment to the composer, which Tee-Up replaces for gathering several). An
-"Added to Tee-Up" pill confirms, since the list isn't in view.
-The page reloads whenever Claude finishes a turn in the workspace.
-Claude gets an MCP server `preview` (navigate, screenshot, read_console,
-set_viewport, evaluate, click, type) in conversations started while it's
-on, relayed through the bridge. "Open in <default browser>" in the toolbar.
-The start screen offers local addresses the workspace's terminals printed,
-and a local link (localhost, an IP address, `.local`) clicked in a terminal
-opens in the preview; named sites still go to the default browser.
+Reworked 2026-11-20 (the user: the main window is the workspace for
+conversations; the browser is a tool agents use without competing for room
+or attention). It used to be a panel in the right column, with a desktop
+page taking the whole window and the conversation becoming a drawer; all of
+that is gone (`PreviewDrawer`, `MainContainerController`, the preview's turn
+in the right column, ⇧⌘L, the phone column width).
+
+What it is now: a browser per workspace (`PreviewSession`, a WKWebView with
+its own cookies) that runs whether anything shows it or not, and a native
+window of its own for it (`PreviewWindowController`, one per workspace,
+frame remembered per workspace) that the user opens to watch or use the same
+live page. Closing the window only hides it: the page, console and Claude's
+use of it go on. Claude's tools never open the window, bring it forward or
+take the keyboard (`navigate` used to show the panel).
+- The titlebar's compass, at the end of the conversation tabs, is the
+  indicator: accent-colored and pulsing while Claude is using the browser
+  (a call running, or one ended in the last 3 s), filled while the window
+  is open. A click (or ⇧⌘B) shows and focuses the window. In the window:
+  ⇧⌘B or ⌘W hides it, ⌘R reloads, ⌘L goes to the address, ⇧⌘M switches
+  phone/desktop (and sizes the window for it; Claude's `set_viewport`
+  never moves the window), ⇧⌘C comments.
+- The toolbar is AppKit (`NSToolbar`): SwiftUI's bridged toolbar kept the
+  address at a fixed width and sent everything to the overflow menu in a
+  phone-size window.
+- While Claude uses a page whose window is closed, the page waits in
+  `PreviewBackstage`: a 1-point, transparent, click-through window. Out of
+  any window WebKit runs a page as hidden: no requestAnimationFrame at all
+  and throttled timers, so animated UIs never settle. In the backstage it's
+  visible to WebKit (60 fps rAF, full-rate timers, measured 2026-11-20).
+  When Claude goes idle the page leaves it and is throttled again.
+- Comment mode works in the window as before; Esc or sending a comment keeps
+  the keyboard in the browser window (it used to go back to the composer).
+- A local link clicked in a terminal opens in the workspace's browser window
+  and brings it forward (that's the user's own click). The page reloads
+  whenever Claude finishes a turn in the workspace. Claude gets an MCP
+  server `preview` (navigate, screenshot, read_console, set_viewport,
+  evaluate, click, type) in conversations started while it's on, relayed
+  through the bridge; its instructions say the window may be hidden.
+- Phone (390×844, iPhone user agent) or desktop (1280 wide); the page is
+  always laid out at its real width and drawn smaller in a narrow window.
+  Comments (⇧⌘C): click an element or drag an area, type a note; Return
+  sends to the conversation or Tee-Up per Settings ▸ Browser ▸ Comments,
+  Shift-Return the other way.
 
 Not done / to decide after living with it:
-- The drawer: Esc doesn't put it away (in the conversation Esc interrupts
-  Claude). Its width is fixed (workspaces + the conversation's minimum).
-  The titlebar row changes at once while the drawer slides. Whether the
-  status in the titlebar is enough for permission prompts, or the drawer
-  should come out for them (the user: "try a status pill and see").
+- The indicator shows only the workspace on screen; Claude using the
+  browser in a background workspace shows nowhere (the sidebar could).
+- A page's alert/confirm/prompt is a sheet only while its window is open
+  and Toasty is in front; otherwise it's dismissed and noted in the console.
+- Whether the window was open isn't remembered across launches.
 - Turning the setting on or off reaches running conversations only when
   they restart (the SDK's `setMcpServers` could do it live).
-- No console view for the user (Claude has `read_console`; right-click ▸
-  Inspect Element opens Safari's Web Inspector if that's enabled).
-- Whether the preview is showing isn't remembered across launches.
-- Claude's `navigate` opens the panel (and so narrows the conversation) in
-  the workspace on screen; may want to be less forceful.
-- No touch emulation, no back/forward buttons (two-finger swipe works).
-- A page in a workspace that isn't on screen runs as a hidden page (timers
-  slow down); screenshots and scripts still work.
-- Chromium-only bugs: "Open in Chrome" is the answer for now. A headless
-  Chrome over CDP was considered and left out.
+- No console view for the user (right-click ▸ Inspect Element opens
+  Safari's Web Inspector if that's enabled). No back/forward buttons
+  (two-finger swipe works). No touch emulation.
+- Saved window frames (`NSWindow Frame PreviewWindow-<id>`) for workspaces
+  that are gone stay in defaults.
+- Chromium-only bugs: "Open in Chrome" is the answer for now.
 - Comments carry a selector, not source file and line.
 
 ## Screenshots from any app (⇧⌘0)

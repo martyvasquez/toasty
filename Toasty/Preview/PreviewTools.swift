@@ -5,7 +5,10 @@ import AppKit
 /// otherwise). The bridge relays each call here and the answer back.
 ///
 /// This is the one place Toasty adds tools to Claude Code (BUILD_PLAN §1):
-/// they only drive the preview pane, and the setting removes them entirely.
+/// they only drive the workspace's browser, and the setting removes them
+/// entirely. They work whether the browser window is open or not, and never
+/// open it, bring it forward or take the keyboard: the user shows it when
+/// they want to watch (the titlebar's indicator says when Claude is in it).
 @MainActor
 enum PreviewTools {
     static let serverName = "preview"
@@ -17,8 +20,10 @@ enum PreviewTools {
     }
 
     private static let instructions = """
-        The preview is a browser pane inside Toasty, the app this conversation runs in, for the site the user is developing. \
-        Use it for local dev servers: it leaves the user's own browser alone, and the user sees the same pane. \
+        The preview is a browser in Toasty, the app this conversation runs in, for the site the user is developing. \
+        Use it for local dev servers: it leaves the user's own browser alone. \
+        It runs in the background in a window of its own, which the user opens when they want to watch: it may be hidden, and using it never shows it or interrupts the user. \
+        When they open it they see the same page you are using, and can use it too. \
         It shows a page at one of two sizes, mobile (390 wide, iPhone user agent) or desktop (1280 wide); every result says which. \
         It is WebKit (Safari's engine), not Chromium. \
         The user can comment on things in the page: a comment arrives in their message with a CSS selector, the viewport and a screenshot with the thing outlined.
@@ -32,7 +37,7 @@ enum PreviewTools {
     }
 
     private static let tools: [[String: Any]] = [
-        tool("navigate", "Open a URL in the preview and wait for it to load. `localhost:3000` or just a port (`3000`) works. Shows the preview pane to the user.",
+        tool("navigate", "Open a URL in the preview and wait for it to load. `localhost:3000` or just a port (`3000`) works.",
              ["url": ["type": "string", "description": "The address to open."]], required: ["url"]),
         tool("screenshot", "A picture of what the preview shows now, at the current viewport.", readOnly: true),
         tool("read_console", "The page's console since it loaded: logs, warnings, uncaught errors, failed requests and resources that didn't load.",
@@ -69,17 +74,18 @@ enum PreviewTools {
         let session = PreviewStore.shared.session(for: workspace)
         let input = call["input"] as? [String: Any] ?? [:]
         let name = call["tool"] as? String ?? ""
+        session.agentBegan()
         Task {
             do {
-                reply(try await run(name, input, session: session, workspace: workspace))
+                reply(try await run(name, input, session: session))
             } catch {
                 reply(self.error(error.localizedDescription))
             }
+            session.agentEnded()
         }
     }
 
-    private static func run(_ name: String, _ input: [String: Any], session: PreviewSession,
-                            workspace: Workspace) async throws -> [String: Any] {
+    private static func run(_ name: String, _ input: [String: Any], session: PreviewSession) async throws -> [String: Any] {
         func string(_ key: String) throws -> String {
             guard let s = input[key] as? String, !s.isEmpty else { throw PreviewError("`\(key)` is required.") }
             return s
@@ -87,7 +93,6 @@ enum PreviewTools {
         switch name {
         case "navigate":
             let target = try string("url")
-            workspace.showPreview()
             if let problem = await session.navigate(target) {
                 return error("Couldn't open \(target): \(problem)\n\(status(session))")
             }

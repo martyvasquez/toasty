@@ -25,35 +25,27 @@ final class WindowLayout: ObservableObject {
 struct TitlebarRow: View {
     @ObservedObject var store: WorkspaceStore
     @ObservedObject var layout: WindowLayout
-    /// The preview's button comes and goes with its setting.
+    /// The browser's indicator comes and goes with its setting.
     @ObservedObject private var preview = PreviewSettings.shared
-    /// While the conversation is put away for the page (`PreviewDrawer`),
-    /// the preview's controls have the whole row.
-    @ObservedObject private var drawer = PreviewDrawer.shared
 
     /// The bar's margin at each end (Things' toolbar: 12).
     static let edge: CGFloat = 12
 
     var body: some View {
         HStack(spacing: 0) {
-            if let workspace = store.active, drawer.hidesConversation {
-                RightColumnBar(workspace: workspace)
-                    .padding(.leading, layout.leadingInset)
-                    .frame(maxWidth: .infinity)
-                PreviewToggle(workspace: workspace)
-                ColumnToggle(workspace: workspace)
-            } else if let workspace = store.active {
+            if let workspace = store.active {
                 // Each part of the bar is its column's color, so the bar
                 // reads as the top of the page and of the inspector, not a
                 // strip of its own (as Things' toolbar over its list).
                 let right = layout.terminalWidth > 0
                 // The browser belongs to the conversation, not the
-                // inspector: its button ends the conversation's tab row.
+                // inspector: its indicator ends the conversation's tab row.
                 HStack(spacing: 0) {
                     ConversationTabBar(workspace: workspace)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                     if preview.enabled {
-                        PreviewToggle(workspace: workspace)
+                        PreviewIndicator(session: PreviewStore.shared.session(for: workspace))
+                            .id(workspace.id)
                             .padding(.trailing, right ? Theme.Space.s : Self.edge)
                     }
                 }
@@ -65,7 +57,7 @@ struct TitlebarRow: View {
                         Rectangle().fill(Color.claudeSeparator).frame(width: 0.5)
                         // At its open width, uncovered from the column's
                         // edge as it slides (as the panel under it is).
-                        RightColumnBar(workspace: workspace)
+                        InspectorTabBar(workspace: workspace)
                             .frame(width: max(0, max(layout.terminalOpenWidth, layout.terminalWidth) - 0.5))
                             .frame(width: max(0, layout.terminalWidth - 0.5), alignment: .leading)
                             .clipped()
@@ -81,57 +73,10 @@ struct TitlebarRow: View {
         // Things' toolbar); the titlebar's extra height below it belongs to
         // the content.
         .frame(height: layout.buttonsMidY > 0 ? layout.buttonsMidY * 2 : nil)
-        .background(ZStack { Color.claudeChrome; WindowDragArea() })  // the preview drawer's row
+        .background(ZStack { Color.claudeChrome; WindowDragArea() })
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1) }
         .frame(maxHeight: .infinity, alignment: .top)
         .background(WindowDragArea())
-    }
-}
-
-/// Over the right column: the inspector's tabs, or the preview's controls
-/// while the preview has the column.
-private struct RightColumnBar: View {
-    @ObservedObject var workspace: Workspace
-
-    var body: some View {
-        if workspace.previewShowing {
-            PreviewToolbar(workspace: workspace, session: PreviewStore.shared.session(for: workspace))
-                .id(workspace.id)
-        } else {
-            InspectorTabBar(workspace: workspace)
-        }
-    }
-}
-
-/// Shows or hides the inspector and terminal (from the preview: swaps to them).
-private struct ColumnToggle: View {
-    @ObservedObject var workspace: Workspace
-
-    var body: some View {
-        let shown = workspace.rightColumnVisible && !workspace.previewShowing
-        BarIconButton(symbol: "sidebar.right",
-                      tooltip: Tooltip(title: shown ? "Hide Inspector and Terminal" : "Show Inspector", shortcut: "⇧⌘D",
-                                       detail: "Changes, usage, teed-up prompts and activity, beside the conversation."),
-                      active: shown, glyphSize: Theme.Size.body, size: CGSize(width: 32, height: TabStyle.height)) {
-            AppDelegate.shared.windowController?.toggleRightColumn(nil)
-        }
-        .padding(.leading, 4)
-        .padding(.trailing, TitlebarRow.edge)
-    }
-}
-
-/// Shows or hides the preview (experimental; only while it's turned on).
-private struct PreviewToggle: View {
-    @ObservedObject var workspace: Workspace
-
-    var body: some View {
-        BarIconButton(symbol: "safari",
-                      tooltip: Tooltip(title: workspace.previewShowing ? "Hide Preview" : "Show Preview", shortcut: "⇧⌘B",
-                                       detail: "The page you're building, beside the conversation."),
-                      active: workspace.previewShowing, glyphSize: Theme.Size.body, size: CGSize(width: 32, height: TabStyle.height)) {
-            AppDelegate.shared.windowController?.togglePreview(nil)
-        }
-        .padding(.leading, 4)
     }
 }
 

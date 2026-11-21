@@ -8,9 +8,6 @@ enum PreviewDebug {
         // {"cmd":"preview"} says what the active workspace's preview shows.
         DebugControl.register("preview") { cmd in
             if let on = cmd["enabled"] as? Bool { PreviewSettings.shared.enabled = on }
-            // {"drawer":false} puts the conversation away (while a desktop
-            // page has the whole window); true slides it out.
-            if let open = cmd["drawer"] as? Bool { PreviewDrawer.shared.setOpen(open) }
             if let to = (cmd["commentsTo"] as? String).flatMap(PreviewSettings.CommentDestination.init(rawValue:)) {
                 PreviewSettings.shared.commentsTo = to
             }
@@ -22,11 +19,12 @@ enum PreviewDebug {
                 return ["enabled": PreviewSettings.shared.enabled]
             }
             let s = PreviewStore.shared.session(for: w)
-            if let address = cmd["open"] as? String {
-                w.showPreview()
-                s.open(address)
+            // {"open":"localhost:3000"} opens a page without showing the
+            // window; {"window":true} shows it, false closes it.
+            if let address = cmd["open"] as? String { s.open(address) }
+            if let show = cmd["window"] as? Bool {
+                if show { PreviewStore.shared.showWindow(for: w) } else { PreviewStore.shared.window(for: w.id)?.close() }
             }
-            if let show = cmd["show"] as? Bool { show ? w.showPreview() : w.hidePreview() }
             if let v = (cmd["viewport"] as? String).flatMap(PreviewViewport.init(rawValue:)) { s.setViewport(v) }
             if let on = cmd["commenting"] as? Bool { s.setCommenting(on) }
             var out: [String: Any] = ["enabled": true, "address": s.address, "loading": s.isLoading]
@@ -38,14 +36,20 @@ enum PreviewDebug {
             out["console"] = s.console.map { "[\($0.level)] \($0.text)" }
             out["hosted"] = s.stage != nil
             if let web = s.webView { out["frame"] = NSStringFromRect(web.convert(web.bounds, to: nil)) }
-            out["titlebarWidth"] = AppDelegate.shared.windowController?.layout.terminalWidth ?? -1
-            if let w = cmd["phoneWidth"] as? Double ?? (cmd["phoneWidth"] as? Int).map(Double.init) {
-                PreviewSettings.shared.phoneColumnWidth = CGFloat(w)
-                AppDelegate.shared.windowController?.split.applyColumn()
+            // {"action":"closeTab:"}: a menu command, sent the way the menu
+            // sends it (to the key window's responder chain).
+            if let action = cmd["action"] as? String {
+                out["handled"] = NSApp.sendAction(NSSelectorFromString(action), to: nil, from: nil)
             }
-            out["phoneWidth"] = Double(PreviewSettings.shared.phoneColumnWidth)
-            out["drawerActive"] = PreviewDrawer.shared.active
-            out["drawerOpen"] = PreviewDrawer.shared.open
+            out["windowOpen"] = s.windowOpen
+            out["backstage"] = PreviewBackstage.shared.holding
+            out["agentActive"] = s.agentActive
+            if let window = PreviewStore.shared.window(for: w.id)?.window {
+                out["windowVisible"] = window.isVisible
+                out["windowKey"] = window.isKeyWindow
+                out["windowFrame"] = NSStringFromRect(window.frame)
+            }
+            out["mainKey"] = AppDelegate.shared.windowController?.window?.isKeyWindow ?? false
             out["tools"] = PreviewTools.servers().count
             out["draft"] = w.selected?.draft ?? ""
             out["attachments"] = w.selected?.attachments.count ?? 0

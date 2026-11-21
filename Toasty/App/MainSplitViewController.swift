@@ -31,13 +31,6 @@ final class MainSplitViewController: NSSplitViewController {
     private var applying = false
     private var shownWorkspace: UUID?
     private var sidebarAnimating = false
-    /// The preview's page has the whole window and this split view is the
-    /// drawer over it (`PreviewDrawer`, `MainContainerController`): the
-    /// workspaces and the conversation, with no right column.
-    private(set) var drawerMode = false
-    /// Asked before a workspace's right column is laid out: whether the
-    /// drawer has it instead (the answer arrives through `setDrawerMode`).
-    var resolveDrawer: (() -> Void)?
     private var terminalAnimating = false
 
     init(store: WorkspaceStore, layout: WindowLayout) {
@@ -82,9 +75,8 @@ final class MainSplitViewController: NSSplitViewController {
         addSplitViewItem(terminalItem)
         // Double-clicking a column's edge puts it back to its default width.
         (splitView as? HairlineSplitView)?.onDoubleClickDivider = { [weak self] i in self?.resetColumn(atDivider: i) }
-        // While the window resizes beside the preview it's the right column
-        // that changes width, and `splitViewDidResizeSubviews` arrives before
-        // its frame is set: the titlebar row would sit over the old width.
+        // `splitViewDidResizeSubviews` can arrive before the right column's
+        // frame is set: the titlebar row would sit over the old width.
         rightColumn.onLayout = { [weak self] in self?.layoutChanged() }
 
         store.$activeID
@@ -97,11 +89,10 @@ final class MainSplitViewController: NSSplitViewController {
             .store(in: &cancellables)
     }
 
-    /// Show the sidebar if the user wants it. In the drawer the workspaces
-    /// always come along, wanted beside the conversation or not.
+    /// Show the sidebar if the user wants it.
     private func applySidebar(wanted: Bool? = nil, animated: Bool = true) {
         guard isViewLoaded else { return }
-        let visible = drawerMode || (wanted ?? store.sidebarVisible)
+        let visible = wanted ?? store.sidebarVisible
         guard sidebarItem.isCollapsed == visible else { return }
         guard animated, view.window != nil else {
             sidebarItem.isCollapsed = !visible
@@ -118,27 +109,6 @@ final class MainSplitViewController: NSSplitViewController {
                 self?.layoutChanged()
             }
         }
-    }
-
-    /// The page takes the whole window (or gives it back): at once, since
-    /// the page changes size with it.
-    func setDrawerMode(_ on: Bool) {
-        guard on != drawerMode else { return }
-        drawerMode = on
-        applying = true
-        applySidebar(animated: false)
-        applySidebarWidth()
-        if let w = store.active {
-            rightColumn.apply(w, animated: false)
-            setTerminal(visible: columnVisible(for: w), animated: false, width: columnWidth(for: w))
-            if !on, columnVisible(for: w) {
-                // Opened at once, the column is laid out against the
-                // conversation's old width: place its edge once it's there.
-                splitView.layoutSubtreeIfNeeded()
-                setTerminal(visible: true, animated: false, width: columnWidth(for: w))
-            }
-        }
-        applying = false
     }
 
     override func viewDidAppear() {
@@ -171,29 +141,24 @@ final class MainSplitViewController: NSSplitViewController {
             terminalColumn.show(nil)
             rightColumn.apply(nil, animated: false)
             setTerminal(visible: false, animated: false)
-            resolveDrawer?()
             return
         }
-        resolveDrawer?()
         rightColumn.apply(w, animated: false)
         setTerminal(visible: columnVisible(for: w), animated: false, width: columnWidth(for: w))
         terminalColumn.show(w.terminalVisible ? w.selectedTerminal : nil)
 
-        // Either half of the right column showing or hiding, or the preview
-        // taking the column over.
-        w.$terminalVisible.combineLatest(w.$inspectorVisible, w.$previewVisible)
+        // Either half of the right column showing or hiding.
+        w.$terminalVisible.combineLatest(w.$inspectorVisible)
             .dropFirst()
             .removeDuplicates { $0 == $1 }
             .receive(on: DispatchQueue.main)
             .sink { [weak self, weak w] _ in
                 guard let self, let w else { return }
                 if w.terminalVisible { self.terminalColumn.show(w.selectedTerminal ?? w.terminals.first) }
-                self.resolveDrawer?()
                 let columnChanges = self.terminalItem.isCollapsed == self.columnVisible(for: w)
-                let swaps = self.rightColumn.showsPreview != w.previewShowing
                 // Within a shown column, the halves animate; a column that
-                // opens or closes (or changes hands) takes its new halves with it.
-                self.rightColumn.apply(w, animated: !columnChanges && !swaps)
+                // opens or closes takes its new halves with it.
+                self.rightColumn.apply(w, animated: !columnChanges)
                 self.setTerminal(visible: self.columnVisible(for: w), animated: true, width: self.columnWidth(for: w))
             }
             .store(in: &workspaceCancellables)
@@ -209,25 +174,16 @@ final class MainSplitViewController: NSSplitViewController {
             .store(in: &workspaceCancellables)
     }
 
-    /// The preview takes all the room there is (the conversation keeps its
-    /// minimum); the inspector and terminal keep the width the user gave them.
-    /// The right column shows, unless its page has the whole window.
     private func columnVisible(for w: Workspace) -> Bool {
-        w.rightColumnVisible && !drawerMode
+        w.rightColumnVisible
     }
 
+    /// The inspector and terminal keep the width the user gave them.
     private func columnWidth(for w: Workspace) -> CGFloat {
-        guard w.previewShowing else { return store.rightColumnWidth }
-        return previewIsPhone(w) ? PreviewSettings.shared.phoneColumnWidth : 100_000
+        store.rightColumnWidth
     }
 
-    /// The preview has the column at phone size: a sidebar of its own
-    /// width, with the conversation getting the rest.
-    private func previewIsPhone(_ w: Workspace) -> Bool {
-        w.previewShowing && PreviewStore.shared.session(for: w).viewport == .mobile
-    }
-
-    /// The page changed size (phone or desktop): its column follows.
+    /// The column at the workspace's width (put back to its default).
     func applyColumn() {
         guard isViewLoaded, view.window != nil, let w = store.active else { return }
         setTerminal(visible: columnVisible(for: w), animated: false, width: columnWidth(for: w))
@@ -237,10 +193,6 @@ final class MainSplitViewController: NSSplitViewController {
         let was = applying
         applying = true
         defer { applying = was }
-        // Resizing the window: the conversation takes the change, except
-        // beside a desktop page, which keeps it at its minimum.
-        let previewing = store.active.map { $0.previewShowing && !previewIsPhone($0) } ?? false
-        contentItem.holdingPriority = .init(previewing ? 256 : 249)
         if visible, let width {
             let total = splitView.bounds.width - (sidebarItem.isCollapsed ? 0 : sidebarItem.viewController.view.frame.width)
             let w = min(max(Self.minTerminal, width), max(Self.minTerminal, total - Self.minConversation))
@@ -285,23 +237,15 @@ final class MainSplitViewController: NSSplitViewController {
         layoutChanged()
         guard !applying, let w = store.active else { return }
         // The user dragged the column's divider: remember the width.
-        if !terminalAnimating, !drawerMode, !terminalItem.isCollapsed, w.rightColumnVisible, !w.previewShowing {
+        if !terminalAnimating, !terminalItem.isCollapsed, w.rightColumnVisible {
             let width = rightColumn.view.frame.width
             if abs(width - store.rightColumnWidth) > 0.5, width >= Self.minTerminal {
                 store.rightColumnWidth = width
                 store.setNeedsSave()
             }
         }
-        // The user dragged the edge of the preview's column at phone size:
-        // that width is its own.
-        if !terminalAnimating, !drawerMode, !terminalItem.isCollapsed, previewIsPhone(w), draggingColumnEdge {
-            let width = rightColumn.view.frame.width
-            if abs(width - PreviewSettings.shared.phoneColumnWidth) > 0.5, width >= Self.minTerminal {
-                PreviewSettings.shared.phoneColumnWidth = width
-            }
-        }
         // The user dragged the sidebar's edge: remember its width.
-        if !sidebarAnimating, !drawerMode, !sidebarItem.isCollapsed, draggingDivider(0) {
+        if !sidebarAnimating, !sidebarItem.isCollapsed, draggingDivider(0) {
             let width = sidebarItem.viewController.view.frame.width
             if abs(width - store.sidebarWidth) > 0.5, WorkspaceStore.sidebarWidthRange.contains(width) {
                 store.sidebarWidth = width
@@ -310,17 +254,10 @@ final class MainSplitViewController: NSSplitViewController {
         }
         // The user collapsed the sidebar by dragging it closed.
         let sidebarShown = !sidebarItem.isCollapsed
-        if !sidebarAnimating, !drawerMode, sidebarShown != store.sidebarVisible {
+        if !sidebarAnimating, sidebarShown != store.sidebarVisible {
             store.sidebarVisible = sidebarShown
             store.setNeedsSave()
         }
-    }
-
-    /// The mouse is down at the right column's edge.
-    private var draggingColumnEdge: Bool {
-        guard NSEvent.pressedMouseButtons & 1 != 0, let window = view.window else { return false }
-        let edge = rightColumn.view.convert(rightColumn.view.bounds, to: nil).minX
-        return abs(window.mouseLocationOutsideOfEventStream.x - edge) <= 16
     }
 
     /// Something outside the split view moved what the titlebar row follows.
@@ -353,18 +290,13 @@ final class MainSplitViewController: NSSplitViewController {
     }
 
     private func layoutChanged() {
-        var width = terminalItem.isCollapsed ? 0 : rightColumn.view.frame.width
+        let width = terminalItem.isCollapsed ? 0 : rightColumn.view.frame.width
         // While it slides, the titlebar's width is the animation's.
         if terminalAnimating {
             onLayout?()
             return
         }
         if width > 0 { layout.terminalOpenWidth = width }
-        if drawerMode, let total = view.superview?.bounds.width {
-            // The preview's controls sit over the page: what shows of it
-            // right of the drawer and its edge, or all of it.
-            width = PreviewDrawer.shared.open ? max(0, total - view.frame.width - PreviewDrawerEdge.width) : total
-        }
         if abs(layout.terminalWidth - width) > 0.25 { layout.terminalWidth = width }
         onLayout?()
     }
@@ -426,7 +358,7 @@ extension MainSplitViewController {
                 ctx.allowsImplicitAnimation = true
                 applySidebarWidth()
             }
-        } else if index == 1, !w.previewShowing {
+        } else if index == 1 {
             store.rightColumnWidth = WorkspaceStore.defaultRightColumnWidth
             store.setNeedsSave()
             NSAnimationContext.runAnimationGroup { ctx in
@@ -455,9 +387,6 @@ final class RightColumnController: NSSplitViewController {
     let terminalColumn: TerminalColumnController
     private(set) var inspectorItem: NSSplitViewItem!
     private(set) var terminalItem: NSSplitViewItem!
-    /// The preview browser (experimental): instead of both halves.
-    private(set) var previewItem: NSSplitViewItem!
-    private(set) var showsPreview = false
     private var applying = false
     private weak var shown: Workspace?
     /// The column was laid out (its width is final).
@@ -492,40 +421,20 @@ final class RightColumnController: NSSplitViewController {
         terminalItem.canCollapse = true
         terminalItem.holdingPriority = .init(251)
 
-        let preview = NSHostingController(rootView: PreviewColumn(store: store))
-        preview.sizingOptions = []
-        previewItem = NSSplitViewItem(viewController: preview)
-        previewItem.minimumThickness = Self.minInspector
-        previewItem.canCollapse = true
-        previewItem.holdingPriority = .init(249)
-        previewItem.isCollapsed = true
-
         addSplitViewItem(inspectorItem)
         addSplitViewItem(terminalItem)
-        addSplitViewItem(previewItem)
     }
 
     /// Show the workspace's halves (and its divider position).
     func apply(_ w: Workspace?, animated: Bool) {
         loadViewIfNeeded()
         shown = w
-        let preview = w?.previewShowing ?? false
-        let inspector = !preview && (w?.inspectorVisible ?? false)
+        let inspector = w?.inspectorVisible ?? false
         // A column with neither half keeps its last look while it closes.
-        let terminal = !preview && (w?.terminalVisible ?? false)
-        guard inspector || terminal || preview else { return }
+        let terminal = w?.terminalVisible ?? false
+        guard inspector || terminal else { return }
         applying = true
         defer { applying = false }
-        // The preview and the halves change places at once.
-        if preview != showsPreview || preview {
-            showsPreview = preview
-            previewItem.isCollapsed = !preview
-            if preview {
-                inspectorItem.isCollapsed = true
-                terminalItem.isCollapsed = true
-                return
-            }
-        }
         let change = {
             self.inspectorItem.isCollapsed = !inspector
             self.terminalItem.isCollapsed = !terminal
@@ -546,7 +455,7 @@ final class RightColumnController: NSSplitViewController {
     }
 
     private func applyFraction() {
-        guard let w = shown, w.inspectorVisible, w.terminalVisible, !w.previewShowing else { return }
+        guard let w = shown, w.inspectorVisible, w.terminalVisible else { return }
         let total = splitView.bounds.height
         guard total > 0 else { return }
         applying = true
@@ -568,7 +477,7 @@ final class RightColumnController: NSSplitViewController {
     override func splitViewDidResizeSubviews(_ notification: Notification) {
         super.splitViewDidResizeSubviews(notification)
         // The user dragged the divider: remember where.
-        guard !applying, let w = shown, w.inspectorVisible, w.terminalVisible, !w.previewShowing,
+        guard !applying, let w = shown, w.inspectorVisible, w.terminalVisible,
               !inspectorItem.isCollapsed, !terminalItem.isCollapsed,
               NSApp.currentEvent?.type == .leftMouseDragged else { return }
         let total = splitView.bounds.height
