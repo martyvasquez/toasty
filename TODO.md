@@ -233,6 +233,27 @@ Later:
   from the lockfile (npm/pnpm/yarn/bun, uv/poetry, bundler, SwiftPM) and run
   the install in the worktree's terminal tab so the output is visible.
 
+## Vibe-coding ideas (discussed 2026-11-21, not committed)
+
+Judged by "does it make trying things cheaper without adding a screen?"
+
+1. **Rewind.** Hover your own message → "Go Back to Here": restores files
+   and the conversation to before that prompt. The SDK has it
+   (`enableFileCheckpointing`, `rewindFiles`); check it works in SDK mode
+   for current models first. Same row as "Fork from your own prompt".
+2. **Errors go to Claude in one click.** A browser console error or a
+   crashed dev server in a terminal shows a small "Send to Claude" chip that
+   attaches the output. User-driven, so principle 3 holds.
+3. **Run (⌘R).** Start the project's dev server (from `package.json`,
+   etc.) in a terminal tab and open the browser on its port. Local
+   Servers already tracks what's running.
+4. **Turn summary.** At the end of a turn, one quiet line: "Changed 4 files
+   +120 −30", clicking into the Changes tab's diffs. No tokens.
+5. **New Project…** An empty folder, `git init`, a workspace and a
+   conversation in one step.
+
+Promote from other lists: Files in the @ menu; Tee up from the composer.
+
 ## Browser (experimental; was "Preview")
 
 Built 2026-11-10 (`Toasty/Preview/`), off by default in Settings ▸ Browser.
