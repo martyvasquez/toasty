@@ -76,7 +76,7 @@ enum DictationTones {
     }
 
     /// 16-bit PCM WAV.
-    nonisolated private static func wav(_ samples: [Float], rate: Int) -> Data {
+    nonisolated static func wav(_ samples: [Float], rate: Int) -> Data {
         var data = Data()
         func u32(_ v: UInt32) { withUnsafeBytes(of: v.littleEndian) { data.append(contentsOf: $0) } }
         func u16(_ v: UInt16) { withUnsafeBytes(of: v.littleEndian) { data.append(contentsOf: $0) } }

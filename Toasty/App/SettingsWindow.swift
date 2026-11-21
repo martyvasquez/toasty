@@ -2,7 +2,8 @@ import AppKit
 import SwiftUI
 
 /// Toasty ▸ Settings… (⌘,): a standard Mac settings window with a
-/// preference-style toolbar: General (the default model), Dictation,
+/// preference-style toolbar: General (the default model, appearance,
+/// the sound, updates), Dictation,
 /// Screenshots (⇧⌘0 from any app), Tee-Up (Auto-Send), and Browser (the experimental
 /// browser's on/off switch).
 @MainActor

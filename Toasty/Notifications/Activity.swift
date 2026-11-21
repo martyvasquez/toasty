@@ -51,12 +51,6 @@ final class Activity: NSObject, ObservableObject {
     private var banners: [UUID: [String]] = [:]
     private var cancellables: Set<AnyCancellable> = []
 
-    /// A sound from /System/Library/Sounds or ~/Library/Sounds, or "none":
-    /// `defaults write com.martyvasquez.toasty ToastySound Glass`.
-    private var soundName: String {
-        UserDefaults.standard.string(forKey: "ToastySound") ?? "Glass"
-    }
-
     private override init() {
         super.init()
         // Coming back to Toasty: the conversation on screen has been seen.
@@ -216,11 +210,8 @@ final class Activity: NSObject, ObservableObject {
             .joined(separator: " ")
         messages[conversation.id] = Message(text: body.isEmpty ? title : body, date: Date(), stopped: stopped, paused: paused)
 
-        // 1. Sound
-        if soundName.lowercased() != "none", let sound = NSSound(named: NSSound.Name(soundName)) {
-            sound.stop()
-            sound.play()
-        }
+        // 1. Sound (Settings ▸ General).
+        AlertSound.shared.playIfEnabled()
 
         let visible = isVisible(conversation)
 

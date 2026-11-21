@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = MainMenu.make()
+        // Light, Dark or Automatic (Settings ▸ General), before any window.
+        AppearanceSetting.shared.apply()
     }
 
     /// Unit tests run hosted in the Debug app: start nothing (no window,

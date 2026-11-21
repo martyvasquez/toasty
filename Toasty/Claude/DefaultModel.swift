@@ -118,10 +118,12 @@ struct GeneralSettingsView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             }
+            AppearanceAndSoundSection()
             if Updater.isAvailable { UpdateSettingsSection() }
         }
         .formStyle(.grouped)
         .frame(width: 600, height: 118 + (settings.removed != nil ? 28 : 0) + (settings.models.isEmpty ? 24 : 0)
+            + AppearanceAndSoundSection.height
             + (Updater.isAvailable ? UpdateSettingsSection.height : 0))
     }
 }
