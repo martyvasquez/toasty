@@ -408,8 +408,8 @@ final class PreviewSession: NSObject, ObservableObject {
     }
 
     fileprivate func scrolled(in web: WKWebView?, _ body: Any) {
-        guard scrollSync, sideBySide, let web else { return }
-        scrollSyncer.scrolled(in: web, body)
+        guard sideBySide, let web else { return }
+        scrollSyncer.scrolled(in: web, body, syncOn: scrollSync)
     }
     fileprivate func twinFailed(_ error: Error) {
         twinFollowing = false

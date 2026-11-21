@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import WebKit
 
 /// Scroll sync (experiment, the user 2026-11-21): in side by side, scrolling
@@ -27,6 +27,12 @@ final class PreviewScrollSync {
     /// page's scrolling is ours (an echo) until it has been still a moment.
     private var leader: ObjectIdentifier?
     private var leaderAt = Date.distantPast
+    /// Whether the scroll going on now syncs: the setting, flipped while ⌘
+    /// is held as it starts. Decided when scrolling starts and kept until it
+    /// has stopped a moment, so letting go of ⌘ mid-flick doesn't cut the
+    /// momentum off.
+    private var gestureSyncs = false
+    private var lastScrollAt = Date.distantPast
 
     /// Puts the script and its message handler on a web view's configuration.
     static func install(on configuration: WKWebViewConfiguration, relay: WKScriptMessageHandler) {
@@ -37,10 +43,15 @@ final class PreviewScrollSync {
     }
 
     /// A page scrolled (by the user, or as the other page's echo).
-    func scrolled(in web: WKWebView, _ body: Any) {
+    func scrolled(in web: WKWebView, _ body: Any, syncOn: Bool) {
         guard let main, let twin else { return }
         let id = ObjectIdentifier(web)
         let now = Date()
+        if now.timeIntervalSince(lastScrollAt) > 0.25 {
+            gestureSyncs = syncOn != NSEvent.modifierFlags.contains(.command)
+        }
+        lastScrollAt = now
+        guard gestureSyncs else { return }
         if let leader, leader != id, now.timeIntervalSince(leaderAt) < 0.12 { return }
         leader = id
         leaderAt = now
@@ -56,7 +67,8 @@ final class PreviewScrollSync {
         main.callAsyncJavaScript("return window.__toastyScroll?.state()", arguments: [:], in: nil,
                                  in: Self.world) { [weak self, weak twin] result in
             guard let self, let twin, case .success(let state) = result, !(state is NSNull) else { return }
-            self.apply(state, to: twin)
+            twin.callAsyncJavaScript("window.__toastyScroll?.instant(s)", arguments: ["s": state], in: nil,
+                                     in: Self.world, completionHandler: nil)
         }
     }
 
@@ -134,6 +146,30 @@ final class PreviewScrollSync {
       // others (a point between columns hits only their container; in a
       // row of cards, the row's first card, as a one-column phone reads it).
       // Fixed and sticky things (headers) don't count.
+      // Things side by side on the line (a row of cards): each lifted to
+      // the child of their common ancestor, so it's the cards, not what in
+      // them was hit. A one-column phone stacks them; the row's span maps to
+      // their span there, so it moves through all of them as this page
+      // moves through the row, instead of jumping at the row's end.
+      const rowOf = (leaves) => {
+        if (leaves.length < 2) return null;
+        let common = leaves[0].parentElement;
+        while (common && !leaves.every((l) => common.contains(l))) common = common.parentElement;
+        if (!common || common === document.body || common === document.documentElement) return null;
+        const cards = [];
+        for (const l of leaves) {
+          let c = l;
+          while (c.parentElement !== common) c = c.parentElement;
+          if (!cards.includes(c)) cards.push(c);
+        }
+        return cards.length > 1 ? cards : null;
+      };
+      const span = (els) => {
+        let top = Infinity, bottom = -Infinity;
+        for (const e of els) { const r = e.getBoundingClientRect(); top = Math.min(top, r.top); bottom = Math.max(bottom, r.bottom); }
+        return { top, height: Math.max(1, bottom - top) };
+      };
+
       const anchorAt = (sc, b) => {
         const left = isRoot(sc) ? 0 : Math.max(0, sc.getBoundingClientRect().left);
         const width = isRoot(sc) ? innerWidth : Math.min(innerWidth, sc.getBoundingClientRect().right) - left;
@@ -152,7 +188,7 @@ final class PreviewScrollSync {
           const fits = leaves.filter((h) => h.getBoundingClientRect().height <= b.height);
           if (fits.length) leaves = fits;
           leaves.sort((p, q) => (p.compareDocumentPosition(q) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1);
-          if (leaves.length) return { el: leaves[0], y };
+          if (leaves.length) return { el: leaves[0], y, row: rowOf(leaves) };
         }
         return null;
       };
@@ -174,16 +210,35 @@ final class PreviewScrollSync {
           const r = e.getBoundingClientRect();
           ratios.push(r.height > 0 ? (a.y - r.top) / r.height : 0);
         }
-        return { scroller, path: pathOf(a.el), ratios, line, fraction: m.top / m.max };
+        let row = null;
+        if (a.row) { const r = span(a.row); row = { paths: a.row.map(pathOf), ratio: (a.y - r.top) / r.height }; }
+        return { scroller, path: pathOf(a.el), ratios, row, line, fraction: m.top / m.max };
       };
 
-      const scrollBy = (sc, dy) => {
-        if (isRoot(sc)) window.scrollBy({ top: dy, behavior: "instant" });
-        else sc.scrollBy({ top: dy, behavior: "instant" });
-      };
-      const scrollTo = (sc, y) => {
+      const jump = (sc, y) => {
         if (isRoot(sc)) window.scrollTo({ top: y, behavior: "instant" });
         else sc.scrollTo({ top: y, behavior: "instant" });
+      };
+      // Glide toward where the other page says to be: each frame, part of
+      // the way there. Per-event jumps are uneven (each element maps a bit
+      // differently); this evens them out and still keeps up with a flick.
+      const EASE = 0.35;
+      let glide = null;
+      const glideTo = (sc, y) => {
+        const m = metrics(sc);
+        y = Math.max(0, Math.min(m.max, y));
+        if (glide && glide.sc === sc) { glide.goal = y; return; }
+        glide = { sc, goal: y, pos: m.top };
+        const step = () => {
+          if (!glide) return;
+          const g = glide, d = g.goal - g.pos;
+          g.pos = Math.abs(d) < 0.5 ? g.goal : g.pos + d * EASE;
+          muteUntil = performance.now() + 120;
+          jump(g.sc, g.pos);
+          if (g.pos === g.goal) { glide = null; return; }
+          requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
       };
       const scrollerAround = (el) => {
         for (let e = el?.parentElement; e && !isRoot(e); e = e.parentElement) if (scrollable(e)) return e;
@@ -223,13 +278,22 @@ final class PreviewScrollSync {
             if (a > area && scrollable(el)) { sc = el; area = a; }
           }
         }
-        if (s.edge === "top") return scrollTo(sc, 0);
-        if (s.edge === "bottom") { const m = metrics(sc); return scrollTo(sc, m.max + 10); }
-        if (!target) { const m = metrics(sc); return scrollTo(sc, (s.fraction || 0) * m.max); }
+        if (glide && glide.sc !== sc) glide = null;
+        if (s.edge === "top") return glideTo(sc, 0);
+        if (s.edge === "bottom") return glideTo(sc, metrics(sc).max);
+        if (!target) return glideTo(sc, (s.fraction || 0) * metrics(sc).max);
         const b = band(sc);
-        const r = target.getBoundingClientRect();
-        scrollBy(sc, (r.top + ratio * r.height) - (b.top + s.line * b.height));
+        let point;
+        const cards = s.row ? s.row.paths.map((p) => { const f = walk(p); return f.length === p.length ? f[f.length - 1] : null; })
+          .filter((e) => e && shown(e)) : [];
+        if (cards.length > 1) { const r = span(cards); point = r.top + s.row.ratio * r.height; }
+        else { const r = target.getBoundingClientRect(); point = r.top + ratio * r.height; }
+        glideTo(sc, metrics(sc).top + point - (b.top + s.line * b.height));
       };
+
+      // The user taking hold of this page (wheel, trackpad, keys) ends a glide.
+      for (const type of ["wheel", "keydown", "mousedown", "touchstart"])
+        addEventListener(type, () => { if (glide) { glide = null; muteUntil = 0; } }, { capture: true, passive: true });
 
       document.addEventListener("scroll", (e) => {
         if (performance.now() < muteUntil) return;
@@ -244,7 +308,7 @@ final class PreviewScrollSync {
         });
       }, { capture: true, passive: true });
 
-      window.__toastyScroll = { state: () => state(null), apply };
+      window.__toastyScroll = { state: () => state(null), apply, instant: (s) => { apply(s); if (glide) { jump(glide.sc, glide.goal); glide = null; } } };
     })();
     """#
 }
