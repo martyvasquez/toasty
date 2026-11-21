@@ -433,33 +433,24 @@ struct StatusMark: View {
 /// conversation until closed (Esc or the back button).
 struct DiffPage: View {
     let file: GitChanges.File
+    /// Every changed file, for the previous / next buttons.
+    var files: [GitChanges.File] = []
+    var select: (GitChanges.File) -> Void = { _ in }
     let close: () -> Void
-    @State private var lines: [(Character, String)]?
+    @State private var lines: [DiffLine]?
 
-    private static let maxLines = 4000
+    private static let maxLines = 8000
 
     var body: some View {
         VStack(spacing: 0) {
             header
-            Rectangle().fill(Color.claudeSeparator).frame(height: 0.5)
+            Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1)
             if let lines {
                 if lines.isEmpty {
                     InspectorEmpty(symbol: "doc", title: "No Line Changes",
                                    detail: file.status == .renamed ? "The file was renamed without edits." : nil)
                 } else {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ClaudeDiffView(lines: Array(lines.prefix(Self.maxLines)), maxLines: nil)
-                            if lines.count > Self.maxLines {
-                                Text("\(lines.count - Self.maxLines) more lines not shown")
-                                    .font(.toasty(Theme.Size.meta)).foregroundStyle(.tertiary)
-                            }
-                        }
-                        .frame(maxWidth: ClaudeTypography.composerWidth + 160, alignment: .leading)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 18)
-                        .frame(maxWidth: .infinity)
-                    }
+                    DiffTextView(lines: Array(lines.prefix(Self.maxLines)), path: file.path)
                 }
             } else {
                 ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -469,8 +460,15 @@ struct DiffPage: View {
         .task(id: file) {
             lines = nil
             let f = file
-            lines = await Task.detached(priority: .userInitiated) { GitChanges.diff(f) }.value
+            lines = await Task.detached(priority: .userInitiated) { GitChanges.diffLines(f) }.value
         }
+    }
+
+    private var position: Int? { files.firstIndex { $0.id == file.id } }
+
+    private func step(_ by: Int) {
+        guard let i = position, files.indices.contains(i + by) else { return }
+        select(files[i + by])
     }
 
     private var header: some View {
@@ -500,10 +498,26 @@ struct DiffPage: View {
             if let r = file.removed, r > 0 {
                 Text("−\(r)").foregroundStyle(Color(nsColor: .systemRed)).font(.toasty(Theme.Size.meta, .medium)).monospacedDigit()
             }
+            if files.count > 1, let i = position {
+                Text("\(i + 1) of \(files.count)")
+                    .font(.toasty(Theme.Size.meta)).foregroundStyle(.tertiary).monospacedDigit()
+                    .padding(.leading, Theme.Space.s)
+                HStack(spacing: 0) {
+                    BarIconButton(symbol: "chevron.up",
+                                  tooltip: Tooltip(title: "Previous File", shortcut: "⌃⌘↑")) { step(-1) }
+                        .disabled(i == 0)
+                        .keyboardShortcut(.upArrow, modifiers: [.control, .command])
+                    BarIconButton(symbol: "chevron.down",
+                                  tooltip: Tooltip(title: "Next File", shortcut: "⌃⌘↓")) { step(1) }
+                        .disabled(i == files.count - 1)
+                        .keyboardShortcut(.downArrow, modifiers: [.control, .command])
+                }
+            }
             if file.status != .deleted {
-                Button("Open") { NSWorkspace.shared.open(file.url) }
-                    .controlSize(.small)
-                    .tooltip("Open in Default App")
+                BarIconButton(symbol: "arrow.up.forward.app",
+                              tooltip: Tooltip(title: "Open in Default App", detail: file.path)) {
+                    NSWorkspace.shared.open(file.url)
+                }
             }
         }
         .padding(.horizontal, 14)

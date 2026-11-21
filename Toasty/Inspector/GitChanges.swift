@@ -277,37 +277,6 @@ final class GitChanges: ObservableObject {
 
     // MARK: Diffs
 
-    /// Unified diff lines of one file against HEAD, for `ClaudeDiffView`.
-    nonisolated static func diff(_ file: File) -> [(Character, String)] {
-        let root = file.root
-        let result: GitResult
-        if file.status == .untracked {
-            result = git(["diff", "--no-index", "--no-color", "--", "/dev/null", file.path], in: root)
-        } else {
-            let hasHead = git(["rev-parse", "--verify", "--quiet", "HEAD"], in: root).status == 0
-            var args = ["diff", "--no-color", "-M"]
-            args += hasHead ? ["HEAD"] : ["--cached"]
-            args += ["--"] + (file.oldPath.map { [$0] } ?? []) + [file.path]
-            result = git(args, in: root)
-        }
-        var lines: [(Character, String)] = []
-        var inHunk = false
-        for line in result.text.split(separator: "\n", omittingEmptySubsequences: false) {
-            if line.hasPrefix("@@") {
-                inHunk = true
-                // Keep the function context after the second @@, if any.
-                lines.append(("@", String(line)))
-            } else if inHunk, let first = line.first, "+- ".contains(first) {
-                lines.append((first, String(line.dropFirst())))
-            } else if line.hasPrefix("Binary files") {
-                lines.append(("@", "Binary file"))
-            } else if line.hasPrefix("diff --git") {
-                inHunk = false
-            }
-        }
-        while let last = lines.last, last.0 == " ", last.1.isEmpty { lines.removeLast() }
-        return lines
-    }
 
     // MARK: Running git
 

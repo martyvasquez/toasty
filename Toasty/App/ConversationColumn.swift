@@ -24,7 +24,7 @@ private struct WorkspaceConversation: View {
 
     var body: some View {
         if let file = workspace.diffFile {
-            DiffPage(file: file) { workspace.diffFile = nil }
+            DiffPage(file: file, files: workspace.changes.files, select: { workspace.diffFile = $0 }) { workspace.diffFile = nil }
                 .id(file.id)
         } else if workspace.selected != nil {
             // Shown by `ConversationColumnController`, above this view.
