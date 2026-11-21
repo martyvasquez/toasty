@@ -574,13 +574,26 @@ struct WindowDragArea: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView { DragView() }
     func updateNSView(_ nsView: NSView, context: Context) {}
 
+    /// Handles the drag and the double-click itself. It doesn't also claim
+    /// `mouseDownCanMoveWindow`: then the titlebar runs its own double-click
+    /// as well, and the window zooms and straight back.
     final class DragView: NSView {
-        override var mouseDownCanMoveWindow: Bool { true }
         override func mouseDown(with event: NSEvent) {
+            guard let window else { return }
             if event.clickCount == 2 {
-                window?.performZoom(nil)
+                // System Settings › Desktop & Dock › "Double-click a window's
+                // title bar to": zoom (the default), minimize, or nothing.
+                let defaults = UserDefaults.standard
+                switch defaults.string(forKey: "AppleActionOnDoubleClick") {
+                case "Minimize": window.performMiniaturize(nil)
+                case "None": break
+                case "Maximize", "Fill": window.performZoom(nil)
+                default:
+                    if defaults.bool(forKey: "AppleMiniaturizeOnDoubleClick") { window.performMiniaturize(nil) }
+                    else { window.performZoom(nil) }
+                }
             } else {
-                window?.performDrag(with: event)
+                window.performDrag(with: event)
             }
         }
     }
