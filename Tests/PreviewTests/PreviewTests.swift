@@ -59,19 +59,10 @@ struct PreviewTests {
         #expect(PreviewViewport.mobileMax.userAgent == PreviewViewport.mobile.userAgent)
     }
 
-    @Test func desktopStays1280WideWhenDrawnSmaller() {
-        let panel = PreviewViewport.desktop.fit(in: CGSize(width: 1024, height: 800))
-        #expect(panel.page == CGSize(width: 1280, height: 1000))
-        #expect(panel.display == CGRect(x: 0, y: 0, width: 1024, height: 800))
-        // Never taller than wide, however narrow the pane.
-        let narrow = PreviewViewport.desktop.fit(in: CGSize(width: 400, height: 900))
-        #expect(narrow.page == CGSize(width: 1280, height: 1280))
-        #expect(narrow.display == CGRect(x: 0, y: 0, width: 400, height: 400))
-    }
-
-    @Test func desktopFillsAPaneWithRoom() {
-        let fit = PreviewViewport.desktop.fit(in: CGSize(width: 1500, height: 900))
-        #expect(fit.page == CGSize(width: 1500, height: 900))
+    @Test func desktopIsTheWindowsPageArea() {
+        let fit = PreviewViewport.desktop.fit(in: CGSize(width: 1024, height: 800))
+        #expect(fit.page == CGSize(width: 1024, height: 800))
+        #expect(fit.display == CGRect(x: 0, y: 0, width: 1024, height: 800))
         #expect(fit.scale == 1)
     }
 

@@ -142,6 +142,7 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
         workspace = next
         session = next.map { PreviewStore.shared.session(for: $0) }
         if window?.isVisible == true { session?.setWindowOpen(true) }
+        sizedForPhone = session?.viewport.isPhone ?? false
         model.shown = workspace.flatMap { w in session.map { (w, $0) } }
         titleCancellables = []
         if let workspace, let session {
@@ -206,6 +207,19 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
     func fitViewport(of changed: PreviewSession) {
         guard changed === session, let session, let window, window.isVisible,
               !window.styleMask.contains(.fullScreen) else { return }
+        let phone = session.viewport.isPhone
+        defer { sizedForPhone = phone }
+        if !phone {
+            // Back to desktop: the window where the user left it.
+            if let frame = desktopFrame, NSScreen.screens.contains(where: { $0.visibleFrame.intersects(frame) }) {
+                window.setFrame(frame, display: true, animate: true)
+            } else {
+                setPageSize(PreviewViewport.desktop.nominal)
+            }
+            return
+        }
+        // Leaving desktop: keep its place to come back to.
+        if !sizedForPhone { desktopFrame = window.frame }
         let content = Self.contentSize(for: session.viewport)
         var frame = window.frameRect(forContentRect: NSRect(origin: .zero, size: content))
         let visible = window.screen?.visibleFrame ?? frame
@@ -214,6 +228,45 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
         frame.origin.x = min(max(visible.minX, window.frame.minX), visible.maxX - frame.width)
         frame.origin.y = max(visible.minY, window.frame.maxY - frame.height)
         window.setFrame(frame, display: true, animate: true)
+    }
+
+    /// Whether the window was last sized for a phone (else it's the
+    /// user's desktop window).
+    private var sizedForPhone = false
+
+    /// The desktop window's frame when the user last switched to a phone:
+    /// switching back puts it there. Kept across launches.
+    private var desktopFrame: NSRect? {
+        get { UserDefaults.standard.string(forKey: Self.desktopFrameKey).map(NSRectFromString).flatMap { $0.isEmpty ? nil : $0 } }
+        set { UserDefaults.standard.set(newValue.map(NSStringFromRect), forKey: Self.desktopFrameKey) }
+    }
+    private static let desktopFrameKey = "PreviewDesktopFrame"
+
+    /// The window's height that isn't page: the titlebar row, the loading
+    /// line and the footer.
+    private var chromeHeight: CGFloat { model.barHeight * 2 + 2 }
+
+    /// The window sized so the page area is `size` (a desktop preset),
+    /// keeping its top-left corner on screen.
+    func setPageSize(_ size: CGSize) {
+        guard let window, let frame = frame(forPage: size) else { return }
+        window.setFrame(frame, display: true, animate: true)
+    }
+
+    /// Whether a page of `size` fits this window's screen.
+    func fits(page size: CGSize) -> Bool { frame(forPage: size) != nil }
+
+    private func frame(forPage size: CGSize) -> NSRect? {
+        guard let window else { return nil }
+        let visible = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
+        let wanted = NSSize(width: size.width, height: size.height + chromeHeight)
+        guard wanted.width <= visible.width, wanted.height <= visible.height else { return nil }
+        var frame = window.frame
+        frame.origin.y = frame.maxY - wanted.height
+        frame.size = wanted
+        frame.origin.x = min(max(visible.minX, frame.minX), visible.maxX - frame.width)
+        frame.origin.y = min(max(visible.minY, frame.minY), visible.maxY - frame.height)
+        return frame
     }
 
     // MARK: Window delegate
@@ -487,7 +540,13 @@ private struct PreviewFooter: View {
                     session.setCommenting(!session.commenting)
                 }
                 .disabled(!session.commenting && (session.url == nil || session.failure != nil))
-                PreviewSizeMenu(session: session, size: Self.button)
+                let other: PreviewViewport = session.viewport.isPhone ? .desktop : session.lastPhone
+                BarIconButton(symbol: session.viewport.symbol,
+                              tooltip: Tooltip(title: "Switch to \(other.title)", shortcut: "⇧⌘M",
+                                               detail: "The size, on the right, chooses which iPhone or presets the desktop window."),
+                              glyphSize: Theme.Size.body, size: Self.button) {
+                    session.toggleViewport()
+                }
                 BarIconButton(symbol: "text.bubble",
                               tooltip: Tooltip(title: "Show Conversation",
                                                detail: conversation.map { "“\($0.title)” in the main window\($0.id == session.lastAgentConversationID ? ", the conversation that last used this browser" : "")." }
@@ -497,15 +556,8 @@ private struct PreviewFooter: View {
                 }
                 .disabled(conversation == nil)
             }
-            ViewThatFits(in: .horizontal) {
-                Text(sizeText)
-                    .font(.toasty(Theme.Size.meta).monospacedDigit())
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-                    .accessibilityLabel("Page size \(sizeText)")
-                Color.clear.frame(width: 0, height: 0)
-            }
-            .frame(maxWidth: .infinity, alignment: .trailing)
+            PreviewSizeMenu(session: session)
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
         // Edges as the titlebar row's: the folder under the close button,
         // the size the row's margin from the right; the same band height,
@@ -517,38 +569,65 @@ private struct PreviewFooter: View {
         .overlay(alignment: .top) { Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1) }
     }
 
-    /// "390 × 844": the page's size as the site sees it.
-    private var sizeText: String {
-        let size = session.shownPageSize == .zero ? session.pageSize : session.shownPageSize
-        return "\(session.viewport.title) · \(Int(size.width.rounded())) × \(Int(size.height.rounded()))"
-    }
 }
 
-/// The page's size, in the footer: its icon in a bar button's place,
-/// opening Toasty's own menu of the sizes (the one shown checked).
+/// The page's size, at the footer's right end, as the composer's pop-ups:
+/// "iPhone · 402 × 874" with a chevron, opening Toasty's own menu. For an
+/// iPhone, which iPhone; for a desktop page (as big as the window, sized by
+/// dragging it), presets that size the window to them. Dropped in a window
+/// too narrow for it.
 private struct PreviewSizeMenu: View {
     @ObservedObject var session: PreviewSession
-    let size: CGSize
+
+    static let desktopPresets = [CGSize(width: 1280, height: 800), CGSize(width: 1440, height: 900),
+                                 CGSize(width: 1920, height: 1080)]
+
+    private var size: CGSize { session.shownPageSize == .zero ? session.pageSize : session.shownPageSize }
+
+    private static func text(_ s: CGSize) -> String { "\(Int(s.width.rounded())) × \(Int(s.height.rounded()))" }
+
+    private var items: [PopoverMenu.Item] {
+        if session.viewport.isPhone {
+            return PreviewViewport.allCases.filter(\.isPhone).map { v in
+                PopoverMenu.Item(title: v.title, subtitle: Self.text(v.nominal), checked: session.viewport == v) {
+                    session.setViewport(v, byUser: true)
+                }
+            }
+        }
+        let window = PreviewStore.shared.presenter
+        return Self.desktopPresets.map { p in
+            let fits = window?.fits(page: p) ?? false
+            return PopoverMenu.Item(title: Self.text(p), subtitle: fits ? "" : "Larger than this screen",
+                                    checked: abs(size.width - p.width) < 1 && abs(size.height - p.height) < 1,
+                                    enabled: fits) {
+                window?.setPageSize(p)
+            }
+        }
+    }
 
     var body: some View {
-        ClaudePopUp(items: PreviewViewport.allCases.map { v in
-            let s = v.nominal
-            return PopoverMenu.Item(title: v.title,
-                                    subtitle: v.isPhone ? "\(Int(s.width)) × \(Int(s.height))" : "\(Int(s.width)) wide",
-                                    symbol: v.symbol, checked: session.viewport == v) {
-                session.setViewport(v, byUser: true)
-            }
-        }) { hovering in
-            Image(systemName: session.viewport.symbol)
-                .font(.toasty(Theme.Size.body, .medium))
+        let label = "\(session.viewport.title) · \(Self.text(size))"
+        ViewThatFits(in: .horizontal) {
+            ClaudePopUp(items: items) { hovering in
+                HStack(spacing: Theme.Space.xs + 1) {
+                    Text(label)
+                        .font(.toasty(Theme.Size.meta).monospacedDigit())
+                        .lineLimit(1)
+                    Image(systemName: "chevron.down").font(.toasty(Theme.Glyph.small, .semibold)).opacity(0.6)
+                }
+                .padding(.horizontal, ClaudeChip.padding)
+                .frame(height: TabStyle.height)
                 .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                .frame(width: size.width, height: size.height)
                 .overlay(Capsule().strokeBorder(hovering ? Theme.Stroke.hover : Color.clear, lineWidth: 1))
                 .contentShape(Capsule())
+                .fixedSize()
+            }
+            .tooltip(Tooltip(title: "Page Size",
+                             detail: session.viewport.isPhone ? "Which iPhone the page is shown as."
+                                 : "The desktop page is as big as the window: drag the window, or pick a size here."))
+            .accessibilityLabel("Page size: \(label)")
+            Color.clear.frame(width: 0, height: 0)
         }
-        .tooltip(Tooltip(title: "\(session.viewport.title) Size", shortcut: "⇧⌘M",
-                         detail: "Choose iPhone, iPhone Pro Max or desktop. ⇧⌘M switches between desktop and the last iPhone."))
-        .accessibilityLabel("Page size: \(session.viewport.title)")
     }
 }
 

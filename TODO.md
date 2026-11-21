@@ -271,7 +271,7 @@ inspection tool, not a general browser. Titlebar row: back (⌘[; no forward),
 reload, the address (fills the room in a narrow window; at most 640
 points, centered in the window, in a wide one), open in
 the default browser at the right end. Footer: workspace, comment,
-size menu, show conversation, the size's name and page size.
+the iPhone/desktop toggle, show conversation, the size menu.
 - The titlebar's compass, at the end of the conversation tabs, is the
   indicator: accent-colored and pulsing while Claude is using the browser
   (a call running, or one ended in the last 3 s), filled while the window
@@ -317,11 +317,16 @@ size menu, show conversation, the size's name and page size.
   server `preview` (navigate, screenshot, read_console, set_viewport,
   evaluate, click, type) in conversations started while it's on, relayed
   through the bridge; its instructions say the window may be hidden.
-- iPhone (402×874), iPhone Pro Max (440×956), both with an iPhone user
-  agent, or desktop (1280 wide), from the footer's size menu (the user,
-  2026-11-20: just those two phones; no iPads or particular Macs). ⇧⌘M
-  switches between desktop and the last iPhone; the page is
-  always laid out at its real width and drawn smaller in a narrow window.
+- iPhone (402×874) or iPhone Pro Max (440×956), both with an iPhone user
+  agent, or desktop (the user, 2026-11-20: just those two phones; no
+  iPads or particular Macs). The footer's icon toggles iPhone/desktop
+  (⇧⌘M); the size at its right end is a menu: which iPhone, or desktop
+  presets (1280×800, 1440×900, 1920×1080; those bigger than the screen
+  dimmed). A desktop page is the window's page area, sized by dragging the
+  window as in any browser; switching to an iPhone keeps the desktop
+  window's frame and switching back restores it (`PreviewDesktopFrame`).
+  With no window open a desktop page is 1280×800. A phone the page is
+  is laid out at its real width and drawn smaller in a narrow window.
   Comments (⇧⌘C): click an element or drag an area, type a note; Return
   sends to the conversation or Tee-Up per Settings ▸ Browser ▸ Comments,
   Shift-Return the other way.

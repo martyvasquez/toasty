@@ -58,10 +58,11 @@ enum PreviewViewport: String, CaseIterable, Identifiable {
         var scale: CGFloat { page.width > 0 ? display.width / page.width : 1 }
     }
 
-    /// The page is always laid out at its real width and drawn smaller when
-    /// the pane is narrower, so a desktop page stays a desktop page in a
-    /// narrow window. A phone is centered and at most its own height; a desktop
-    /// fills the pane once the pane is 1280 wide.
+    /// A phone is laid out at its real width and drawn smaller when the
+    /// pane is narrower, centered, and at most its own height. A desktop page
+    /// is the window's page area, as in any browser: the user sizes it by
+    /// sizing the window (or with a preset, `PreviewWindowController`). Its
+    /// `nominal` size is for when no window shows it.
     func fit(in pane: CGSize) -> Fit {
         guard pane.width > 1, pane.height > 1 else { return Fit(display: .zero, page: nominal) }
         let width = nominal.width
@@ -73,13 +74,7 @@ enum PreviewViewport: String, CaseIterable, Identifiable {
                                        width: width * scale, height: height * scale),
                        page: CGSize(width: width, height: height))
         case .desktop:
-            // Drawn smaller, it fills the pane's height but is never taller
-            // than it is wide: in a narrow pane it would otherwise be
-            // thousands of pixels tall, which no screen is (and `100vh`
-            // layouts would show it).
-            let height = scale < 1 ? min(width, pane.height / scale) : pane.height
-            return Fit(display: CGRect(x: 0, y: 0, width: pane.width, height: height * scale),
-                       page: CGSize(width: pane.width / scale, height: height))
+            return Fit(display: CGRect(origin: .zero, size: pane), page: pane)
         }
     }
 }

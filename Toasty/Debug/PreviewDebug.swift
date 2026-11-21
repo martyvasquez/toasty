@@ -55,6 +55,15 @@ enum PreviewDebug {
             out["activeWorkspace"] = w.name
             // {"browserFrame":"{{x, y}, {w, h}}"}: move the browser window (for pictures).
             if let f = cmd["browserFrame"] as? String { PreviewStore.shared.presenter?.window?.setFrame(NSRectFromString(f), display: true) }
+            // {"pageSize":"1440x900"}: a desktop preset from the size menu.
+            if let p = cmd["pageSize"] as? String {
+                let n = p.split(separator: "x").compactMap { Double($0) }
+                if n.count == 2 { PreviewStore.shared.presenter?.setPageSize(CGSize(width: n[0], height: n[1])) }
+            }
+            if let shown = PreviewStore.shared.presenter?.session {
+                out["shownViewport"] = shown.viewport.rawValue
+                out["shownPage"] = "\(Int(shown.shownPageSize.width))x\(Int(shown.shownPageSize.height))"
+            }
             // {"shot":"/path.png"}: a picture of the browser window itself.
             if let path = cmd["shot"] as? String, let window = PreviewStore.shared.presenter?.window,
                let image = DebugControl.captureWindow(window.windowNumber),
