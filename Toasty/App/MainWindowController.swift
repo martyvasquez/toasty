@@ -375,7 +375,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         case #selector(togglePreviewSize(_:)):
             item.isHidden = !PreviewSettings.shared.enabled
             guard let w, !item.isHidden else { return false }
-            item.title = PreviewStore.shared.session(for: w).viewport == .mobile ? "Show at Desktop Size" : "Show at Phone Size"
+            let s = PreviewStore.shared.session(for: w)
+            item.title = s.viewport.isPhone ? "Show at Desktop Size" : "Show at \(s.lastPhone.title) Size"
             return true
         case #selector(togglePreviewComment(_:)):
             item.isHidden = !PreviewSettings.shared.enabled

@@ -36,17 +36,27 @@ struct PreviewTests {
 
     @Test func phoneKeepsItsWidthAndCentersInAWidePane() {
         let fit = PreviewViewport.mobile.fit(in: CGSize(width: 500, height: 1000))
-        #expect(fit.page == CGSize(width: 390, height: 844))
+        #expect(fit.page == CGSize(width: 402, height: 874))
         #expect(fit.scale == 1)
-        #expect(fit.display == CGRect(x: 55, y: 0, width: 390, height: 844))
+        #expect(fit.display == CGRect(x: 49, y: 0, width: 402, height: 874))
+        let max = PreviewViewport.mobileMax.fit(in: CGSize(width: 540, height: 1000))
+        #expect(max.page == CGSize(width: 440, height: 956))
+        #expect(max.display == CGRect(x: 50, y: 0, width: 440, height: 956))
     }
 
     @Test func phoneShrinksInANarrowPaneAndShortensInAShortOne() {
-        let narrow = PreviewViewport.mobile.fit(in: CGSize(width: 195, height: 2000))
-        #expect(narrow.page.width == 390)
+        let narrow = PreviewViewport.mobile.fit(in: CGSize(width: 201, height: 2000))
+        #expect(narrow.page.width == 402)
         #expect(narrow.scale == 0.5)
         let short = PreviewViewport.mobile.fit(in: CGSize(width: 500, height: 600))
-        #expect(short.page == CGSize(width: 390, height: 600))
+        #expect(short.page == CGSize(width: 402, height: 600))
+    }
+
+    @Test func iPhonesAreTheMobileSizesAndMobileKeepsItsName() {
+        #expect(PreviewViewport(rawValue: "mobile") == .mobile)
+        #expect(PreviewViewport(rawValue: "mobile-max") == .mobileMax)
+        #expect(PreviewViewport.mobile.isPhone && PreviewViewport.mobileMax.isPhone && !PreviewViewport.desktop.isPhone)
+        #expect(PreviewViewport.mobileMax.userAgent == PreviewViewport.mobile.userAgent)
     }
 
     @Test func desktopStays1280WideWhenDrawnSmaller() {

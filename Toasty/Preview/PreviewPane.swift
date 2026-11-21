@@ -158,7 +158,7 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
     /// 1280 (both under the titlebar).
     private static func contentSize(for viewport: PreviewViewport) -> NSSize {
         switch viewport {
-        case .mobile: NSSize(width: 540, height: 880)
+        case .mobile, .mobileMax: NSSize(width: 540, height: 880)
         case .desktop: NSSize(width: 1280, height: 820)
         }
     }
@@ -249,7 +249,7 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
             item.title = "Close Browser"
             return true
         case #selector(togglePreviewSize(_:)):
-            item.title = session?.viewport == .mobile ? "Show at Desktop Size" : "Show at Phone Size"
+            item.title = session.map { $0.viewport.isPhone ? "Show at Desktop Size" : "Show at \($0.lastPhone.title) Size" } ?? "Show at Desktop Size"
             return session != nil
         case #selector(togglePreviewComment(_:)):
             guard let session else { return false }
@@ -487,13 +487,7 @@ private struct PreviewFooter: View {
                     session.setCommenting(!session.commenting)
                 }
                 .disabled(!session.commenting && (session.url == nil || session.failure != nil))
-                let other: PreviewViewport = session.viewport == .mobile ? .desktop : .mobile
-                BarIconButton(symbol: session.viewport.symbol,
-                              tooltip: Tooltip(title: "\(session.viewport.title) Size", shortcut: "⇧⌘M",
-                                               detail: "Click for \(other.title.lowercased()) size."),
-                              glyphSize: Theme.Size.body, size: Self.button) {
-                    session.toggleViewport()
-                }
+                PreviewSizeMenu(session: session, size: Self.button)
                 BarIconButton(symbol: "text.bubble",
                               tooltip: Tooltip(title: "Show Conversation",
                                                detail: conversation.map { "“\($0.title)” in the main window\($0.id == session.lastAgentConversationID ? ", the conversation that last used this browser" : "")." }
@@ -526,7 +520,35 @@ private struct PreviewFooter: View {
     /// "390 × 844": the page's size as the site sees it.
     private var sizeText: String {
         let size = session.shownPageSize == .zero ? session.pageSize : session.shownPageSize
-        return "\(Int(size.width.rounded())) × \(Int(size.height.rounded()))"
+        return "\(session.viewport.title) · \(Int(size.width.rounded())) × \(Int(size.height.rounded()))"
+    }
+}
+
+/// The page's size, in the footer: its icon in a bar button's place,
+/// opening Toasty's own menu of the sizes (the one shown checked).
+private struct PreviewSizeMenu: View {
+    @ObservedObject var session: PreviewSession
+    let size: CGSize
+
+    var body: some View {
+        ClaudePopUp(items: PreviewViewport.allCases.map { v in
+            let s = v.nominal
+            return PopoverMenu.Item(title: v.title,
+                                    subtitle: v.isPhone ? "\(Int(s.width)) × \(Int(s.height))" : "\(Int(s.width)) wide",
+                                    symbol: v.symbol, checked: session.viewport == v) {
+                session.setViewport(v, byUser: true)
+            }
+        }) { hovering in
+            Image(systemName: session.viewport.symbol)
+                .font(.toasty(Theme.Size.body, .medium))
+                .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                .frame(width: size.width, height: size.height)
+                .overlay(Capsule().strokeBorder(hovering ? Theme.Stroke.hover : Color.clear, lineWidth: 1))
+                .contentShape(Capsule())
+        }
+        .tooltip(Tooltip(title: "\(session.viewport.title) Size", shortcut: "⇧⌘M",
+                         detail: "Choose iPhone, iPhone Pro Max or desktop. ⇧⌘M switches between desktop and the last iPhone."))
+        .accessibilityLabel("Page size: \(session.viewport.title)")
     }
 }
 

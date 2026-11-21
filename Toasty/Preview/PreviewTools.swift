@@ -25,7 +25,7 @@ enum PreviewTools {
         Each workspace has its own, with its own cookies and storage; this conversation's is its workspace's. \
         It runs in the background: the user's browser window, which shows the workspace they have selected, may be hidden or showing another workspace, and using the browser never shows it or interrupts the user. \
         When they look at this workspace's browser they see the same page you are using, and can use it too. \
-        It shows a page at one of two sizes, mobile (390 wide, iPhone user agent) or desktop (1280 wide); every result says which. \
+        It shows a page at one of three sizes: mobile (an iPhone, 402×874), mobile-max (an iPhone Pro Max, 440×956), both with an iPhone user agent, or desktop (1280 wide); every result says which. \
         It is WebKit (Safari's engine), not Chromium. \
         The user can comment on things in the page: a comment arrives in their message with a CSS selector, the viewport and a screenshot with the thing outlined.
         """
@@ -43,8 +43,8 @@ enum PreviewTools {
         tool("screenshot", "A picture of what the preview shows now, at the current viewport.", readOnly: true),
         tool("read_console", "The page's console since it loaded: logs, warnings, uncaught errors, failed requests and resources that didn't load.",
              ["clear": ["type": "boolean", "description": "Empty the console after reading it."]], readOnly: true),
-        tool("set_viewport", "Switch the preview between mobile (390×844, iPhone user agent) and desktop (1280 wide). The page reloads.",
-             ["viewport": ["type": "string", "enum": ["mobile", "desktop"]]], required: ["viewport"]),
+        tool("set_viewport", "Show the page as an iPhone (mobile, 402×874), an iPhone Pro Max (mobile-max, 440×956), both with an iPhone user agent, or a desktop (1280 wide). The page reloads.",
+             ["viewport": ["type": "string", "enum": PreviewViewport.allCases.map(\.rawValue)]], required: ["viewport"]),
         tool("evaluate", "Run JavaScript in the page and get its result. The code is the body of an async function: use `return` to send a value back, and `await` freely.",
              ["javascript": ["type": "string"]], required: ["javascript"]),
         tool("click", "Click the first element matching a CSS selector.",
@@ -122,11 +122,13 @@ enum PreviewTools {
 
         case "set_viewport":
             guard let viewport = PreviewViewport(rawValue: try string("viewport")) else {
-                throw PreviewError("`viewport` is mobile or desktop.")
+                throw PreviewError("`viewport` is mobile, mobile-max or desktop.")
             }
-            let reloads = viewport != session.viewport && session.url != nil && session.failure == nil
+            let changes = viewport != session.viewport
             session.setViewport(viewport)
-            if reloads { await settle(session) }
+            // The page reloads (when it has one) and is laid out at its new
+            // size: the result says that size, not the old one.
+            if changes { await settle(session) }
             return text(status(session))
 
         case "evaluate":

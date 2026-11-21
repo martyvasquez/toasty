@@ -2,30 +2,40 @@ import AppKit
 import Combine
 import WebKit
 
-/// The size a page is shown at.
+/// The size a page is shown at: an iPhone, the largest iPhone, or a
+/// desktop page (the user, 2026-11-20: those phones are the ones that
+/// matter; no iPads or particular Macs). "mobile" is the iPhone, the name
+/// it had when it was the only phone (saved choices and Claude's calls).
 enum PreviewViewport: String, CaseIterable, Identifiable {
-    case mobile, desktop
+    case mobile
+    case mobileMax = "mobile-max"
+    case desktop
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .mobile: "Phone"
+        case .mobile: "iPhone"
+        case .mobileMax: "iPhone Pro Max"
         case .desktop: "Desktop"
         }
     }
 
     var symbol: String {
         switch self {
-        case .mobile: "iphone"
+        case .mobile, .mobileMax: "iphone"
         case .desktop: "desktopcomputer"
         }
     }
 
-    /// The page's size when the window has room (and when it isn't open).
+    var isPhone: Bool { self != .desktop }
+
+    /// The page's size when the window has room (and when it isn't open):
+    /// iPhone 17 and iPhone 17 Pro Max in Safari, portrait.
     var nominal: CGSize {
         switch self {
-        case .mobile: CGSize(width: 390, height: 844)
+        case .mobile: CGSize(width: 402, height: 874)
+        case .mobileMax: CGSize(width: 440, height: 956)
         case .desktop: CGSize(width: 1280, height: 800)
         }
     }
@@ -34,7 +44,7 @@ enum PreviewViewport: String, CaseIterable, Identifiable {
     /// mobile pages; nil for the web view's own (desktop Safari).
     var userAgent: String? {
         switch self {
-        case .mobile: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"
+        case .mobile, .mobileMax: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"
         case .desktop: nil
         }
     }
@@ -50,14 +60,14 @@ enum PreviewViewport: String, CaseIterable, Identifiable {
 
     /// The page is always laid out at its real width and drawn smaller when
     /// the pane is narrower, so a desktop page stays a desktop page in a
-    /// narrow sidebar. A phone is centered and at most 844 tall; a desktop
+    /// narrow window. A phone is centered and at most its own height; a desktop
     /// fills the pane once the pane is 1280 wide.
     func fit(in pane: CGSize) -> Fit {
         guard pane.width > 1, pane.height > 1 else { return Fit(display: .zero, page: nominal) }
         let width = nominal.width
         let scale = min(1, pane.width / width)
         switch self {
-        case .mobile:
+        case .mobile, .mobileMax:
             let height = min(nominal.height, pane.height / scale)
             return Fit(display: CGRect(x: ((pane.width - width * scale) / 2).rounded(), y: 0,
                                        width: width * scale, height: height * scale),
@@ -113,6 +123,8 @@ final class PreviewSession: NSObject, ObservableObject {
     @Published private(set) var progress: Double = 0
     @Published private(set) var failure: Failure?
     @Published private(set) var viewport: PreviewViewport
+    /// The phone ⇧⌘M goes back to from desktop: the one last shown.
+    private(set) var lastPhone: PreviewViewport = .mobile
     @Published private(set) var console: [ConsoleEntry] = []
     @Published private(set) var commenting = false
     /// The tab a comment goes to, when the user picked one in the comment
@@ -150,6 +162,7 @@ final class PreviewSession: NSObject, ObservableObject {
         self.workspaceID = workspaceID
         self.address = address
         self.viewport = viewport
+        if viewport.isPhone { lastPhone = viewport }
     }
 
     // MARK: Web view
@@ -275,7 +288,7 @@ final class PreviewSession: NSObject, ObservableObject {
         if abs(size.width - shownPageSize.width) > 0.5 || abs(size.height - shownPageSize.height) > 0.5 { shownPageSize = size }
     }
 
-    /// "mobile, 390×844" / "desktop, 1280×800": said with every tool result
+    /// "mobile, 402×874" / "desktop, 1280×800": said with every tool result
     /// and comment, so Claude knows which layout it's looking at.
     var viewportDescription: String {
         let size = pageSize
@@ -372,7 +385,7 @@ final class PreviewSession: NSObject, ObservableObject {
 
     /// The other size, phone or desktop (⇧⌘M: the user's).
     func toggleViewport() {
-        setViewport(viewport == .mobile ? .desktop : .mobile, byUser: true)
+        setViewport(viewport.isPhone ? .desktop : lastPhone, byUser: true)
     }
 
     /// Show the page at `v`. The user's change (`byUser`) also sizes the
@@ -380,6 +393,7 @@ final class PreviewSession: NSObject, ObservableObject {
     func setViewport(_ v: PreviewViewport, byUser: Bool = false) {
         guard v != viewport else { return }
         viewport = v
+        if v.isPhone { lastPhone = v }
         PreviewStore.shared.remember(self)
         if byUser { PreviewStore.shared.presenter?.fitViewport(of: self) }
         guard let web = webView else { return }
@@ -426,7 +440,7 @@ final class PreviewSession: NSObject, ObservableObject {
         configuration.afterScreenUpdates = true
         let image = try await web.takeSnapshot(configuration: configuration)
         let size = web.bounds.size
-        let density: CGFloat = viewport == .mobile ? 2 : 1
+        let density: CGFloat = viewport.isPhone ? 2 : 1
         let pixels = NSSize(width: (size.width * density).rounded(), height: (size.height * density).rounded())
         guard pixels.width >= 1, pixels.height >= 1,
               let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(pixels.width), pixelsHigh: Int(pixels.height),
@@ -501,7 +515,7 @@ final class PreviewSession: NSObject, ObservableObject {
         }
     }
 
-    /// "Preview comment on `button.cta` "Start trial" (mobile 390×844,
+    /// "Preview comment on `button.cta` "Start trial" (mobile 402×874,
     /// localhost:3000/pricing, outlined in the screenshot): too close to the edge"
     nonisolated static func commentLine(_ pick: Pick, note: String, viewport: PreviewViewport) -> String {
         var what = pick.kind == .area ? "the area around `\(pick.selector)`" : "`\(pick.selector)`"
