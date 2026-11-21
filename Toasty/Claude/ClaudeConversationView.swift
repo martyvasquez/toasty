@@ -1825,22 +1825,18 @@ struct ComposerIconButton: View {
     let symbol: String
     let help: String
     let label: String
-    /// On (filled, full ink), for a button that's a toggle.
-    var active = false
     let action: () -> Void
     @State private var hovering = false
-    @Environment(\.isEnabled) private var enabled
 
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.toasty(Theme.Size.body, .regular))
-                .foregroundStyle(!enabled ? AnyShapeStyle(.tertiary)
-                                 : hovering || active ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
                 .frame(width: Self.width, height: Theme.Control.height)
                 .contentShape(Capsule())
         }
-        .buttonStyle(BarButtonStyle(hovering: hovering && enabled, active: active))
+        .buttonStyle(BarButtonStyle(hovering: hovering))
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
         .tooltip(label, detail: help)

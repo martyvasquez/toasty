@@ -114,6 +114,7 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
         let r = close.convert(close.bounds, to: bar)
         let mid = bar.isFlipped ? r.midY : bar.bounds.height - r.midY
         if mid > 0, abs(model.buttonsMidY - mid) > 0.25 { model.buttonsMidY = mid }
+        if r.minX > 0, abs(model.buttonsMinX - r.minX) > 0.25 { model.buttonsMinX = r.minX }
     }
 
     func windowDidResize(_ notification: Notification) { updateButtonsLine() }
@@ -268,6 +269,8 @@ private final class PreviewWindowModel: ObservableObject {
     /// The window buttons' center, from the titlebar's top: the row's
     /// controls share their line.
     @Published var buttonsMidY: CGFloat = 0
+    /// The close button's left edge: the footer's first control lines up.
+    @Published var buttonsMinX: CGFloat = 20
     /// The row's height: the window buttons' band.
     var barHeight: CGFloat { buttonsMidY > 0 ? buttonsMidY * 2 : 38 }
     /// Bumped by ⌘L: the address field takes the keyboard.
@@ -403,24 +406,32 @@ private struct PreviewBarControls: View {
                 addressFocused = false
             }
             .padding(.horizontal, Theme.Space.m)
-            .frame(maxWidth: .infinity)
+            // At most about as wide as a column of conversation, from the
+            // left; the rest of the row stays empty, as the tab row's does.
+            .frame(maxWidth: 640)
             .frame(height: TabStyle.height)
             .background(Capsule().fill(Theme.Fill.subtle))
             .padding(.leading, Theme.Space.xs)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityLabel("Address")
             .onChange(of: model.focusAddress) { addressFocused = true }
 
     }
 }
 
-/// The browser window's footer, as the composer's control row: the
-/// workspace on the left (where the composer has its model), the tools in
-/// the middle as wide icon buttons, and the page's size on the right (where
-/// the composer has send). On the bars' surface, under a divider.
+/// The browser window's footer, laid out as the composer's control row:
+/// the workspace on the left (where the composer has its model), the tools
+/// in the middle as wide icon buttons, and the page's size on the right
+/// (where the composer has send). Drawn as the titlebar row: its buttons,
+/// height, edges, surface and divider, so the two bars are one system.
 private struct PreviewFooter: View {
     @ObservedObject var model: PreviewWindowModel
     @ObservedObject var workspace: Workspace
     @ObservedObject var session: PreviewSession
+
+    /// As the composer's icons: wide hover ovals (Things' toolbar), in the
+    /// titlebar row's button style.
+    private static let button = CGSize(width: 52, height: TabStyle.height)
 
     /// The conversation "Show Conversation" goes to: the one whose Claude
     /// last used this browser, else the workspace's selected tab.
@@ -433,29 +444,32 @@ private struct PreviewFooter: View {
             PreviewWorkspaceMenu(model: model, workspace: workspace)
                 .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: Theme.Space.xxs) {
-                ComposerIconButton(symbol: "plus.bubble",
-                                   help: session.commenting ? "Or press esc." : "Click something in the page, or drag over an area, to tell Claude about it.",
-                                   label: session.commenting ? "Done Commenting (⇧⌘C)" : "Comment on the Page (⇧⌘C)",
-                                   active: session.commenting) {
+                BarIconButton(symbol: "plus.bubble",
+                              tooltip: Tooltip(title: session.commenting ? "Done Commenting" : "Comment on the Page", shortcut: "⇧⌘C",
+                                               detail: session.commenting ? "Or press esc." : "Click something in the page, or drag over an area, to tell Claude about it."),
+                              active: session.commenting, glyphSize: Theme.Size.body, size: Self.button) {
                     session.setCommenting(!session.commenting)
                 }
                 .disabled(!session.commenting && (session.url == nil || session.failure != nil))
                 let other: PreviewViewport = session.viewport == .mobile ? .desktop : .mobile
-                ComposerIconButton(symbol: session.viewport.symbol,
-                                   help: "The page is at \(session.viewport.title.lowercased()) size. Click for \(other.title.lowercased()) size.",
-                                   label: "\(session.viewport.title) Size (⇧⌘M)") {
+                BarIconButton(symbol: session.viewport.symbol,
+                              tooltip: Tooltip(title: "\(session.viewport.title) Size", shortcut: "⇧⌘M",
+                                               detail: "Click for \(other.title.lowercased()) size."),
+                              glyphSize: Theme.Size.body, size: Self.button) {
                     session.toggleViewport()
                 }
-                ComposerIconButton(symbol: "arrow.up.forward.app",
-                                   help: "The same address, in your own browser (its own cookies and logins).",
-                                   label: "Open in \(PreviewBrowser.name)") {
+                BarIconButton(symbol: "arrow.up.forward.app",
+                              tooltip: Tooltip(title: "Open in \(PreviewBrowser.name)",
+                                               detail: "The same address, in your own browser (its own cookies and logins)."),
+                              glyphSize: Theme.Size.body, size: Self.button) {
                     if let url = session.url { NSWorkspace.shared.open(url) }
                 }
                 .disabled(session.url == nil)
-                ComposerIconButton(symbol: "text.bubble",
-                                   help: conversation.map { "“\($0.title)” in the main window\($0.id == session.lastAgentConversationID ? ", the conversation that last used this browser" : "")." }
-                                       ?? "This workspace has no conversation yet.",
-                                   label: "Show Conversation") {
+                BarIconButton(symbol: "text.bubble",
+                              tooltip: Tooltip(title: "Show Conversation",
+                                               detail: conversation.map { "“\($0.title)” in the main window\($0.id == session.lastAgentConversationID ? ", the conversation that last used this browser" : "")." }
+                                                   ?? "This workspace has no conversation yet."),
+                              glyphSize: Theme.Size.body, size: Self.button) {
                     if let conversation { Activity.shared.show(conversation) }
                 }
                 .disabled(conversation == nil)
@@ -470,9 +484,12 @@ private struct PreviewFooter: View {
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .padding(.leading, Theme.Space.s)
-        .padding(.trailing, Theme.Space.m)
-        .padding(.vertical, Theme.Space.s)
+        // Edges as the titlebar row's: the folder under the close button,
+        // the size the row's margin from the right; the same band height,
+        // the same divider on the page's side.
+        .padding(.leading, max(0, model.buttonsMinX - ClaudeChip.padding))
+        .padding(.trailing, TitlebarRow.edge)
+        .frame(height: model.barHeight)
         .background(Theme.Surface.chrome)
         .overlay(alignment: .top) { Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1) }
     }
