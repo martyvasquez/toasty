@@ -151,11 +151,7 @@ final class WorkspaceStore: ObservableObject {
     private var saveScheduled = false
     private var loading = false
 
-    /// No state.json yet: Toasty's first launch.
-    private(set) var isFirstLaunch = false
-
     func load() {
-        isFirstLaunch = !FileManager.default.fileExists(atPath: Self.stateURL.path)
         loading = true
         defer { loading = false }
         if let data = try? Data(contentsOf: Self.stateURL),

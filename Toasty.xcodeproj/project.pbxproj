@@ -71,7 +71,6 @@
 		97DE64296BB25F566553E931 /* TerminalSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D608974EF68852F5E90292F3 /* TerminalSession.swift */; };
 		9872B09FC2AF652524111032 /* GitChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = B522B1F4E328C3F351D75754 /* GitChanges.swift */; };
 		9DDDDAA170037BD3E78B847C /* LocalServersWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D16EF1BA583C2893F7B6156 /* LocalServersWindow.swift */; };
-		A2EC71DB7AA8F9C82C143E0E /* MosttyImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCAA19127C213E06D0E3269E /* MosttyImport.swift */; };
 		A83035FF59935DFD66E04BAC /* PreviewDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19CED90B88C38C1A6B695B76 /* PreviewDebug.swift */; };
 		AC946F3D12C8AAF3BB8D8BF1 /* TeeUp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CE9F5C6D66F52699F8558DC /* TeeUp.swift */; };
 		AC9DFC4D667B3EF0DACDCE40 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FDD4FA67F476B51448A8EB66 /* Assets.xcassets */; };
@@ -244,7 +243,6 @@
 		F771FAE516553A7AB4E02A7D /* PreviewSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewSettings.swift; sourceTree = "<group>"; };
 		F8C8A579882F85EF3293A41D /* CTranscribe.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = CTranscribe.xcframework; path = Vendor/CTranscribe.xcframework; sourceTree = "<group>"; };
 		FA6ECF9E267AAEB50DBBCB05 /* ClaudeToolViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeToolViews.swift; sourceTree = "<group>"; };
-		FCAA19127C213E06D0E3269E /* MosttyImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MosttyImport.swift; sourceTree = "<group>"; };
 		FCD6058B2549DF11F5B70E09 /* .keep */ = {isa = PBXFileReference; path = .keep; sourceTree = "<group>"; };
 		FDD4FA67F476B51448A8EB66 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -404,7 +402,6 @@
 		C02E06E6B0BB99FC94E442D8 /* Workspaces */ = {
 			isa = PBXGroup;
 			children = (
-				FCAA19127C213E06D0E3269E /* MosttyImport.swift */,
 				92F0C051C134C0C9C597BCFD /* Workspace.swift */,
 				6927A423E7E99E5F0D72EB08 /* WorkspaceSidebarView.swift */,
 				A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */,
@@ -715,7 +712,6 @@
 				53B908DF422B0A0DA826C6F1 /* MainSplitViewController.swift in Sources */,
 				346191052BC0573C556FAE23 /* MainWindowController.swift in Sources */,
 				8E343C37F42EE056A3D4ED01 /* MicCapture.swift in Sources */,
-				A2EC71DB7AA8F9C82C143E0E /* MosttyImport.swift in Sources */,
 				E418801CB5AD25148EC64A13 /* PTY.swift in Sources */,
 				DE02A16E0FD35941F3F2FF5C /* PopoverMenu.swift in Sources */,
 				A83035FF59935DFD66E04BAC /* PreviewDebug.swift in Sources */,

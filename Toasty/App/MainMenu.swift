@@ -38,7 +38,6 @@ enum MainMenu {
         file.addItem(item("New Tab", #selector(W.newTab(_:)), "t"))
         file.addItem(item("New Terminal", #selector(W.newTerminal(_:)), "t", [.command, .option]))
         file.addItem(item("New Workspace…", #selector(W.newWorkspace(_:)), "n"))
-        file.addItem(item("Import from mostty…", #selector(W.importFromMostty(_:)), ""))
         file.addItem(.separator())
         // Also a system-wide shortcut (ScreenshotCapture), unless that's turned off.
         let screenshot = item("Attach Screenshot", #selector(ScreenshotCapture.capture(_:)), "0", ScreenshotCapture.menuModifiers)

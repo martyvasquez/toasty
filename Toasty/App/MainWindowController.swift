@@ -352,8 +352,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         if let w = store.active { NSWorkspace.shared.open(URL(fileURLWithPath: w.folder)) }
     }
 
-    @objc func importFromMostty(_ sender: Any?) { MosttyImport.present(store: store) }
-
     @objc func newWorktree(_ sender: Any?) {
         if let id = store.activeID { store.requestNewWorktree(for: id) }
     }
@@ -414,8 +412,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             return w?.isWorktree == true
         case #selector(changeWorkspaceFolder(_:)):
             return w.map { !$0.isWorktree } ?? false
-        case #selector(importFromMostty(_:)):
-            return MosttyImport.isAvailable
         case #selector(selectNextWorkspace(_:)), #selector(selectPreviousWorkspace(_:)):
             return store.workspaces.count > 1
         default:
