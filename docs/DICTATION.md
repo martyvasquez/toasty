@@ -22,7 +22,7 @@ With Toasty in front:
 | To | Do |
 |---|---|
 | Dictate | Hold **Right Option**, speak, release. |
-| Dictate hands-free | **Double-tap** Right Option; press it once more to finish. |
+| Dictate hands-free | **Double-tap** Right Option; press it once more to finish. Switching to another app finishes it too. |
 | Cancel | **Esc** or **⌘.** while listening. |
 | Use the mouse | Click the **mic button** next to Send to start; click again to finish. |
 | Get the last text back | Edit ▸ Dictation ▸ **Insert Last Dictation** / **Copy Last Dictation**. |

@@ -161,10 +161,14 @@ final class DictationController: ObservableObject {
         pending += 1
         setPhase(.transcribing)
         Task {
+            // The repo's paths come from git (cached for a minute): read
+            // off the main thread, while the capture's tail is recorded.
+            let folder = capture.folder
+            let repo = Task.detached { folder.map { RepoPaths.index(folder: $0) } }
             var vocabulary = Vocabulary.effective(projectFolder: capture.folder, context: await capture.context.value)
-            vocabulary.repo = capture.folder.map { RepoPaths.index(folder: $0) }
-            lastVocabulary = vocabulary
             let outcome = await MicCapture.shared.finish(release: release)
+            vocabulary.repo = await repo.value
+            lastVocabulary = vocabulary
             // The stop tone plays once the tail is captured, so the
             // microphone never hears it as speech; a short tap is silent.
             switch outcome {

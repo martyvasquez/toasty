@@ -97,7 +97,9 @@ nonisolated struct TriggerStateMachine: Equatable {
             state = .dirty
             return .finish(now)
 
-        case (.locked, .button(let now)):
+        // Leaving Toasty ends a hands-free dictation too (and transcribes
+        // it): the microphone never stays on unattended.
+        case (.locked, .button(let now)), (.locked, .resignActive(let now)):
             state = .idle(lastRelease: nil)
             return .finish(now)
 

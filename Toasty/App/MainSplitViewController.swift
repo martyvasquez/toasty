@@ -275,8 +275,6 @@ final class MainSplitViewController: NSSplitViewController {
         }
     }
 
-    /// Something outside the split view moved what the titlebar row follows.
-    func noteLayout() { layoutChanged() }
 
     /// The right column sliding open or closed (the titlebar follows it).
     static let columnSlide: TimeInterval = 0.22
@@ -364,7 +362,7 @@ extension MainSplitViewController {
     /// A double-click on a column's edge: it goes back to its default width
     /// (the convention for resizable sidebars).
     func resetColumn(atDivider index: Int) {
-        guard let w = store.active else { return }
+        guard store.active != nil else { return }
         if index == 0 {
             store.sidebarWidth = WorkspaceStore.defaultSidebarWidth
             store.setNeedsSave()

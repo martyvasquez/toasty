@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import os
 
 /// The workspace folder's git state for the inspector's Changes tab: the
 /// branch, how far it is from its upstream and from the repository's main
@@ -178,6 +179,7 @@ final class GitChanges: ObservableObject {
 
         let entries = status.text.split(separator: "\0", omittingEmptySubsequences: false).map(String.init)
         var files: [File] = []
+        var untracked: Set<URL> = []
         var i = 0
         while i < entries.count {
             let e = entries[i]
@@ -223,9 +225,16 @@ final class GitChanges: ObservableObject {
                                   added: c?.0 ?? (status == .deleted ? nil : 0), removed: c?.1 ?? 0, root: root))
             } else if e.hasPrefix("? ") {
                 let path = String(e.dropFirst(2))
-                let lines = lineCount(URL(fileURLWithPath: root).appendingPathComponent(path))
+                let url = URL(fileURLWithPath: root).appendingPathComponent(path)
+                untracked.insert(url)
+                let lines = lineCount(url, in: root)
                 files.append(File(path: path, oldPath: nil, status: .untracked, added: lines, removed: lines == nil ? nil : 0, root: root))
             }
+        }
+        // Forget the counts of files that are no longer untracked.
+        let current = untracked
+        lineCounts.withLock { cache in
+            cache[root] = cache[root]?.filter { current.contains($0.key) }
         }
         s.files = files.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
         // A branch that tracks something else (or nothing): how far the
@@ -266,16 +275,39 @@ final class GitChanges: ObservableObject {
     }
 
     /// Lines in a new file; nil if it looks binary or is too big to read.
-    nonisolated private static func lineCount(_ url: URL) -> Int? {
-        guard let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize, size < 8_000_000,
-              let data = try? Data(contentsOf: url) else { return nil }
+    /// Remembered until the file changes (size or modification date): the
+    /// poll runs every few seconds, and a folder that isn't ignored yet
+    /// (node_modules) can hold thousands of new files.
+    nonisolated private static func lineCount(_ url: URL, in root: String) -> Int? {
+        guard let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]),
+              let size = values.fileSize, size < 8_000_000 else { return nil }
+        let modified = values.contentModificationDate
+        if let known = lineCounts.withLock({ $0[root]?[url] }), known.size == size, known.modified == modified {
+            return known.lines
+        }
+        let lines = (try? Data(contentsOf: url)).flatMap(countLines)
+        lineCounts.withLock { $0[root, default: [:]][url] = (size, modified, lines) }
+        return lines
+    }
+
+    nonisolated private static func countLines(_ data: Data) -> Int? {
         if data.prefix(8000).contains(0) { return nil }
         if data.isEmpty { return 0 }
-        let newlines = data.reduce(0) { $0 + ($1 == 0x0A ? 1 : 0) }
+        let newlines = data.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) -> Int in
+            guard let base = bytes.baseAddress else { return 0 }
+            var count = 0, i = 0
+            while i < bytes.count, let hit = memchr(base + i, 0x0A, bytes.count - i) {
+                count += 1
+                i = base.distance(to: hit) + 1
+            }
+            return count
+        }
         return newlines + (data.last == 0x0A ? 0 : 1)
     }
 
-    // MARK: Diffs
+    /// Per repository root, the counts of its untracked files as last read.
+    nonisolated private static let lineCounts =
+        OSAllocatedUnfairLock<[String: [URL: (size: Int, modified: Date?, lines: Int?)]]>(initialState: [:])
 
 
     // MARK: Running git
@@ -314,7 +346,7 @@ final class GitChanges: ObservableObject {
         p.waitUntilExit()
     }
 
-    nonisolated static func git(_ args: [String], in dir: String) -> GitResult {
+    nonisolated static func git(_ args: [String], in dir: String, timeout: TimeInterval = 60) -> GitResult {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/git")
         p.arguments = ["-c", "core.quotepath=off"] + args
@@ -325,9 +357,17 @@ final class GitChanges: ObservableObject {
         p.standardError = err
         p.standardInput = FileHandle.nullDevice
         do { try p.run() } catch { return GitResult(status: -1, text: "", error: error.localizedDescription) }
-        // Read before waiting so a large output can't fill the pipe.
+        // A git that hangs (a network volume, a stuck filter) is given up
+        // on, so the caller's next refresh can run.
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + timeout) {
+            if p.isRunning { p.terminate() }
+        }
+        // Read both before waiting so a large output can't fill a pipe.
+        let errRead = DispatchQueue(label: "toasty.git.stderr")
+        nonisolated(unsafe) var errData = Data()
+        errRead.async { errData = err.fileHandleForReading.readDataToEndOfFile() }
         let data = out.fileHandleForReading.readDataToEndOfFile()
-        let errData = err.fileHandleForReading.readDataToEndOfFile()
+        errRead.sync {}
         p.waitUntilExit()
         return GitResult(status: p.terminationStatus,
                          text: String(decoding: data, as: UTF8.self),

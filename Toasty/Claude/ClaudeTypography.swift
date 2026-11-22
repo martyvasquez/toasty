@@ -28,11 +28,9 @@ nonisolated enum ClaudeTypography {
     /// size: a heading sits closer to its own text than to what came before.
     static let headingSpacingBefore: CGFloat = 0.45
 
-    /// The column: replies and the composer share this width and edges.
-    /// The transcript and the composer share this width (a comfortable
-    /// reading measure, like Claude, Codex and Conductor).
+    /// The column: the transcript and the composer share this width and
+    /// edges (a comfortable reading measure, like Claude, Codex and Conductor).
     static let composerWidth: CGFloat = 720
-    static var measure: CGFloat { composerWidth }
 
     static let codeBlockPadding: CGFloat = 14
     static let tableCellPadding: CGFloat = 12
@@ -121,13 +119,6 @@ nonisolated enum ClaudeTypography {
         p.lineBreakStrategy = .standard
         p.hyphenationFactor = 0
         return p
-    }
-
-    static var linkAttributes: [NSAttributedString.Key: Any] {
-        [.foregroundColor: link,
-         .underlineStyle: NSUnderlineStyle.single.rawValue,
-         .underlineColor: linkUnderline,
-         .cursor: NSCursor.pointingHand]
     }
 
     /// "Bold" is semibold on regular text (SF Bold reads heavy next to body

@@ -154,8 +154,16 @@ final class WorkspaceStore: ObservableObject {
     func load() {
         loading = true
         defer { loading = false }
-        if let data = try? Data(contentsOf: Self.stateURL),
-           let s = try? JSONDecoder().decode(Saved.self, from: data) {
+        let data = try? Data(contentsOf: Self.stateURL)
+        let saved = data.flatMap { try? JSONDecoder().decode(Saved.self, from: $0) }
+        if let data, saved == nil {
+            // Unreadable (damaged, or written by a newer Toasty): the next
+            // save replaces it, so keep a copy beside it first.
+            let copy = Self.stateURL.deletingLastPathComponent().appendingPathComponent("state.unreadable.json")
+            try? data.write(to: copy, options: .atomic)
+            NSLog("Toasty: couldn't read state.json; a copy is at \(copy.path)")
+        }
+        if let s = saved {
             let loaded = s.workspaces.map { Workspace(saved: $0) }
             loaded.forEach { $0.store = self }
             // A worktree whose parent is gone stands on its own.

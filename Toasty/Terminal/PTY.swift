@@ -51,6 +51,11 @@ nonisolated final class PTYProcess: @unchecked Sendable {
         var empty = sigset_t()
         sigemptyset(&empty)
 
+        // Descriptors the shell must not inherit: Toasty's pipes to Claude
+        // Code and git aren't close-on-exec, and a program left running
+        // from a terminal (tmux, nohup) would hold them open after quit.
+        let descriptors = min(getdtablesize(), 4096)
+
         var fd: Int32 = -1
         let pid = argv.withUnsafeBufferPointer { a in
             envp.withUnsafeBufferPointer { e in
@@ -59,6 +64,8 @@ nonisolated final class PTYProcess: @unchecked Sendable {
                     // Child.
                     sigprocmask(SIG_SETMASK, &empty, nil)
                     for sig in [SIGCHLD, SIGHUP, SIGINT, SIGQUIT, SIGTERM, SIGALRM, SIGPIPE] { signal(sig, SIG_DFL) }
+                    var other: Int32 = 3
+                    while other < descriptors { close(other); other += 1 }
                     if chdir(dir) != 0 { _ = chdir(home) }
                     execve(path, a.baseAddress, e.baseAddress)
                     _exit(127)

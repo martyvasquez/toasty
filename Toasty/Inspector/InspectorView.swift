@@ -289,7 +289,10 @@ struct DiffPage: View {
         .task(id: file) {
             lines = nil
             let f = file
-            lines = await Task.detached(priority: .userInitiated) { GitChanges.diffLines(f) }.value
+            let loaded = await Task.detached(priority: .userInitiated) { GitChanges.diffLines(f) }.value
+            // Another file was chosen while this one loaded.
+            guard !Task.isCancelled else { return }
+            lines = loaded
         }
     }
 

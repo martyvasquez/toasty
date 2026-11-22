@@ -531,7 +531,6 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     /// Streaming content blocks of the current API message, by index.
     private var streaming: [Int: ClaudeItem] = [:]
     private var streamingMessageID: String?
-    private var toolInputJSON: [Int: String] = [:]
 
     init(id: UUID = UUID(), cwd: String, sessionID: String? = nil, customTitle: String? = nil, forked: Bool = false) {
         self.id = id
@@ -1315,7 +1314,6 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 item.messageID = streamingMessageID
                 tools[id] = item
                 streaming[index] = item
-                toolInputJSON[index] = ""
                 items.append(item)
             default:
                 break
@@ -1334,7 +1332,6 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 activity.streamed(t.count)
             case "input_json_delta":
                 let t = delta["partial_json"] as? String ?? ""
-                toolInputJSON[index, default: ""] += t
                 activity.streamed(t.count)
             default: break
             }
@@ -1407,7 +1404,6 @@ final class ClaudeConversation: ObservableObject, Identifiable {
             item.finalized = true
         }
         streaming.removeAll()
-        toolInputJSON.removeAll()
     }
 
     private func userText(_ raw: String) {

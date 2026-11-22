@@ -46,9 +46,6 @@ final class TerminalRenderer {
     }
     private(set) var cursor = Cursor()
 
-    /// Rows whose snapshot changed in the last `update`.
-    private(set) var changedRows = IndexSet()
-
     /// Pulls a new frame from the render state. Returns rows to redraw.
     func update(from vt: VTTerminal) -> IndexSet {
         let state = vt.renderState!

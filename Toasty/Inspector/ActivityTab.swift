@@ -228,7 +228,7 @@ private struct RunningTool: View {
     /// other step with its verb ("Reading queue.ts").
     private func label(_ summary: String) -> String {
         switch item.toolName {
-        case "Bash", "Task", "Agent" where !summary.isEmpty: return summary
+        case "Bash" where !summary.isEmpty, "Task" where !summary.isEmpty, "Agent" where !summary.isEmpty: return summary
         default: return ClaudeToolInfo.activeVerb(item.toolName) + (summary.isEmpty ? "…" : " " + summary)
         }
     }

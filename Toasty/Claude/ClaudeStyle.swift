@@ -7,9 +7,6 @@ import SwiftUI
 enum ClaudeStyle {
     static var bodySize: CGFloat { ClaudeTypography.bodySize }
     static var codeSize: CGFloat { ClaudeTypography.codeSize }
-    static let lineHeight: CGFloat = 1.3
-    /// Comfortable reading measure for the transcript.
-    static var readingWidth: CGFloat { ClaudeTypography.measure }
     static let horizontalPadding: CGFloat = 28
 
     /// The conversation's page (and a selected tab).
@@ -39,6 +36,4 @@ extension Color {
     static var claudeField: Color { Color(nsColor: ClaudeStyle.field) }
     /// Hairline separators.
     static var claudeSeparator: Color { Color(nsColor: .separatorColor) }
-    /// Subtle fill for cards and code.
-    static var claudeFill: Color { Theme.Fill.faint }
 }

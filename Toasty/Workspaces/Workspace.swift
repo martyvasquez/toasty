@@ -130,11 +130,6 @@ final class Workspace: ObservableObject, Identifiable {
         changed()
     }
 
-    func select(index: Int) {
-        guard conversations.indices.contains(index) else { return }
-        select(conversations[index])
-    }
-
     func selectRelative(_ delta: Int) {
         guard !conversations.isEmpty else { return }
         let i = conversations.firstIndex { $0.id == selectedID } ?? 0
@@ -181,10 +176,6 @@ final class Workspace: ObservableObject, Identifiable {
         }
         store?.workspaceSelectionChanged(self)
         changed()
-    }
-
-    func closeOthers(than conversation: ClaudeConversation) {
-        conversations.filter { $0.id != conversation.id }.forEach(close)
     }
 
     func renamed() { changed(); store?.workspaceSelectionChanged(self) }

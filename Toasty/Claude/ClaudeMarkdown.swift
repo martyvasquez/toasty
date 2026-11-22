@@ -46,6 +46,9 @@ enum ClaudeMarkdown {
     private static let parsed: NSCache<NSString, Parsed> = {
         let cache = NSCache<NSString, Parsed>()
         cache.countLimit = 4000
+        // By size too (characters): a reply that streams in leaves an
+        // entry for every length it had on the way.
+        cache.totalCostLimit = 16_000_000
         return cache
     }()
 
@@ -53,7 +56,7 @@ enum ClaudeMarkdown {
         let key = "\(style.baseSize)|\(style.codeSize)|\(style.cwd ?? "")|\(markdown)" as NSString
         if let hit = parsed.object(forKey: key) { return hit.blocks }
         let out = parseBlocks(markdown, style: style)
-        parsed.setObject(Parsed(out), forKey: key)
+        parsed.setObject(Parsed(out), forKey: key, cost: key.length)
         return out
     }
 
@@ -356,7 +359,6 @@ enum ClaudeMarkdown {
             out.append(newline(T.body))
 
         case .list(let ordered, _, let items):
-            var counters: [Int: Int] = [:]
             let font = T.body
             let numberFont = NSFont.monospacedDigitSystemFont(ofSize: font.pointSize, weight: .regular)
             // A numbered list's text edge leaves room for its widest number
@@ -368,8 +370,6 @@ enum ClaudeMarkdown {
             }
             for (n, item) in items.enumerated() {
                 let level = min(item.indent, 6)
-                // Deeper levels restart their numbering.
-                counters = counters.filter { $0.key <= level }
                 let levelX = CGFloat(level) * max(T.listLevelStep, textOffset)
                 let textX = levelX + textOffset
                 let spacing: CGFloat = n == 0 ? gap : 3
@@ -387,7 +387,6 @@ enum ClaudeMarkdown {
                     // The number as written (Claude numbers its own lists;
                     // a list that starts at 9 stays at 9).
                     let k = item.number
-                    counters[level] = k + 1
                     let number = "\(k)."
                     let width = (number as NSString).size(withAttributes: [.font: numberFont]).width
                     // Numbers are right-aligned to the text edge.
@@ -680,7 +679,32 @@ enum ClaudeSyntax {
     private static let tokenRegex: NSRegularExpression? = try? NSRegularExpression(
         pattern: #"("(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\])*`)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_][A-Za-z0-9_]*)"#)
 
+    /// Highlighted code blocks, so one is colored once: not again on every
+    /// hover, or on every word of the reply that streams in after it.
+    /// (The colors follow the appearance by themselves.)
+    private static let highlighted: NSCache<NSString, NSAttributedString> = {
+        let cache = NSCache<NSString, NSAttributedString>()
+        cache.totalCostLimit = 8_000_000
+        return cache
+    }()
+
+    private static let commentRegexes: [String: NSRegularExpression] = {
+        var out: [String: NSRegularExpression] = [:]
+        for pattern in [#"(?m)(^|\s)#.*$"#, #"//.*$"#, #"/\*[\s\S]*?\*/"#, #"<!--[\s\S]*?-->"#] {
+            out[pattern] = try? NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines])
+        }
+        return out
+    }()
+
     static func highlight(_ code: String, language: String, font: NSFont) -> NSAttributedString {
+        let key = "\(language)|\(font.fontName)|\(font.pointSize)|\(code)" as NSString
+        if let hit = highlighted.object(forKey: key) { return hit }
+        let out = NSAttributedString(attributedString: render(code, language: language, font: font))
+        highlighted.setObject(out, forKey: key, cost: key.length)
+        return out
+    }
+
+    private static func render(_ code: String, language: String, font: NSFont) -> NSAttributedString {
         let multiple = ClaudeTypography.codeLineHeightMultiple
         let s = NSMutableAttributedString(string: code, attributes: [
             .font: font,
@@ -736,7 +760,7 @@ enum ClaudeSyntax {
         let linePattern = hash ? #"(?m)(^|\s)#.*$"# : #"//.*$"#
         for pattern in [linePattern, #"/\*[\s\S]*?\*/"#, #"<!--[\s\S]*?-->"#] {
             if hash && pattern.hasPrefix("/\\*") { continue }
-            guard let re = try? NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines]) else { continue }
+            guard let re = commentRegexes[pattern] else { continue }
             re.enumerateMatches(in: code, options: [], range: full) { m, _, _ in
                 guard let m else { return }
                 // Don't treat "://" in URLs as a comment.

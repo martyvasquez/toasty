@@ -96,12 +96,12 @@ import Testing
         #expect(m.state == .idle(lastRelease: nil))
     }
 
-    @Test func resignActiveFinishesAHoldButKeepsALock() {
+    @Test func resignActiveFinishesAHoldAndALock() {
         let (_, a) = run([.triggerDown(t0), .resignActive(t0 + 1)])
         #expect(a == [.start(t0), .finish(t0 + 1)])
         let (m, b) = run([.button(t0), .resignActive(t0 + 1)])
-        #expect(b == [.start(t0), nil])
-        #expect(m.isLocked)
+        #expect(b == [.start(t0), .finish(t0 + 1)])
+        #expect(m.state == .idle(lastRelease: nil))
     }
 
     @Test func keyRepeatOfTheTriggerNeverRetriggers() {
