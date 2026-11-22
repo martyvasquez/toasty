@@ -316,6 +316,9 @@ final class GitChanges: ObservableObject {
         let status: Int32
         let text: String
         let error: String
+        /// The output passed the caller's limit: git was stopped, and
+        /// `text` is only its start.
+        var truncated = false
     }
 
     /// Never take the index lock (a status poll mustn't block the user's
@@ -346,7 +349,9 @@ final class GitChanges: ObservableObject {
         p.waitUntilExit()
     }
 
-    nonisolated static func git(_ args: [String], in dir: String, timeout: TimeInterval = 60) -> GitResult {
+    /// `limit`: stop git once it has written this many bytes (a diff of
+    /// something huge), and return what came before.
+    nonisolated static func git(_ args: [String], in dir: String, timeout: TimeInterval = 60, limit: Int? = nil) -> GitResult {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/git")
         p.arguments = ["-c", "core.quotepath=off"] + args
@@ -366,11 +371,23 @@ final class GitChanges: ObservableObject {
         let errRead = DispatchQueue(label: "toasty.git.stderr")
         nonisolated(unsafe) var errData = Data()
         errRead.async { errData = err.fileHandleForReading.readDataToEndOfFile() }
-        let data = out.fileHandleForReading.readDataToEndOfFile()
+        var data = Data()
+        var truncated = false
+        while true {
+            let chunk = out.fileHandleForReading.availableData
+            if chunk.isEmpty { break }
+            data.append(chunk)
+            if let limit, data.count >= limit {
+                truncated = true
+                p.terminate()
+                break
+            }
+        }
         errRead.sync {}
         p.waitUntilExit()
         return GitResult(status: p.terminationStatus,
                          text: String(decoding: data, as: UTF8.self),
-                         error: String(decoding: errData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
+                         error: String(decoding: errData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines),
+                         truncated: truncated)
     }
 }

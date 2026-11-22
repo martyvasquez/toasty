@@ -113,6 +113,10 @@ private struct ChangesTab: View {
         }
     }
 
+    /// Rows listed; past this (a dependency folder that isn't ignored
+    /// yet) the list ends with how many more there are.
+    private static let maxRows = 500
+
     private var loaded: some View {
         VStack(spacing: 0) {
             BranchSummary(changes: changes, workspace: workspace)
@@ -122,9 +126,20 @@ private struct ChangesTab: View {
                 ScrollView {
                     InspectorListSection(title: "Uncommitted", count: changes.files.count) {
                         LazyVStack(spacing: 0) {
-                            ForEach(changes.files) { file in
+                            ForEach(changes.files.prefix(Self.maxRows)) { file in
                                 ChangedFileRow(file: file, selected: workspace.diffFile?.id == file.id) {
                                     workspace.diffFile = workspace.diffFile?.id == file.id ? nil : file
+                                }
+                            }
+                            if changes.files.count > Self.maxRows {
+                                let more = changes.files.count - Self.maxRows
+                                InspectorRow(label: Text(more == 1 ? "1 more file" : "\(more.formatted()) more files")
+                                                .font(.toasty(Theme.Size.control))
+                                                .foregroundColor(.secondary)) {
+                                    // Keeps the label on the rows' text edge.
+                                    Color.clear
+                                } trailing: {
+                                    EmptyView()
                                 }
                             }
                         }
@@ -268,8 +283,6 @@ struct DiffPage: View {
     let close: () -> Void
     @State private var lines: [DiffLine]?
 
-    private static let maxLines = 8000
-
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -279,7 +292,7 @@ struct DiffPage: View {
                     InspectorEmpty(symbol: "doc", title: "No Line Changes",
                                    detail: file.status == .renamed ? "The file was renamed without edits." : nil)
                 } else {
-                    DiffTextView(lines: Array(lines.prefix(Self.maxLines)), path: file.path)
+                    DiffTextView(lines: lines, path: file.path)
                 }
             } else {
                 ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)

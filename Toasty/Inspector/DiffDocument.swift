@@ -20,21 +20,46 @@ nonisolated struct DiffLine: Sendable, Equatable {
 }
 
 extension GitChanges {
+    /// The most of one diff the page shows: past either, it ends with a
+    /// note. (A generated or minified file can be hundreds of megabytes.)
+    nonisolated static let maxDiffLines = 8000
+    nonisolated static let maxDiffBytes = 2_000_000
+
     /// The file's diff against the last commit, parsed into lines with
     /// their numbers.
     nonisolated static func diffLines(_ file: File) -> [DiffLine] {
         let root = file.root
         let result: GitResult
         if file.status == .untracked {
-            result = git(["diff", "--no-index", "--no-color", "--", "/dev/null", file.path], in: root)
+            result = git(["diff", "--no-index", "--no-color", "--", "/dev/null", file.path], in: root, limit: maxDiffBytes)
         } else {
             let hasHead = git(["rev-parse", "--verify", "--quiet", "HEAD"], in: root).status == 0
             var args = ["diff", "--no-color", "-M"]
             args += hasHead ? ["HEAD"] : ["--cached"]
             args += ["--"] + (file.oldPath.map { [$0] } ?? []) + [file.path]
-            result = git(args, in: root)
+            result = git(args, in: root, limit: maxDiffBytes)
         }
-        return parseDiff(result.text)
+        return limited(result.text, cutShort: result.truncated)
+    }
+
+    /// The parsed diff, ending with a note when it's only the start: git's
+    /// output was `cutShort` at `maxDiffBytes` (the last line is then
+    /// incomplete, and left out), or it runs past `maxDiffLines`.
+    nonisolated static func limited(_ text: String, cutShort: Bool) -> [DiffLine] {
+        var text = Substring(text)
+        if cutShort { text = text.lastIndex(of: "\n").map { text[..<$0] } ?? "" }
+        let lines = parseDiff(String(text))
+        let shown = Array(lines.prefix(maxDiffLines))
+        let note: String
+        if cutShort {
+            note = shown.isEmpty ? "Too large to show" : "Too large to show in full"
+        } else if lines.count > shown.count {
+            let more = lines.count - shown.count
+            note = more == 1 ? "1 more line" : "\(more.formatted()) more lines"
+        } else {
+            return lines
+        }
+        return shown + [DiffLine(kind: .note, text: note, old: nil, new: nil)]
     }
 
     nonisolated static func parseDiff(_ text: String) -> [DiffLine] {

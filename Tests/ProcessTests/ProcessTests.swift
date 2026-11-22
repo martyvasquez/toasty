@@ -174,3 +174,28 @@ struct ProcessTests {
         #expect(family.map(\.pid) == [500])
     }
 }
+
+@Suite struct DiffLimitTests {
+    private func diff(added: Int) -> String {
+        "diff --git a/f b/f\n--- /dev/null\n+++ b/f\n@@ -0,0 +1,\(added) @@\n"
+            + (1...added).map { "+line \($0)" }.joined(separator: "\n") + "\n"
+    }
+
+    @Test func aSmallDiffIsShownWhole() {
+        let lines = GitChanges.limited(diff(added: 3), cutShort: false)
+        #expect(lines.map(\.kind) == [.added, .added, .added])
+    }
+
+    @Test func aLongDiffEndsWithHowManyMoreLines() {
+        let lines = GitChanges.limited(diff(added: GitChanges.maxDiffLines + 1234), cutShort: false)
+        #expect(lines.count == GitChanges.maxDiffLines + 1)
+        #expect(lines.last == DiffLine(kind: .note, text: "1,234 more lines", old: nil, new: nil))
+    }
+
+    /// git was stopped mid-line: the incomplete last line is left out.
+    @Test func aDiffCutShortSaysSoAndDropsThePartialLine() {
+        let lines = GitChanges.limited(diff(added: 3) + "+half a li", cutShort: true)
+        #expect(lines.map(\.text) == ["line 1", "line 2", "line 3", "Too large to show in full"])
+        #expect(GitChanges.limited("+one enormous line with no end", cutShort: true).map(\.text) == ["Too large to show"])
+    }
+}
