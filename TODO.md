@@ -53,10 +53,16 @@ blocks the window until they pass. No "Don't Remind Me": no setup, no
 Toasty. Fix in Terminal runs the missing steps in a terminal in the sheet.
 
 Next:
+- **Managed runtime** (proposal, `docs/MANAGED_RUNTIME.md`, 2026-11-22):
+  Toasty downloads and updates its own official Claude Code build for
+  conversations, and the overhaul likely replaces Node too (`NO_NODE*.md`),
+  so setup is just signing in. Came from a friend stuck on an fnm +
+  Homebrew setup.
 - **Toasty's own Node.** Without Homebrew, Fix in Terminal can't install
   Node (nodejs.org's installer needs an admin password). Download the
   official Node tarball into Application Support, like the SDK, so the
-  Node row never needs the user.
+  Node row never needs the user. Superseded if the managed-runtime
+  overhaul replaces Node.
 - **Test from a fresh macOS user account** before sending Toasty to
   someone: permission prompts and the full Fix run.
 
