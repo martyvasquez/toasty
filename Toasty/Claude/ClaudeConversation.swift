@@ -498,6 +498,9 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     /// result hasn't come back yet.
     private var silentCommands = 0
     private var queued: [[String: Any]] = []
+    /// The transcript's prompts still in `queued` (Claude Code is starting
+    /// and hasn't been sent them), by prompt id.
+    private var unsentItems: [String: ClaudeItem] = [:]
     private var interrupted = false
     /// Claude is working on a turn (from the first prompt sent until the
     /// result with nothing left waiting).
@@ -702,11 +705,39 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         waitingPrompts.insert(promptID)
         setPhase(.working)
         send(message)
+        if queued.contains(where: { $0["uuid"] as? String == promptID }) { unsentItems[promptID] = item }
+    }
+
+    /// Stop before Claude Code has started: the prompts it hasn't been sent
+    /// go back to the composer and are never sent. (An interrupt would do
+    /// nothing, with no turn to stop, and the prompt would run anyway.)
+    private func withdrawUnsentPrompts() -> Bool {
+        let unsent = queued.compactMap { $0["type"] as? String == "user" ? $0["uuid"] as? String : nil }
+        let withdrawn = unsent.compactMap { unsentItems[$0] }
+        guard !unsent.isEmpty, withdrawn.count == unsent.count else { return false }
+        queued.removeAll { ($0["uuid"] as? String).map(unsent.contains) ?? false }
+        unsentItems.removeAll()
+        sentPrompts.subtract(unsent)
+        waitingPrompts.subtract(unsent)
+        items.removeAll { item in withdrawn.contains { $0 === item } }
+        // Back in the composer, before anything typed since.
+        let texts = withdrawn.map(\.text) + [draft]
+        draft = texts.filter { !$0.isEmpty }.joined(separator: "\n\n")
+        attachments = withdrawn.flatMap(\.images) + attachments
+        files = withdrawn.flatMap(\.files) + files
+        turnRunning = false
+        turnPrompt = nil
+        turnStarted = nil
+        interrupted = false
+        setPhase(launching ? .starting : .idle)
+        focusComposer()
+        return true
     }
 
     /// Stop the current turn, like Esc in the CLI.
     func interrupt() {
         guard phase == .working || !requests.isEmpty else { return }
+        if withdrawUnsentPrompts() { return }
         interrupted = true
         // Pending prompts are cancelled by the interrupt itself.
         requests.removeAll()
@@ -888,6 +919,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         sessionRunning = true
         let pending = queued
         queued.removeAll()
+        unsentItems.removeAll()
         setPhase(pending.contains { $0["type"] as? String == "user" } ? .working : .idle)
         if !agentAlive { sentBeforeAlive += pending }
         pending.forEach { agent?.send($0) }
