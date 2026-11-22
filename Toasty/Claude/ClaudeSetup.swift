@@ -22,7 +22,7 @@ final class ClaudeSetup: ObservableObject {
     /// bundled Agent SDK (0.3.319) was built for. Newer ones are fine, so a
     /// Claude Code a few releases behind the newest passes; it updates
     /// itself.
-    static let minimumClaude = "2.1.319"
+    nonisolated static let minimumClaude = "2.1.319"
     static let claudeInstall = "curl -fsSL https://claude.ai/install.sh | bash"
     static let nodeDownload = URL(string: "https://nodejs.org/en/download")!
 
@@ -55,6 +55,9 @@ final class ClaudeSetup: ObservableObject {
     @Published private(set) var claude: Status = .missing
     @Published private(set) var node: Status = .missing
     @Published private(set) var signIn: SignIn = .unknown
+    /// When `claude` is too old: a new enough one later on PATH, which
+    /// the user may think is the one in use.
+    @Published private(set) var newerClaude: (path: String, version: String)?
     /// Homebrew's path, to install Node with.
     @Published private(set) var brew: String?
     @Published private(set) var fix: Fix = .idle
@@ -85,11 +88,19 @@ final class ClaudeSetup: ObservableObject {
         ClaudeEnvironment.lookup(fresh: fresh) { [weak self] found in
             Task.detached(priority: .userInitiated) {
                 let claudeVersion = found.claude.flatMap { Self.version(of: $0, environment: found.variables) }
+                var newer: (path: String, version: String)?
+                if let v = claudeVersion, Self.isOlder(v, than: Self.minimumClaude) {
+                    for path in found.otherClaudes {
+                        if let v = Self.version(of: path, environment: found.variables),
+                           !Self.isOlder(v, than: Self.minimumClaude) { newer = (path, v); break }
+                    }
+                }
                 let nodeVersion = found.node.flatMap { Self.version(of: $0, environment: found.variables) }
                 let signIn = found.claude.map { Self.signIn(claude: $0, environment: found.variables) } ?? .unknown
                 let brew = ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
                     .first { FileManager.default.isExecutableFile(atPath: $0) }
                 await MainActor.run {
+                    self?.newerClaude = newer
                     self?.finish(found: found, claudeVersion: claudeVersion, nodeVersion: nodeVersion,
                                  signIn: signIn, brew: brew)
                 }
@@ -191,7 +202,12 @@ final class ClaudeSetup: ObservableObject {
         var steps: [(String, String)] = []
         switch claude {
         case .missing: steps.append(("Installing Claude Code", Self.claudeInstall))
-        case .tooOld: steps.append(("Updating Claude Code", "claude update"))
+        // The `claude` the check found, by path: another one earlier on
+        // the fix terminal's PATH would be updated instead. Homebrew's is
+        // updated by Homebrew.
+        case .tooOld(let path, _):
+            let update = Self.homebrewPackage(path).flatMap { package in brew.map { "\($0) upgrade \(package)" } }
+            steps.append(("Updating Claude Code", update ?? "\(Self.shellQuoted(path)) update"))
         case .found: break
         }
         if !node.isOK, let brew { steps.append(("Installing Node.js", "\(brew) install node")) }
@@ -208,6 +224,20 @@ final class ClaudeSetup: ObservableObject {
         guard !steps.isEmpty else { return nil }
         let parts = steps.map { "printf '\\033[1m%s…\\033[0m\\n\\n' '\($0.title)' && \($0.command) && echo" }
         return (["export PATH=\"$HOME/.local/bin:$PATH\""] + parts).joined(separator: " && ")
+    }
+
+    /// The Homebrew formula or cask `path` comes from ("claude-code"), nil
+    /// when it isn't Homebrew's.
+    nonisolated static func homebrewPackage(_ path: String, resolve: Bool = true) -> String? {
+        let real = resolve ? URL(fileURLWithPath: path).resolvingSymlinksInPath().path : path
+        let parts = real.split(separator: "/").map(String.init)
+        guard let i = parts.firstIndex(where: { $0 == "Caskroom" || $0 == "Cellar" }), i + 1 < parts.count,
+              parts[i + 1].range(of: #"^[a-z0-9@._+-]+$"#, options: .regularExpression) != nil else { return nil }
+        return parts[i + 1]
+    }
+
+    nonisolated static func shellQuoted(_ s: String) -> String {
+        "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
     var fixCanRun: Bool { fixCommand != nil && fix != .running }
@@ -400,9 +430,10 @@ struct ClaudeSetupView: View {
         switch model.claude {
         case .found(let path, let version):
             Row(state: .ok, title: "Claude Code", detail: found(path, version), checking: model.checking) { EmptyView() }
-        case .tooOld(_, let version):
+        case .tooOld(let path, let version):
             Row(state: .warning, title: "Claude Code",
-                detail: "Version \(version) is too old. Toasty needs \(ClaudeSetup.minimumClaude) or later.",
+                detail: "Version \(version) at \(abbreviate(path)) is too old. Toasty needs \(ClaudeSetup.minimumClaude) or later."
+                    + (model.newerClaude.map { " Version \($0.version) at \(abbreviate($0.path)) is new enough, but comes later on your PATH." } ?? ""),
                 checking: model.checking) { EmptyView() }
         case .missing:
             Row(state: .missing, title: "Claude Code", detail: "Not installed.", checking: model.checking) { EmptyView() }

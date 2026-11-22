@@ -293,7 +293,7 @@ Promote from other lists: Files in the @ menu; Tee up from the composer.
 
 ## Browser (experimental; was "Preview")
 
-Built 2026-11-10 (`Toasty/Preview/`), off by default in Settings ▸ Browser.
+Built 2026-11-10 (`Toasty/Preview/`), on by default since 2026-11-21 (off before) in Settings ▸ Browser.
 The user may remove it again: everything outside that folder is listed at
 the top of `PreviewSettings.swift`. Principles 1 and 2 in `BUILD_PLAN.md`
 §1 carry the exceptions it needed.

@@ -106,6 +106,8 @@ final class PreviewSession: NSObject, ObservableObject {
         let rect: CGRect
         let viewport: CGSize
         let url: String
+        /// Picked in side by side's iPhone page, not the main one.
+        var inTwin = false
     }
 
     let workspaceID: UUID
@@ -128,9 +130,10 @@ final class PreviewSession: NSObject, ObservableObject {
     /// (or the tab closes).
     @Published var commentTabID: UUID?
     @Published private(set) var pick: Pick?
-    /// When a comment last went onto the Tee-Up list (the pane says so for
-    /// a moment, since the list itself isn't in view).
-    @Published private(set) var teedUpAt: Date?
+    /// Where the last comment went ("Added to Tee-Up", "Sent to “Fix the
+    /// header”"): the pane says so for a moment, since neither the list
+    /// nor the conversation is in view. A new id each time.
+    @Published private(set) var commentConfirmation: (id: UUID, text: String)?
     /// A page has been asked for (the start screen is over).
     @Published private(set) var started = false
     /// The browser window is open (shown, or minimized): the page is in it.
@@ -323,7 +326,12 @@ final class PreviewSession: NSObject, ObservableObject {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = WKWebsiteDataStore(forIdentifier: workspaceID)
         configuration.applicationNameForUserAgent = "Version/18.5 Safari/605.1.15"
-        PreviewScrollSync.install(on: configuration, relay: MessageRelay(self))
+        // Commenting works in the iPhone page too.
+        let relay = MessageRelay(self)
+        configuration.userContentController.addUserScript(WKUserScript(source: PreviewScripts.picker, injectionTime: .atDocumentEnd,
+                                                                       forMainFrameOnly: true, in: Self.world))
+        configuration.userContentController.add(relay, contentWorld: Self.world, name: PreviewScripts.pickerHandler)
+        PreviewScrollSync.install(on: configuration, relay: relay)
         let web = WKWebView(frame: NSRect(origin: .zero, size: lastPhone.nominal), configuration: configuration)
         let delegate = TwinDelegate(self)
         twinDelegate = delegate
@@ -355,7 +363,12 @@ final class PreviewSession: NSObject, ObservableObject {
         if twin.url != nil { twinFollowing = true; twin.reload() }
     }
 
+    fileprivate func twinPickGone() {
+        if pick?.inTwin == true { pick = nil }
+    }
+
     private func dropTwin() {
+        twinPickGone()
         twinObservers = []
         if let twin {
             twin.stopLoading()
@@ -396,6 +409,7 @@ final class PreviewSession: NSObject, ObservableObject {
 
     fileprivate func twinLoadEnded() {
         twinFollowing = false
+        if commenting { picker("start", in: twin) }
         if scrollSync { scrollSyncer.syncTwinToMain() }
     }
 
@@ -573,8 +587,13 @@ final class PreviewSession: NSObject, ObservableObject {
         try await web().callAsyncJavaScript(body, arguments: arguments, in: nil, contentWorld: .page)
     }
 
-    private func picker(_ call: String) {
-        webView?.evaluateJavaScript("window.__toastyPicker && window.__toastyPicker.\(call)()", in: nil, in: Self.world) { _ in }
+    /// Calls the picker in both pages (side by side's iPhone one too), or
+    /// in `web` alone.
+    private func picker(_ call: String, in web: WKWebView? = nil) {
+        let pages = web.map { [$0] } ?? [webView, twin].compactMap { $0 }
+        for page in pages {
+            page.evaluateJavaScript("window.__toastyPicker && window.__toastyPicker.\(call)()", in: nil, in: Self.world) { _ in }
+        }
     }
 
     #if DEBUG
@@ -588,13 +607,13 @@ final class PreviewSession: NSObject, ObservableObject {
 
     /// What the page shows now, at the page's own size: 2 pixels per point
     /// for a phone, 1 for a desktop.
-    func snapshot() async throws -> NSBitmapImageRep {
-        let web = web()
+    func snapshot(twin inTwin: Bool = false) async throws -> NSBitmapImageRep {
+        let web = inTwin ? (twin ?? web()) : web()
         let configuration = WKSnapshotConfiguration()
         configuration.afterScreenUpdates = true
         let image = try await web.takeSnapshot(configuration: configuration)
         let size = web.bounds.size
-        let density: CGFloat = viewport.isPhone ? 2 : 1
+        let density: CGFloat = inTwin || viewport.isPhone ? 2 : 1
         let pixels = NSSize(width: (size.width * density).rounded(), height: (size.height * density).rounded())
         guard pixels.width >= 1, pixels.height >= 1,
               let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(pixels.width), pixelsHigh: Int(pixels.height),
@@ -624,9 +643,10 @@ final class PreviewSession: NSObject, ObservableObject {
 
     /// Drop the current pick (or the one just commented on) and keep picking.
     func cancelPick() {
+        let page = pick?.inTwin == true ? twin : webView
         pick = nil
         picker("resume")
-        if let web = webView { web.window?.makeFirstResponder(web) }
+        if let page { page.window?.makeFirstResponder(page) }
     }
 
     /// Give the pick, with the user's note, to `workspace`: a picture of the
@@ -655,7 +675,7 @@ final class PreviewSession: NSObject, ObservableObject {
     func comment(_ note: String, images attached: [NSImage] = [], files: [URL] = [],
                  in workspace: Workspace, to destination: PreviewSettings.CommentDestination) async {
         guard let pick else { return }
-        let picture = try? await snapshot()
+        let picture = try? await snapshot(twin: pick.inTwin)
         var images: [NSImage] = []
         if let picture {
             let image = NSImage(size: picture.size)
@@ -663,17 +683,22 @@ final class PreviewSession: NSObject, ObservableObject {
             images.append(image)
         }
         images += attached
-        let line = Self.commentLine(pick, note: note, viewport: viewport)
+        let line = Self.commentLine(pick, note: note, viewport: pick.inTwin ? lastPhone : viewport)
         switch destination {
         case .teeUp:
             var item = TeeUp(text: line)
             images.forEach { item.attach($0) }
             if !files.isEmpty { item.attach(files) }
             workspace.addTeeUp(item)
-            teedUpAt = Date()
+            commentConfirmation = (UUID(), "Added to Tee-Up")
             cancelPick()  // back in the page, for the next pick (or Esc to finish)
         case .conversation:
-            (commentTab(in: workspace) ?? workspace.newConversation()).post(line, images: images, files: files)
+            let existing = commentTab(in: workspace)
+            let tab = existing ?? workspace.newConversation()
+            // Named before the comment can become a new tab's title.
+            let sentTo = existing.map { "Sent to “\($0.title)”" } ?? "Sent to a new conversation"
+            tab.post(line, images: images, files: files)
+            commentConfirmation = (UUID(), sentTo)
             leaveCommenting()
         }
     }
@@ -689,7 +714,7 @@ final class PreviewSession: NSObject, ObservableObject {
         return "Preview comment on \(what) (\(size), \(page), outlined in the screenshot)" + (trimmed.isEmpty ? "" : ": \(trimmed)")
     }
 
-    fileprivate func received(_ name: String, _ body: Any) {
+    fileprivate func received(_ name: String, _ body: Any, from page: WKWebView? = nil) {
         guard let m = body as? [String: Any] else { return }
         switch name {
         case PreviewScripts.consoleHandler:
@@ -706,10 +731,13 @@ final class PreviewSession: NSObject, ObservableObject {
             }
             let r = m["rect"] as? [String: Any] ?? [:]
             guard let kind = (m["kind"] as? String).flatMap(Pick.Kind.init(rawValue:)) else { return }
+            let inTwin = page != nil && page === twin
+            // One pick at a time: the other page lets go of its own.
+            if let other = inTwin ? webView : twin { picker("resume", in: other) }
             pick = Pick(kind: kind, selector: m["selector"] as? String ?? "", text: m["text"] as? String ?? "",
                         rect: CGRect(x: r["x"] as? Double ?? 0, y: r["y"] as? Double ?? 0,
                                      width: r["width"] as? Double ?? 0, height: r["height"] as? Double ?? 0),
-                        viewport: size("viewport", "width", "height"), url: m["url"] as? String ?? "")
+                        viewport: size("viewport", "width", "height"), url: m["url"] as? String ?? "", inTwin: inTwin)
         default:
             break
         }
@@ -795,6 +823,11 @@ private final class TwinDelegate: NSObject, WKNavigationDelegate, WKUIDelegate {
         MainActor.assumeIsolated { session?.twinLoadEnded() }
     }
 
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        // A new document: a pick in the old one is gone.
+        MainActor.assumeIsolated { session?.twinPickGone() }
+    }
+
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         MainActor.assumeIsolated { session?.twinFailed(error) }
     }
@@ -818,7 +851,7 @@ private final class MessageRelay: NSObject, WKScriptMessageHandler {
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         if message.name == PreviewScrollSync.handler { session?.scrolled(in: message.webView, message.body); return }
-        session?.received(message.name, message.body)
+        session?.received(message.name, message.body, from: message.webView)
     }
 }
 

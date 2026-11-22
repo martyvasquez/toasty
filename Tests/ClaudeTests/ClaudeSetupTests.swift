@@ -38,6 +38,17 @@ import Testing
         #expect(s.contains("&& claude update && echo && "))
         #expect(s.hasSuffix("&& claude auth login && echo"))
     }
+
+    @Test func homebrewPackage() {
+        #expect(ClaudeSetup.homebrewPackage("/opt/homebrew/Caskroom/claude-code/2.1.301/claude", resolve: false) == "claude-code")
+        #expect(ClaudeSetup.homebrewPackage("/usr/local/Cellar/node/22.1.0/bin/node", resolve: false) == "node")
+        #expect(ClaudeSetup.homebrewPackage("/Users/a/.local/bin/claude", resolve: false) == nil)
+    }
+
+    @Test func shellQuoted() {
+        #expect(ClaudeSetup.shellQuoted("/Users/a b/bin/claude") == "'/Users/a b/bin/claude'")
+        #expect(ClaudeSetup.shellQuoted("it's") == #"'it'\''s'"#)
+    }
 }
 
 @Suite struct TranscriptLinesTests {

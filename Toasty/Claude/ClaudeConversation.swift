@@ -548,6 +548,23 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         }
         if let sessionID { loadHistory(sessionID, announce: !forked) }
         refreshBranch()
+        // Settings ▸ Browser turned on or off: a running Claude Code gets
+        // the preview's tools, or loses them, without a restart.
+        previewToggle = PreviewSettings.shared.$enabled.dropFirst().removeDuplicates()
+            .sink { [weak self] _ in
+                // `$enabled` fires before the change lands.
+                DispatchQueue.main.async { self?.updatePreviewTools() }
+            }
+    }
+
+    private var previewToggle: AnyCancellable?
+
+    /// Gives the running Claude Code the preview's tools as the setting now
+    /// says (none when it's off). Nothing to do before it starts: it starts
+    /// with them.
+    private func updatePreviewTools() {
+        guard agent != nil || launching else { return }
+        send(["type": "set_mcp_servers", "servers": PreviewTools.servers()])
     }
 
     /// Reads the branch from `.git/HEAD` (no git process needed).

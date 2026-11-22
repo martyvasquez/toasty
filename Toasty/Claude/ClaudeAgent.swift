@@ -264,6 +264,9 @@ nonisolated enum ClaudeEnvironment {
         let variables: [String: String]
         let node: String?
         let claude: String?
+        /// Every other `claude` on PATH, in PATH order: the setup check
+        /// says when one of them is new enough but comes later.
+        var otherClaudes: [String] = []
     }
 
     /// Kept only once `node` is found (as before): until then each new tab
@@ -296,7 +299,9 @@ nonisolated enum ClaudeEnvironment {
 
         DispatchQueue.global(qos: .userInitiated).async {
             let vars = loginShellEnvironment()
-            let found = Lookup(variables: vars, node: find("node", in: vars), claude: find("claude", in: vars))
+            let claudes = findAll("claude", in: vars)
+            let found = Lookup(variables: vars, node: find("node", in: vars), claude: claudes.first,
+                               otherClaudes: Array(claudes.dropFirst()))
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     if found.node != nil { cached = found }
@@ -330,6 +335,12 @@ nonisolated enum ClaudeEnvironment {
         // additions) is read. Print a marker first: rc files may print too.
         p.arguments = ["-i", "-l", "-c", "printf '%s' '\(marker)'; /usr/bin/env -0"]
         p.environment = base.filter { !dropped.contains($0.key) && !$0.key.hasPrefix("GHOSTTY_") }
+        // In the home folder, like a new terminal window: version managers
+        // (fnm, nvm, asdf, mise) pick the Node for the folder they start in,
+        // and Toasty's own folder is `/`, where a `.node-version` in home
+        // doesn't apply. Started there, the check found a different
+        // `claude` than the one the user runs and updates.
+        p.currentDirectoryURL = URL(fileURLWithPath: NSHomeDirectory())
         let out = Pipe()
         p.standardOutput = out
         p.standardError = FileHandle.nullDevice
@@ -370,7 +381,15 @@ nonisolated enum ClaudeEnvironment {
     }
 
     private static func find(_ name: String, in env: [String: String]) -> String? {
+        findAll(name, in: env).first
+    }
+
+    /// Every `name` on PATH and in the usual places, first-found first,
+    /// each executable once (a folder twice on PATH, or two links to it).
+    private static func findAll(_ name: String, in env: [String: String]) -> [String] {
         let fm = FileManager.default
+        var found: [String] = []
+        var seen: Set<String> = []
         var dirs = (env["PATH"] ?? "").split(separator: ":").map(String.init)
         if name == "node" {
             // nvm installs that the shell didn't activate.
@@ -383,8 +402,10 @@ nonisolated enum ClaudeEnvironment {
         dirs += ["\(NSHomeDirectory())/.local/bin", "\(NSHomeDirectory())/.claude/local", "/opt/homebrew/bin", "/usr/local/bin"]
         for dir in dirs {
             let path = (dir as NSString).appendingPathComponent(name)
-            if fm.isExecutableFile(atPath: path) { return path }
+            guard fm.isExecutableFile(atPath: path),
+                  seen.insert(URL(fileURLWithPath: path).resolvingSymlinksInPath().path).inserted else { continue }
+            found.append(path)
         }
-        return nil
+        return found
     }
 }

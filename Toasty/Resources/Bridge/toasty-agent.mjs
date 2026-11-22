@@ -5,7 +5,7 @@
 // project / local settings, the installed `claude` executable) and relays
 // JSON lines over stdio. It makes no decisions of its own.
 //
-// stdin  (from Toasty): start | user | interrupt | permission_response | set_permission_mode | set_model
+// stdin  (from Toasty): start | user | interrupt | permission_response | set_permission_mode | set_model | set_mcp_servers
 //                       | remote_control | context_usage | mcp_result
 // stdout (to Toasty):   ready | sdk | models | commands | permission_request | permission_cancel | error | end
 //                       | remote_control_init | remote_control | context_usage | mcp_call
@@ -263,6 +263,14 @@ async function handle(line) {
       case "set_permission_mode":
         await q?.setPermissionMode(msg.mode);
         break;
+      case "set_mcp_servers": {
+        // Settings ▸ Browser changed mid-session: replaces Toasty's servers
+        // (empty removes them).
+        const servers = {};
+        for (const def of msg.servers ?? []) servers[def.name] = relayServer(def);
+        await q?.setMcpServers(servers);
+        break;
+      }
       case "context_usage": {
         // What /context shows: how full the context window is.
         const usage = await q?.getContextUsage({ detail: "summary" });

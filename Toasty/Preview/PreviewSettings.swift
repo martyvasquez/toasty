@@ -1,7 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// Whether the browser exists at all (Settings ▸ Browser, off by default).
+/// Whether the browser exists at all (Settings ▸ Browser, on by default
+/// since 2026-11-21; turning it off is kept).
 /// Experimental, and the one place Toasty gives Claude tools of its own
 /// (BUILD_PLAN §1), so off means off: no titlebar indicator, no menu item or
 /// shortcut, no web view, and conversations start without the `preview` MCP
@@ -60,7 +61,8 @@ final class PreviewSettings: ObservableObject {
     private static let commentsKey = "PreviewCommentsTo"
 
     private init() {
-        enabled = UserDefaults.standard.bool(forKey: Self.key)
+        // On unless the user turned it off.
+        enabled = UserDefaults.standard.object(forKey: Self.key) as? Bool ?? true
         commentsTo = UserDefaults.standard.string(forKey: Self.commentsKey).flatMap(CommentDestination.init(rawValue:)) ?? .conversation
     }
 }
@@ -77,7 +79,7 @@ struct PreviewSettingsView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Experimental. A browser for the site you're developing, one per workspace with its own logins and storage, that Claude can use to open pages, click, type, take screenshots and read the console, instead of your own browser.")
                     Text("It runs in the background. One browser window, which never opens or comes forward by itself, shows the selected workspace's page. The compass at the end of the tabs shows when Claude is using it; click it (or press ⇧⌘B) to watch, or to use the same page yourself. The page is at phone or desktop size (⇧⌘M switches). Comment on anything in it to send it to the conversation you have open (or to Tee-Up, below).")
-                    Text("Claude gets the browser's tools in conversations started after you turn this on. While it's off, the browser isn't in Toasty at all and Claude Code runs exactly as it does by itself.")
+                    Text("Claude gets the browser's tools as soon as you turn this on, in every conversation. While it's off, the browser isn't in Toasty at all and Claude Code runs exactly as it does by itself.")
                 }
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

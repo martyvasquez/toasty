@@ -191,6 +191,13 @@ enum PreviewScripts {
         show(rect);
         post(describe(el, rect, "element"));
       };
+      // The pointer left the page (for the other page beside it, say): no
+      // highlight left behind. A pick or a drag in progress stays.
+      const onOut = (e) => {
+        if (!active || e.relatedTarget || frozen || dragging) return;
+        hovered = null;
+        hide();
+      };
       const onKey = (e) => {
         if (!active) return;
         if (e.key === "Escape") { swallow(e); post({ kind: "cancel" }); }
@@ -198,7 +205,7 @@ enum PreviewScripts {
       // Pointer events do the work: cancelling pointerdown (which keeps the
       // page from reacting) also keeps the mouse events from being sent.
       const block = (e) => { if (active) swallow(e); };
-      const events = { pointermove: onMove, pointerdown: onDown, pointerup: onUp, keydown: onKey,
+      const events = { pointermove: onMove, pointerdown: onDown, pointerup: onUp, pointerout: onOut, keydown: onKey,
                        mousemove: block, mousedown: block, mouseup: block, click: block, dblclick: block,
                        contextmenu: block };
 

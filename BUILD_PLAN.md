@@ -25,9 +25,10 @@ terminal**; don't build the rest of the app on it until it passes.
    One exception (added 2026-11-10 at the user's request): the experimental
    browser gives Claude an MCP server, `preview`, to drive it (a browser
    per workspace, shown in one window of its own). It is allowed only because
-   Settings ▸ Browser turns the whole feature off as if it didn't exist
-   (the default): no tools, no window, no menu item. With it off this
-   principle holds without exception.
+   Settings ▸ Browser turns the whole feature off as if it didn't exist:
+   no tools, no window, no menu item. With it off this principle holds
+   without exception. On by default since 2026-11-21 (the user's call);
+   it was off before.
 2. **Native means native.** Swift, SwiftUI for structure, AppKit where it is
    better (text, menus, split views). No Electron, no web views, no
    browser-based editors. This is about Toasty's own interface. The

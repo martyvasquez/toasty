@@ -870,7 +870,8 @@ private struct PreviewPage: View {
     let workspace: Workspace
     @ObservedObject var session: PreviewSession
     @ObservedObject private var settings = PreviewSettings.shared
-    @State private var teedUp = false
+    /// The comment confirmation on screen.
+    @State private var confirmation: String?
     /// The comment field's height (it grows as the comment does).
     @State private var commentHeight = CommentField.restingHeight
 
@@ -894,30 +895,6 @@ private struct PreviewPage: View {
                     PreviewFailure(failure: failure) { session.open(failure.address) }
                         .frame(width: geo.size.width, height: geo.size.height)
                         .background(Color.claudeChrome)
-                } else if let pick = session.pick {
-                    let choosing = workspace.conversations.count > 1
-                    let field = CommentField.frame(for: pick.rect, fit: fit, pane: geo.size, height: commentHeight)
-                    CommentField(destination: $settings.commentsTo, workspace: workspace.id, height: $commentHeight,
-                                 tabs: choosing ? CommentTabs(workspace: workspace, session: session) : nil) { note, images, files in
-                        Task { await session.comment(note, images: images, files: files, in: workspace, to: settings.commentsTo) }
-                    } cancel: {
-                        session.cancelPick()
-                    }
-                    .frame(width: field.width, height: field.height)
-                    .offset(x: field.minX, y: field.minY)
-                    .id(pick)
-                }
-            }
-            .overlay(alignment: .bottom) {
-                if teedUp {
-                    Label("Added to Tee-Up", systemImage: "checkmark")
-                        .font(.toasty(Theme.Size.meta, .medium))
-                        .padding(.horizontal, 12)
-                        .frame(height: 28)
-                        .background(Capsule().fill(Color.claudeField).shadow(color: .black.opacity(0.22), radius: 8, y: 2))
-                        .overlay(Capsule().strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
-                        .padding(.bottom, 14)
-                        .transition(.opacity)
                 }
             }
           }
@@ -928,15 +905,57 @@ private struct PreviewPage: View {
                   .overlay(alignment: .leading) { Rectangle().fill(Theme.Stroke.barDivider).frame(width: 1) }
           }
           }
+          // Over both pages: the comment field by what was picked, in
+          // either one, and the confirmation centered on the whole window.
+          .overlay(alignment: .topLeading) {
+              if session.failure == nil, let pick = session.pick, let fit = pickFit(pick, in: whole.size, column: column) {
+                  let choosing = workspace.conversations.count > 1
+                  let field = CommentField.frame(for: pick.rect, fit: fit, pane: whole.size, height: commentHeight)
+                  CommentField(destination: $settings.commentsTo, workspace: workspace.id, height: $commentHeight,
+                               tabs: choosing ? CommentTabs(workspace: workspace, session: session) : nil) { note, images, files in
+                      Task { await session.comment(note, images: images, files: files, in: workspace, to: settings.commentsTo) }
+                  } cancel: {
+                      session.cancelPick()
+                  }
+                  .frame(width: field.width, height: field.height)
+                  .offset(x: field.minX, y: field.minY)
+                  .id(pick)
+              }
+          }
+          .overlay(alignment: .bottom) {
+                if let confirmation {
+                    Label(confirmation, systemImage: "checkmark")
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .font(.toasty(Theme.Size.meta, .medium))
+                        .padding(.horizontal, 12)
+                        .frame(height: 28)
+                        .background(Capsule().fill(Color.claudeField).shadow(color: .black.opacity(0.22), radius: 8, y: 2))
+                        .overlay(Capsule().strokeBorder(Theme.Stroke.border, lineWidth: 0.5))
+                        .padding(.bottom, 14)
+                        .transition(.opacity)
+                }
+          }
         }
         .clipped()
-        .task(id: session.teedUpAt) {
-            guard session.teedUpAt != nil else { return }
-            withAnimation(.easeOut(duration: 0.15)) { teedUp = true }
-            try? await Task.sleep(for: .seconds(1.5))
+        .task(id: session.commentConfirmation?.id) {
+            guard let text = session.commentConfirmation?.text else { return }
+            withAnimation(.easeOut(duration: 0.15)) { confirmation = text }
+            try? await Task.sleep(for: .seconds(2))
             guard !Task.isCancelled else { return }
-            withAnimation(.easeIn(duration: 0.3)) { teedUp = false }
+            withAnimation(.easeIn(duration: 0.3)) { confirmation = nil }
         }
+    }
+
+    /// Where the picked page is drawn, in the whole page area: the main
+    /// page on the left, or side by side's iPhone page in its column (laid
+    /// out as `PreviewTwinColumn` lays it out). Nil if that page isn't shown.
+    private func pickFit(_ pick: PreviewSession.Pick, in whole: CGSize, column: CGFloat) -> PreviewViewport.Fit? {
+        guard pick.inTwin else { return session.viewport.fit(in: CGSize(width: whole.width - column, height: whole.height)) }
+        guard column > 0 else { return nil }
+        let m = PreviewTwinColumn.margin
+        let fit = session.lastPhone.fit(in: CGSize(width: max(1, column - m * 2), height: max(1, whole.height - m * 2)))
+        return PreviewViewport.Fit(display: fit.display.offsetBy(dx: whole.width - column + m, dy: m), page: fit.page)
     }
 }
 
@@ -1036,7 +1055,13 @@ private struct CommentField: View {
             }
             if !images.isEmpty || !files.isEmpty { attachments }
             HStack(spacing: 6) {
-                CommentDestinationSwitch(destination: $destination) { focusToken += 1 }
+                CommentDestinationSwitch(destination: $destination, refocus: { focusToken += 1 }, commit: {
+                    // Nothing written yet: the click only picks where it goes.
+                    let empty = note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && images.isEmpty && files.isEmpty
+                    if empty { return false }
+                    submit(note, images, files)
+                    return true
+                })
                 if let tabs, !teeUp {
                     Text("to").font(.toasty(Theme.Size.meta)).foregroundStyle(.secondary).fixedSize()
                     tabs
@@ -1148,16 +1173,20 @@ private struct CommentIconButton: View {
     }
 }
 
-/// Send or Tee-Up, side by side in a capsule; the chosen one stands out.
-/// The keyboard stays in the comment (`refocus`).
+/// Send or Tee-Up, side by side in a capsule; the chosen one stands out and
+/// is what Return does. Clicking one sends the comment there (and makes it
+/// Return's); with nothing written yet it only chooses. The keyboard stays
+/// in the comment (`refocus`).
 private struct CommentDestinationSwitch: View {
     @Binding var destination: PreviewSettings.CommentDestination
     let refocus: () -> Void
+    /// Sends the comment; false when there's nothing to send.
+    let commit: () -> Bool
 
     var body: some View {
         HStack(spacing: 2) {
-            segment(.conversation, "Send", "arrow.up", "Send the comment to Claude now, with a screenshot.")
-            segment(.teeUp, "Tee-Up", "text.badge.plus", "Add the comment to the workspace's Tee-Up list and go on commenting.")
+            segment(.conversation, "Send", "arrow.up", "Send the comment to Claude now, with a screenshot. Return does what's highlighted.")
+            segment(.teeUp, "Tee-Up", "text.badge.plus", "Add the comment to the workspace's Tee-Up list and go on commenting. Return does what's highlighted.")
         }
         .padding(2)
         .background(Capsule().fill(Theme.Fill.subtle))
@@ -1168,7 +1197,7 @@ private struct CommentDestinationSwitch: View {
         let on = destination == value
         return Button {
             destination = value
-            refocus()
+            if !commit() { refocus() }
         } label: {
             HStack(spacing: 3) {
                 Image(systemName: symbol).font(.toasty(Theme.Glyph.small, .semibold))

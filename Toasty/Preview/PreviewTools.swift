@@ -1,8 +1,8 @@
 import AppKit
 
 /// The preview's tools for Claude: an MCP server named `preview`, given to
-/// conversations that start while the preview is turned on (and to none
-/// otherwise). The bridge relays each call here and the answer back.
+/// conversations while the preview is turned on (and to none otherwise;
+/// running ones gain or lose it when the setting changes). The bridge relays each call here and the answer back.
 ///
 /// This is the one place Toasty adds tools to Claude Code (BUILD_PLAN §1):
 /// they only drive the workspace's browser, and the setting removes them
