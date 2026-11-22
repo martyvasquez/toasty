@@ -10,7 +10,16 @@ nonisolated final class PTYProcess: @unchecked Sendable {
     private let readQueue = DispatchQueue(label: "toasty.pty.read", qos: .userInteractive)
     private let writeQueue = DispatchQueue(label: "toasty.pty.write", qos: .userInitiated)
     private var readSource: DispatchSourceRead?
-    private var exitSource: DispatchSourceProcess?
+
+    /// Guards the three flags below. The master is closed once, after
+    /// `terminate()` and after the read source has finished cancelling;
+    /// from then on its number may belong to another file, so nothing here
+    /// touches it again.
+    private let lock = NSLock()
+    private var terminated = false
+    private var reading = false
+    private var exited = false
+    private var isTerminated: Bool { lock.withLock { terminated } }
 
     /// Called on the read queue with each chunk of output.
     var onOutput: ((UnsafeRawBufferPointer) -> Void)?
@@ -75,24 +84,38 @@ nonisolated final class PTYProcess: @unchecked Sendable {
                 source.cancel()
             }
         }
-        source.setCancelHandler { buffer.deallocate() }
+        // Not weak: the master must still be closed if the terminal is let
+        // go while the source is cancelling.
+        source.setCancelHandler { [self] in
+            buffer.deallocate()
+            let close = lock.withLock { reading = false; return terminated }
+            if close { closeMaster() }
+        }
+        lock.withLock { reading = true }
         readSource = source
         source.resume()
 
+        // The handler holds its own source (until it cancels it), so the
+        // shell is reaped even when this object is gone before it exits.
         let exit = DispatchSource.makeProcessSource(identifier: pid, eventMask: .exit, queue: .main)
-        exit.setEventHandler { [weak self] in
-            guard let self else { return }
+        exit.setEventHandler { [weak self, pid] in
             var status: Int32 = 0
-            waitpid(self.pid, &status, 0)
-            self.exitSource?.cancel()
+            waitpid(pid, &status, 0)
+            exit.cancel()
+            guard let self else { return }
+            self.lock.withLock { self.exited = true }
             MainActor.assumeIsolated { self.onExit?(status) }
         }
-        exitSource = exit
         exit.resume()
     }
 
+    /// After queued writes, which hold the descriptor's number.
+    private func closeMaster() {
+        writeQueue.async { [master] in close(master) }
+    }
+
     func write(_ data: Data) {
-        guard !data.isEmpty else { return }
+        guard !data.isEmpty, !isTerminated else { return }
         writeQueue.async { [master] in
             data.withUnsafeBytes { raw in
                 var offset = 0
@@ -107,13 +130,14 @@ nonisolated final class PTYProcess: @unchecked Sendable {
     }
 
     func resize(cols: UInt16, rows: UInt16, cellWidth: UInt16, cellHeight: UInt16) {
+        guard !isTerminated else { return }
         var size = winsize(ws_row: rows, ws_col: cols, ws_xpixel: cols * cellWidth, ws_ypixel: rows * cellHeight)
         _ = ioctl(master, TIOCSWINSZ, &size)
     }
 
     /// The process in the foreground of the terminal (the shell itself when
     /// nothing is running).
-    var foregroundPID: pid_t { tcgetpgrp(master) }
+    var foregroundPID: pid_t { isTerminated ? -1 : tcgetpgrp(master) }
 
     /// True while a program other than the shell runs in the foreground.
     var hasRunningProcess: Bool {
@@ -142,10 +166,16 @@ nonisolated final class PTYProcess: @unchecked Sendable {
         }
     }
 
+    /// Hangs up the shell and closes the terminal's end. Safe to call more
+    /// than once, and after the shell has exited.
     func terminate() {
-        readSource?.cancel()
-        kill(pid, SIGHUP)
-        close(master)
+        let (first, exited, reading) = lock.withLock {
+            defer { terminated = true }
+            return (!terminated, self.exited, self.reading)
+        }
+        guard first else { return }
+        if !exited { kill(pid, SIGHUP) }
+        if reading { readSource?.cancel() } else { closeMaster() }
     }
 
     /// The environment a terminal tab gets: Toasty's own, minus variables

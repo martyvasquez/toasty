@@ -65,7 +65,8 @@ nonisolated enum Vocabulary {
                 continue
             }
             let parts = line.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
-            var name = parts[0]
+            // A line of only "=" has no parts.
+            guard var name = parts.first else { continue }
             var forced = false
             if name.hasSuffix("!") { forced = true; name.removeLast(); name = name.trimmingCharacters(in: .whitespaces) }
             guard !name.isEmpty else { continue }

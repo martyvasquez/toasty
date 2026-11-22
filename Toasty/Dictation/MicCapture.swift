@@ -198,6 +198,10 @@ nonisolated final class MicCapture: @unchecked Sendable {
         let deadline = end + DictationConfig.tailDeliveryGrace
         finishing.withLock { $0 = (true, nil) }
         await waitForPendingStart()
+        // A press still waiting for the microphone means it couldn't be
+        // opened. Drop it, or a later retry would start a recording that
+        // nothing ends (the microphone would stay on).
+        queue.async { [self] in coldPress = nil }
         while !timeline.withLock({ $0?.hasAudio(through: end) ?? true }),
               ProcessInfo.processInfo.systemUptime < deadline {
             try? await Task.sleep(for: .milliseconds(10))

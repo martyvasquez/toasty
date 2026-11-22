@@ -39,3 +39,15 @@ import Testing
         #expect(s.hasSuffix("&& claude auth login && echo"))
     }
 }
+
+@Suite struct TranscriptLinesTests {
+    /// Same result as `Data.split(separator: 0x0A)`, which it replaces.
+    @Test(arguments: ["", "\n", "a", "a\n", "a\nbb\n\n\nccc", "\n\na\n", "{\"x\":1}\n{\"y\":2}\n"])
+    func matchesSplit(text: String) {
+        let data = Data(text.utf8)
+        #expect(ClaudeConversation.lines(data).map { Data($0) } == data.split(separator: 0x0A).map { Data($0) })
+        // A slice doesn't start at index 0.
+        let slice = (Data("xx".utf8) + data).dropFirst(2)
+        #expect(ClaudeConversation.lines(slice).map { Data($0) } == data.split(separator: 0x0A).map { Data($0) })
+    }
+}

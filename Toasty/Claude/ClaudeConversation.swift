@@ -1486,7 +1486,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     private func loadHistory(_ id: String, announce: Bool) {
         guard let url = Activity.transcriptURL(for: id),
               let data = try? Data(contentsOf: url) else { return }
-        let lines = data.split(separator: 0x0A)
+        let lines = Self.lines(data)
         forkOrigin = Self.forkOrigin(lines)
         let titles = Self.savedTitles(lines)
         let user = customTitle.flatMap { $0.isEmpty ? nil : $0 }
@@ -1551,6 +1551,23 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         if announce, !items.isEmpty { append(.notice, "Resumed session") }
     }
 
+    /// A transcript's lines (empty ones dropped). `memchr`, not
+    /// `Data.split`: split walks byte by byte, 0.4 s for a 100 MB
+    /// transcript, and this runs on the main thread for each restored tab.
+    nonisolated static func lines(_ data: Data) -> [Data.SubSequence] {
+        data.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) -> [Data.SubSequence] in
+            guard let base = bytes.baseAddress else { return [] }
+            var lines: [Data.SubSequence] = []
+            var i = 0
+            while i < bytes.count {
+                let end = memchr(base + i, 0x0A, bytes.count - i).map { base.distance(to: $0) } ?? bytes.count
+                if end > i { lines.append(data[(data.startIndex + i)..<(data.startIndex + end)]) }
+                i = end + 1
+            }
+            return lines
+        }
+    }
+
     /// The fork origin recorded in a transcript (its copied entries carry
     /// `forkedFrom`), and the source's name from the source transcript.
     private static func forkOrigin(_ lines: [Data.SubSequence]) -> ForkOrigin? {
@@ -1577,7 +1594,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     nonisolated static func savedTitle(of sessionID: String) -> String? {
         guard let url = Activity.transcriptURL(for: sessionID),
               let data = try? Data(contentsOf: url) else { return nil }
-        let t = savedTitles(data.split(separator: 0x0A))
+        let t = savedTitles(lines(data))
         return t.custom ?? t.ai
     }
 
@@ -1605,7 +1622,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         guard !named, let id = sessionID else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
             guard let self, !self.named, self.sessionID == id else { return }
-            let lines = Activity.transcriptURL(for: id).flatMap { try? Data(contentsOf: $0) }?.split(separator: 0x0A) ?? []
+            let lines = Activity.transcriptURL(for: id).flatMap { try? Data(contentsOf: $0) }.map(Self.lines) ?? []
             let t = Self.savedTitles(lines)
             if let custom = t.custom {
                 self.named = true

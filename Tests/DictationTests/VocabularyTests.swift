@@ -2,6 +2,13 @@ import Testing
 @testable import Toasty
 
 @Suite struct VocabularyParsingTests {
+    /// A line of only "=" used to crash (typed into a Term field, or a
+    /// "=====" divider in a vocabulary file).
+    @Test(arguments: ["=", "=====", " = ", "!", "=!"])
+    func lineWithNoTermIsSkipped(line: String) {
+        #expect(Vocabulary.parse(line).terms.isEmpty)
+    }
+
     @Test func lineFormats() {
         let file = Vocabulary.parse("""
         # comment

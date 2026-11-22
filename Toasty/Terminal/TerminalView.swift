@@ -83,6 +83,9 @@ final class TerminalView: NSView, NSTextInputClient, NSMenuItemValidation, Obser
     private func wake() {
         idleFrames = 0
         cursorBlinkOn = true
+        // Only in a window: the link holds this view, so one made for a
+        // closed terminal would keep it (and its scrollback) forever.
+        guard window != nil else { return }
         if displayLink == nil {
             let link = displayLink(target: self, selector: #selector(frame(_:)))
             link.add(to: .main, forMode: .common)
@@ -231,11 +234,17 @@ final class TerminalView: NSView, NSTextInputClient, NSMenuItemValidation, Obser
         super.viewDidMoveToWindow()
         NotificationCenter.default.removeObserver(self, name: NSWindow.didBecomeKeyNotification, object: nil)
         NotificationCenter.default.removeObserver(self, name: NSWindow.didResignKeyNotification, object: nil)
-        guard let window else { return }
+        guard let window else {
+            displayLink?.invalidate()
+            displayLink = nil
+            return
+        }
         NotificationCenter.default.addObserver(self, selector: #selector(windowKeyChanged), name: NSWindow.didBecomeKeyNotification, object: window)
         NotificationCenter.default.addObserver(self, selector: #selector(windowKeyChanged), name: NSWindow.didResignKeyNotification, object: window)
         updateGridSize()
         updateTrackingAreas()
+        // Draw what arrived while the view was out of a window.
+        requestFullFrame()
     }
 
     @objc private func windowKeyChanged() {
