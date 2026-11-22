@@ -245,9 +245,23 @@ extension WorkspaceStore {
             showError("“\(parent.name)” isn't in a git repository.", title: "Can't Create a Worktree")
             return
         }
+        // The repository's main checkout names the folder and the branch
+        // it starts from. Asked off the main thread: git can be slow on a
+        // network volume.
+        let folder = parent.folder
+        Task {
+            let main = await Task.detached { () -> (path: String, branch: String?)? in
+                Worktrees.list(in: folder)?.first.map { ($0.path, $0.branch) }
+            }.value
+            // Closed while git answered: nothing to ask about.
+            guard self.workspaces.contains(where: { $0.id == parent.id }) else { return }
+            self.askForWorktreeBranch(parent: parent, main: main)
+        }
+    }
+
+    private func askForWorktreeBranch(parent: Workspace, main: (path: String, branch: String?)?) {
         let alert = NSAlert()
         alert.messageText = "New Worktree"
-        let main = Worktrees.list(in: parent.folder)?.first
         let repo = (main?.path as NSString?)?.lastPathComponent ?? parent.name
         let from = main?.branch.map { " from “\($0)”" } ?? ""
         alert.informativeText = "Creates a branch\(from) and checks it out in ~/Toasty Worktrees/\(repo). Ignored files like .env are copied in."
