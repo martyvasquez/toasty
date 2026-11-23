@@ -46,11 +46,20 @@ private struct TerminalWidgetBody: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // As the column terminal's header.
-            TerminalWidgetTabBar(tabs: tabs)
-                .padding(.leading, Theme.Space.s)
-                .padding(.trailing, Theme.Space.xs)
-                .frame(height: WidgetGrid.headerHeight)
+            // The widgets' header, + where the others show their status.
+            WidgetHeader(kind: .terminal) {
+                NewTabButton(tooltip: Tooltip(title: "New Terminal", detail: "Another shell in this widget, in this workspace's folder.")) {
+                    tabs.add()
+                }
+                .padding(.trailing, -Theme.Space.xs)
+            }
+            // Its tabs, once there's more than one shell.
+            if tabs.sessions.count > 1 {
+                TerminalWidgetTabBar(tabs: tabs)
+                    .frame(height: TabStyle.height)
+                    .padding(.horizontal, Theme.Widget.rowInset)
+                    .padding(.bottom, Theme.Space.xs)
+            }
             well {
                 if let session = tabs.selected {
                     TerminalHost(session: session)
@@ -70,12 +79,11 @@ private struct TerminalWidgetTabBar: View {
                         minWidth: 72, maxWidth: 160,
                         naturalWidth: { t in TabStyle.titleWidth(t.displayTitle) + Theme.Space.m * 2 + 1 },
                         pick: { tabs.select($0.id) },
-                        move: { tabs.move($0, to: $1) }) { t in
+                        move: { tabs.move($0, to: $1) },
+                        trailingWidth: 0) { t in
             TerminalWidgetTab(session: t, selected: t.id == tabs.selectedID, tabs: tabs)
         } trailing: {
-            NewTabButton(tooltip: Tooltip(title: "New Terminal", detail: "Another shell in this widget, in this workspace's folder.")) {
-                tabs.add()
-            }
+            EmptyView()
         }
     }
 }
