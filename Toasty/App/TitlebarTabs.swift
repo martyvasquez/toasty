@@ -384,7 +384,7 @@ private struct ConversationTabBar: View {
                                     + (TabStyle.hasStatus(c) ? 18 : 0)  // a gap, a dot or spinner (12)
                             case .terminal(let t):
                                 // The terminal mark, its gap, and the title.
-                                return TabStyle.titleWidth(t.displayTitle) + Theme.Space.m * 2 + 1 + 18
+                                return TabStyle.titleWidth(workspace.tabTerminalLabel(t)) + Theme.Space.m * 2 + 1 + 18
                             }
                         },
                         pick: { if $0.id != workspace.shownTopTabID { workspace.selectTopTab($0) } },
@@ -507,7 +507,7 @@ private struct TopTerminalTabItem: View {
             Image(systemName: "apple.terminal")
                 .font(.toasty(Theme.Glyph.small, .semibold))
                 .foregroundStyle(.secondary)
-            Text(session.displayTitle)
+            Text(workspace.tabTerminalLabel(session))
                 .font(.toasty(TabStyle.fontSize, selected ? .medium : .regular))
                 .foregroundStyle(selected ? .primary : .secondary)
                 .lineLimit(1)

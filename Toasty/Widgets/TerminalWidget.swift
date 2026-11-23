@@ -77,7 +77,7 @@ private struct TerminalWidgetTabBar: View {
     var body: some View {
         FittingTabStrip(items: tabs.sessions, selectedID: tabs.selectedID,
                         minWidth: 72, maxWidth: 160,
-                        naturalWidth: { t in TabStyle.titleWidth(t.displayTitle) + Theme.Space.m * 2 + 1 },
+                        naturalWidth: { t in TabStyle.titleWidth(tabs.label(t)) + Theme.Space.m * 2 + 1 },
                         pick: { tabs.select($0.id) },
                         move: { tabs.move($0, to: $1) },
                         trailingWidth: 0) { t in
@@ -95,7 +95,7 @@ private struct TerminalWidgetTab: View {
     @State private var hovering = false
 
     var body: some View {
-        Text(session.displayTitle)
+        Text(tabs.label(session))
             .font(.toasty(TabStyle.fontSize, selected ? .medium : .regular))
             .foregroundStyle(selected ? .primary : .secondary)
             .lineLimit(1)
@@ -152,6 +152,11 @@ final class TerminalWidgetTabs: ObservableObject {
     }
 
     var selected: TerminalSession? { sessions.first { $0.id == selectedID } }
+
+    /// A tab's name, numbered by its place.
+    func label(_ s: TerminalSession) -> String {
+        s.label(number: (sessions.firstIndex { $0.id == s.id } ?? 0) + 1)
+    }
 
     /// A new shell, after the selected tab, selected and focused.
     func add(focus: Bool = true) {

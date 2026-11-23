@@ -227,7 +227,7 @@ private struct DrawerTabBar: View {
     var body: some View {
         FittingTabStrip(items: workspace.drawerTerminals, selectedID: workspace.selectedDrawerTerminalID,
                         minWidth: 90, maxWidth: 240,
-                        naturalWidth: { t in TabStyle.titleWidth(t.displayTitle) + Theme.Space.m * 2 + 1 + 18 },
+                        naturalWidth: { t in TabStyle.titleWidth(workspace.drawerTerminalLabel(t)) + Theme.Space.m * 2 + 1 + 18 },
                         pick: { if $0.id != workspace.selectedDrawerTerminalID { workspace.selectDrawerTerminal($0.id) } },
                         move: { workspace.moveDrawerTerminal($0, to: $1) }) { t in
             DrawerTabItem(session: t, selected: t.id == workspace.selectedDrawerTerminalID, workspace: workspace)
@@ -255,7 +255,7 @@ private struct DrawerTabItem: View {
             Image(systemName: "apple.terminal")
                 .font(.toasty(Theme.Glyph.small, .semibold))
                 .foregroundStyle(.secondary)
-            Text(session.displayTitle)
+            Text(workspace.drawerTerminalLabel(session))
                 .font(.toasty(TabStyle.fontSize, selected ? .medium : .regular))
                 .foregroundStyle(selected ? .primary : .secondary)
                 .lineLimit(1)

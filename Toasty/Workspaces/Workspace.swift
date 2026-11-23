@@ -323,11 +323,20 @@ final class Workspace: ObservableObject, Identifiable {
         }
     }
 
-    /// A terminal tab's label: its place in the strip ("Terminal 2"), so the
-    /// tabs always read 1, 2, 3 from the left. What's running and where is
-    /// in the tab's tooltip.
+    /// A column terminal tab's name (`TerminalSession.label`), numbered by
+    /// its place in the strip. Its full title and folder are in its tooltip.
     func terminalLabel(_ t: TerminalSession) -> String {
-        "Terminal \((terminals.firstIndex { $0.id == t.id } ?? 0) + 1)"
+        t.label(number: (terminals.firstIndex { $0.id == t.id } ?? 0) + 1)
+    }
+
+    /// A top-row terminal tab's name, numbered among those tabs.
+    func tabTerminalLabel(_ t: TerminalSession) -> String {
+        t.label(number: (tabTerminals.firstIndex { $0.id == t.id } ?? 0) + 1)
+    }
+
+    /// A drawer tab's name, numbered among the drawer's.
+    func drawerTerminalLabel(_ t: TerminalSession) -> String {
+        t.label(number: (drawerTerminals.firstIndex { $0.id == t.id } ?? 0) + 1)
     }
 
     // MARK: Top row (conversations and terminal tabs)

@@ -8,6 +8,9 @@ final class TerminalSession: ObservableObject, Identifiable {
     /// Where the shell started (restored as a fresh shell here).
     let startDirectory: String
     @Published private(set) var title = ""
+    /// What's running in it now: the program's title (OSC 0/2), else its
+    /// name; nil at the shell's prompt.
+    @Published private(set) var program: String?
     /// The shell's current directory, as last seen.
     @Published private(set) var directory: String
 
@@ -58,6 +61,13 @@ final class TerminalSession: ObservableObject, Identifiable {
         guard let t = _view?.terminal else { return }
         let pwd = !t.pwd.isEmpty ? t.pwd : (t.pty?.foregroundDirectory ?? directory)
         if pwd != directory { directory = pwd }
+        let running: String?
+        if t.pty?.hasRunningProcess == true {
+            running = !t.title.isEmpty && !t.title.contains("@") ? t.title : t.pty?.foregroundName
+        } else {
+            running = nil
+        }
+        if running != program { program = running }
         let name: String
         if !t.title.isEmpty, !t.title.contains("@") {
             name = t.title
@@ -72,6 +82,20 @@ final class TerminalSession: ObservableObject, Identifiable {
     func terminate() {
         poll?.invalidate()
         _view?.terminal.terminate()
+    }
+
+    /// Its tab's name: what's running, else the folder when it's not the
+    /// one the shell started in, else "Terminal `number`".
+    func label(number: Int) -> String {
+        if let program { return program }
+        if Self.same(directory, startDirectory) { return "Terminal \(number)" }
+        return directory == NSHomeDirectory() ? "~" : (directory as NSString).lastPathComponent
+    }
+
+    /// The same folder (one may be spelled through a symlink, as /tmp).
+    private static func same(_ a: String, _ b: String) -> Bool {
+        func real(_ p: String) -> String { URL(fileURLWithPath: p).resolvingSymlinksInPath().standardizedFileURL.path }
+        return a == b || real(a) == real(b)
     }
 
     var displayTitle: String {
