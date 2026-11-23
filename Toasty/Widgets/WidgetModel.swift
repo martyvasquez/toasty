@@ -19,9 +19,10 @@ enum WidgetGrid {
     /// A collapsed widget: its header alone.
     static let headerHeight: CGFloat = 40
     /// The grid's length: a space is laid out on this many units whatever
-    /// the window's height (the canvas's 900pt window). The terminal floats
-    /// over whatever of it a shorter window can't show.
-    static let rows = 9
+    /// the window's height (the canvas's 900pt window, and two more below
+    /// it). The terminal floats over whatever of it a shorter window can't
+    /// show.
+    static let rows = 11
 
     /// n units tall: 80n + 12(n − 1).
     static func height(_ units: Int) -> CGFloat {

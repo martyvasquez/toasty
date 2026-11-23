@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Toasty
 
-/// The widget grid's rules: one grid from the top, 9 units long; the
+/// The widget grid's rules: one grid from the top, 11 units long; the
 /// terminal floats over it and isn't on it.
 @Suite struct WidgetLayoutTests {
     /// Git Large (rows 0–3) and Usage Small in the right track (row 4).
@@ -19,7 +19,7 @@ import Testing
         #expect([1, 2, 3, 4, 5].map(WidgetGrid.height) == [80, 172, 264, 356, 448])
         #expect(WidgetGrid.width == 356)
         #expect(WidgetGrid.units(fitting: 824) == 9)
-        #expect(WidgetGrid.rows == 9)
+        #expect(WidgetGrid.rows == 11)
     }
 
     @Test func defaultSpacesFitAndHaveNoTerminal() {
@@ -49,7 +49,7 @@ import Testing
     }
 
     @Test func nothingIsPushedOffTheGrid() {
-        let l = WidgetLayout(widgets: [item(.git, 5, row: 0), item(.teeUp, 4, row: 5)])
+        let l = WidgetLayout(widgets: [item(.git, 5, row: 0), item(.teeUp, 6, row: 5)])
         #expect(l.applying(l.widgets[0].id) { $0.units = 6 } == nil)
         #expect(l.applyingUnits(7, to: l.widgets[0].id) == nil)
     }
@@ -62,7 +62,7 @@ import Testing
     }
 
     @Test func presetWithoutRoomIsUnavailable() {
-        let l = WidgetLayout(widgets: [item(.git, 5, row: 0), item(.usage, 2, row: 5), item(.teeUp, 2, row: 7)])
+        let l = WidgetLayout(widgets: [item(.git, 5, row: 0), item(.usage, 2, row: 5), item(.teeUp, 4, row: 7)])
         #expect(l.allows(.medium, for: l.widgets[1].id))
         #expect(!(l.allows(.large, for: l.widgets[1].id)))
     }
@@ -79,7 +79,9 @@ import Testing
     @Test func placementAndMoving() throws {
         let l = build()
         #expect(l.placement(for: .teeUp, preset: .small)?.row == 4)  // beside Usage
-        #expect(l.placement(for: .teeUp, preset: .large) == nil)  // rows 6–9 run off the grid
+        #expect(l.placement(for: .teeUp, preset: .large)?.row == 6)  // rows 6–9, under Usage
+        let full = WidgetLayout(widgets: l.widgets + [item(.teeUp, 4, row: 6)])
+        #expect(full.placement(for: .activity, preset: .large) == nil)  // rows 10–13 run off the grid
         let moved = try #require(l.moving(l.widgets[1], toTop: 6, track: 0))
         #expect(moved.row == 6)
         #expect(moved.track == 0)
