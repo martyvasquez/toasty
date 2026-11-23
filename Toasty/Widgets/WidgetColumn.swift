@@ -64,22 +64,28 @@ private struct ColumnContent: View {
     @ObservedObject var store: WorkspaceStore
     @ObservedObject var workspace: Workspace
     let room: CGFloat
+    @ObservedObject private var terminals = TerminalLayoutSettings.shared
 
     var body: some View {
         // The widgets' room: down to the terminal's top edge, following it
-        // live as it's dragged.
+        // live as it's dragged (the whole column with it turned off).
         let open = workspace.terminalOpen && !store.editingWidgets
-        let dock = TerminalDock.height(open: open, wanted: store.terminalHeight, room: room)
+        let shown = terminals.sidebarTerminal
+        let dock = shown ? TerminalDock.height(open: open, wanted: store.terminalHeight, room: room) : 0
         ZStack(alignment: .topLeading) {
             WorkspaceWidgets(store: store, workspace: workspace,
                              // Down to the terminal's top edge: the content's own
                              // 12pt margin is the gap above it, the grid's gap.
                              visible: max(0, room - dock) + WidgetGrid.margin)
-            TerminalDock(store: store, workspace: workspace, room: room)
-                .frame(width: WidgetGrid.width)
-                .padding(WidgetGrid.margin)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            if shown {
+                TerminalDock(store: store, workspace: workspace, room: room)
+                    .frame(width: WidgetGrid.width)
+                    .padding(WidgetGrid.margin)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .transition(.opacity)
+            }
         }
+        .animation(.easeOut(duration: 0.2), value: shown)
         // Opening or collapsing it: the widgets move along with it.
         .animation(.easeOut(duration: 0.2), value: open)
     }

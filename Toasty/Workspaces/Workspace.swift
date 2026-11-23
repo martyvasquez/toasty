@@ -13,6 +13,19 @@ final class Workspace: ObservableObject, Identifiable {
     @Published private(set) var selectedID: UUID?
     @Published private(set) var terminals: [TerminalSession] = []
     @Published private(set) var selectedTerminalID: UUID?
+    /// Terminals that are tabs in the top row, among the conversations
+    /// (an experiment, beside the dock's terminals).
+    @Published private(set) var tabTerminals: [TerminalSession] = []
+    /// The top row's order: conversations and terminal tabs together.
+    @Published private(set) var tabOrder: [UUID] = []
+    /// The terminal tab filling the conversation column (nil: the
+    /// selected conversation shows).
+    @Published private(set) var shownTabTerminalID: UUID?
+    /// The terminal drawer under the conversation (another experiment):
+    /// its own terminals and tabs, open or closed.
+    @Published private(set) var drawerTerminals: [TerminalSession] = []
+    @Published private(set) var selectedDrawerTerminalID: UUID?
+    @Published private(set) var drawerOpen = false
     /// The widget column's space this workspace is on (nil: the first).
     @Published var spaceID: UUID?
     /// The widget column shows (off: focus, the conversation alone).
@@ -119,6 +132,13 @@ final class Workspace: ObservableObject, Identifiable {
             list.append(conversation)
         }
         conversations = list
+        // In the row: right after the tab it was opened from.
+        if !tabOrder.isEmpty {
+            var order = topTabs.map(\.id).filter { $0 != conversation.id }
+            let from = after?.id ?? shownTopTabID
+            if let i = order.firstIndex(where: { $0 == from }) { order.insert(conversation.id, at: i + 1) } else { order.append(conversation.id) }
+            tabOrder = order
+        }
         if select || selectedID == nil { self.select(conversation) }
         changed()
     }
@@ -126,16 +146,19 @@ final class Workspace: ObservableObject, Identifiable {
     func select(_ conversation: ClaudeConversation) {
         guard conversations.contains(where: { $0.id == conversation.id }) else { return }
         selectedID = conversation.id
+        shownTabTerminalID = nil
         diffFile = nil
         conversation.attention = false
         store?.workspaceSelectionChanged(self)
         changed()
     }
 
+    /// The next or previous tab in the top row (conversation or terminal).
     func selectRelative(_ delta: Int) {
-        guard !conversations.isEmpty else { return }
-        let i = conversations.firstIndex { $0.id == selectedID } ?? 0
-        select(conversations[(i + delta + conversations.count) % conversations.count])
+        let tabs = topTabs
+        guard !tabs.isEmpty else { return }
+        let i = tabs.firstIndex { $0.id == shownTopTabID } ?? 0
+        selectTopTab(tabs[(i + delta + tabs.count) % tabs.count])
     }
 
     /// Close a tab, asking first if Claude is working or waiting in it.
@@ -170,11 +193,14 @@ final class Workspace: ObservableObject, Identifiable {
         Activity.shared.forget(conversation)
         statusObservers[conversation.id] = nil
         var list = conversations
+        let neighbour = topTabNeighbour(of: conversation.id)
         list.remove(at: i)
         conversations = list
+        tabOrder.removeAll { $0 == conversation.id }
         if selectedID == conversation.id {
-            selectedID = nil
-            if !list.isEmpty { select(list[min(i, list.count - 1)]) }
+            selectedID = list.isEmpty ? nil : list[min(i, list.count - 1)].id
+            // It was showing: its neighbour in the row shows instead.
+            if shownTabTerminalID == nil, let neighbour { selectTopTab(neighbour) }
         }
         store?.workspaceSelectionChanged(self)
         changed()
@@ -183,11 +209,8 @@ final class Workspace: ObservableObject, Identifiable {
     func renamed() { changed(); store?.workspaceSelectionChanged(self) }
 
     /// Move a tab to `index` in the row (dragged there, or Move Left/Right).
-    func moveConversation(_ id: UUID, to index: Int) {
-        guard let moved = Self.moving(conversations, id, to: index) else { return }
-        conversations = moved
-        changed()
-    }
+    /// (`index` is a place in the top row, among terminal tabs too.)
+    func moveConversation(_ id: UUID, to index: Int) { moveTopTab(id, to: index) }
 
     func moveTerminal(_ id: UUID, to index: Int) {
         guard let moved = Self.moving(terminals, id, to: index) else { return }
@@ -290,10 +313,11 @@ final class Workspace: ObservableObject, Identifiable {
     /// "Run in Terminal" from a code block: paste the command into the
     /// shown terminal (never executes it), and focus it.
     func runInTerminal(_ command: String) {
-        showTerminal()
+        let drawer = !TerminalLayoutSettings.shared.sidebarTerminal
+        if drawer { setDrawer(open: true) } else { showTerminal() }
         let text = command.trimmingCharacters(in: .newlines)
         DispatchQueue.main.async {
-            guard let t = self.selectedTerminal else { return }
+            guard let t = drawer ? self.selectedDrawerTerminal : self.selectedTerminal else { return }
             t.view.terminal.insertPaste(text)
             t.view.terminal.window?.makeFirstResponder(t.view.terminal)
         }
@@ -304,6 +328,165 @@ final class Workspace: ObservableObject, Identifiable {
     /// in the tab's tooltip.
     func terminalLabel(_ t: TerminalSession) -> String {
         "Terminal \((terminals.firstIndex { $0.id == t.id } ?? 0) + 1)"
+    }
+
+    // MARK: Top row (conversations and terminal tabs)
+
+    /// The top row's tabs in order: `tabOrder`, then any it doesn't list
+    /// yet (conversations first, as they were).
+    var topTabs: [TopTab] {
+        let all = conversations.map(TopTab.conversation) + tabTerminals.map(TopTab.terminal)
+        let place = Dictionary(uniqueKeysWithValues: tabOrder.enumerated().map { ($1, $0) })
+        return all.enumerated()
+            .sorted { (place[$0.element.id] ?? tabOrder.count + $0.offset) < (place[$1.element.id] ?? tabOrder.count + $1.offset) }
+            .map(\.element)
+    }
+
+    /// The tab showing in the conversation column.
+    var shownTopTabID: UUID? { shownTabTerminalID ?? selectedID }
+    var shownTabTerminal: TerminalSession? { tabTerminals.first { $0.id == shownTabTerminalID } }
+
+    func selectTopTab(_ tab: TopTab) {
+        switch tab {
+        case .conversation(let c): select(c)
+        case .terminal(let t): showTabTerminal(t.id)
+        }
+    }
+
+    /// The tab after `id` in the row (else the one before), for when it closes.
+    private func topTabNeighbour(of id: UUID) -> TopTab? {
+        let tabs = topTabs
+        guard let i = tabs.firstIndex(where: { $0.id == id }) else { return nil }
+        if i + 1 < tabs.count { return tabs[i + 1] }
+        return i > 0 ? tabs[i - 1] : nil
+    }
+
+    func moveTopTab(_ id: UUID, to index: Int) {
+        guard let moved = Self.moving(topTabs, id, to: index) else { return }
+        tabOrder = moved.map(\.id)
+        // The conversations keep the row's order among themselves.
+        let rank = Dictionary(uniqueKeysWithValues: tabOrder.enumerated().map { ($1, $0) })
+        conversations = conversations.sorted { (rank[$0.id] ?? 0) < (rank[$1.id] ?? 0) }
+        changed()
+    }
+
+    /// A new terminal tab right after the shown tab, in the workspace's folder.
+    @discardableResult
+    func newTabTerminal(cwd: String? = nil) -> TerminalSession {
+        let t = TerminalSession(cwd: cwd ?? folder)
+        attachTab(t)
+        var order = topTabs.map(\.id)
+        if let i = order.firstIndex(where: { $0 == shownTopTabID }) { order.insert(t.id, at: i + 1) } else { order.append(t.id) }
+        tabTerminals.append(t)
+        tabOrder = order
+        showTabTerminal(t.id)
+        return t
+    }
+
+    private func attachTab(_ t: TerminalSession) {
+        t.onPage = true
+        t.onExit = { [weak self, weak t] in
+            guard let self, let t else { return }
+            self.closeTabTerminal(t.id)
+        }
+    }
+
+    func showTabTerminal(_ id: UUID) {
+        guard tabTerminals.contains(where: { $0.id == id }) else { return }
+        shownTabTerminalID = id
+        lastTabTerminalID = id
+        diffFile = nil
+        store?.workspaceSelectionChanged(self)
+        changed()
+    }
+
+    func requestCloseTabTerminal(_ id: UUID) {
+        guard let t = tabTerminals.first(where: { $0.id == id }) else { return }
+        Activity.shared.confirm(Activity.shared.closeWarning(conversations: [], terminals: [t], action: "close it"),
+                                title: "Close this terminal?", button: "Close Terminal") { [weak self] in
+            self?.closeTabTerminal(id)
+        }
+    }
+
+    func closeTabTerminal(_ id: UUID) {
+        guard let i = tabTerminals.firstIndex(where: { $0.id == id }) else { return }
+        let neighbour = topTabNeighbour(of: id)
+        let t = tabTerminals.remove(at: i)
+        tabOrder.removeAll { $0 == id }
+        t.terminate()
+        if shownTabTerminalID == id {
+            shownTabTerminalID = nil
+            if let neighbour { selectTopTab(neighbour) }
+        }
+        store?.workspaceSelectionChanged(self)
+        changed()
+    }
+
+    /// The last terminal tab shown (for ⌃`), else the first.
+    var lastTabTerminalID: UUID?
+
+    // MARK: Terminal drawer (under the conversation)
+
+    var selectedDrawerTerminal: TerminalSession? { drawerTerminals.first { $0.id == selectedDrawerTerminalID } }
+
+    /// Open the drawer (with a shell, if it has none), or close it.
+    func setDrawer(open: Bool) {
+        if open, drawerTerminals.isEmpty { newDrawerTerminal() }
+        guard drawerOpen != open else { return }
+        drawerOpen = open
+        changed()
+    }
+
+    @discardableResult
+    func newDrawerTerminal() -> TerminalSession {
+        let t = TerminalSession(cwd: folder)
+        attachDrawer(t)
+        var list = drawerTerminals
+        if let i = list.firstIndex(where: { $0.id == selectedDrawerTerminalID }) { list.insert(t, at: i + 1) } else { list.append(t) }
+        drawerTerminals = list
+        selectedDrawerTerminalID = t.id
+        changed()
+        return t
+    }
+
+    private func attachDrawer(_ t: TerminalSession) {
+        t.onPage = true
+        t.onExit = { [weak self, weak t] in
+            guard let self, let t else { return }
+            self.closeDrawerTerminal(t.id)
+        }
+    }
+
+    func selectDrawerTerminal(_ id: UUID) {
+        guard drawerTerminals.contains(where: { $0.id == id }) else { return }
+        selectedDrawerTerminalID = id
+        changed()
+    }
+
+    func moveDrawerTerminal(_ id: UUID, to index: Int) {
+        guard let moved = Self.moving(drawerTerminals, id, to: index) else { return }
+        drawerTerminals = moved
+        changed()
+    }
+
+    func requestCloseDrawerTerminal(_ id: UUID) {
+        guard let t = drawerTerminals.first(where: { $0.id == id }) else { return }
+        Activity.shared.confirm(Activity.shared.closeWarning(conversations: [], terminals: [t], action: "close it"),
+                                title: "Close this terminal?", button: "Close Terminal") { [weak self] in
+            self?.closeDrawerTerminal(id)
+        }
+    }
+
+    /// Closing the last one closes the drawer.
+    func closeDrawerTerminal(_ id: UUID) {
+        guard let i = drawerTerminals.firstIndex(where: { $0.id == id }) else { return }
+        var list = drawerTerminals
+        let t = list.remove(at: i)
+        drawerTerminals = list
+        t.terminate()
+        if selectedDrawerTerminalID == id { selectedDrawerTerminalID = list.isEmpty ? nil : list[min(i, list.count - 1)].id }
+        if list.isEmpty { drawerOpen = false }
+        changed()
     }
 
     // MARK: Tee-Up
@@ -619,6 +802,8 @@ final class Workspace: ObservableObject, Identifiable {
     func stop() {
         conversations.forEach { $0.stop() }
         terminals.forEach { $0.terminate() }
+        tabTerminals.forEach { $0.terminate() }
+        drawerTerminals.forEach { $0.terminate() }
     }
 
     struct Saved: Codable {
@@ -640,6 +825,15 @@ final class Workspace: ObservableObject, Identifiable {
         var parentID: UUID?
         var teeUps: [TeeUp]?
         var heading: UUID?
+        /// Terminal tabs in the top row (the experiment), the row's order,
+        /// and the one showing.
+        var tabTerminals: [SavedTerminal]?
+        var tabOrder: [UUID]?
+        var shownTabTerminal: UUID?
+        /// The terminal drawer's.
+        var drawerTerminals: [SavedTerminal]?
+        var selectedDrawerTerminal: UUID?
+        var drawerOpen: Bool?
     }
 
     struct SavedConversation: Codable {
@@ -671,7 +865,13 @@ final class Workspace: ObservableObject, Identifiable {
               widgetsHidden: widgetsVisible ? nil : true,
               parentID: parentID,
               teeUps: teeUps.isEmpty ? nil : teeUps,
-              heading: headingID)
+              heading: headingID,
+              tabTerminals: tabTerminals.isEmpty ? nil : tabTerminals.map { SavedTerminal(id: $0.id, cwd: $0.directory) },
+              tabOrder: tabTerminals.isEmpty ? nil : tabOrder,
+              shownTabTerminal: shownTabTerminalID,
+              drawerTerminals: drawerTerminals.isEmpty ? nil : drawerTerminals.map { SavedTerminal(id: $0.id, cwd: $0.directory) },
+              selectedDrawerTerminal: selectedDrawerTerminalID,
+              drawerOpen: drawerOpen ? true : nil)
     }
 
     convenience init(saved s: Saved) {
@@ -691,6 +891,20 @@ final class Workspace: ObservableObject, Identifiable {
         }
         selectedTerminalID = s.selectedTerminal.flatMap { id in terminals.contains { $0.id == id } ? id : nil } ?? terminals.first?.id
         spaceID = s.space
+        for t in s.tabTerminals ?? [] {
+            let session = TerminalSession(id: t.id, cwd: t.cwd)
+            attachTab(session)
+            tabTerminals.append(session)
+        }
+        tabOrder = s.tabOrder ?? []
+        for t in s.drawerTerminals ?? [] {
+            let session = TerminalSession(id: t.id, cwd: t.cwd)
+            attachDrawer(session)
+            drawerTerminals.append(session)
+        }
+        selectedDrawerTerminalID = s.selectedDrawerTerminal.flatMap { id in drawerTerminals.contains { $0.id == id } ? id : nil } ?? drawerTerminals.first?.id
+        drawerOpen = (s.drawerOpen ?? false) && !drawerTerminals.isEmpty
+        shownTabTerminalID = s.shownTabTerminal.flatMap { id in tabTerminals.contains { $0.id == id } ? id : nil }
         terminalOpen = (s.terminalVisible ?? false) && !terminals.isEmpty
         widgetsVisible = !(s.widgetsHidden ?? false)
         // (Not a new prompt that was still empty when Toasty quit.)
@@ -725,4 +939,17 @@ struct TeeUpFeed: Equatable {
     /// Paused, and why ("" when the user pressed Pause): nothing is sent
     /// until Resume. It keeps its tab.
     var paused: String?
+}
+
+/// A tab in the top row: a conversation or a terminal.
+enum TopTab: Identifiable {
+    case conversation(ClaudeConversation)
+    case terminal(TerminalSession)
+
+    var id: UUID {
+        switch self {
+        case .conversation(let c): return c.id
+        case .terminal(let t): return t.id
+        }
+    }
 }

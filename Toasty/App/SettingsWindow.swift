@@ -11,13 +11,14 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
     static let shared = SettingsWindowController()
 
     private enum Pane: String, CaseIterable {
-        case general, dictation, screenshots, teeUp, preview
+        case general, terminal, dictation, screenshots, teeUp, preview
 
         var id: NSToolbarItem.Identifier { .init(rawValue) }
 
         var title: String {
             switch self {
             case .general: "General"
+            case .terminal: "Terminal"
             case .dictation: "Dictation"
             case .screenshots: "Screenshots"
             case .teeUp: "Tee-Up"
@@ -28,6 +29,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         var symbol: String {
             switch self {
             case .general: "gearshape"
+            case .terminal: "terminal"
             case .dictation: "mic"
             case .screenshots: "camera.viewfinder"
             case .teeUp: WidgetKind.teeUp.symbol
@@ -38,6 +40,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         @MainActor func makeController() -> NSViewController {
             switch self {
             case .general: NSHostingController(rootView: GeneralSettingsView())
+            case .terminal: NSHostingController(rootView: TerminalSettingsView())
             case .dictation: NSHostingController(rootView: DictationSettingsView())
             case .screenshots: NSHostingController(rootView: ScreenshotSettingsView())
             case .teeUp: NSHostingController(rootView: TeeUpSettingsView())

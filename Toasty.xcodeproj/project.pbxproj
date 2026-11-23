@@ -55,6 +55,7 @@
 		6132779EEA82B2C34C56CDE9 /* ClaudeRequestCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CCEEDDC3B6D5A771D67C9DC /* ClaudeRequestCard.swift */; };
 		6430C130F86560FB82E087E6 /* InspectorKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1BDBE0DBA757E69F189BD63 /* InspectorKit.swift */; };
 		661A4A0A4B1CF64A4E83E929 /* Fixtures in Resources */ = {isa = PBXBuildFile; fileRef = 6F3A8B4B872E5EC65743891C /* Fixtures */; };
+		677151CBC81179462287DE1F /* TerminalDrawer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2046C68CDEBF2AD3EFECAD17 /* TerminalDrawer.swift */; };
 		68B7770353365C56E35652A2 /* DefaultModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA579EC5BB11ED8507AF049E /* DefaultModel.swift */; };
 		6994304483A69665EDCE8BCE /* PreviewSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76C9837CB5F4EE3CD6954410 /* PreviewSession.swift */; };
 		6AFDDDC6F76CA380DC9D2874 /* GeneralSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1EB272BCAA69ABEF70DA5DB /* GeneralSettings.swift */; };
@@ -63,6 +64,7 @@
 		72B35C923E6E7BBD19F19BC3 /* ServiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E0AF94EDDB841E22D8DEAA /* ServiceProvider.swift */; };
 		74ACC74A36424EC519A104A8 /* TeeUpTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D661119D726B8E0E3DD6411 /* TeeUpTab.swift */; };
 		74AD96205B972C48FB67E2B3 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A784151685B16B9E4F4EC6E /* SettingsWindow.swift */; };
+		75FA66D97D83B116CE515198 /* TerminalSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D8F9431C9E6D4EE4FCF89FE /* TerminalSettings.swift */; };
 		78A6CA1B4CA929C128407E33 /* WorkspaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */; };
 		7AC855F7E8015BF6AE142D6D /* WidgetContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC01950158358E23F51235DD /* WidgetContent.swift */; };
 		7AE223DDAF7373582139DE08 /* ClaudeDisclosure.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1501768BBE5EBFFAFD293A51 /* ClaudeDisclosure.swift */; };
@@ -164,6 +166,7 @@
 		1C927416C497C43CEEF155A0 /* RepoPathsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoPathsTests.swift; sourceTree = "<group>"; };
 		1DB1DB6F9D1A2A6132740C20 /* ClaudeTextViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTextViews.swift; sourceTree = "<group>"; };
 		1DF8B11F0CF51797223AF23B /* ClaudeSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSetup.swift; sourceTree = "<group>"; };
+		2046C68CDEBF2AD3EFECAD17 /* TerminalDrawer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalDrawer.swift; sourceTree = "<group>"; };
 		20C3C380A26EF6A301D92FAC /* WidgetModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetModel.swift; sourceTree = "<group>"; };
 		2A6D2D56FB7D2C17B8A46626 /* WidgetLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetLayoutTests.swift; sourceTree = "<group>"; };
 		2DD1D1F3FEA1731159615845 /* Updater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updater.swift; sourceTree = "<group>"; };
@@ -207,6 +210,7 @@
 		8267153271BF3718002C2343 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		88842989D41DAAD1748343EE /* DictationConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationConfig.swift; sourceTree = "<group>"; };
 		8ABA43D749D93D0E19C717F6 /* DevVocabulary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevVocabulary.swift; sourceTree = "<group>"; };
+		8D8F9431C9E6D4EE4FCF89FE /* TerminalSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSettings.swift; sourceTree = "<group>"; };
 		9021DD3EFB91CB5031D36A21 /* TerminalTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalTheme.swift; sourceTree = "<group>"; };
 		92CCFEC8DFAB0CFCCB7D7ADD /* TerminalDock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalDock.swift; sourceTree = "<group>"; };
 		92F0C051C134C0C9C597BCFD /* Workspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Workspace.swift; sourceTree = "<group>"; };
@@ -554,6 +558,8 @@
 				D1E0AF94EDDB841E22D8DEAA /* ServiceProvider.swift */,
 				1A784151685B16B9E4F4EC6E /* SettingsWindow.swift */,
 				944191F92E33894586D21416 /* SidebarHandle.swift */,
+				2046C68CDEBF2AD3EFECAD17 /* TerminalDrawer.swift */,
+				8D8F9431C9E6D4EE4FCF89FE /* TerminalSettings.swift */,
 				3353E01CDA88E07D3A7012D3 /* Theme.swift */,
 				ECA042843FEF43774DB0414C /* TitlebarTabs.swift */,
 				4D511FF5995FACBB3EEE8BD9 /* Tooltip.swift */,
@@ -788,8 +794,10 @@
 				74ACC74A36424EC519A104A8 /* TeeUpTab.swift in Sources */,
 				021E23FC56ACD71AC24B461D /* TerminalDebug.swift in Sources */,
 				BA3D232172D8578EDC108A19 /* TerminalDock.swift in Sources */,
+				677151CBC81179462287DE1F /* TerminalDrawer.swift in Sources */,
 				500B9ECC5A22E8386FBB831D /* TerminalRenderer.swift in Sources */,
 				97DE64296BB25F566553E931 /* TerminalSession.swift in Sources */,
+				75FA66D97D83B116CE515198 /* TerminalSettings.swift in Sources */,
 				0953ACD5224F7B6605CF1233 /* TerminalSprites.swift in Sources */,
 				5A5408F16D2B6E4460483FCB /* TerminalTheme.swift in Sources */,
 				1061436DAC744C0B4D030005 /* TerminalView.swift in Sources */,

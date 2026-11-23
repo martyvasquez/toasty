@@ -37,6 +37,7 @@ enum MainMenu {
         let file = NSMenu(title: "File")
         file.addItem(item("New Tab", #selector(W.newTab(_:)), "t"))
         file.addItem(item("New Terminal", #selector(W.newTerminal(_:)), "t", [.command, .option]))
+        file.addItem(item("New Terminal Tab", #selector(W.newTerminalTab(_:)), "T"))
         file.addItem(item("New Workspace…", #selector(W.newWorkspace(_:)), "n"))
         file.addItem(.separator())
         // Also a system-wide shortcut (ScreenshotCapture), unless that's turned off.
@@ -71,6 +72,8 @@ enum MainMenu {
         view.addItem(item("Add Widget…", #selector(W.addWidget(_:)), ""))
         view.addItem(item("New Space", #selector(W.newSpace(_:)), ""))
         view.addItem(item("Show Terminal", #selector(W.toggleTerminal(_:)), "t", [.command, .control]))
+        view.addItem(item("Switch to Terminal Tab", #selector(W.toggleTerminalTab(_:)), "`", [.control]))
+        view.addItem(item("Show Terminal Drawer", #selector(W.toggleTerminalDrawer(_:)), "j"))
         view.addItem(item("New Tee-Up Prompt", #selector(W.newTeeUp(_:)), "p", [.command, .control]))
         // Hidden (shortcut and all) while the browser is turned off. The
         // browser window answers them for itself while it's key

@@ -261,6 +261,68 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         }
     }
 
+    /// The terminal drawer under the conversation (⌘J): open and focus it;
+    /// open with the focus elsewhere, focus it; focused, close it.
+    @objc func toggleTerminalDrawer(_ sender: Any?) {
+        guard let w = store.active else { return }
+        if !w.drawerOpen { setTerminalDrawer(open: true) }
+        else if !drawerFocused { focusDrawerTerminal() }
+        else { setTerminalDrawer(open: false) }
+    }
+
+    func setTerminalDrawer(open: Bool) {
+        store.active?.setDrawer(open: open)
+    }
+
+    var conversationColumnHeight: CGFloat? { ConversationColumnController.current?.columnHeight }
+
+    /// Is keyboard focus in a drawer terminal?
+    var drawerFocused: Bool {
+        guard let responder = window?.firstResponder as? NSView else { return false }
+        return store.active?.drawerTerminals.contains { $0.isStarted && responder === $0.terminalView } ?? false
+    }
+
+    /// Focus the drawer's terminal, once its view is in the window (a
+    /// new one is made by its host a moment after it's selected).
+    func focusDrawerTerminal(tries: Int = 10) {
+        guard let t = store.active?.selectedDrawerTerminal else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) { [weak self] in
+            guard let self, self.store.active?.selectedDrawerTerminal === t else { return }
+            if let v = t.terminalView, v.window === self.window { self.window?.makeFirstResponder(v) }
+            else if tries > 0 { self.focusDrawerTerminal(tries: tries - 1) }
+        }
+    }
+
+    /// Focus the terminal tab showing in the conversation column.
+    func focusTabTerminal() {
+        guard let t = store.active?.shownTabTerminal else { return }
+        DispatchQueue.main.async { [weak self] in
+            if let v = t.terminalView, v.window === self?.window { self?.window?.makeFirstResponder(v) }
+        }
+    }
+
+    /// ⇧⌘T: a new terminal tab in the top row.
+    @objc func newTerminalTab(_ sender: Any?) {
+        guard let w = store.active else { return }
+        w.newTabTerminal()
+        focusTabTerminal()
+    }
+
+    /// ⌃`: between the conversation and the last terminal tab (a new one
+    /// if there's none).
+    @objc func toggleTerminalTab(_ sender: Any?) {
+        guard let w = store.active else { return }
+        if w.shownTabTerminalID != nil {
+            if let c = w.selected { w.select(c) }
+        } else if let id = w.lastTabTerminalID ?? w.tabTerminals.first?.id, w.tabTerminals.contains(where: { $0.id == id }) {
+            w.showTabTerminal(id)
+            focusTabTerminal()
+        } else {
+            w.newTabTerminal()
+            focusTabTerminal()
+        }
+    }
+
     // MARK: Commands (main menu)
 
     @objc func newTab(_ sender: Any?) {
@@ -268,6 +330,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         if terminalFocused {
             w.newTerminal()
             focusTerminal()
+        } else if drawerFocused {
+            w.newDrawerTerminal()
+            focusDrawerTerminal()
         } else {
             w.newConversation()
         }
@@ -275,6 +340,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     @objc func newTerminal(_ sender: Any?) {
         guard let w = store.active else { return }
+        // No sidebar terminal: a new one in the drawer.
+        guard TerminalLayoutSettings.shared.sidebarTerminal else {
+            w.newDrawerTerminal()
+            w.setDrawer(open: true)
+            focusDrawerTerminal()
+            return
+        }
         w.newTerminal()
         w.showTerminal()
         focusTerminal()
@@ -289,6 +361,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
                 w.closeTerminal(t.id)
                 if !w.terminals.isEmpty { self?.focusTerminal() }
             }
+        } else if drawerFocused, let t = w.selectedDrawerTerminal {
+            w.requestCloseDrawerTerminal(t.id)
+        } else if let t = w.shownTabTerminal {
+            w.requestCloseTabTerminal(t.id)
         } else if let c = w.selected {
             w.requestClose(c)
         }
@@ -308,6 +384,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     /// when it already has focus.
     @objc func toggleTerminal(_ sender: Any?) {
         guard let w = store.active else { return }
+        guard TerminalLayoutSettings.shared.sidebarTerminal else { return toggleTerminalDrawer(sender) }
         let open = w.terminalOpen && layout.terminalWidth > 0 && !store.editingWidgets
         if !open {
             if store.editingWidgets { store.endEditingWidgets() }
@@ -469,7 +546,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         let w = store.active
         switch item.action {
+        case #selector(toggleTerminal(_:)) where !TerminalLayoutSettings.shared.sidebarTerminal:
+            // The drawer's command (⌘J) does it: this one goes away.
+            item.isHidden = true
+            return w != nil
         case #selector(toggleTerminal(_:)):
+            item.isHidden = false
             item.title = w?.terminalOpen == true && layout.terminalWidth > 0 && !store.editingWidgets
                 ? (terminalFocused ? "Collapse Terminal" : "Focus Terminal") : "Open Terminal"
             return w != nil

@@ -68,6 +68,14 @@ private struct TitlebarContent: View {
             // The browser belongs to the conversation: its indicator ends
             // the conversation's row, just outside the widgets (at the
             // window's edge when they're hidden).
+            // The terminal drawer under the conversation (an experiment).
+            BarIconButton(symbol: "rectangle.bottomthird.inset.filled",
+                          tooltip: Tooltip(title: workspace.drawerOpen ? "Close Terminal Drawer" : "Open Terminal Drawer", shortcut: "⌘J",
+                                           detail: "A terminal under the conversation, with its own tabs."),
+                          size: CGSize(width: 28, height: TabStyle.height)) {
+                AppDelegate.shared.windowController?.setTerminalDrawer(open: !workspace.drawerOpen)
+            }
+            .padding(.trailing, preview.enabled ? 0 : (column > 1 ? Theme.Space.s : TitlebarRow.edge - Theme.Space.xs))
             if preview.enabled {
                 PreviewIndicator(session: PreviewStore.shared.session(for: workspace))
                     .id(workspace.id)
@@ -190,6 +198,8 @@ struct FittingTabStrip<Item: Identifiable, Tab: View, Trailing: View>: View wher
     var pick: ((Item) -> Void)?
     /// Put the tab at this index.
     var move: ((Item.ID, Int) -> Void)?
+    /// The trailing buttons' width.
+    var trailingWidth: CGFloat = 28
     @ViewBuilder let tab: (Item) -> Tab
     @ViewBuilder let trailing: () -> Trailing
 
@@ -211,12 +221,12 @@ struct FittingTabStrip<Item: Identifiable, Tab: View, Trailing: View>: View wher
         dragState.flatMap { d in items.contains { $0.id == d.id } ? d : nil }
     }
 
-    /// The + button's width plus its gap.
-    private static var trailingRoom: CGFloat { 28 + TabStyle.gap }
+    /// The trailing buttons' width plus its gap.
+    private var trailingRoom: CGFloat { trailingWidth + TabStyle.gap }
 
     var body: some View {
         GeometryReader { geo in
-            let room = max(0, geo.size.width - Self.trailingRoom)
+            let room = max(0, geo.size.width - trailingRoom)
             let widths = layout(room: room)
             let xs = positions(widths)
             let content = widths.isEmpty ? 0 : (xs.last ?? 0) + (widths.last ?? 0)
@@ -361,22 +371,43 @@ private struct ConversationTabBar: View {
     @ObservedObject var workspace: Workspace
 
     var body: some View {
-        FittingTabStrip(items: workspace.conversations, selectedID: workspace.selectedID,
+        FittingTabStrip(items: workspace.topTabs, selectedID: workspace.shownTopTabID,
                         minWidth: 90, maxWidth: 240,
-                        naturalWidth: { c in
-                            // Title, a fork's mark, a status mark, and room
-                            // at the end for the close button.
-                            // (12 each side; see ConversationTabItem).
-                            TabStyle.titleWidth(c.title) + Theme.Space.m * 2 + 1
-                                + (c.forkOrigin != nil ? 15 : 0)
-                                + (TabStyle.hasStatus(c) ? 18 : 0)  // a gap, a dot or spinner (12)
+                        naturalWidth: { tab in
+                            switch tab {
+                            case .conversation(let c):
+                                // Title, a fork's mark, a status mark, and room
+                                // at the end for the close button.
+                                // (12 each side; see ConversationTabItem).
+                                return TabStyle.titleWidth(c.title) + Theme.Space.m * 2 + 1
+                                    + (c.forkOrigin != nil ? 15 : 0)
+                                    + (TabStyle.hasStatus(c) ? 18 : 0)  // a gap, a dot or spinner (12)
+                            case .terminal(let t):
+                                // The terminal mark, its gap, and the title.
+                                return TabStyle.titleWidth(t.displayTitle) + Theme.Space.m * 2 + 1 + 18
+                            }
                         },
-                        pick: { if $0.id != workspace.selectedID { workspace.select($0) } },
-                        move: { workspace.moveConversation($0, to: $1) }) { c in
-            ConversationTabItem(conversation: c, selected: c.id == workspace.selectedID, workspace: workspace)
+                        pick: { if $0.id != workspace.shownTopTabID { workspace.selectTopTab($0) } },
+                        move: { workspace.moveTopTab($0, to: $1) },
+                        trailingWidth: 28 * 2) { tab in
+            switch tab {
+            case .conversation(let c):
+                ConversationTabItem(conversation: c, selected: c.id == workspace.shownTopTabID, workspace: workspace)
+            case .terminal(let t):
+                TopTerminalTabItem(session: t, selected: t.id == workspace.shownTopTabID, workspace: workspace)
+            }
         } trailing: {
-            NewTabButton(tooltip: Tooltip(title: "New Tab", shortcut: "⌘T",
-                                          detail: "Another conversation in this workspace.")) { workspace.newConversation() }
+            HStack(spacing: 0) {
+                NewTabButton(tooltip: Tooltip(title: "New Tab", shortcut: "⌘T",
+                                              detail: "Another conversation in this workspace.")) { workspace.newConversation() }
+                BarIconButton(symbol: "apple.terminal",
+                              tooltip: Tooltip(title: "New Terminal Tab", shortcut: "⇧⌘T",
+                                               detail: "A shell in this workspace's folder, as a tab."),
+                              size: CGSize(width: 28, height: TabStyle.height)) {
+                    workspace.newTabTerminal()
+                    AppDelegate.shared.windowController?.focusTabTerminal()
+                }
+            }
         }
         .padding(.leading, TitlebarRow.edge)
         .padding(.trailing, 6)
@@ -438,13 +469,13 @@ private struct ConversationTabItem: View {
         .onHover { hovering = $0 }
         .tooltipText(conversation.title)
         .contextMenu {
-            let index = workspace.conversations.firstIndex { $0.id == conversation.id } ?? 0
+            let index = workspace.topTabs.firstIndex { $0.id == conversation.id } ?? 0
             Button("Rename…") { renaming = true }
             Divider()
-            Button("Move Left") { workspace.moveConversation(conversation.id, to: index - 1) }
+            Button("Move Left") { workspace.moveTopTab(conversation.id, to: index - 1) }
                 .disabled(index == 0)
-            Button("Move Right") { workspace.moveConversation(conversation.id, to: index + 1) }
-                .disabled(index >= workspace.conversations.count - 1)
+            Button("Move Right") { workspace.moveTopTab(conversation.id, to: index + 1) }
+                .disabled(index >= workspace.topTabs.count - 1)
             Divider()
             Button("Close Tab") { workspace.requestClose(conversation) }
             Button("Close Other Tabs") { workspace.requestCloseOthers(than: conversation) }
@@ -460,6 +491,56 @@ private struct ConversationTabItem: View {
         conversation.customTitle = t.isEmpty ? nil : t
         renaming = false
         workspace.renamed()
+    }
+}
+
+/// A terminal tab in the top row: the terminal mark and what's running
+/// (or the folder), styled exactly as a conversation's tab.
+private struct TopTerminalTabItem: View {
+    @ObservedObject var session: TerminalSession
+    let selected: Bool
+    let workspace: Workspace
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(spacing: Theme.Space.xs + Theme.Space.xxs) {
+            Image(systemName: "apple.terminal")
+                .font(.toasty(Theme.Glyph.small, .semibold))
+                .foregroundStyle(.secondary)
+            Text(session.displayTitle)
+                .font(.toasty(TabStyle.fontSize, selected ? .medium : .regular))
+                .foregroundStyle(selected ? .primary : .secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, Theme.Space.m)
+        .padding(.trailing, hovering ? TabStyle.closeRoom : Theme.Space.m)
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .frame(height: TabStyle.height)
+        .background(TabBackground(selected: selected, hovering: hovering))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            workspace.showTabTerminal(session.id)
+            AppDelegate.shared.windowController?.focusTabTerminal()
+        }
+        .overlay(alignment: .trailing) {
+            TabCloseButton(visible: hovering, help: "Close Tab (⌘W)") { workspace.requestCloseTabTerminal(session.id) }
+        }
+        .onHover { hovering = $0 }
+        .tooltipText("\(session.displayTitle)\n\((session.directory as NSString).abbreviatingWithTildeInPath)")
+        .contextMenu {
+            let index = workspace.topTabs.firstIndex { $0.id == session.id } ?? 0
+            Button("Move Left") { workspace.moveTopTab(session.id, to: index - 1) }
+                .disabled(index == 0)
+            Button("Move Right") { workspace.moveTopTab(session.id, to: index + 1) }
+                .disabled(index >= workspace.topTabs.count - 1)
+            Divider()
+            Button("Close Tab") { workspace.requestCloseTabTerminal(session.id) }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityLabel("Terminal: \(session.displayTitle)")
     }
 }
 

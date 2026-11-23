@@ -60,7 +60,7 @@ final class MainSplitViewController: NSSplitViewController {
         // take from it (only a drag on its edge changes it).
         sidebarItem.holdingPriority = .init(260)
 
-        let content = ConversationColumnController(store: store)
+        let content = ConversationColumnController(store: store, layout: layout)
         contentItem = NSSplitViewItem(viewController: content)
         contentItem.minimumThickness = Self.minConversation
         contentItem.holdingPriority = .init(249)

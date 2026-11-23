@@ -13,6 +13,8 @@ final class TerminalSession: ObservableObject, Identifiable {
 
     /// Called when the shell exits.
     var onExit: (() -> Void)?
+    /// A terminal tab's: drawn on the page's background.
+    var onPage = false
 
     private var _view: TerminalScrollView?
     private var cancellables: Set<AnyCancellable> = []
@@ -31,6 +33,7 @@ final class TerminalSession: ObservableObject, Identifiable {
         if let _view { return _view }
         let dir = FileManager.default.fileExists(atPath: startDirectory) ? startDirectory : NSHomeDirectory()
         let v = TerminalScrollView(cwd: dir)
+        v.terminal.usesPageBackground = onPage
         _view = v
         v.terminal.onExit = { [weak self] _ in self?.onExit?() }
         v.terminal.$title.combineLatest(v.terminal.$pwd)

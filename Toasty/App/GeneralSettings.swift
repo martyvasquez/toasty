@@ -43,6 +43,27 @@ final class AppearanceSetting: ObservableObject {
     }
 }
 
+/// Settings ▸ General: the terminal's cursor blinks while it has focus
+/// (as Terminal and Ghostty do). On until turned off; off, it blinks only
+/// when the program in the terminal asks.
+@MainActor
+final class TerminalCursorSetting: ObservableObject {
+    static let shared = TerminalCursorSetting()
+    static let changed = Notification.Name("ToastyTerminalCursorChanged")
+    private static let key = "ToastyTerminalCursorBlink"
+
+    @Published var blink: Bool {
+        didSet {
+            UserDefaults.standard.set(blink, forKey: Self.key)
+            NotificationCenter.default.post(name: Self.changed, object: nil)
+        }
+    }
+
+    private init() {
+        blink = UserDefaults.standard.object(forKey: Self.key) as? Bool ?? true
+    }
+}
+
 /// Settings ▸ General ▸ Sound: the sound when a conversation finishes or
 /// needs you. On, with Toasty's own bell, until the user picks.
 @MainActor

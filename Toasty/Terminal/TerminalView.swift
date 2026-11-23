@@ -40,6 +40,8 @@ final class TerminalView: NSView, NSTextInputClient, NSMenuItemValidation, Obser
         layerContentsRedrawPolicy = .onSetNeedsDisplay
         applyTheme()
 
+        NotificationCenter.default.addObserver(self, selector: #selector(cursorSettingChanged),
+                                               name: TerminalCursorSetting.changed, object: nil)
         vt.onBell = { DispatchQueue.main.async { NSSound.beep() } }
         vt.onTitleChanged = { [weak self] in
             DispatchQueue.main.async { guard let self else { return }; self.title = self.vt.title }
@@ -147,7 +149,7 @@ final class TerminalView: NSView, NSTextInputClient, NSMenuItemValidation, Obser
         let first = max(0, Int((dirtyRect.minY - TerminalTheme.paddingY) / ch))
         let last = min(renderer.rows.count - 1, Int((dirtyRect.maxY - TerminalTheme.paddingY) / ch))
         guard first <= last else { return }
-        let options = TerminalRenderer.DrawOptions(cursorShown: cursorBlinkOn || !renderer.cursor.blinking || !focused,
+        let options = TerminalRenderer.DrawOptions(cursorShown: cursorBlinkOn || !cursorBlinks || !focused,
                                                    focused: focused, markedText: markedText.isEmpty ? nil : markedText,
                                                    scale: window?.backingScaleFactor ?? 2)
         for y in first...last {
@@ -156,8 +158,14 @@ final class TerminalView: NSView, NSTextInputClient, NSMenuItemValidation, Obser
         }
     }
 
+    /// The cursor blinks by the setting (on by default), or when the
+    /// program in the terminal asks for it.
+    private var cursorBlinks: Bool {
+        TerminalCursorSetting.shared.blink || renderer.cursor.blinking
+    }
+
     private func updateBlink() {
-        let wantsBlink = focused && renderer.cursor.visible && renderer.cursor.blinking
+        let wantsBlink = focused && renderer.cursor.visible && cursorBlinks
         if wantsBlink && blinkTimer == nil {
             blinkTimer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated {
@@ -172,6 +180,8 @@ final class TerminalView: NSView, NSTextInputClient, NSMenuItemValidation, Obser
             cursorBlinkOn = true
         }
     }
+
+    @objc private func cursorSettingChanged() { resetBlink() }
 
     private func resetBlink() {
         cursorBlinkOn = true
@@ -188,11 +198,46 @@ final class TerminalView: NSView, NSTextInputClient, NSMenuItemValidation, Obser
         updateGridSize()
     }
 
+    #if DEBUG
+    /// Every grid size the shell was told, in order (debug).
+    var resizeLog: [String] = []
+    #endif
+
     private func updateGridSize() {
         let f = renderer.font
         let c = UInt16(clamping: max(2, Int((bounds.width - 2 * TerminalTheme.paddingX) / f.cellWidth)))
         let r = UInt16(clamping: max(1, Int((bounds.height - 2 * TerminalTheme.paddingY) / f.cellHeight)))
+        pendingResize?.cancel()
+        pendingResize = nil
         guard c != cols || r != rows else { return }
+        // Not laid out yet (a view about to slide in): no size to give.
+        guard bounds.width >= 100, bounds.height >= 40 else { return }
+        // The first size goes at once. After that, a run of sizes (dragging
+        // the window's edge, a column sliding open) settles first and the
+        // shell is told the last one: a program that redraws on every
+        // resize, as Claude Code does, otherwise leaves a copy of its
+        // screen in the scrollback for each step.
+        guard sized else { sized = true; return applyGridSize(cols: c, rows: r) }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.pendingResize = nil
+            self.applyGridSize(cols: c, rows: r)
+        }
+        pendingResize = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.resizeSettle, execute: work)
+    }
+
+    /// How long a size has to hold before the shell is told.
+    static let resizeSettle: TimeInterval = 0.15
+    private var pendingResize: DispatchWorkItem?
+    /// It has had its first real size.
+    private var sized = false
+
+    private func applyGridSize(cols c: UInt16, rows r: UInt16) {
+        #if DEBUG
+        resizeLog.append("\(c)x\(r)")
+        #endif
+        let f = renderer.font
         cols = c
         rows = r
         let scale = window?.backingScaleFactor ?? 2
@@ -207,8 +252,22 @@ final class TerminalView: NSView, NSTextInputClient, NSMenuItemValidation, Obser
         applyTheme()
     }
 
+    /// On the page's background instead of the theme's raised one (a
+    /// terminal tab filling the conversation column).
+    var usesPageBackground = false {
+        didSet { if usesPageBackground != oldValue { applyTheme() } }
+    }
+
     private func applyTheme() {
-        let theme = TerminalTheme.current(for: effectiveAppearance)
+        var theme = TerminalTheme.current(for: effectiveAppearance)
+        if usesPageBackground {
+            var page = NSColor.black
+            effectiveAppearance.performAsCurrentDrawingAppearance {
+                page = ClaudeStyle.background.usingColorSpace(.sRGB) ?? .black
+            }
+            func byte(_ v: CGFloat) -> UInt32 { UInt32(max(0, min(255, (v * 255).rounded()))) }
+            theme.background = .init(byte(page.redComponent) << 16 | byte(page.greenComponent) << 8 | byte(page.blueComponent))
+        }
         renderer.theme = theme
         layer?.backgroundColor = theme.background.cgColor
         vt.setColors(foreground: theme.foreground.ghostty, background: theme.background.ghostty,
@@ -287,6 +346,8 @@ final class TerminalView: NSView, NSTextInputClient, NSMenuItemValidation, Obser
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard window?.firstResponder === self, event.type == .keyDown else { return false }
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        // ⌃`: back to the conversation from a terminal tab (the menu's).
+        if mods == .control, event.charactersIgnoringModifiers == "`" { return false }
         if mods.contains(.control), !mods.contains(.command) {
             keyDown(with: event)
             return true

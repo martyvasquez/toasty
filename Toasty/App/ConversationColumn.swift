@@ -25,12 +25,33 @@ private struct WorkspaceConversation: View {
         if let file = workspace.diffFile {
             DiffPage(file: file, files: workspace.changes.files, select: { workspace.diffFile = $0 }) { workspace.diffFile = nil }
                 .id(file.id)
+        } else if let terminal = workspace.shownTabTerminal {
+            TerminalTabPage(session: terminal)
         } else if workspace.selected != nil {
             // Shown by `ConversationColumnController`, above this view.
             Color.clear
         } else {
             EmptyState(symbol: "sparkle", title: workspace.name,
                        button: "New Tab", shortcut: "⌘T") { workspace.newConversation() }
+        }
+    }
+}
+
+/// A terminal tab: the shell fills the column, on the terminal's own
+/// background from the tab row's divider to the window's edges.
+private struct TerminalTabPage: View {
+    let session: TerminalSession
+    @ObservedObject private var settings = TerminalLayoutSettings.shared
+
+    var body: some View {
+        ZStack {
+            Color.claudeBackground.ignoresSafeArea()
+            // Exactly the conversation's width and edges (its transcript
+            // and composer), centered in the column the same way.
+            TerminalHost(session: session)
+                .terminalColumn(settings.tabWidth)
+                .padding(.top, Theme.Space.m)
+                .padding(.bottom, 16)
         }
     }
 }
@@ -69,9 +90,16 @@ final class ConversationColumnController: NSViewController {
     private let host = ConversationHostView()
     private var cancellables: Set<AnyCancellable> = []
     private var workspaceCancellable: AnyCancellable?
+    private var drawerCancellable: AnyCancellable?
+    private var container: ColumnContainerView!
+    /// The window's column (for the terminal drawer's commands).
+    static weak var current: ConversationColumnController?
 
-    init(store: WorkspaceStore) {
+    let layout: WindowLayout
+
+    init(store: WorkspaceStore, layout: WindowLayout) {
         self.store = store
+        self.layout = layout
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -80,11 +108,15 @@ final class ConversationColumnController: NSViewController {
     override func loadView() {
         let column = NSHostingView(rootView: ConversationColumn(store: store))
         column.sizingOptions = []
-        view = NSView()
+        let drawer = NSHostingView(rootView: TerminalDrawerView(store: store, window: layout))
+        drawer.sizingOptions = []
+        container = ColumnContainerView(drawer: drawer)
+        view = container
+        Self.current = self
         for v in [column, host] as [NSView] {
-            v.frame = view.bounds
+            v.frame = container.top.bounds
             v.autoresizingMask = [.width, .height]
-            view.addSubview(v)
+            container.top.addSubview(v)
         }
         // Published values arrive before they're set: use the new ones.
         store.$activeID
@@ -93,16 +125,35 @@ final class ConversationColumnController: NSViewController {
     }
 
     private func follow(_ w: Workspace?) {
+        // Another workspace: its drawer as it was, without sliding.
+        container.setOpen(w?.drawerOpen ?? false, animated: false)
+        drawerCancellable = w?.$drawerOpen.dropFirst().removeDuplicates()
+            .sink { [weak self] open in self?.drawerChanged(open) }
         guard let w else {
             workspaceCancellable = nil
             host.show(nil)
             return
         }
-        workspaceCancellable = w.$selectedID.combineLatest(w.$conversations, w.$diffFile)
-            .sink { [weak self] id, conversations, diff in
-                let c = diff == nil ? conversations.first { $0.id == id } : nil
+        workspaceCancellable = w.$selectedID.combineLatest(w.$conversations, w.$diffFile, w.$shownTabTerminalID)
+            .sink { [weak self] id, conversations, diff, terminal in
+                let c = diff == nil && terminal == nil ? conversations.first { $0.id == id } : nil
                 self?.host.show(c.map { ConversationViews.shared.view(for: $0) })
             }
+    }
+}
+
+extension ConversationColumnController {
+    var columnHeight: CGFloat { view.bounds.height }
+
+    private func drawerChanged(_ open: Bool) {
+        let window = view.window
+        // Closing with the focus in it: give it back to the conversation.
+        if !open, let responder = window?.firstResponder as? NSView, responder.isDescendant(of: container.drawer) {
+            window?.makeFirstResponder(nil)
+        }
+        container.setOpen(open, animated: true) {
+            if open { AppDelegate.shared.windowController?.focusDrawerTerminal() }
+        }
     }
 }
 

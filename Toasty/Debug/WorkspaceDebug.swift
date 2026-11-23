@@ -346,6 +346,39 @@ enum WorkspaceDebug {
             return state()
         }
 
+        // {"cmd":"termtab","action":"new"} · toggle|close|select with "index" (in the top row).
+        DebugControl.register("termtab") { cmd in
+            guard let w = store.active else { throw E("no active workspace") }
+            let wc = AppDelegate.shared.windowController
+            switch cmd["action"] as? String ?? "new" {
+            case "new": wc?.newTerminalTab(nil)
+            case "toggle": wc?.toggleTerminalTab(nil)
+            case "close": if let t = w.shownTabTerminal { w.closeTabTerminal(t.id) }
+            case "settings":
+                let t = TerminalLayoutSettings.shared
+                if let v = (cmd["tabWidth"] as? String).flatMap(TerminalLayoutSettings.Width.init) { t.tabWidth = v }
+                if let v = (cmd["drawerWidth"] as? String).flatMap(TerminalLayoutSettings.Width.init) { t.drawerWidth = v }
+                if let v = cmd["sidebar"] as? Bool { t.sidebarTerminal = v }
+                return ["tabWidth": t.tabWidth.rawValue, "drawerWidth": t.drawerWidth.rawValue, "sidebar": t.sidebarTerminal]
+            case "drawer":
+                if let h = cmd["height"] as? Int { DrawerLayout.shared.height = CGFloat(h) }
+                if let open = cmd["open"] as? Bool { wc?.setTerminalDrawer(open: open) }
+                if cmd["new"] as? Bool == true { w.newDrawerTerminal() }
+                return ["open": w.drawerOpen, "terminals": w.drawerTerminals.map(\.displayTitle),
+                        "resizes": w.drawerTerminals.map { $0.terminalView?.resizeLog.joined(separator: " ") ?? "-" }]
+            case "resizes":
+                return w.tabTerminals.map { "\($0.displayTitle): \($0.terminalView?.resizeLog.joined(separator: " ") ?? "-")" }
+            case "select":
+                guard let i = cmd["index"] as? Int, w.topTabs.indices.contains(i) else { throw E("index=") }
+                w.selectTopTab(w.topTabs[i])
+            case "move":
+                guard let to = cmd["to"] as? Int, let id = w.shownTopTabID else { throw E("to=") }
+                w.moveTopTab(id, to: to)
+            default: throw E("unknown action")
+            }
+            return state()
+        }
+
         DebugControl.register("sidebar") { cmd in
             store.sidebarVisible = cmd["visible"] as? Bool ?? !store.sidebarVisible
             return state()
@@ -532,6 +565,12 @@ enum WorkspaceDebug {
                     "copied": w.copiedFiles,
                     "tabs": w.conversations.map(\.title),
                     "selected": w.conversations.firstIndex { $0.id == w.selectedID } ?? -1,
+                    "topTabs": w.topTabs.map { tab -> String in
+                        switch tab {
+                        case .conversation(let c): return (tab.id == w.shownTopTabID ? "*" : "") + c.title
+                        case .terminal(let t): return (tab.id == w.shownTopTabID ? "*" : "") + "⌨ " + t.displayTitle
+                        }
+                    },
                     "terminals": w.terminals.map { "\($0.displayTitle)\($0.isStarted ? "" : " (not started)")" },
                     "selectedTerminal": w.terminals.firstIndex { $0.id == w.selectedTerminalID } ?? -1,
                     "space": store.space(for: w)?.name ?? "",

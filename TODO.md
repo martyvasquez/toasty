@@ -22,6 +22,19 @@ that, so any change to the defaults only reaches new users.
   Usage, Activity). Candidates are new tools, judged by speed (the
   product thesis), each with the same Small / Medium / Large grammar.
 
+## Terminal placement (trying three, 2026-11-23)
+
+Three ways to have a terminal, all shipped side by side to try them in use
+(Settings ▸ Terminal): terminal tabs in the top row (⇧⌘T, ⌃` switches),
+the drawer under the conversation (⌘J), and the one under the widgets
+(can be turned off). Pick one, or none, and remove the others.
+
+- **Quit warning** doesn't count terminal tabs or the drawer's shells
+  (only the widget column's).
+- **A terminal tab doesn't resize** when its title changes length.
+- **Cursor blink setting** blinks even when a program asks for a steady
+  cursor (the engine reports "steady" both for that and for nothing asked).
+
 ## Claude Code / SDK version drift (soon)
 
 Toasty runs the installed `claude` (terminal tabs and the bridge's
