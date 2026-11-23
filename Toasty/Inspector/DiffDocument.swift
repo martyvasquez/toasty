@@ -272,6 +272,27 @@ nonisolated final class DiffLayoutManager: NSLayoutManager, NSLayoutManagerDeleg
     var numberFont = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
     var colors: [DiffLine.Kind: (fill: NSColor, gutter: NSColor?)] = [:]
 
+    /// Where the code starts: the selection isn't drawn left of it (over
+    /// the gutter). 0 draws it full width.
+    var codeStart: CGFloat = 0
+
+    override func fillBackgroundRectArray(_ rectArray: UnsafePointer<NSRect>, count rectCount: Int,
+                                          forCharacterRange charRange: NSRange, color: NSColor) {
+        guard codeStart > 0 else {
+            return super.fillBackgroundRectArray(rectArray, count: rectCount, forCharacterRange: charRange, color: color)
+        }
+        var clipped = (0..<rectCount).map { i -> NSRect in
+            var r = rectArray[i]
+            let cut = max(0, codeStart - r.minX)
+            r.origin.x += cut
+            r.size.width = max(0, r.width - cut)
+            return r
+        }
+        clipped.withUnsafeMutableBufferPointer { buf in
+            super.fillBackgroundRectArray(buf.baseAddress!, count: rectCount, forCharacterRange: charRange, color: color)
+        }
+    }
+
     override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: NSPoint) {
         drawLines(forGlyphRange: glyphsToShow, at: origin)
         super.drawBackground(forGlyphRange: glyphsToShow, at: origin)

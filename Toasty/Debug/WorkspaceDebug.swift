@@ -150,13 +150,33 @@ enum WorkspaceDebug {
             if let i = cmd["diff"] as? Int {
                 w.diffFile = w.changes.files.indices.contains(i) ? w.changes.files[i] : nil
             }
+            // "view": a path for the file page ("" closes it)
+            if let v = cmd["view"] as? String { w.viewedFile = v.isEmpty ? nil : URL(fileURLWithPath: v) }
+            // "selectLines": [first, last] in the file page, as a mouse selection that lets go
+            if let l = cmd["selectLines"] as? [Int], l.count == 2 {
+                func find(_ v: NSView) -> CommentingTextView? {
+                    if let t = v as? CommentingTextView { return t }
+                    for sub in v.subviews { if let t = find(sub) { return t } }
+                    return nil
+                }
+                guard let text = NSApp.windows.lazy.compactMap({ $0.contentView.flatMap(find) }).first else { throw E("no file text") }
+                let s = text.string as NSString
+                var start = 0, line = 1
+                while line < l[0], start < s.length { start = NSMaxRange(s.lineRange(for: NSRange(location: start, length: 0))); line += 1 }
+                var end = start
+                while line <= l[1], end < s.length { end = NSMaxRange(s.lineRange(for: NSRange(location: end, length: 0))); line += 1 }
+                text.scrollRangeToVisible(NSRange(location: start, length: 0))
+                text.window?.makeFirstResponder(text)
+                text.setSelectedRange(NSRange(location: start, length: end - start))
+                text.selectionEnded?()
+            }
             return [
                 "widgets": w.widgetsVisible,
                 "columnWidth": AppDelegate.shared.windowController.map { $0.split.terminalItem.isCollapsed ? 0 : $0.split.rightColumn.view.frame.width } ?? -1,
                 "git": "\(w.changes.state)", "branch": w.changes.branch ?? "", "ahead": w.changes.ahead, "behind": w.changes.behind,
                 "base": w.changes.base ?? "", "behindBase": w.changes.behindBase,
                 "files": w.changes.files.map { "\($0.status.rawValue) \($0.path) +\($0.added.map(String.init) ?? "-") -\($0.removed.map(String.init) ?? "-")" },
-                "diff": w.diffFile?.path ?? "",
+                "diff": w.diffFile?.path ?? "", "view": w.viewedFile?.path ?? "",
             ] as [String: Any]
         }
 

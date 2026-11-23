@@ -62,6 +62,8 @@ enum WidgetPreset: String, CaseIterable, Identifiable {
 
 enum WidgetKind: String, Codable, CaseIterable, Identifiable {
     case git, usage, teeUp, activity
+    /// The workspace's folder, browsed in place; Large only (`FilesWidget`).
+    case files
     /// A shell, Large only (`TerminalWidget`, an experiment). The case
     /// stays even without the widget, so saved spaces still read.
     case terminal
@@ -70,7 +72,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
 
     /// What the gallery offers. Saved widgets of other kinds are dropped on
     /// load (`WidgetSpace.current`).
-    static var gallery: [WidgetKind] { [.git, .usage, .teeUp, .activity, .terminal] }
+    static var gallery: [WidgetKind] { [.git, .usage, .teeUp, .activity, .files, .terminal] }
 
     var title: String {
         switch self {
@@ -78,6 +80,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .usage: "Usage"
         case .teeUp: "Tee-Up"
         case .activity: "Activity"
+        case .files: "Files"
         case .terminal: "Terminal"
         }
     }
@@ -89,6 +92,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .usage: "Context and limits"
         case .teeUp: "Prompts written ahead"
         case .activity: "What Claude is doing"
+        case .files: "Browse this workspace's folder"
         case .terminal: "A shell in this workspace"
         }
     }
@@ -99,18 +103,19 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .usage: "gauge.with.needle"
         case .teeUp: "list.bullet"
         case .activity: "waveform.path.ecg"
+        case .files: "folder"
         case .terminal: "terminal"
         }
     }
 
-    var presets: [WidgetPreset] { self == .terminal ? [.large] : WidgetPreset.allCases }
+    var presets: [WidgetPreset] { self == .terminal || self == .files ? [.large] : WidgetPreset.allCases }
 
     /// Two-track heights, in units. (Small is one track × 2 units; one
     /// track never grows.)
     var minUnits: Int {
         switch self {
         case .usage: 1
-        case .terminal: WidgetPreset.large.units
+        case .terminal, .files: WidgetPreset.large.units
         default: 2
         }
     }
@@ -119,7 +124,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .git: 7
         case .usage, .activity: 4
-        case .teeUp: 9
+        case .teeUp, .files: 9
         case .terminal: WidgetPreset.large.units
         }
     }

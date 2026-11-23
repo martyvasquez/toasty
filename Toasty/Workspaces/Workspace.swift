@@ -43,7 +43,14 @@ final class Workspace: ObservableObject, Identifiable {
     /// The teed-up prompt open for editing in place.
     @Published private(set) var teeUpEditingID: UUID?
     /// A changed file whose diff fills the conversation column.
-    @Published var diffFile: GitChanges.File?
+    @Published var diffFile: GitChanges.File? {
+        didSet { if diffFile != nil, viewedFile != nil { viewedFile = nil } }
+    }
+    /// A file from the Files widget, shown in the conversation column
+    /// (`FilePage`).
+    @Published var viewedFile: URL? {
+        didSet { if viewedFile != nil, diffFile != nil { diffFile = nil } }
+    }
     /// The workspace this one is a git worktree of (shown nested under it).
     var parentID: UUID?
     /// The sidebar heading this workspace sits under (top-level workspaces
@@ -148,6 +155,7 @@ final class Workspace: ObservableObject, Identifiable {
         selectedID = conversation.id
         shownTabTerminalID = nil
         diffFile = nil
+        viewedFile = nil
         conversation.attention = false
         store?.workspaceSelectionChanged(self)
         changed()
@@ -405,6 +413,7 @@ final class Workspace: ObservableObject, Identifiable {
         shownTabTerminalID = id
         lastTabTerminalID = id
         diffFile = nil
+        viewedFile = nil
         store?.workspaceSelectionChanged(self)
         changed()
     }
@@ -591,7 +600,7 @@ final class Workspace: ObservableObject, Identifiable {
         guard let conversation = tab ?? selected, let i = teeUps.firstIndex(where: { $0.id == id }) else { return false }
         if teeUpEditingID == id { teeUpEditingID = nil }
         let item = teeUps.remove(at: i)
-        if tab == nil { diffFile = nil }  // show the conversation it went to
+        if tab == nil { diffFile = nil; viewedFile = nil }  // show the conversation it went to
         conversation.post(item.text, images: item.images.compactMap(TeeUpImages.image),
                           files: item.files.map { URL(fileURLWithPath: $0) })
         TeeUpImages.delete(item.images)

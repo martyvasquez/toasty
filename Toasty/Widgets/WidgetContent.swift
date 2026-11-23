@@ -33,6 +33,7 @@ struct WidgetContent: View {
                 case .usage: UsageWidget(workspace: workspace, size: size)
                 case .teeUp: TeeUpWidget(workspace: workspace, size: size)
                 case .activity: ActivityWidget(workspace: workspace, size: size)
+                case .files: FilesWidget(workspace: workspace, item: item)
                 case .terminal: TerminalWidget(workspace: workspace, item: item)
                 }
             }
@@ -105,7 +106,7 @@ private struct GlanceValue: View {
 /// The one row every list uses: a leading mark (none for an `EmptyView`:
 /// the label then starts on the widget's edge), a label (and a quieter
 /// detail after it), and a trailing value.
-private struct WidgetRow<Lead: View, Trailing: View>: View {
+struct WidgetRow<Lead: View, Trailing: View>: View {
     let label: String
     var detail: String?
     var mono = false
@@ -150,7 +151,7 @@ private struct WidgetRow<Lead: View, Trailing: View>: View {
 }
 
 /// A row's glyph, quiet.
-private struct RowGlyph: View {
+struct RowGlyph: View {
     let symbol: String
 
     var body: some View {
@@ -161,7 +162,7 @@ private struct RowGlyph: View {
 }
 
 /// A row's (or a header's) value: mono 12, secondary.
-private struct RowValue: View {
+struct RowValue: View {
     let text: String
 
     var body: some View {
@@ -189,7 +190,7 @@ private struct MoreLine: View {
 }
 
 /// A list with nothing in it: one plain line in the widget's own voice.
-private struct EmptyLine: View {
+struct EmptyLine: View {
     let text: String
 
     var body: some View {
@@ -203,7 +204,7 @@ private struct EmptyLine: View {
 }
 
 /// A Large's one-line summary, under its header.
-private struct SummaryLine<Trailing: View>: View {
+struct SummaryLine<Trailing: View>: View {
     let text: String
     @ViewBuilder var trailing: () -> Trailing
 

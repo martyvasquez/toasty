@@ -909,15 +909,18 @@ private struct PreviewPage: View {
           // either one, and the confirmation centered on the whole window.
           .overlay(alignment: .topLeading) {
               if session.failure == nil, let pick = session.pick, let fit = pickFit(pick, in: whole.size, column: column) {
-                  let choosing = workspace.conversations.count > 1
                   let field = CommentField.frame(for: pick.rect, fit: fit, pane: whole.size, height: commentHeight)
                   CommentField(destination: $settings.commentsTo, workspace: workspace.id, height: $commentHeight,
-                               tabs: choosing ? CommentTabs(workspace: workspace, session: session) : nil) { note, images, files in
+                               tabs: CommentTabs(workspace: workspace, pinnedID: $session.commentTabID)) { note, images, files in
                       Task { await session.comment(note, images: images, files: files, in: workspace, to: settings.commentsTo) }
                   } cancel: {
                       session.cancelPick()
                   }
-                  .frame(width: field.width, height: field.height)
+                  // At least its width, wider when its controls need it
+                  // (a long tab name), growing right from where it's placed.
+                  .frame(minWidth: field.width, alignment: .leading)
+                  .fixedSize(horizontal: true, vertical: false)
+                  .frame(height: field.height)
                   .offset(x: field.minX, y: field.minY)
                   .id(pick)
               }
@@ -985,7 +988,7 @@ private struct PreviewFailure: View {
 /// text, picked with +, or a ⇧⌘0 screenshot (which comes here while a
 /// comment is open). Return does what's chosen, Shift-Return starts a new
 /// line, Esc drops the pick.
-private struct CommentField: View {
+struct CommentField: View {
     @Binding var destination: PreviewSettings.CommentDestination
     /// For dictation's vocabulary (the field isn't a conversation).
     let workspace: UUID
@@ -993,6 +996,8 @@ private struct CommentField: View {
     @Binding var height: CGFloat
     /// Which tab it goes to, shown when the workspace has more than one.
     let tabs: CommentTabs?
+    /// What Send does, for its tooltip.
+    var sendTip = "Send the comment to Claude now, with a screenshot. Return does what's highlighted."
     let submit: (_ note: String, _ images: [NSImage], _ files: [URL]) -> Void
     let cancel: () -> Void
     @State private var note = ""
@@ -1055,17 +1060,14 @@ private struct CommentField: View {
             }
             if !images.isEmpty || !files.isEmpty { attachments }
             HStack(spacing: 6) {
-                CommentDestinationSwitch(destination: $destination, refocus: { focusToken += 1 }, commit: {
+                CommentDestinationSwitch(destination: $destination, sendTip: sendTip, refocus: { focusToken += 1 }, commit: {
                     // Nothing written yet: the click only picks where it goes.
                     let empty = note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && images.isEmpty && files.isEmpty
                     if empty { return false }
                     submit(note, images, files)
                     return true
                 })
-                if let tabs, !teeUp {
-                    Text("to").font(.toasty(Theme.Size.meta)).foregroundStyle(.secondary).fixedSize()
-                    tabs
-                }
+                if let tabs, !teeUp { tabs }
                 Spacer(minLength: 4)
                 CommentIconButton(symbol: "plus", tip: "Pictures and files to go with the comment. You can also paste or drop them, or press \(ScreenshotCapture.shortcutLabel) for a screenshot.",
                                   label: "Attach Files", action: pick)
@@ -1149,7 +1151,7 @@ private struct CommentField: View {
 }
 
 /// A small icon button in the comment field's bottom row (the mic's size).
-private struct CommentIconButton: View {
+struct CommentIconButton: View {
     let symbol: String
     let tip: String
     let label: String
@@ -1177,15 +1179,16 @@ private struct CommentIconButton: View {
 /// is what Return does. Clicking one sends the comment there (and makes it
 /// Return's); with nothing written yet it only chooses. The keyboard stays
 /// in the comment (`refocus`).
-private struct CommentDestinationSwitch: View {
+struct CommentDestinationSwitch: View {
     @Binding var destination: PreviewSettings.CommentDestination
+    let sendTip: String
     let refocus: () -> Void
     /// Sends the comment; false when there's nothing to send.
     let commit: () -> Bool
 
     var body: some View {
         HStack(spacing: 2) {
-            segment(.conversation, "Send", "arrow.up", "Send the comment to Claude now, with a screenshot. Return does what's highlighted.")
+            segment(.conversation, "Send", "arrow.up", sendTip)
             segment(.teeUp, "Tee-Up", "text.badge.plus", "Add the comment to the workspace's Tee-Up list and go on commenting. Return does what's highlighted.")
         }
         .padding(2)
@@ -1221,17 +1224,30 @@ private struct CommentDestinationSwitch: View {
 /// whichever tab was last selected in the workspace), then each tab, to pin
 /// it for this and later comments. A pin glyph marks a pinned tab. The
 /// keyboard stays in the comment (Toasty's own menu doesn't take it).
-private struct CommentTabs: View {
+struct CommentTabs: View {
     @ObservedObject var workspace: Workspace
-    @ObservedObject var session: PreviewSession
+    /// The pinned tab's id (the browser's session keeps it; a file page
+    /// its own).
+    @Binding var pinnedID: UUID?
 
+    /// "to [tab ▾]", once the workspace has more than one tab. It watches
+    /// the tabs itself, so one opened while the comment is open shows here.
     var body: some View {
-        let pinned = session.pinnedCommentTab(in: workspace)
-        let current = session.commentTab(in: workspace)
+        if workspace.conversations.count > 1 {
+            HStack(spacing: 6) {
+                Text("to").font(.toasty(Theme.Size.meta)).foregroundStyle(.secondary).fixedSize()
+                picker
+            }
+        }
+    }
+
+    @ViewBuilder private var picker: some View {
+        let pinned = pinnedID.flatMap { id in workspace.conversations.first { $0.id == id } }
+        let current = pinned ?? workspace.selected
         let items = [PopoverMenu.Item(title: "Last Active Tab", subtitle: workspace.selected?.title ?? "",
-                                      checked: pinned == nil) { session.commentTabID = nil }]
+                                      checked: pinned == nil) { pinnedID = nil }]
             + workspace.conversations.map { c in
-                PopoverMenu.Item(title: c.title, checked: c.id == pinned?.id) { session.commentTabID = c.id }
+                PopoverMenu.Item(title: c.title, checked: c.id == pinned?.id) { pinnedID = c.id }
             }
         ClaudePopUp(items: items) { hovering in
             HStack(spacing: 4) {

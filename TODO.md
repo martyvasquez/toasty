@@ -21,6 +21,16 @@ that, so any change to the defaults only reaches new users.
 - **More widgets**: the gallery has the inspector's four (Git, Tee-Up,
   Usage, Activity). Candidates are new tools, judged by speed (the
   product thesis), each with the same Small / Medium / Large grammar.
+- **Files widget** (2026-11-23, Large only, `FilesWidget.swift`): a click
+  shows a file in the conversation column (`Inspector/FilePage.swift`),
+  read-only (the user's call: a viewer, not an editor, not a tab).
+  Selecting lines shows a Comment pill that opens the browser's comment
+  box. Not yet: comments on Markdown Preview or Diff lines (only @ for the
+  whole file there); a real mouse drag-select hasn't been checked by hand
+  (mctl can't drive the text view's tracking; `inspector selectLines`
+  stands in).
+- **Stale test**: `WidgetLayoutTests.savedTerminalWidgetsAreDropped`
+  expects Terminal out of the gallery, but it's back as an experiment.
 
 ## Terminal placement (trying three, 2026-11-23)
 

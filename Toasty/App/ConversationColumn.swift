@@ -25,6 +25,9 @@ private struct WorkspaceConversation: View {
         if let file = workspace.diffFile {
             DiffPage(file: file, files: workspace.changes.files, select: { workspace.diffFile = $0 }) { workspace.diffFile = nil }
                 .id(file.id)
+        } else if let url = workspace.viewedFile {
+            FilePage(workspace: workspace, changes: workspace.changes, url: url) { workspace.viewedFile = nil }
+                .id(url)
         } else if let terminal = workspace.shownTabTerminal {
             TerminalTabPage(session: terminal)
         } else if workspace.selected != nil {
@@ -134,9 +137,10 @@ final class ConversationColumnController: NSViewController {
             host.show(nil)
             return
         }
-        workspaceCancellable = w.$selectedID.combineLatest(w.$conversations, w.$diffFile, w.$shownTabTerminalID)
-            .sink { [weak self] id, conversations, diff, terminal in
-                let c = diff == nil && terminal == nil ? conversations.first { $0.id == id } : nil
+        let page = w.$diffFile.combineLatest(w.$viewedFile).map { $0 != nil || $1 != nil }
+        workspaceCancellable = w.$selectedID.combineLatest(w.$conversations, page, w.$shownTabTerminalID)
+            .sink { [weak self] id, conversations, page, terminal in
+                let c = !page && terminal == nil ? conversations.first { $0.id == id } : nil
                 self?.host.show(c.map { ConversationViews.shared.view(for: $0) })
             }
     }
