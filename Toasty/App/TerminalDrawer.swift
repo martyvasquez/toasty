@@ -19,6 +19,9 @@ final class DrawerLayout: ObservableObject {
     static let conversationMin: CGFloat = 220
 
     @Published var height: CGFloat
+    /// How much of the drawer is on screen now (0 closed), through its
+    /// slide: the edge handles end above it.
+    @Published var shown: CGFloat = 0
 
     private init() {
         let stored = UserDefaults.standard.double(forKey: Self.key)
@@ -77,6 +80,7 @@ final class ColumnContainerView: NSView {
         // The top 8pt of the drawer, under its divider.
         edge.frame = NSRect(x: 0, y: shown - 8, width: bounds.width, height: 8)
         edge.isHidden = reveal < 1
+        if DrawerLayout.shared.shown != shown { DrawerLayout.shared.shown = shown }
         window?.invalidateCursorRects(for: edge)
     }
 
@@ -101,8 +105,10 @@ final class ColumnContainerView: NSView {
 }
 
 /// The drawer: a header exactly like the window's tab row (full width,
-/// its height, margins, tabs and buttons, a divider under it) over the
-/// selected terminal at the conversation's width and edges, on the page.
+/// its height, margins, tabs and buttons) over the selected terminal at
+/// the conversation's width and edges, on the page. A hairline over it and
+/// one under its tabs, each fading out at its right end (beside the
+/// floating widgets, where a line would stop in the gap).
 struct TerminalDrawerView: View {
     @ObservedObject var store: WorkspaceStore
     let window: WindowLayout
@@ -139,9 +145,7 @@ private struct DrawerContent: View {
                 .padding(.trailing, TitlebarRow.edge - Theme.Space.xs)
             }
             .frame(height: window.buttonsMidY > 0 ? window.buttonsMidY * 2 : 52)
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1)
-            }
+            .overlay(alignment: .bottom) { DrawerHairline(widgets: window.terminalWidth) }
             Group {
                 if let session = workspace.selectedDrawerTerminal {
                     TerminalHost(session: session)
@@ -156,9 +160,30 @@ private struct DrawerContent: View {
             .frame(maxHeight: .infinity)
         }
         // Its top edge: the column's divider (dragged to resize).
-        .overlay(alignment: .top) {
-            Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1)
-        }
+        .overlay(alignment: .top) { DrawerHairline(widgets: window.terminalWidth) }
+    }
+}
+
+/// The drawer's lines: the bar divider. Beside the widgets it fades out
+/// over its last stretch (a line would stop in the gap by them); with them
+/// closed it runs to the window's edge. The fade follows the widget
+/// column's width as it slides.
+private struct DrawerHairline: View {
+    static let fade: CGFloat = 100
+    /// The widget column's width now (0 when closed).
+    let widgets: CGFloat
+
+    var body: some View {
+        Rectangle().fill(Theme.Stroke.barDivider)
+            .frame(height: 1)
+            .mask {
+                HStack(spacing: 0) {
+                    Color.black
+                    LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                        .frame(width: min(Self.fade, max(0, widgets)))
+                }
+            }
+            .allowsHitTesting(false)
     }
 }
 

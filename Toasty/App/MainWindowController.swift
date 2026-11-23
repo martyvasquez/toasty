@@ -16,6 +16,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     /// The inspector handle's strip, at the conversation's trailing edge.
     private var inspectorHandleHost: NSView?
     private var inspectorHandleTrailing: NSLayoutConstraint?
+    /// Both handles' bottoms: above the terminal drawer while it's open.
+    private var handleBottoms: [NSLayoutConstraint] = []
     /// The Add Widget gallery, over the conversation column.
     private var galleryLeading: NSLayoutConstraint?
     private var galleryTrailing: NSLayoutConstraint?
@@ -107,11 +109,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         host.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(host, positioned: .above, relativeTo: nil)
         let leading = host.leadingAnchor.constraint(equalTo: content.leadingAnchor)
+        let bottom = host.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -Self.handleBottomInset)
         NSLayoutConstraint.activate([
             leading,
             host.widthAnchor.constraint(equalToConstant: 20),
             host.topAnchor.constraint(equalTo: content.safeAreaLayoutGuide.topAnchor, constant: 40),
-            host.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -40),
+            bottom,
         ])
         handleHost = host
         handleLeading = leading
@@ -121,15 +124,32 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         right.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(right, positioned: .above, relativeTo: nil)
         let trailing = right.trailingAnchor.constraint(equalTo: content.trailingAnchor)
+        let rightBottom = right.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -Self.handleBottomInset)
         NSLayoutConstraint.activate([
             trailing,
             right.widthAnchor.constraint(equalToConstant: 20),
             right.topAnchor.constraint(equalTo: content.safeAreaLayoutGuide.topAnchor, constant: 40),
-            right.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -40),
+            rightBottom,
         ])
         inspectorHandleHost = right
         inspectorHandleTrailing = trailing
+        handleBottoms = [bottom, rightBottom]
+        // The drawer's tabs and close button are its own: the handles end
+        // above it (and its resize edge), following it as it slides.
+        DrawerLayout.shared.$shown
+            .removeDuplicates()
+            .sink { [weak self] shown in self?.placeHandles(aboveDrawer: shown) }
+            .store(in: &cancellables)
         updateTitlebar()
+    }
+
+    /// The handles' strips end this far over the window's bottom.
+    private static let handleBottomInset: CGFloat = 40
+
+    private func placeHandles(aboveDrawer shown: CGFloat) {
+        // Clear of the drawer's resize edge (its top 8pt) with a little room.
+        let inset = shown > 0 ? shown + 12 : Self.handleBottomInset
+        for c in handleBottoms where abs(c.constant + inset) > 0.25 { c.constant = -inset }
     }
 
     /// The Add Widget gallery: over the conversation column (which it
