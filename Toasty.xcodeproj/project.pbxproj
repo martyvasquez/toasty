@@ -69,6 +69,7 @@
 		7AC855F7E8015BF6AE142D6D /* WidgetContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC01950158358E23F51235DD /* WidgetContent.swift */; };
 		7AE223DDAF7373582139DE08 /* ClaudeDisclosure.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1501768BBE5EBFFAFD293A51 /* ClaudeDisclosure.swift */; };
 		810F05E5628D52043ACA62B8 /* KeyboardShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = A97DF3CFA988D518C8A2490B /* KeyboardShortcuts.swift */; };
+		8301E422BC5E1BB1005B1963 /* TerminalWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 206C05658B6EB627A54F0D1E /* TerminalWidget.swift */; };
 		83FFA2B82AB965597303CD55 /* SidebarHandle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944191F92E33894586D21416 /* SidebarHandle.swift */; };
 		8564E49059338213553F5F29 /* DictationDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 662BABDF0CE9D1BACB40CDDF /* DictationDebug.swift */; };
 		88B35CC67C795C3CAA432EA4 /* DictationSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 044EC2205DB30FAFEDB1F70B /* DictationSettings.swift */; };
@@ -167,6 +168,7 @@
 		1DB1DB6F9D1A2A6132740C20 /* ClaudeTextViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTextViews.swift; sourceTree = "<group>"; };
 		1DF8B11F0CF51797223AF23B /* ClaudeSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSetup.swift; sourceTree = "<group>"; };
 		2046C68CDEBF2AD3EFECAD17 /* TerminalDrawer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalDrawer.swift; sourceTree = "<group>"; };
+		206C05658B6EB627A54F0D1E /* TerminalWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalWidget.swift; sourceTree = "<group>"; };
 		20C3C380A26EF6A301D92FAC /* WidgetModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetModel.swift; sourceTree = "<group>"; };
 		2A6D2D56FB7D2C17B8A46626 /* WidgetLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetLayoutTests.swift; sourceTree = "<group>"; };
 		2DD1D1F3FEA1731159615845 /* Updater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updater.swift; sourceTree = "<group>"; };
@@ -596,6 +598,7 @@
 			children = (
 				A9AB29AB73090BF1F610EB2D /* SpaceSwitcher.swift */,
 				92CCFEC8DFAB0CFCCB7D7ADD /* TerminalDock.swift */,
+				206C05658B6EB627A54F0D1E /* TerminalWidget.swift */,
 				B5AB1945F8001D73F05CC695 /* WidgetColumn.swift */,
 				BC01950158358E23F51235DD /* WidgetContent.swift */,
 				C1C1E158E4C9D354745977B4 /* WidgetGallery.swift */,
@@ -801,6 +804,7 @@
 				0953ACD5224F7B6605CF1233 /* TerminalSprites.swift in Sources */,
 				5A5408F16D2B6E4460483FCB /* TerminalTheme.swift in Sources */,
 				1061436DAC744C0B4D030005 /* TerminalView.swift in Sources */,
+				8301E422BC5E1BB1005B1963 /* TerminalWidget.swift in Sources */,
 				047E06E01E14C3D82252DAD3 /* TextPipeline.swift in Sources */,
 				37643F2E3507FE5CFEF6C9DA /* Theme.swift in Sources */,
 				3502266411B2DCC70D0962EA /* TitlebarTabs.swift in Sources */,

@@ -19,7 +19,10 @@ import SwiftUI
         return layout.placement(for: kind, preset: effectivePreset)
     }
 
-    var effectivePreset: WidgetPreset { kind.presets.contains(preset) ? preset : .medium }
+    var effectivePreset: WidgetPreset {
+        if kind.presets.contains(preset) { return preset }
+        return kind.presets.contains(.medium) ? .medium : kind.presets[0]
+    }
 
     func open(kind: WidgetKind? = nil) {
         if let kind { self.kind = kind }

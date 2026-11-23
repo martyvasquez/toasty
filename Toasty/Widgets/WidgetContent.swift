@@ -33,7 +33,7 @@ struct WidgetContent: View {
                 case .usage: UsageWidget(workspace: workspace, size: size)
                 case .teeUp: TeeUpWidget(workspace: workspace, size: size)
                 case .activity: ActivityWidget(workspace: workspace, size: size)
-                case .terminal: EmptyView()
+                case .terminal: TerminalWidget(workspace: workspace, item: item)
                 }
             }
         }

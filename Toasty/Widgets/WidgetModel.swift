@@ -61,14 +61,15 @@ enum WidgetPreset: String, CaseIterable, Identifiable {
 
 enum WidgetKind: String, Codable, CaseIterable, Identifiable {
     case git, usage, teeUp, activity
-    /// Once a widget; the terminal now floats over every space
-    /// (`TerminalDock`). Kept so older saved spaces still read.
+    /// A shell, Large only (`TerminalWidget`, an experiment). The case
+    /// stays even without the widget, so saved spaces still read.
     case terminal
 
     var id: String { rawValue }
 
-    /// What the gallery offers.
-    static var gallery: [WidgetKind] { [.git, .usage, .teeUp, .activity] }
+    /// What the gallery offers. Saved widgets of other kinds are dropped on
+    /// load (`WidgetSpace.current`).
+    static var gallery: [WidgetKind] { [.git, .usage, .teeUp, .activity, .terminal] }
 
     var title: String {
         switch self {
@@ -87,7 +88,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .usage: "Context and limits"
         case .teeUp: "Prompts written ahead"
         case .activity: "What Claude is doing"
-        case .terminal: "Your sessions"
+        case .terminal: "A shell in this workspace"
         }
     }
 
@@ -101,13 +102,14 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    var presets: [WidgetPreset] { WidgetPreset.allCases }
+    var presets: [WidgetPreset] { self == .terminal ? [.large] : WidgetPreset.allCases }
 
     /// Two-track heights, in units. (Small is one track × 2 units; one
     /// track never grows.)
     var minUnits: Int {
         switch self {
         case .usage: 1
+        case .terminal: WidgetPreset.large.units
         default: 2
         }
     }
@@ -116,7 +118,8 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .git: 7
         case .usage, .activity: 4
-        case .teeUp, .terminal: 9
+        case .teeUp: 9
+        case .terminal: WidgetPreset.large.units
         }
     }
 }
@@ -157,10 +160,10 @@ struct WidgetSpace: Codable, Identifiable, Equatable {
     var name: String
     var widgets: [WidgetItem] = []
 
-    /// Without the widgets that are no longer widgets (the terminal).
+    /// Without the widgets the gallery no longer offers.
     var current: WidgetSpace {
         var s = self
-        s.widgets.removeAll { $0.kind == .terminal }
+        s.widgets.removeAll { !WidgetKind.gallery.contains($0.kind) }
         return s
     }
 
@@ -360,6 +363,8 @@ struct WidgetLayout {
     /// height, the tallest that fits; nil if none does.
     func resizing(_ id: UUID, span: Int, track: Int, units: Int) -> [WidgetItem]? {
         guard let item = widgets.first(where: { $0.id == id }) else { return nil }
+        // A kind without a Small stays two tracks wide.
+        let span = item.kind.presets.contains(.small) ? span : 2
         let least = span == 1 ? 2 : item.kind.minUnits
         let want = span == 1 ? 2 : min(max(units, least), maxUnits(for: item))
         for u in stride(from: want, through: least, by: -1) {
