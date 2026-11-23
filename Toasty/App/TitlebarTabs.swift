@@ -18,15 +18,14 @@ final class WindowLayout: ObservableObject {
 }
 
 /// The titlebar row right of the workspaces sidebar: the conversation tabs
-/// over the conversation, the inspector's tabs over the right column, and
-/// the column toggle in the window's top-right corner. Hosted in the
-/// window's titlebar view (views under a transparent titlebar don't get
-/// clicks).
+/// over the conversation; over the widget column, the spaces' dots and the
+/// edit button (in edit mode, the spaces as thumbnails, + and Done); and at the window's right, the
+/// browser and the widgets button. One page-colored bar: the widgets float
+/// under it, as they float on the page. Hosted in the window's titlebar
+/// view (views under a transparent titlebar don't get clicks).
 struct TitlebarRow: View {
     @ObservedObject var store: WorkspaceStore
     @ObservedObject var layout: WindowLayout
-    /// The browser's indicator comes and goes with its setting.
-    @ObservedObject private var preview = PreviewSettings.shared
 
     /// The bar's margin at each end (Things' toolbar: 12).
     static let edge: CGFloat = 12
@@ -34,37 +33,7 @@ struct TitlebarRow: View {
     var body: some View {
         HStack(spacing: 0) {
             if let workspace = store.active {
-                // Each part of the bar is its column's color, so the bar
-                // reads as the top of the page and of the inspector, not a
-                // strip of its own (as Things' toolbar over its list).
-                let right = layout.terminalWidth > 0
-                // The browser belongs to the conversation, not the
-                // inspector: its indicator ends the conversation's tab row.
-                HStack(spacing: 0) {
-                    ConversationTabBar(workspace: workspace)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                    if preview.enabled {
-                        PreviewIndicator(session: PreviewStore.shared.session(for: workspace))
-                            .id(workspace.id)
-                            .padding(.trailing, right ? Theme.Space.s : Self.edge)
-                    }
-                }
-                .padding(.leading, layout.leadingInset)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                .background(ZStack { Color.claudeBackground; WindowDragArea() })
-                HStack(spacing: 0) {
-                    if right {
-                        Rectangle().fill(Color.claudeSeparator).frame(width: 0.5)
-                        // At its open width, uncovered from the column's
-                        // edge as it slides (as the panel under it is).
-                        InspectorTabBar(workspace: workspace)
-                            .frame(width: max(0, max(layout.terminalOpenWidth, layout.terminalWidth) - 0.5))
-                            .frame(width: max(0, layout.terminalWidth - 0.5), alignment: .leading)
-                            .clipped()
-                    }
-                }
-                .frame(maxHeight: .infinity)
-                .background(ZStack { right ? Color.claudeChrome : Color.claudeBackground; WindowDragArea() })
+                TitlebarContent(store: store, layout: layout, workspace: workspace)
             } else {
                 Spacer()
             }
@@ -73,9 +42,7 @@ struct TitlebarRow: View {
         // Things' toolbar); the titlebar's extra height below it belongs to
         // the content.
         .frame(height: layout.buttonsMidY > 0 ? layout.buttonsMidY * 2 : nil)
-        // No workspace: the welcome page runs up under the window buttons,
-        // with no bar over it.
-        .background(ZStack { store.active == nil ? Color.claudeBackground : Color.claudeChrome; WindowDragArea() })
+        .background(ZStack { Color.claudeBackground; WindowDragArea() })
         .overlay(alignment: .bottom) {
             if store.active != nil { Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1) }
         }
@@ -84,30 +51,50 @@ struct TitlebarRow: View {
     }
 }
 
-// MARK: - Inspector tabs
-
-/// The inspector's tabs, as Things' toolbar: plain icons in equal slots
-/// across the column, the selected one in a filled capsule while the
-/// inspector shows (names and shortcuts in their tooltips). Clicking a
-/// tab while the inspector is hidden shows it; clicking the selected one
-/// hides it.
-private struct InspectorTabBar: View {
+private struct TitlebarContent: View {
+    @ObservedObject var store: WorkspaceStore
+    @ObservedObject var layout: WindowLayout
     @ObservedObject var workspace: Workspace
+    /// The browser's indicator comes and goes with its setting.
+    @ObservedObject private var preview = PreviewSettings.shared
 
     var body: some View {
+        let column = layout.terminalWidth
+        let editing = store.editingWidgets && column > 0
         HStack(spacing: 0) {
-            ForEach(InspectorTab.allCases) { tab in
-                let selected = workspace.inspectorVisible && workspace.inspectorTab == tab
-                BarIconButton(symbol: tab.symbol,
-                              tooltip: Tooltip(title: tab.title, shortcut: "⌃⌘\(tab.shortcut)", detail: tab.tooltipDetail),
-                              active: selected, glyphSize: tab.symbolSize + 1,
-                              size: CGSize(width: 44, height: TabStyle.height)) {
-                    if selected { workspace.hideInspector() } else { workspace.showInspector(tab) }
-                }
-                .accessibilityAddTraits(selected ? [.isSelected] : [])
-                .frame(maxWidth: .infinity)
+            ConversationTabBar(workspace: workspace)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .padding(.leading, layout.leadingInset)
+            // The browser belongs to the conversation: its indicator ends
+            // the conversation's row, just outside the widgets (at the
+            // window's edge when they're hidden).
+            if preview.enabled {
+                PreviewIndicator(session: PreviewStore.shared.session(for: workspace))
+                    .id(workspace.id)
+                    .padding(.trailing, column > 1 ? Theme.Space.s : TitlebarRow.edge - Theme.Space.xs)
             }
+            // Over the column (at its open width, uncovered from its edge as
+            // it slides): the dots, centered, and Edit Widgets in its
+            // corner; editing, the spaces' thumbnails and Done. (The
+            // widgets show and hide by the handle at the conversation's
+            // edge, as the workspaces do, and ⌃⌘I.)
+            ZStack {
+                if editing {
+                    SpaceEditBar(store: store, workspace: workspace)
+                        .padding(.horizontal, TitlebarRow.edge)
+                } else {
+                    SpaceDots(store: store, workspace: workspace)
+                    EditWidgetsButton()
+                        .padding(.trailing, TitlebarRow.edge - Theme.Space.xs)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            }
+            .frame(width: max(layout.terminalOpenWidth, column))
+            .frame(width: column, alignment: .leading)
+            .clipped()
+            .opacity(column > 1 ? 1 : 0)
         }
+        .animation(.easeOut(duration: 0.15), value: editing)
     }
 }
 

@@ -64,9 +64,14 @@ enum MainMenu {
 
         let view = NSMenu(title: "View")
         view.addItem(item("Hide Workspaces", #selector(W.toggleWorkspaces(_:)), "s", [.command, .shift]))
+        view.addItem(item("Hide Widgets", #selector(W.toggleWidgets(_:)), "i", [.command, .control]))
+        // ⇧⌘D: the older shortcut for the right column, kept as an alternate.
+        view.addItem(hidden(item("Hide Widgets", #selector(W.toggleWidgets(_:)), "d", [.command, .shift])))
+        view.addItem(item("Edit Widgets…", #selector(W.editWidgets(_:)), "e", [.command, .option]))
+        view.addItem(item("Add Widget…", #selector(W.addWidget(_:)), ""))
+        view.addItem(item("New Space", #selector(W.newSpace(_:)), ""))
         view.addItem(item("Show Terminal", #selector(W.toggleTerminal(_:)), "t", [.command, .control]))
-        view.addItem(item("Show Inspector", #selector(W.toggleInspector(_:)), "i", [.command, .control]))
-        view.addItem(item("Hide Inspector and Terminal", #selector(W.toggleRightColumn(_:)), "d", [.command, .shift]))
+        view.addItem(item("New Tee-Up Prompt", #selector(W.newTeeUp(_:)), "p", [.command, .control]))
         // Hidden (shortcut and all) while the browser is turned off. The
         // browser window answers them for itself while it's key
         // (`PreviewWindowController`).
@@ -74,11 +79,14 @@ enum MainMenu {
         view.addItem(item("Show at Phone Size", #selector(W.togglePreviewSize(_:)), "m", [.command, .shift]))
         view.addItem(item("Comment on the Page", #selector(W.togglePreviewComment(_:)), "c", [.command, .shift]))
         view.addItem(.separator())
-        for (i, tab) in InspectorTab.allCases.enumerated() {
-            let t = item(tab.title, #selector(W.showInspectorTab(_:)), tab.shortcut, [.command, .control])
+        // ⌃⌘1–9: the spaces, by their place (hidden past the last one).
+        for i in 0..<9 {
+            let t = item("Space \(i + 1)", #selector(W.showSpace(_:)), "\(i + 1)", [.command, .control])
             t.tag = i
             view.addItem(t)
         }
+        view.addItem(item("Next Space", #selector(W.nextSpace(_:)), "]", [.command, .control]))
+        view.addItem(item("Previous Space", #selector(W.previousSpace(_:)), "[", [.command, .control]))
         view.addItem(.separator())
         view.addItem(item("Enter Full Screen", #selector(NSWindow.toggleFullScreen(_:)), "f", [.command, .control]))
         add(view, to: main)

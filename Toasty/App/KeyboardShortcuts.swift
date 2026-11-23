@@ -74,12 +74,13 @@ final class KeyboardShortcuts: NSObject {
             ].compactMap { $0 }),
             Group(title: "Window", rows: [
                 menu("Workspaces", #selector(W.toggleWorkspaces(_:))),
-                menu("Inspector and terminal", #selector(W.toggleRightColumn(_:))),
-                menu("Inspector", #selector(W.toggleInspector(_:))),
+                menu("Widgets", #selector(W.toggleWidgets(_:))),
+                menu("Edit widgets", #selector(W.editWidgets(_:))),
+                plain("A space by its place", "⌃⌘1 – ⌃⌘9"),
+                menu("Next space", #selector(W.nextSpace(_:))),
+                menu("Previous space", #selector(W.previousSpace(_:))),
+                menu("New Tee-Up prompt", #selector(W.newTeeUp(_:))),
             ].compactMap { $0 }
-            + InspectorTab.allCases.enumerated().compactMap { i, tab in
-                menu("Inspector: \(tab.title.lowercased())", #selector(W.showInspectorTab(_:)), tag: i)
-            }
             + [
                 plain("In a diff: previous or next changed file", "⌃⌘↑ ⌃⌘↓"),
                 plain("In a diff: back to the conversation", "esc"),

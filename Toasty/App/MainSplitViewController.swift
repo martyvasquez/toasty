@@ -2,17 +2,16 @@ import AppKit
 import Combine
 import SwiftUI
 
-/// Workspaces sidebar · conversation · right column, as a real split view:
-/// the sidebar collapses (⇧⌘S); the right column (inspector over terminals)
-/// shows when either half does and keeps a width per workspace.
+/// Workspaces sidebar · conversation · widgets, as a real split view: the
+/// sidebar collapses (⇧⌘S); the widget column is a fixed 380pt (the 356pt
+/// grid and its margins), with no divider, hidden per workspace (⌃⌘I).
 final class MainSplitViewController: NSSplitViewController {
     let store: WorkspaceStore
     let layout: WindowLayout
     private(set) var sidebarItem: NSSplitViewItem!
     private(set) var contentItem: NSSplitViewItem!
     private(set) var terminalItem: NSSplitViewItem!
-    let rightColumn: RightColumnController
-    var terminalColumn: TerminalColumnController { rightColumn.terminalColumn }
+    private(set) var rightColumn: NSViewController!
 
     /// Column frames changed (the titlebar row follows them).
     var onLayout: (() -> Void)?
@@ -23,7 +22,7 @@ final class MainSplitViewController: NSSplitViewController {
     /// beside it, not the window).
     static var sidebarWidth: CGFloat { WorkspaceStore.defaultSidebarWidth }
     static let minConversation: CGFloat = 440
-    static let minTerminal: CGFloat = 280
+    static let minTerminal: CGFloat = WidgetGrid.columnWidth
 
     private var cancellables: Set<AnyCancellable> = []
     private var workspaceCancellables: Set<AnyCancellable> = []
@@ -36,7 +35,6 @@ final class MainSplitViewController: NSSplitViewController {
     init(store: WorkspaceStore, layout: WindowLayout) {
         self.store = store
         self.layout = layout
-        rightColumn = RightColumnController(store: store)
         super.init(nibName: nil, bundle: nil)
         splitView = HairlineSplitView()
     }
@@ -54,6 +52,9 @@ final class MainSplitViewController: NSSplitViewController {
         sidebarItem.minimumThickness = WorkspaceStore.sidebarWidthRange.lowerBound
         sidebarItem.maximumThickness = WorkspaceStore.sidebarWidthRange.upperBound
         sidebarItem.canCollapse = true
+        // A narrow window sets it aside by `applyWidth`, not AppKit's own
+        // rule (the two would fight over the widgets).
+        sidebarItem.canCollapseFromWindowResize = false
         sidebarItem.isCollapsed = !store.sidebarVisible || store.workspaces.isEmpty
         // Its width is the user's: the window and the other columns don't
         // take from it (only a drag on its edge changes it).
@@ -64,9 +65,13 @@ final class MainSplitViewController: NSSplitViewController {
         contentItem.minimumThickness = Self.minConversation
         contentItem.holdingPriority = .init(249)
 
-        terminalItem = NSSplitViewItem(viewController: rightColumn)
-        terminalItem.minimumThickness = Self.minTerminal
+        let widgets = WidgetColumnController(store: store, layout: layout)
+        rightColumn = widgets
+        terminalItem = NSSplitViewItem(viewController: widgets)
+        terminalItem.minimumThickness = WidgetGrid.columnWidth
+        terminalItem.maximumThickness = WidgetGrid.columnWidth
         terminalItem.canCollapse = true
+        terminalItem.canCollapseFromWindowResize = false
         terminalItem.holdingPriority = .init(255)
         terminalItem.isCollapsed = true
 
@@ -75,9 +80,9 @@ final class MainSplitViewController: NSSplitViewController {
         addSplitViewItem(terminalItem)
         // Double-clicking a column's edge puts it back to its default width.
         (splitView as? HairlineSplitView)?.onDoubleClickDivider = { [weak self] i in self?.resetColumn(atDivider: i) }
-        // `splitViewDidResizeSubviews` can arrive before the right column's
-        // frame is set: the titlebar row would sit over the old width.
-        rightColumn.onLayout = { [weak self] in self?.layoutChanged() }
+        // The widgets float on the page: no line between them and the
+        // conversation, and nothing to drag.
+        (splitView as? HairlineSplitView)?.hiddenDividers = [1]
 
         store.$activeID
             .receive(on: DispatchQueue.main)
@@ -105,9 +110,12 @@ final class MainSplitViewController: NSSplitViewController {
     }
 
     /// Show the sidebar if the user wants it (and there's a workspace).
-    private func applySidebar(wanted: Bool? = nil, animated: Bool = true) {
+    /// `exact`: show or hide it as asked (the width rule already decided).
+    private func applySidebar(wanted: Bool? = nil, animated: Bool = true, exact: Bool = false) {
         guard isViewLoaded else { return }
-        let visible = wanted ?? (store.sidebarVisible && !store.workspaces.isEmpty)
+        let wants = wanted ?? (store.sidebarVisible && !store.workspaces.isEmpty)
+        let visible = exact ? wants
+            : wants && fits(sidebar: true, widgets: store.active?.widgetsVisible ?? false, width: splitView.bounds.width)
         guard sidebarItem.isCollapsed == visible else { return }
         guard animated, view.window != nil else {
             sidebarItem.isCollapsed = !visible
@@ -122,6 +130,7 @@ final class MainSplitViewController: NSSplitViewController {
                 self?.sidebarAnimating = false
                 self?.applySidebarWidth()
                 self?.layoutChanged()
+                self?.catchUpWidth()
             }
         }
     }
@@ -144,8 +153,7 @@ final class MainSplitViewController: NSSplitViewController {
         splitView.setPosition(w, ofDividerAt: 0)
     }
 
-    /// Show the active workspace's terminal column (its width, visibility
-    /// and selected terminal), and follow its changes.
+    /// Show the active workspace's widget column (or not), and follow it.
     private func showActiveWorkspace() {
         guard isViewLoaded, view.window != nil else { return }
         let w = store.active
@@ -153,55 +161,127 @@ final class MainSplitViewController: NSSplitViewController {
         shownWorkspace = w?.id
         workspaceCancellables = []
         guard let w else {
-            terminalColumn.show(nil)
-            rightColumn.apply(nil, animated: false)
             setTerminal(visible: false, animated: false)
             return
         }
-        rightColumn.apply(w, animated: false)
-        setTerminal(visible: columnVisible(for: w), animated: false, width: columnWidth(for: w))
-        terminalColumn.show(w.terminalVisible ? w.selectedTerminal : nil)
-
-        // Either half of the right column showing or hiding.
-        w.$terminalVisible.combineLatest(w.$inspectorVisible)
-            .dropFirst()
-            .removeDuplicates { $0 == $1 }
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self, weak w] _ in
-                guard let self, let w else { return }
-                if w.terminalVisible { self.terminalColumn.show(w.selectedTerminal ?? w.terminals.first) }
-                let columnChanges = self.terminalItem.isCollapsed == self.columnVisible(for: w)
-                // Within a shown column, the halves animate; a column that
-                // opens or closes takes its new halves with it.
-                self.rightColumn.apply(w, animated: !columnChanges)
-                self.setTerminal(visible: self.columnVisible(for: w), animated: true, width: self.columnWidth(for: w))
-            }
-            .store(in: &workspaceCancellables)
-        w.$selectedTerminalID
+        applyWidth(splitView.bounds.width, animated: false)
+        w.$widgetsVisible
             .dropFirst()
             .removeDuplicates()
-            .sink { [weak self, weak w] id in
-                guard let self, let w else { return }
-                let focused = self.terminalColumn.isFocused
-                self.terminalColumn.show(w.terminals.first { $0.id == id })
-                if focused { self.terminalColumn.focus() }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.applyWidth(self.splitView.bounds.width, animated: true)
             }
             .store(in: &workspaceCancellables)
     }
 
-    private func columnVisible(for w: Workspace) -> Bool {
-        w.rightColumnVisible
+    // MARK: Narrow windows
+
+    /// The conversation's width below which a side column steps aside:
+    /// a little over its minimum, so the step happens before the window
+    /// meets its minimum size.
+    static let comfortableConversation: CGFloat = minConversation + 40
+
+    /// Whether these columns fit in a window this wide beside a
+    /// comfortable conversation.
+    private func fits(sidebar: Bool, widgets: Bool, width: CGFloat) -> Bool {
+        var need = Self.comfortableConversation
+        if sidebar { need += store.sidebarWidth + splitView.dividerThickness }
+        if widgets { need += WidgetGrid.columnWidth + splitView.dividerThickness }
+        return width >= need
     }
 
-    /// The inspector and terminal keep the width the user gave them.
-    private func columnWidth(for w: Workspace) -> CGFloat {
-        store.rightColumnWidth
+    /// One rule for both side columns at a window width. The widgets come
+    /// first: they show (if the workspace wants them) when they fit beside
+    /// the conversation; the workspaces sidebar shows (if wanted) when it
+    /// fits beside them too. So narrowing sets the sidebar aside, then the
+    /// widgets, leaving the conversation alone (the sidebar doesn't come
+    /// back into the room the widgets left); widening brings the widgets
+    /// back, then the sidebar. What the user asked for (`sidebarVisible`,
+    /// `widgetsVisible`) never changes.
+    /// `arrivals: false` (before a resize): only set columns aside; they
+    /// come back once the window has the width (after it).
+    func applyWidth(_ width: CGFloat, animated: Bool, arrivals: Bool = true) {
+        guard isViewLoaded, view.window != nil else { return }
+        let wantsWidgets = store.active?.widgetsVisible ?? false
+        let wantsSidebar = store.sidebarVisible && !store.workspaces.isEmpty
+        let widgets = wantsWidgets && fits(sidebar: false, widgets: true, width: width)
+        let sidebar = wantsSidebar && fits(sidebar: true, widgets: wantsWidgets, width: width)
+        // Each column waits out its own slide (and catches up after it).
+        // Columns leave before any arrive, so the window's minimum (the
+        // shown columns' widths) never blocks the change.
+        let moveSidebar = !sidebarAnimating && sidebarItem.isCollapsed == sidebar
+        let moveWidgets = !terminalAnimating && terminalItem.isCollapsed == widgets
+        // A width under what the shown columns need can't wait for a
+        // slide (the window would stop at their minimum): they go at once.
+        var minimum = Self.minConversation
+        if !sidebarItem.isCollapsed { minimum += sidebarItem.minimumThickness + splitView.dividerThickness }
+        if !terminalItem.isCollapsed { minimum += WidgetGrid.columnWidth + splitView.dividerThickness }
+        let leaveAnimated = animated && width >= minimum
+        if moveSidebar, !sidebar { setSidebar(false, animated: leaveAnimated) }
+        if moveWidgets, !widgets { setTerminal(visible: false, animated: leaveAnimated) }
+        guard arrivals else { return }
+        if moveWidgets, widgets { setTerminal(visible: true, animated: animated, width: WidgetGrid.columnWidth) }
+        if moveSidebar, sidebar { setSidebar(true, animated: animated) }
     }
 
-    /// The column at the workspace's width (put back to its default).
-    func applyColumn() {
-        guard isViewLoaded, view.window != nil, let w = store.active else { return }
-        setTerminal(visible: columnVisible(for: w), animated: false, width: columnWidth(for: w))
+    /// After a slide: the window may have kept moving while it played.
+    private func catchUpWidth() {
+        applyWidth(splitView.bounds.width, animated: true)
+    }
+
+    private func setSidebar(_ visible: Bool, animated: Bool) {
+        if animated {
+            applySidebar(wanted: visible, exact: true)
+        } else {
+            let was = applying
+            applying = true
+            defer { applying = was }
+            sidebarItem.isCollapsed = !visible
+            applySidebarWidth()
+        }
+    }
+
+    /// The window is about to be this wide (the user dragging its edge):
+    /// set columns aside before the window gets there.
+    func windowWillResize(toWidth width: CGFloat) {
+        // Sliding, as when shown or hidden by hand.
+        applyWidth(width, animated: true, arrivals: false)
+    }
+
+    /// Asked to show the widgets in a window too narrow for them: widen
+    /// the window (within its screen). The sidebar steps aside on its own
+    /// if only it was in the way.
+    @discardableResult
+    func makeRoomForWidgets() -> Bool {
+        let width = splitView.bounds.width
+        guard !fits(sidebar: false, widgets: true, width: width) else { return true }
+        return widen(to: Self.comfortableConversation + WidgetGrid.columnWidth + splitView.dividerThickness)
+    }
+
+    /// Asked to show the sidebar where it doesn't fit: widen the window.
+    @discardableResult
+    func makeRoomForSidebar() -> Bool {
+        let width = splitView.bounds.width
+        let widgets = store.active?.widgetsVisible ?? false
+        guard !fits(sidebar: true, widgets: widgets, width: width) else { return true }
+        var need = Self.comfortableConversation + store.sidebarWidth + splitView.dividerThickness
+        if widgets { need += WidgetGrid.columnWidth + splitView.dividerThickness }
+        return widen(to: need)
+    }
+
+    private func widen(to need: CGFloat) -> Bool {
+        guard let window = view.window, let screen = window.screen?.visibleFrame else { return false }
+        let deficit = need - splitView.bounds.width + 1
+        guard deficit > 0 else { return true }
+        var frame = window.frame
+        frame.size.width += deficit
+        guard frame.width <= screen.width else { return false }
+        // Grow to the left (the widgets are on the right), kept on screen.
+        frame.origin.x = max(screen.minX, min(frame.origin.x - deficit, screen.maxX - frame.width))
+        window.setFrame(frame, display: true, animate: true)
+        return true
     }
 
     private func setTerminal(visible: Bool, animated: Bool, width: CGFloat? = nil) {
@@ -237,6 +317,7 @@ final class MainSplitViewController: NSSplitViewController {
                         self?.terminalAnimating = false
                         self?.applySidebarWidth()
                         self?.layoutChanged()
+                        self?.catchUpWidth()
                     }
                 }
             } else {
@@ -250,15 +331,7 @@ final class MainSplitViewController: NSSplitViewController {
     override func splitViewDidResizeSubviews(_ notification: Notification) {
         super.splitViewDidResizeSubviews(notification)
         layoutChanged()
-        guard !applying, let w = store.active else { return }
-        // The user dragged the column's divider: remember the width.
-        if !terminalAnimating, !terminalItem.isCollapsed, w.rightColumnVisible {
-            let width = rightColumn.view.frame.width
-            if abs(width - store.rightColumnWidth) > 0.5, width >= Self.minTerminal {
-                store.rightColumnWidth = width
-                store.setNeedsSave()
-            }
-        }
+        guard !applying, store.active != nil else { return }
         // The user dragged the sidebar's edge: remember its width.
         if !sidebarAnimating, !sidebarItem.isCollapsed, draggingDivider(0) {
             let width = sidebarItem.viewController.view.frame.width
@@ -267,9 +340,10 @@ final class MainSplitViewController: NSSplitViewController {
                 store.setNeedsSave()
             }
         }
-        // The user collapsed the sidebar by dragging it closed.
+        // The user collapsed the sidebar by dragging its edge closed (not a
+        // narrow window setting it aside).
         let sidebarShown = !sidebarItem.isCollapsed
-        if !sidebarAnimating, !store.workspaces.isEmpty, sidebarShown != store.sidebarVisible {
+        if !sidebarAnimating, !store.workspaces.isEmpty, sidebarShown != store.sidebarVisible, draggingDivider(0) {
             store.sidebarVisible = sidebarShown
             store.setNeedsSave()
         }
@@ -331,6 +405,23 @@ final class MainSplitViewController: NSSplitViewController {
 final class HairlineSplitView: NSSplitView {
     override var dividerThickness: CGFloat { 0.5 }
     override var dividerColor: NSColor { .separatorColor }
+    /// Dividers drawn as nothing and never dragged.
+    var hiddenDividers: Set<Int> = []
+
+    func dividerIndex(at rect: NSRect) -> Int? {
+        let edges = arrangedSubviews.dropLast().enumerated().map { ($0.offset, abs($0.element.frame.maxX - rect.minX)) }
+        return edges.min { $0.1 < $1.1 }?.0
+    }
+
+    override func drawDivider(in rect: NSRect) {
+        if let i = dividerIndex(at: rect), hiddenDividers.contains(i) {
+            // The page's color shows through (the conversation's background).
+            ClaudeStyle.background.setFill()
+            rect.fill()
+            return
+        }
+        super.drawDivider(in: rect)
+    }
 
     /// A double-click on a divider (its index): the column goes back to its
     /// default width.
@@ -355,6 +446,7 @@ final class HairlineSplitView: NSSplitView {
 extension MainSplitViewController {
     override func splitView(_ splitView: NSSplitView, effectiveRect proposedEffectiveRect: NSRect,
                             forDrawnRect drawnRect: NSRect, ofDividerAt dividerIndex: Int) -> NSRect {
+        if (splitView as? HairlineSplitView)?.hiddenDividers.contains(dividerIndex) == true { return .zero }
         let r = super.splitView(splitView, effectiveRect: proposedEffectiveRect, forDrawnRect: drawnRect, ofDividerAt: dividerIndex)
         return r.insetBy(dx: -4, dy: 0)
     }
@@ -371,14 +463,6 @@ extension MainSplitViewController {
                 ctx.allowsImplicitAnimation = true
                 applySidebarWidth()
             }
-        } else if index == 1 {
-            store.rightColumnWidth = WorkspaceStore.defaultRightColumnWidth
-            store.setNeedsSave()
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.2
-                ctx.allowsImplicitAnimation = true
-                applyColumn()
-            }
         }
     }
 
@@ -393,272 +477,94 @@ extension MainSplitViewController {
     }
 }
 
-/// The right column: the inspector over the terminals, each half
-/// collapsible, their divider kept per workspace.
-final class RightColumnController: NSSplitViewController {
+/// The widget column's controller: the SwiftUI grid, and the two-finger
+/// swipe that switches spaces.
+final class WidgetColumnController: NSHostingController<WidgetColumnView> {
     let store: WorkspaceStore
-    let terminalColumn: TerminalColumnController
-    private(set) var inspectorItem: NSSplitViewItem!
-    private(set) var terminalItem: NSSplitViewItem!
-    private var applying = false
-    private weak var shown: Workspace?
-    /// The column was laid out (its width is final).
-    var onLayout: (() -> Void)?
+    private var monitor: Any?
+    /// A swipe the system is tracking (its later events are its).
+    private var tracking = false
+    /// Without the system's swipe tracking (turned off in Trackpad
+    /// settings): how far this swipe has gone, and whether it switched.
+    private var swipe: CGFloat = 0
+    private var swiped = false
 
-    static let minInspector: CGFloat = 150
-    static let minTerminal: CGFloat = 120
-
-    init(store: WorkspaceStore) {
+    init(store: WorkspaceStore, layout: WindowLayout) {
         self.store = store
-        terminalColumn = TerminalColumnController(store: store)
-        super.init(nibName: nil, bundle: nil)
-        splitView = HairlineSplitView()
+        super.init(rootView: WidgetColumnView(store: store, layout: layout))
+        sizingOptions = []
     }
 
-    required init?(coder: NSCoder) { fatalError() }
+    @MainActor required dynamic init?(coder: NSCoder) { fatalError() }
 
-    override func viewDidLoad() {
-        splitView.isVertical = false
-        splitView.dividerStyle = .thin
-        super.viewDidLoad()
-
-        let inspector = NSHostingController(rootView: InspectorPane(store: store))
-        inspector.sizingOptions = []
-        inspectorItem = NSSplitViewItem(viewController: inspector)
-        inspectorItem.minimumThickness = Self.minInspector
-        inspectorItem.canCollapse = true
-        inspectorItem.holdingPriority = .init(250)
-
-        terminalItem = NSSplitViewItem(viewController: terminalColumn)
-        terminalItem.minimumThickness = Self.minTerminal
-        terminalItem.canCollapse = true
-        terminalItem.holdingPriority = .init(251)
-
-        addSplitViewItem(inspectorItem)
-        addSplitViewItem(terminalItem)
-    }
-
-    /// Show the workspace's halves (and its divider position).
-    func apply(_ w: Workspace?, animated: Bool) {
-        loadViewIfNeeded()
-        shown = w
-        let inspector = w?.inspectorVisible ?? false
-        // A column with neither half keeps its last look while it closes.
-        let terminal = w?.terminalVisible ?? false
-        guard inspector || terminal else { return }
-        applying = true
-        defer { applying = false }
-        let change = {
-            self.inspectorItem.isCollapsed = !inspector
-            self.terminalItem.isCollapsed = !terminal
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        guard monitor == nil else { return }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] e in
+            self?.scrolled(e) ?? e
         }
-        if animated {
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.2
-                ctx.allowsImplicitAnimation = true
-                self.inspectorItem.animator().isCollapsed = !inspector
-                self.terminalItem.animator().isCollapsed = !terminal
-            } completionHandler: { [weak self] in
-                MainActor.assumeIsolated { self?.applyFraction() }
+    }
+
+    /// Two fingers sideways over the column: the next or previous space.
+    /// The column follows the fingers (the system's page swipe, as
+    /// Safari's back and forward), and settles on whichever space the
+    /// swipe leaves it nearer; at the first or last space it gives a
+    /// little and springs back. Vertical scrolling passes through.
+    private func scrolled(_ e: NSEvent) -> NSEvent? {
+        guard e.window === view.window, e.hasPreciseScrollingDeltas,
+              view.bounds.contains(view.convert(e.locationInWindow, from: nil)) else { return e }
+        let sideways = abs(e.scrollingDeltaX) > abs(e.scrollingDeltaY)
+        // The tracked swipe's own events, and its momentum.
+        if tracking || e.momentumPhase != [] { return sideways ? nil : e }
+        guard e.phase == .began || e.phase == .changed, sideways else {
+            if e.phase == .ended || e.phase == .cancelled { swipe = 0; swiped = false }
+            return e
+        }
+        guard NSEvent.isSwipeTrackingFromScrollEventsEnabled else { return countSwipe(e) }
+        track(e)
+        return nil
+    }
+
+    private func track(_ e: NSEvent) {
+        guard let w = store.active, store.spaces.count > 1 else { return }
+        let i = store.spaceIndex(for: w)
+        let canPrevious = i > 0, canNext = i < store.spaces.count - 1
+        tracking = true
+        var ended = false
+        e.trackSwipeEvent(options: [.lockDirection, .clampGestureAmount],
+                          dampenAmountThresholdMin: canNext ? -1 : 0,
+                          max: canPrevious ? 1 : 0) { [weak self] amount, phase, complete, _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                SpaceSwipe.shared.amount = amount
+                if phase == .ended { ended = true }
+                if phase == .cancelled { ended = false }
+                guard complete else { return }
+                self.tracking = false
+                // Swiped far enough: the space it slid to, in place (the
+                // column is already there); else back where it was.
+                let to = ended && amount != 0 ? i + (amount > 0 ? -1 : 1) : nil
+                var t = Transaction()
+                t.disablesAnimations = true
+                withTransaction(t) {
+                    if let to, self.store.spaces.indices.contains(to) {
+                        SpaceSwipe.shared.landed = true
+                        w.selectSpace(self.store.spaces[to].id)
+                    }
+                    SpaceSwipe.shared.amount = 0
+                }
             }
-        } else {
-            change()
-            applyFraction()
         }
     }
 
-    private func applyFraction() {
-        guard let w = shown, w.inspectorVisible, w.terminalVisible else { return }
-        let total = splitView.bounds.height
-        guard total > 0 else { return }
-        applying = true
-        defer { applying = false }
-        let y = min(max(Self.minInspector, total * store.inspectorFraction), total - Self.minTerminal)
-        splitView.setPosition(y, ofDividerAt: 0)
-    }
-
-    override func viewDidLayout() {
-        super.viewDidLayout()
-        onLayout?()
-        if splitView.bounds.height > 0, !didApplyFirstLayout {
-            didApplyFirstLayout = true
-            applyFraction()
+    /// Two fingers sideways, counted (once per swipe).
+    private func countSwipe(_ e: NSEvent) -> NSEvent? {
+        if e.phase == .began { swipe = 0; swiped = false }
+        swipe += e.scrollingDeltaX
+        if !swiped, abs(swipe) > 40 {
+            swiped = true
+            store.switchSpace(by: swipe < 0 ? 1 : -1)
         }
-    }
-    private var didApplyFirstLayout = false
-
-    override func splitViewDidResizeSubviews(_ notification: Notification) {
-        super.splitViewDidResizeSubviews(notification)
-        // The user dragged the divider: remember where.
-        guard !applying, let w = shown, w.inspectorVisible, w.terminalVisible,
-              !inspectorItem.isCollapsed, !terminalItem.isCollapsed,
-              NSApp.currentEvent?.type == .leftMouseDragged else { return }
-        let total = splitView.bounds.height
-        guard total > 0 else { return }
-        let f = inspectorItem.viewController.view.frame.height / total
-        if abs(f - store.inspectorFraction) > 0.002 {
-            store.inspectorFraction = f
-            store.setNeedsSave()
-        }
-    }
-
-    override func splitView(_ splitView: NSSplitView, effectiveRect proposedEffectiveRect: NSRect,
-                            forDrawnRect drawnRect: NSRect, ofDividerAt dividerIndex: Int) -> NSRect {
-        let r = super.splitView(splitView, effectiveRect: proposedEffectiveRect, forDrawnRect: drawnRect, ofDividerAt: dividerIndex)
-        return r.insetBy(dx: 0, dy: -4)
-    }
-}
-
-/// The terminal half: a card floating in the right column, as Things'
-/// popovers (rounded, a light inner edge and a dark outer one, a soft
-/// shadow), holding the workspace's terminal tabs and the selected terminal.
-final class TerminalColumnController: NSViewController {
-    private(set) var current: TerminalSession?
-    let store: WorkspaceStore
-    private var strip: NSView!
-    /// The card the strip and the terminal sit in (clipped to its corners).
-    private var card: NSView!
-
-    /// A secondary bar, as the sidebar's footer (40pt).
-    static let stripHeight: CGFloat = 40
-    /// The card's margin from the column's sides and bottom.
-    static let cardMargin: CGFloat = 12
-
-    init(store: WorkspaceStore) {
-        self.store = store
-        super.init(nibName: nil, bundle: nil)
-    }
-
-    required init?(coder: NSCoder) { fatalError() }
-
-    override func loadView() {
-        view = TerminalColumnView()
-        let m = Self.cardMargin
-        // Under the card: its shadow and dark outer edge (the card itself
-        // clips, so it can't cast a shadow).
-        let shadow = TerminalCardShadow()
-        shadow.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(shadow)
-        let card = TerminalCard()
-        card.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(card)
-        NSLayoutConstraint.activate([
-            card.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: m),
-            card.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -m),
-            card.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: m),
-            card.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -m),
-            shadow.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: -0.5),
-            shadow.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: 0.5),
-            shadow.topAnchor.constraint(equalTo: card.topAnchor, constant: -0.5),
-            shadow.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: 0.5),
-        ])
-        self.card = card
-        let host = NSHostingView(rootView: TerminalStrip(store: store))
-        host.sizingOptions = []
-        host.translatesAutoresizingMaskIntoConstraints = false
-        card.addSubview(host)
-        NSLayoutConstraint.activate([
-            host.leadingAnchor.constraint(equalTo: card.leadingAnchor),
-            host.trailingAnchor.constraint(equalTo: card.trailingAnchor),
-            host.topAnchor.constraint(equalTo: card.topAnchor),
-            host.heightAnchor.constraint(equalToConstant: Self.stripHeight),
-        ])
-        strip = host
-    }
-
-    func show(_ session: TerminalSession?) {
-        loadViewIfNeeded()
-        guard session?.id != current?.id || (session != nil && session!.view.superview !== card) else { return }
-        current?.view.removeFromSuperview()
-        current = session
-        guard let session else { return }
-        let v = session.view
-        v.translatesAutoresizingMaskIntoConstraints = false
-        card.addSubview(v, positioned: .below, relativeTo: strip)
-        NSLayoutConstraint.activate([
-            v.leadingAnchor.constraint(equalTo: card.leadingAnchor),
-            v.trailingAnchor.constraint(equalTo: card.trailingAnchor),
-            v.topAnchor.constraint(equalTo: strip.bottomAnchor),
-            v.bottomAnchor.constraint(equalTo: card.bottomAnchor),
-        ])
-    }
-
-    var isFocused: Bool {
-        guard let t = current?.terminalView else { return false }
-        return t.window?.firstResponder === t
-    }
-
-    func focus() {
-        guard let t = current?.terminalView else { return }
-        t.window?.makeFirstResponder(t)
-    }
-}
-
-/// The column around the card: the inspector's panel color.
-private final class TerminalColumnView: NSView {
-    override var isOpaque: Bool { true }
-    override var wantsUpdateLayer: Bool { true }
-
-    override func updateLayer() {
-        layer?.backgroundColor = ClaudeStyle.chrome.cgColor
-    }
-
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        needsDisplay = true
-    }
-}
-
-/// The terminal's card: its own background, rounded, clipped, with a light
-/// inner edge (Things: white 10%; none in light mode).
-private final class TerminalCard: NSView {
-    override var wantsUpdateLayer: Bool { true }
-
-    override func updateLayer() {
-        guard let layer else { return }
-        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        layer.backgroundColor = TerminalTheme.current(for: effectiveAppearance).background.cgColor
-        layer.cornerRadius = Theme.Radius.large
-        layer.cornerCurve = .continuous
-        layer.masksToBounds = true
-        layer.borderWidth = dark ? 1 : 0
-        layer.borderColor = NSColor(white: 1, alpha: 0.10).cgColor
-    }
-
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        needsDisplay = true
-    }
-}
-
-/// Behind the card: its dark outer edge and shadow (Things' popover edge,
-/// black 90% at 0.5pt; a shadow 10pt down, 24pt blur, 60% dark / 30% light).
-private final class TerminalCardShadow: NSView {
-    override var wantsUpdateLayer: Bool { true }
-
-    override func updateLayer() {
-        guard let layer else { return }
-        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        layer.cornerRadius = Theme.Radius.large + 0.5
-        layer.cornerCurve = .continuous
-        layer.borderWidth = 0.5
-        layer.borderColor = NSColor(white: 0, alpha: dark ? 0.9 : 0.2).cgColor
-        layer.backgroundColor = NSColor.black.cgColor
-        layer.shadowColor = NSColor.black.cgColor
-        // A step deeper than Things' popover, so the card clearly floats.
-        layer.shadowOpacity = dark ? 0.6 : 0.3
-        layer.shadowRadius = dark ? 12 : 8  // Core Animation's radius is half the blur
-        layer.shadowOffset = CGSize(width: 0, height: -(dark ? 10 : 6))
-    }
-
-    override func layout() {
-        super.layout()
-        layer?.shadowPath = CGPath(roundedRect: bounds, cornerWidth: Theme.Radius.large + 0.5,
-                                   cornerHeight: Theme.Radius.large + 0.5, transform: nil)
-    }
-
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        needsDisplay = true
+        return nil
     }
 }

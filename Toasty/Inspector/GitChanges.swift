@@ -2,11 +2,12 @@ import AppKit
 import Combine
 import os
 
-/// The workspace folder's git state for the inspector's Changes tab: the
-/// branch, how far it is from its upstream and from the repository's main
-/// branch, and every uncommitted file with its line counts. Read-only: it
-/// never stages, commits or discards (the most it does is `git fetch`, for
-/// a new tab: `checkRemote`).
+/// The workspace folder's git state for the Git widget: the branch, how
+/// far it is from its upstream and from the repository's main branch,
+/// every uncommitted file with its line counts, and the last commits. The
+/// reads never take the index lock; the widget's buttons commit the files
+/// left checked, push and pull (`GitActions.swift`), and nothing else
+/// (it never discards).
 final class GitChanges: ObservableObject {
     nonisolated struct File: Identifiable, Equatable {
         /// Path relative to the repository root.
@@ -81,6 +82,23 @@ final class GitChanges: ObservableObject {
     @Published private(set) var behindBase = 0
     @Published private(set) var files: [File] = []
     @Published private(set) var root: String?
+    /// The branch's last few commits (the Git widget's Recent).
+    @Published private(set) var recent: [Commit] = []
+    /// Files unchecked in the Git widget: left out of the next commit.
+    @Published var excluded: Set<String> = []
+    /// The next commit's message, as typed so far.
+    @Published var message = ""
+    /// A commit, push or pull under way ("Committing…").
+    @Published var busy: String?
+    /// The last commit, push or pull that failed, and why.
+    @Published var actionError: String?
+
+    nonisolated struct Commit: Identifiable, Equatable, Sendable {
+        let hash: String
+        let subject: String
+        let date: Date
+        var id: String { hash }
+    }
 
     var folder: String
     private var running = false
@@ -139,7 +157,13 @@ final class GitChanges: ObservableObject {
         if base != s.base { base = s.base }
         if behindBase != s.behindBase { behindBase = s.behindBase }
         if root != s.root { root = s.root }
-        if files != s.files { files = s.files }
+        if files != s.files {
+            files = s.files
+            // Unchecked files that are no longer changed are forgotten.
+            let paths = Set(files.map(\.path))
+            if !excluded.isSubset(of: paths) { excluded.formIntersection(paths) }
+        }
+        if recent != s.recent { recent = s.recent }
         if again { again = false; refresh() }
     }
 
@@ -155,6 +179,7 @@ final class GitChanges: ObservableObject {
         var behindBase = 0
         var root: String?
         var files: [File] = []
+        var recent: [Commit] = []
     }
 
     nonisolated static func read(folder: String) -> Snapshot {
@@ -246,6 +271,16 @@ final class GitChanges: ObservableObject {
             if count.status == 0 {
                 s.base = base
                 s.behindBase = Int(count.text.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+            }
+        }
+        if hasHead {
+            let log = git(["log", "-n", "5", "--format=%h%x1f%s%x1f%ct"], in: root)
+            if log.status == 0 {
+                s.recent = log.text.split(separator: "\n").compactMap { line in
+                    let parts = line.split(separator: "\u{1f}", omittingEmptySubsequences: false).map(String.init)
+                    guard parts.count == 3, let t = Double(parts[2]) else { return nil }
+                    return Commit(hash: parts[0], subject: parts[1], date: Date(timeIntervalSince1970: t))
+                }
             }
         }
         s.state = .loaded

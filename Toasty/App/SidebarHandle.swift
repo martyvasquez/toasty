@@ -25,26 +25,20 @@ struct SidebarHandle: View {
     }
 }
 
-/// The inspector's handle: the sidebar's, mirrored, just inside the
-/// conversation's right edge. It hides or shows the inspector and
-/// terminal; with them hidden it waits at the window's edge.
+/// The widgets' handle: the sidebar's, mirrored, just inside the
+/// conversation's right edge. It hides or shows the widgets; with them
+/// hidden it waits at the window's edge.
 struct InspectorHandle: View {
     @ObservedObject var store: WorkspaceStore
+    @ObservedObject var layout: WindowLayout
 
     var body: some View {
-        if let workspace = store.active {
-            Content(workspace: workspace)
-        }
-    }
-
-    private struct Content: View {
-        @ObservedObject var workspace: Workspace
-
-        var body: some View {
-            let shown = workspace.rightColumnVisible
+        if store.active != nil {
+            // On screen (a narrow window may have set them aside).
+            let shown = layout.terminalWidth > 0
             EdgeHandle(edge: .trailing,
-                       tooltip: Tooltip(title: shown ? "Hide Inspector and Terminal" : "Show Inspector", shortcut: "⇧⌘D")) {
-                AppDelegate.shared.windowController?.toggleRightColumn(nil)
+                       tooltip: Tooltip(title: shown ? "Hide Widgets" : "Show Widgets", shortcut: "⌃⌘I")) {
+                AppDelegate.shared.windowController?.toggleWidgets(nil)
             }
         }
     }

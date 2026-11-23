@@ -8,6 +8,8 @@ import SwiftUI
 /// Claude Code already sends; nothing is asked of Claude.
 struct ActivityTab: View {
     @ObservedObject var conversation: ClaudeConversation
+    /// Off in the Activity widget (the Usage widget shows it).
+    var showsUsage = true
 
     /// Silence from Claude Code for this long during a turn is called out.
     /// Streamed text and a running tool's heartbeat arrive every few
@@ -28,10 +30,10 @@ struct ActivityTab: View {
                     }
                     .scrollBounceBehavior(.basedOnSize)
                 } else {
-                    InspectorEmpty(symbol: InspectorTab.activity.symbol, title: "Nothing Running",
+                    InspectorEmpty(symbol: WidgetKind.activity.symbol, title: "Nothing Running",
                                    detail: "Commands and agents show here while Claude works.")
                 }
-                UsageSection(conversation: conversation)
+                if showsUsage { UsageSection(conversation: conversation) }
             }
         }
         .onAppear { conversation.refreshContextUsage() }

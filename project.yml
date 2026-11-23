@@ -133,6 +133,7 @@ targets:
       - path: Tests/PreviewTests
       - path: Tests/ProcessTests
       - path: Tests/TeeUpTests
+      - path: Tests/WidgetTests
       - path: Tests/Fixtures
         type: folder
         buildPhase: resources

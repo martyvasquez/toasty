@@ -142,26 +142,87 @@ enum WorkspaceDebug {
             return state()
         }
 
-        // {"cmd":"inspector","tab":"changes","visible":true,"terminal":false,"diff":0}
+        // {"cmd":"inspector","visible":true,"diff":0} (the Git widget's state)
         DebugControl.register("inspector") { cmd in
             guard let w = store.active else { throw E("no active workspace") }
-            if let t = cmd["tab"] as? String, let tab = InspectorTab(rawValue: t) { w.showInspector(tab) }
-            if let v = cmd["visible"] as? Bool { v ? w.showInspector() : w.hideInspector() }
-            if let v = cmd["terminal"] as? Bool { v ? w.showTerminal() : w.hideTerminal() }
-            if let f = cmd["fraction"] as? Double { store.inspectorFraction = f }
+            if let v = cmd["visible"] as? Bool { w.setWidgets(visible: v) }
             if cmd["checkRemote"] as? Bool == true { w.changes.checkRemote() }
             if let i = cmd["diff"] as? Int {
                 w.diffFile = w.changes.files.indices.contains(i) ? w.changes.files[i] : nil
             }
             return [
-                "inspector": w.inspectorVisible, "tab": w.inspectorTab.rawValue, "terminal": w.terminalVisible,
-                "fraction": store.inspectorFraction,
+                "widgets": w.widgetsVisible,
                 "columnWidth": AppDelegate.shared.windowController.map { $0.split.terminalItem.isCollapsed ? 0 : $0.split.rightColumn.view.frame.width } ?? -1,
-                "inspectorHeight": AppDelegate.shared.windowController?.split.rightColumn.inspectorItem.viewController.view.frame.height ?? -1,
                 "git": "\(w.changes.state)", "branch": w.changes.branch ?? "", "ahead": w.changes.ahead, "behind": w.changes.behind,
                 "base": w.changes.base ?? "", "behindBase": w.changes.behindBase,
                 "files": w.changes.files.map { "\($0.status.rawValue) \($0.path) +\($0.added.map(String.init) ?? "-") -\($0.removed.map(String.init) ?? "-")" },
                 "diff": w.diffFile?.path ?? "",
+            ] as [String: Any]
+        }
+
+        // {"cmd":"widgets","action":"list"} · space with "index" · edit "on" · gallery "on"
+        // ("kind", "preset") · add "kind" "preset" · preset "index" "preset" · units "index" "units" ·
+        // collapse "index" · remove "index" · newSpace · reset · visible "on"
+        DebugControl.register("widgets") { cmd in
+            guard let w = store.active else { throw E("no active workspace") }
+            let action = cmd["action"] as? String ?? "list"
+            guard let space = store.space(for: w) else { throw E("no space") }
+            let layout = WidgetLayout(space: space)
+            @MainActor func target() throws -> WidgetItem {
+                guard let i = cmd["index"] as? Int, space.widgets.indices.contains(i) else { throw E("index=") }
+                return space.widgets[i]
+            }
+            func preset() -> WidgetPreset { WidgetPreset(rawValue: cmd["preset"] as? String ?? "") ?? .medium }
+            switch action {
+            case "list": break
+            case "space":
+                guard let i = cmd["index"] as? Int, store.spaces.indices.contains(i) else { throw E("index=") }
+                w.selectSpace(store.spaces[i].id)
+            case "edit":
+                if cmd["on"] as? Bool ?? true { store.editingWidgets = true } else { store.endEditingWidgets() }
+            case "gallery":
+                if cmd["on"] as? Bool ?? true {
+                    WidgetGalleryModel.shared.kind = WidgetKind(rawValue: cmd["kind"] as? String ?? "") ?? .git
+                    WidgetGalleryModel.shared.preset = preset()
+                    WidgetGalleryModel.shared.open()
+                } else { store.galleryOpen = false }
+            case "add":
+                let kind = WidgetKind(rawValue: cmd["kind"] as? String ?? "") ?? .git
+                guard let item = layout.placement(for: kind, preset: preset()) else { throw E("no room") }
+                store.setWidgets(space.widgets + [item], in: space.id)
+            case "preset":
+                guard let list = layout.applyingPreset(preset(), to: try target().id) else { throw E("no room") }
+                store.setWidgets(list, in: space.id)
+            case "units":
+                guard let u = cmd["units"] as? Int, let list = layout.applyingUnits(u, to: try target().id) else { throw E("no room") }
+                store.setWidgets(list, in: space.id)
+            case "collapse":
+                guard let list = layout.togglingCollapse(try target().id) else { throw E("no room") }
+                store.setWidgets(list, in: space.id)
+            case "remove":
+                let id = try target().id
+                store.setWidgets(space.widgets.filter { $0.id != id }, in: space.id)
+            case "move":
+                let item = try target()
+                guard let top = cmd["top"] as? Int, let moved = layout.moving(item, toTop: top, track: cmd["track"] as? Int ?? item.track)
+                else { throw E("no room") }
+                store.setWidgets(space.widgets.map { $0.id == moved.id ? moved : $0 }, in: space.id)
+            case "newSpace": store.newSpace()
+            case "reset": store.spaces = WidgetSpace.defaults
+            case "visible": w.setWidgets(visible: cmd["on"] as? Bool ?? true)
+            case "terminal":
+                if cmd["on"] as? Bool ?? true { w.showTerminal() } else { w.hideTerminal() }
+                if let h = cmd["height"] as? Int { store.terminalHeight = CGFloat(h) }
+            default: throw E("unknown action \(action)")
+            }
+            let current = store.space(for: w)
+            let slots = current.map { WidgetLayout(space: $0).slots } ?? []
+            return [
+                "rows": WidgetGrid.rows, "editing": store.editingWidgets, "gallery": store.galleryOpen,
+                "terminalOpen": w.terminalOpen, "terminalHeight": store.terminalHeight,
+                "visible": w.widgetsVisible,
+                "spaces": store.spaces.map(\.name), "space": current?.name ?? "",
+                "widgets": slots.map { "\($0.item.kind.rawValue) span \($0.item.span) track \($0.item.track) top \($0.top) units \($0.units) (own \($0.item.units))\($0.item.collapsed ? " collapsed" : "")" },
             ] as [String: Any]
         }
 
@@ -273,7 +334,6 @@ enum WorkspaceDebug {
             switch action {
             case "toggle": wc?.toggleTerminal(nil)
             case "show": w.showTerminal()
-            case "hide": w.hideTerminal()
             case "new": wc?.newTerminal(nil)
             case "select": w.selectTerminal(try target().id)
             case "close": w.closeTerminal(try target().id)
@@ -281,14 +341,6 @@ enum WorkspaceDebug {
             case "move":
                 guard let to = cmd["to"] as? Int else { throw E("to=") }
                 w.moveTerminal(try target().id, to: to)
-            case "drag":
-                // Move the terminal divider like a drag would (a synthesized
-                // drag would block in NSSplitView's tracking loop).
-                guard let split = wc?.split else { break }
-                let width = CGFloat(cmd["width"] as? Int ?? 400)
-                split.splitView.setPosition(split.splitView.bounds.width - width, ofDividerAt: 1)
-            case "width":
-                store.rightColumnWidth = CGFloat(cmd["width"] as? Double ?? Double(cmd["width"] as? Int ?? 400))
             default: throw E("unknown action \(action)")
             }
             return state()
@@ -458,6 +510,8 @@ enum WorkspaceDebug {
             "windowFrame": wc?.window.map { NSStringFromRect($0.frame) } ?? "",
             "firstResponder": wc?.window?.firstResponder.map { String(describing: type(of: $0)) } ?? "",
             "terminalColumnWidth": wc?.layout.terminalWidth ?? 0,
+            "sidebarShown": wc.map { !$0.split.sidebarItem.isCollapsed } ?? false,
+            "widgetsShown": wc.map { !$0.split.terminalItem.isCollapsed } ?? false,
             "dockBadge": NSApp.dockTile.badgeLabel ?? "",
             "keepingAwake": Activity.shared.keepingAwake,
             "pendingWorktrees": store.pendingWorktrees.map(\.name),
@@ -480,8 +534,8 @@ enum WorkspaceDebug {
                     "selected": w.conversations.firstIndex { $0.id == w.selectedID } ?? -1,
                     "terminals": w.terminals.map { "\($0.displayTitle)\($0.isStarted ? "" : " (not started)")" },
                     "selectedTerminal": w.terminals.firstIndex { $0.id == w.selectedTerminalID } ?? -1,
-                    "terminalVisible": w.terminalVisible,
-                    "rightColumnWidth": store.rightColumnWidth,
+                    "space": store.space(for: w)?.name ?? "",
+                    "widgetsVisible": w.widgetsVisible,
                 ]
             },
         ]

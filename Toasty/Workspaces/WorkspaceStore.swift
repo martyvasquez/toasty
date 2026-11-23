@@ -94,11 +94,18 @@ final class WorkspaceStore: ObservableObject {
     var sidebarWidth: CGFloat = WorkspaceStore.defaultSidebarWidth
     static let defaultSidebarWidth: CGFloat = 250
     static let sidebarWidthRange: ClosedRange<CGFloat> = 200...400
-    /// Width of the right column and the inspector's share of its height:
-    /// the same for every workspace, so switching never resizes anything.
-    var rightColumnWidth: CGFloat = WorkspaceStore.defaultRightColumnWidth
-    static let defaultRightColumnWidth: CGFloat = 400
-    var inspectorFraction: CGFloat = 0.55
+    /// The widget column's spaces (app-wide; each workspace remembers
+    /// which one it's on).
+    @Published var spaces: [WidgetSpace] = WidgetSpace.defaults
+    /// Edit mode: units show, widgets get a remove badge and a height
+    /// grabber, free space offers Add Widget.
+    @Published var editingWidgets = false
+    /// The Add Widget gallery is open (over the conversation).
+    @Published var galleryOpen = false
+    /// The terminal's height over the widgets (the same in every space),
+    /// set by dragging its top edge.
+    @Published var terminalHeight: CGFloat = 320
+    static let terminalMinHeight: CGFloat = 140
     /// The workspace or heading whose name is being edited in the sidebar.
     @Published var renamingID: UUID?
     /// The heading whose icon and color are being picked (its popover open).
@@ -139,6 +146,10 @@ final class WorkspaceStore: ObservableObject {
         var inspectorFraction: Double?
         var windowFrame: String?
         var headings: [WorkspaceHeading]?
+        /// Read tolerantly (`SavedSpaces`): never the reason the rest of
+        /// the state can't be read.
+        var spaces: SavedSpaces?
+        var terminalHeight: Double?
     }
 
     static var stateURL: URL {
@@ -177,10 +188,10 @@ final class WorkspaceStore: ObservableObject {
             sidebarVisible = s.sidebarVisible
             sidebarWidth = min(max(CGFloat(s.sidebarWidth ?? Double(Self.defaultSidebarWidth)),
                                    Self.sidebarWidthRange.lowerBound), Self.sidebarWidthRange.upperBound)
-            // Older state kept these per workspace: start from the active one's.
-            let activeSaved = s.workspaces.first { $0.id == activeID } ?? s.workspaces.first
-            rightColumnWidth = CGFloat(s.rightColumnWidth ?? activeSaved?.terminalWidth ?? Double(rightColumnWidth))
-            inspectorFraction = CGFloat(s.inspectorFraction ?? activeSaved?.inspectorFraction ?? Double(inspectorFraction))
+            // (None saved, or none readable: the defaults, once; from then on
+            // the user's own, saved with the rest.)
+            if let saved = s.spaces?.spaces.map(\.current), !saved.isEmpty { spaces = saved }
+            if let h = s.terminalHeight { terminalHeight = max(Self.terminalMinHeight, CGFloat(h)) }
             windowFrame = s.windowFrame.map(NSRectFromString)
             TeeUpImages.sweep(keeping: Set(workspaces.flatMap(\.teeUpImageNames)))
         }
@@ -206,10 +217,12 @@ final class WorkspaceStore: ObservableObject {
         let s = Saved(workspaces: workspaces.map(\.saved), activeWorkspace: activeID,
                       sidebarVisible: sidebarVisible,
                       sidebarWidth: Double(sidebarWidth),
-                      rightColumnWidth: Double(rightColumnWidth),
-                      inspectorFraction: Double(inspectorFraction),
+                      rightColumnWidth: nil,
+                      inspectorFraction: nil,
                       windowFrame: windowFrame.map(NSStringFromRect),
-                      headings: headings.isEmpty ? nil : headings)
+                      headings: headings.isEmpty ? nil : headings,
+                      spaces: SavedSpaces(spaces),
+                      terminalHeight: Double(terminalHeight))
         do {
             let url = Self.stateURL
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -245,9 +258,8 @@ final class WorkspaceStore: ObservableObject {
                           parentID: parent?.id)
         w.store = self
         if withConversation { w.newConversation() }
-        // The first workspace (from the welcome page) opens with the
-        // inspector showing, so it's found from the start.
-        if workspaces.isEmpty { w.inspectorVisible = true }
+        // A new workspace starts on the space the active one is on.
+        w.spaceID = active?.spaceID
         var list = workspaces
         if let parent, let i = list.firstIndex(where: { $0.id == parent.id }) {
             // A worktree goes after its parent's other worktrees.
@@ -763,6 +775,73 @@ final class WorkspaceStore: ObservableObject {
             panel.beginSheetModal(for: window, completionHandler: handler)
         } else {
             handler(panel.runModal())
+        }
+    }
+}
+
+// MARK: - Widget spaces
+
+extension WorkspaceStore {
+    /// The space a workspace is on (the first, if its own is gone).
+    func space(for w: Workspace) -> WidgetSpace? {
+        spaces.first { $0.id == w.spaceID } ?? spaces.first
+    }
+
+    func spaceIndex(for w: Workspace) -> Int {
+        spaces.firstIndex { $0.id == space(for: w)?.id } ?? 0
+    }
+
+    /// Replace a space's widgets (an edit on the grid).
+    func setWidgets(_ widgets: [WidgetItem], in spaceID: UUID) {
+        guard let i = spaces.firstIndex(where: { $0.id == spaceID }), spaces[i].widgets != widgets else { return }
+        spaces[i].widgets = widgets
+        setNeedsSave()
+    }
+
+    /// A new, empty space, shown in the active workspace in edit mode.
+    /// (Spaces have no names to show; this one is for the saved state.)
+    func newSpace() {
+        let space = WidgetSpace(name: "Space \(spaces.count + 1)")
+        spaces.append(space)
+        if let w = active { AppDelegate.shared.windowController?.revealWidgets(w) }
+        active?.selectSpace(space.id)
+        editingWidgets = true
+        setNeedsSave()
+    }
+
+    /// Remove a space (never the last); workspaces on it go to its neighbor.
+    func deleteSpace(_ id: UUID) {
+        guard spaces.count > 1, let i = spaces.firstIndex(where: { $0.id == id }) else { return }
+        spaces.remove(at: i)
+        let next = spaces[min(i, spaces.count - 1)].id
+        for w in workspaces where w.spaceID == id { w.spaceID = next }
+        setNeedsSave()
+    }
+
+    /// Put a space at this place in the order (a thumbnail dragged).
+    func moveSpace(_ id: UUID, to index: Int) {
+        guard let i = spaces.firstIndex(where: { $0.id == id }) else { return }
+        let to = min(max(index, 0), spaces.count - 1)
+        guard to != i else { return }
+        spaces.insert(spaces.remove(at: i), at: to)
+        setNeedsSave()
+    }
+
+    /// The next or previous space for the active workspace (a swipe).
+    func switchSpace(by delta: Int) {
+        guard let w = active, spaces.count > 1 else { return }
+        let i = spaceIndex(for: w) + delta
+        guard spaces.indices.contains(i) else { return }
+        w.selectSpace(spaces[i].id)
+    }
+
+    /// Done: spaces left empty go, as empty Home Screen pages do (never
+    /// the only one).
+    func endEditingWidgets() {
+        galleryOpen = false
+        editingWidgets = false
+        for space in spaces where space.widgets.isEmpty && spaces.count > 1 {
+            deleteSpace(space.id)
         }
     }
 }

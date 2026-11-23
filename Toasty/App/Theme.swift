@@ -159,6 +159,36 @@ enum Theme {
         static let removed = Color(nsColor: .systemRed)
     }
 
+    /// The widget column's floating shells (grid in `WidgetGrid`).
+    enum Widget {
+        /// Content's margin from a shell's sides.
+        static let edge: CGFloat = 14
+        /// A row inside a widget (files, commits).
+        static let rowHeight: CGFloat = 26
+        /// Rows' inset from the shell's sides (content 8 further in).
+        static let rowInset: CGFloat = 6
+        /// The shell's shadow: a step deeper than the composer's, so the
+        /// widgets read as floating over the page beside it.
+        static let shadow = Color(nsColor: NSColor(name: nil) { a in
+            NSColor(white: 0, alpha: a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? 0.28 : 0.10)
+        })
+        static let shadowRadius: CGFloat = 8
+        static let shadowY: CGFloat = 3
+        /// A dark outer hairline (dark mode) around the light inner edge.
+        static let outerEdge = Color(nsColor: NSColor(name: nil) { a in
+            a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 0, alpha: 0.35) : NSColor(white: 0, alpha: 0.06)
+        })
+        /// Free units while editing: dashed cells.
+        static let cellStroke = Color.primary.opacity(0.12)
+        static let cellFill = Color.primary.opacity(0.015)
+        /// Where a dragged edge or a new widget will land.
+        static let ghost = Color.accentColor.opacity(0.10)
+        static let ghostStroke = Color.accentColor.opacity(0.55)
+        /// Settling on a unit after a drag; a preset's layout swap.
+        static let settle = Animation.easeOut(duration: 0.25)
+        static let crossfade = Animation.easeInOut(duration: 0.2)
+    }
+
     /// Lists of to-do-like rows (the Tee-Up prompts), as Things' to-dos.
     enum Todo {
         /// A closed row: one line of body text.

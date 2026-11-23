@@ -13,6 +13,9 @@ import SwiftUI
 /// on the tab) adds one, open.
 struct TeeUpTab: View {
     @ObservedObject var workspace: Workspace
+    /// In a widget: the list alone (the widget has its own summary, with
+    /// Auto-Send's controls).
+    var compact = false
     /// Files are being dragged over the tab, or over one of its text fields.
     @State private var dropTargeted = false
     @State private var filesOverText = false
@@ -25,12 +28,18 @@ struct TeeUpTab: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TeeUpSummary(workspace: workspace)
-            if workspace.teeUps.isEmpty {
+            if !compact { TeeUpSummary(workspace: workspace) }
+            if workspace.teeUps.isEmpty, compact {
+                NewPromptRow { newAtEnd() }
+                Spacer(minLength: 0)
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                    .background(DoubleClick { newAtEnd() })
+            } else if workspace.teeUps.isEmpty {
                 InspectorListSection(title: "Queue") {
                     NewPromptRow { newAtEnd() }
                 }
-                InspectorEmpty(symbol: InspectorTab.teeUp.symbol, title: "Write Prompts Ahead",
+                InspectorEmpty(symbol: WidgetKind.teeUp.symbol, title: "Write Prompts Ahead",
                                detail: "Then send each one to the open tab when you're ready.")
                     .background(DoubleClick { newAtEnd() })
             } else {
@@ -54,8 +63,10 @@ struct TeeUpTab: View {
         let open = workspace.teeUpEditingID
         return ScrollViewReader { proxy in
             ScrollView {
-                InspectorSectionHeading(title: "Queue", count: workspace.teeUps.count)
-                    .padding(.top, Theme.Inspector.sectionGap)
+                if !compact {
+                    InspectorSectionHeading(title: "Queue", count: workspace.teeUps.count)
+                        .padding(.top, Theme.Inspector.sectionGap)
+                }
                 VStack(spacing: 0) {
                     ReorderableStack(items: workspace.teeUps, spacing: 0,
                                      canDrag: { $0.id != open },
@@ -748,7 +759,7 @@ private struct TeeUpSummary: View {
                 ProgressView().controlSize(.small).scaleEffect(0.7)
             }
         } else {
-            InspectorGlyph(symbol: InspectorTab.teeUp.symbol)
+            InspectorGlyph(symbol: WidgetKind.teeUp.symbol)
         }
     }
 
@@ -828,7 +839,7 @@ private struct NewPromptRow: View {
             } trailing: { EmptyView() }
         }
         .buttonStyle(.plain)
-        .tooltip(Tooltip(title: "New Prompt", shortcut: "⌃⌘\(InspectorTab.teeUp.shortcut)",
+        .tooltip(Tooltip(title: "New Prompt", shortcut: "⌃⌘P",
                          detail: "Or press Space under a selected prompt, or double-click below the list."))
     }
 }

@@ -13,10 +13,12 @@ final class Workspace: ObservableObject, Identifiable {
     @Published private(set) var selectedID: UUID?
     @Published private(set) var terminals: [TerminalSession] = []
     @Published private(set) var selectedTerminalID: UUID?
-    @Published var terminalVisible = false
-    /// The inspector: the top of the right column.
-    @Published var inspectorVisible = false
-    @Published var inspectorTab: InspectorTab = .changes
+    /// The widget column's space this workspace is on (nil: the first).
+    @Published var spaceID: UUID?
+    /// The widget column shows (off: focus, the conversation alone).
+    @Published var widgetsVisible = true
+    /// The terminal over the widgets is open (off: its tab strip alone).
+    @Published var terminalOpen = false
     /// Prompts teed up for later (the inspector's Tee-Up tab): the
     /// workspace's, shared by all of its tabs.
     @Published private(set) var teeUps: [TeeUp] = []
@@ -261,16 +263,28 @@ final class Workspace: ObservableObject, Identifiable {
         if selectedTerminalID == id {
             selectedTerminalID = list.isEmpty ? nil : list[min(i, list.count - 1)].id
         }
-        if list.isEmpty { terminalVisible = false }
+        if list.isEmpty { terminalOpen = false }
         changed()
     }
 
-    /// Show the terminal sidebar (starting a shell if there's none).
+    /// Open the terminal over the widgets (starting a shell if there's
+    /// none), with the widget column showing.
     func showTerminal() {
+        ensureTerminal()
+        terminalOpen = true
+        if id == store?.activeID, let wc = AppDelegate.shared.windowController { wc.revealWidgets(self) } else { widgetsVisible = true }
+        changed()
+    }
+
+    func hideTerminal() {
+        terminalOpen = false
+        changed()
+    }
+
+    /// A shell to show, started if there's none.
+    func ensureTerminal() {
         if terminals.isEmpty { newTerminal() }
         if selectedTerminalID == nil { selectedTerminalID = terminals.first?.id }
-        terminalVisible = true
-        changed()
     }
 
     /// "Run in Terminal" from a code block: paste the command into the
@@ -290,11 +304,6 @@ final class Workspace: ObservableObject, Identifiable {
     /// in the tab's tooltip.
     func terminalLabel(_ t: TerminalSession) -> String {
         "Terminal \((terminals.firstIndex { $0.id == t.id } ?? 0) + 1)"
-    }
-
-    func hideTerminal() {
-        terminalVisible = false
-        changed()
     }
 
     // MARK: Tee-Up
@@ -587,32 +596,17 @@ final class Workspace: ObservableObject, Identifiable {
     /// Every picture this workspace's teed-up prompts still use.
     var teeUpImageNames: [String] { teeUps.flatMap(\.images) }
 
-    // MARK: Inspector
+    // MARK: Widgets
 
-    /// Show the inspector, on `tab` if given.
-    func showInspector(_ tab: InspectorTab? = nil) {
-        if let tab { inspectorTab = tab }
-        inspectorVisible = true
+    func setWidgets(visible: Bool) {
+        guard widgetsVisible != visible else { return }
+        widgetsVisible = visible
         changed()
     }
 
-    func hideInspector() {
-        inspectorVisible = false
-        changed()
-    }
-
-    /// The right column (inspector and/or terminal) is showing.
-    var rightColumnVisible: Bool { inspectorVisible || terminalVisible }
-
-    /// The titlebar's column toggle: hide both halves, or bring the
-    /// inspector back.
-    func toggleRightColumn() {
-        if rightColumnVisible {
-            inspectorVisible = false
-            terminalVisible = false
-        } else {
-            inspectorVisible = true
-        }
+    func selectSpace(_ id: UUID) {
+        guard spaceID != id else { return }
+        spaceID = id
         changed()
     }
 
@@ -635,12 +629,14 @@ final class Workspace: ObservableObject, Identifiable {
         var selected: UUID?
         var terminals: [SavedTerminal]
         var selectedTerminal: UUID?
-        var terminalVisible: Bool
-        /// Older state kept sizes per workspace (now window-wide).
+        /// Older state: the right column's halves (now the widgets).
+        var terminalVisible: Bool?
         var terminalWidth: Double?
         var inspectorVisible: Bool?
         var inspectorTab: String?
         var inspectorFraction: Double?
+        var space: UUID?
+        var widgetsHidden: Bool?
         var parentID: UUID?
         var teeUps: [TeeUp]?
         var heading: UUID?
@@ -666,11 +662,13 @@ final class Workspace: ObservableObject, Identifiable {
               selected: selectedID,
               terminals: terminals.map { SavedTerminal(id: $0.id, cwd: $0.directory) },
               selectedTerminal: selectedTerminalID,
-              terminalVisible: terminalVisible,
+              terminalVisible: terminalOpen,
               terminalWidth: nil,
-              inspectorVisible: inspectorVisible,
-              inspectorTab: inspectorTab.rawValue,
+              inspectorVisible: nil,
+              inspectorTab: nil,
               inspectorFraction: nil,
+              space: spaceID,
+              widgetsHidden: widgetsVisible ? nil : true,
               parentID: parentID,
               teeUps: teeUps.isEmpty ? nil : teeUps,
               heading: headingID)
@@ -692,9 +690,9 @@ final class Workspace: ObservableObject, Identifiable {
             terminals.append(session)
         }
         selectedTerminalID = s.selectedTerminal.flatMap { id in terminals.contains { $0.id == id } ? id : nil } ?? terminals.first?.id
-        terminalVisible = s.terminalVisible && !terminals.isEmpty
-        inspectorVisible = s.inspectorVisible ?? false
-        inspectorTab = s.inspectorTab.flatMap(InspectorTab.init(saved:)) ?? .changes
+        spaceID = s.space
+        terminalOpen = (s.terminalVisible ?? false) && !terminals.isEmpty
+        widgetsVisible = !(s.widgetsHidden ?? false)
         // (Not a new prompt that was still empty when Toasty quit.)
         teeUps = (s.teeUps ?? []).filter { !$0.isEmpty }
     }
@@ -727,61 +725,4 @@ struct TeeUpFeed: Equatable {
     /// Paused, and why ("" when the user pressed Pause): nothing is sent
     /// until Resume. It keeps its tab.
     var paused: String?
-}
-
-/// The inspector's tabs.
-enum InspectorTab: String, CaseIterable, Identifiable {
-    case changes, teeUp, activity
-
-    var id: String { rawValue }
-
-    /// A saved tab, including the old Usage tab (now part of Activity).
-    init?(saved: String) {
-        if saved == "usage" { self = .activity } else { self.init(rawValue: saved) }
-    }
-
-    var title: String {
-        switch self {
-        case .changes: "Changes"
-        case .teeUp: "Tee-Up"
-        case .activity: "Activity"
-        }
-    }
-
-    /// One matched set (same stroke, similar height): ± for a diff (the
-    /// branch means worktrees and forks elsewhere), a list of prompts, a
-    /// heartbeat.
-    var symbol: String {
-        switch self {
-        case .changes: "plus.forwardslash.minus"
-        case .teeUp: "list.bullet"
-        case .activity: "waveform.path.ecg"
-        }
-    }
-
-    /// The thin, short symbols a size up, so the set reads at one weight.
-    var symbolSize: CGFloat {
-        switch self {
-        case .changes, .activity: Theme.Size.body + 1
-        case .teeUp: Theme.Size.body
-        }
-    }
-
-    /// One line for its tooltip: what the tab shows.
-    var tooltipDetail: String {
-        switch self {
-        case .changes: "What Claude changed in this folder, file by file."
-        case .teeUp: "Prompts written ahead, sent one after another."
-        case .activity: "Whether Claude is alive, what it's doing, and how much this tab has used."
-        }
-    }
-
-    /// ⌃⌘1, ⌃⌘2, ⌃⌘3
-    var shortcut: String {
-        switch self {
-        case .changes: "1"
-        case .teeUp: "2"
-        case .activity: "3"
-        }
-    }
 }

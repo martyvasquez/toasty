@@ -16,6 +16,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     /// The inspector handle's strip, at the conversation's trailing edge.
     private var inspectorHandleHost: NSView?
     private var inspectorHandleTrailing: NSLayoutConstraint?
+    /// The Add Widget gallery, over the conversation column.
+    private var galleryLeading: NSLayoutConstraint?
+    private var galleryTrailing: NSLayoutConstraint?
     private var cancellables: Set<AnyCancellable> = []
 
     init(store: WorkspaceStore) {
@@ -62,6 +65,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         installTitlebar()
         installToast()
         installSidebarHandle()
+        installGallery()
         store.selectionChanged
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.updateTitle() }
@@ -112,7 +116,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         handleHost = host
         handleLeading = leading
 
-        let right = NSHostingView(rootView: InspectorHandle(store: store))
+        let right = NSHostingView(rootView: InspectorHandle(store: store, layout: layout))
         right.sizingOptions = []
         right.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(right, positioned: .above, relativeTo: nil)
@@ -125,6 +129,26 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         ])
         inspectorHandleHost = right
         inspectorHandleTrailing = trailing
+        updateTitlebar()
+    }
+
+    /// The Add Widget gallery: over the conversation column (which it
+    /// dims), under the tab row. Clicks pass through while it's closed.
+    private func installGallery() {
+        guard let content = window?.contentView else { return }
+        let host = GalleryHostingView(rootView: WidgetGalleryOverlay(store: store, layout: layout))
+        host.sizingOptions = []
+        host.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(host, positioned: .above, relativeTo: nil)
+        let leading = host.leadingAnchor.constraint(equalTo: content.leadingAnchor)
+        let trailing = host.trailingAnchor.constraint(equalTo: content.trailingAnchor)
+        NSLayoutConstraint.activate([
+            leading, trailing,
+            host.topAnchor.constraint(equalTo: content.topAnchor),
+            host.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+        ])
+        galleryLeading = leading
+        galleryTrailing = trailing
         updateTitlebar()
     }
 
@@ -159,6 +183,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             let offset = (split.contentMaxX.map { $0 - content.bounds.width } ?? 0) - clear
             if abs(inspectorHandleTrailing.constant - offset) > 0.25 { inspectorHandleTrailing.constant = offset }
         }
+        if let galleryLeading, abs(galleryLeading.constant - minX) > 0.25 { galleryLeading.constant = minX }
+        if let content = window?.contentView, let galleryTrailing {
+            let offset = split.contentMaxX.map { $0 - content.bounds.width } ?? 0
+            if abs(galleryTrailing.constant - offset) > 0.25 { galleryTrailing.constant = offset }
+        }
         // The row's controls center on the window buttons' line.
         if let button = window?.standardWindowButton(.closeButton), let bar = button.superview {
             let r = button.convert(button.bounds, to: bar)
@@ -191,7 +220,20 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         client is NSTextField ? fieldEditor : nil
     }
 
-    func windowDidResize(_ notification: Notification) { frameChanged() }
+    func windowDidResize(_ notification: Notification) {
+        frameChanged()
+        // Wider again: columns set aside come back (and any resize the
+        // delegate didn't see, such as a full-screen change).
+        if let content = window?.contentView { split.applyWidth(content.bounds.width, animated: true) }
+    }
+
+    /// Narrowing past what the widgets and a conversation need sets the
+    /// widgets aside (they come back as it widens again).
+    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        let content = sender.contentRect(forFrameRect: NSRect(origin: .zero, size: frameSize))
+        split.windowWillResize(toWidth: content.width)
+        return frameSize
+    }
     /// A narrow window squeezes the workspaces; with room again they're
     /// back at their width.
     func windowDidEndLiveResize(_ notification: Notification) { split.applySidebarWidth() }
@@ -205,11 +247,18 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     // MARK: Focus
 
-    /// Is keyboard focus in the terminal column?
-    private var terminalFocused: Bool { split.terminalColumn.isFocused }
+    /// Is keyboard focus in a terminal (a Terminal widget)?
+    private var terminalFocused: Bool {
+        guard let responder = window?.firstResponder as? NSView else { return false }
+        return store.active?.terminals.contains { $0.isStarted && responder === $0.terminalView } ?? false
+    }
 
+    /// Focus the selected terminal, once its widget is on screen.
     func focusTerminal() {
-        split.terminalColumn.focus()
+        guard let t = store.active?.selectedTerminal else { return }
+        DispatchQueue.main.async { [weak self] in
+            if let v = t.terminalView, v.window === self?.window { self?.window?.makeFirstResponder(v) }
+        }
     }
 
     // MARK: Commands (main menu)
@@ -238,7 +287,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             Activity.shared.confirm(Activity.shared.closeWarning(conversations: [], terminals: [t], action: "close it"),
                                     title: "Close this terminal?", button: "Close Terminal") { [weak self] in
                 w.closeTerminal(t.id)
-                if w.terminalVisible { self?.focusTerminal() }
+                if !w.terminals.isEmpty { self?.focusTerminal() }
             }
         } else if let c = w.selected {
             w.requestClose(c)
@@ -255,25 +304,88 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         }
     }
 
-    /// ⌃⌘T: show and focus the terminal; hide it when it already has focus.
+    /// ⌃⌘T: open and focus the terminal over the widgets; collapse it
+    /// when it already has focus.
     @objc func toggleTerminal(_ sender: Any?) {
         guard let w = store.active else { return }
-        if !w.terminalVisible {
+        let open = w.terminalOpen && layout.terminalWidth > 0 && !store.editingWidgets
+        if !open {
+            if store.editingWidgets { store.endEditingWidgets() }
             w.showTerminal()
-            DispatchQueue.main.async { self.focusTerminal() }
-        } else if !terminalFocused, sender is NSMenuItem {
+            focusTerminal()
+        } else if !terminalFocused {
             focusTerminal()
         } else {
-            let hadFocus = terminalFocused
             w.hideTerminal()
-            if hadFocus { window?.makeFirstResponder(nil) }
+            window?.makeFirstResponder(nil)
         }
     }
 
-    /// ⌃⌘I: show or hide the inspector (the top of the right column).
-    @objc func toggleInspector(_ sender: Any?) {
+    /// ⌃⌘I and the titlebar button: hide the widgets (the conversation
+    /// alone) or bring them back as they were.
+    @objc func toggleWidgets(_ sender: Any?) {
         guard let w = store.active else { return }
-        if w.inspectorVisible { w.hideInspector() } else { w.showInspector() }
+        let hadTerminalFocus = terminalFocused
+        // What's on screen: set aside by a narrow window counts as hidden.
+        let shown = layout.terminalWidth > 0
+        if shown {
+            store.endEditingWidgets()
+            w.setWidgets(visible: false)
+            if hadTerminalFocus { window?.makeFirstResponder(nil) }
+        } else if split.makeRoomForWidgets() {
+            w.setWidgets(visible: true)
+        } else {
+            NSSound.beep()
+        }
+    }
+
+    /// View ▸ Edit Widgets…: units show, widgets can be removed, resized
+    /// and moved, free space offers Add Widget.
+    @objc func editWidgets(_ sender: Any?) {
+        guard let w = store.active else { return }
+        if store.editingWidgets { store.endEditingWidgets(); return }
+        revealWidgets(w)
+        store.editingWidgets = true
+    }
+
+    @objc func addWidget(_ sender: Any?) {
+        guard let w = store.active else { return }
+        revealWidgets(w)
+        WidgetGalleryModel.shared.open()
+    }
+
+    /// The widgets on screen: the workspace's setting on, and room made in
+    /// a window too narrow for them (`makeRoomForWidgets`).
+    func revealWidgets(_ w: Workspace) {
+        split.makeRoomForWidgets()
+        w.setWidgets(visible: true)
+    }
+
+    @objc func newSpace(_ sender: Any?) {
+        guard store.active != nil else { return }
+        store.newSpace()
+    }
+
+    /// ⌃⌘1…9: the nth space.
+    @objc func showSpace(_ sender: NSMenuItem) {
+        guard let w = store.active, store.spaces.indices.contains(sender.tag) else { return }
+        revealWidgets(w)
+        w.selectSpace(store.spaces[sender.tag].id)
+    }
+
+    @objc func nextSpace(_ sender: Any?) { store.switchSpace(by: 1) }
+    @objc func previousSpace(_ sender: Any?) { store.switchSpace(by: -1) }
+
+    /// ⌃⌘P: a new teed-up prompt, open for typing (on a space with the
+    /// Tee-Up widget, if one has it).
+    @objc func newTeeUp(_ sender: Any?) {
+        guard let w = store.active else { return }
+        if let s = store.space(for: w), !s.widgets.contains(where: { $0.kind == .teeUp }),
+           let other = store.spaces.first(where: { $0.widgets.contains { $0.kind == .teeUp } }) {
+            w.selectSpace(other.id)
+        }
+        revealWidgets(w)
+        w.newTeeUp()
     }
 
     /// ⇧⌘B (View ▸ Show Browser): back to the browser window as it was
@@ -309,26 +421,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         session.setCommenting(true)
     }
 
-    /// ⌃⌘1…3: show an inspector tab. Tee-Up by its shortcut is for typing
-    /// the next prompt: a new one opens (the tab's button only shows the list).
-    @objc func showInspectorTab(_ sender: NSMenuItem) {
-        guard let w = store.active, InspectorTab.allCases.indices.contains(sender.tag) else { return }
-        let tab = InspectorTab.allCases[sender.tag]
-        w.showInspector(tab)
-        if tab == .teeUp { w.newTeeUp() }
-    }
-
-    /// ⇧⌘D and the titlebar button: the whole right column.
-    @objc func toggleRightColumn(_ sender: Any?) {
-        guard let w = store.active else { return }
-        let hadTerminalFocus = terminalFocused
-        w.toggleRightColumn()
-        if hadTerminalFocus, !w.terminalVisible { window?.makeFirstResponder(nil) }
-    }
-
     @objc func toggleWorkspaces(_ sender: Any?) {
-        store.sidebarVisible.toggle()
+        // On screen (a narrow window may have set it aside): hide it;
+        // else show it, widening the window if it needs room.
+        let shown = !split.sidebarItem.isCollapsed
+        if !shown {
+            guard split.makeRoomForSidebar() else { NSSound.beep(); return }
+        }
+        store.sidebarVisible = !shown
         store.setNeedsSave()
+        if !shown, store.sidebarVisible { split.applyWidth(split.splitView.bounds.width, animated: true) }
     }
 
     @objc func newWorkspace(_ sender: Any?) { store.createWithFolderPicker() }
@@ -368,11 +470,27 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         let w = store.active
         switch item.action {
         case #selector(toggleTerminal(_:)):
-            item.title = w?.terminalVisible == true ? "Hide Terminal" : "Show Terminal"
+            item.title = w?.terminalOpen == true && layout.terminalWidth > 0 && !store.editingWidgets
+                ? (terminalFocused ? "Collapse Terminal" : "Focus Terminal") : "Open Terminal"
             return w != nil
-        case #selector(toggleInspector(_:)):
-            item.title = w?.inspectorVisible == true ? "Hide Inspector" : "Show Inspector"
+        case #selector(toggleWidgets(_:)):
+            item.title = layout.terminalWidth > 0 ? "Hide Widgets" : "Show Widgets"
             return w != nil
+        case #selector(editWidgets(_:)):
+            item.title = store.editingWidgets ? "Done Editing Widgets" : "Edit Widgets…"
+            return w != nil
+        case #selector(addWidget(_:)), #selector(newSpace(_:)), #selector(newTeeUp(_:)):
+            return w != nil
+        case #selector(nextSpace(_:)), #selector(previousSpace(_:)):
+            return w != nil && store.spaces.count > 1
+        case #selector(showSpace(_:)):
+            let has = store.spaces.indices.contains(item.tag)
+            item.isHidden = !has
+            if has {
+                item.title = "Space \(item.tag + 1)"
+                item.state = w.map { store.space(for: $0)?.id == store.spaces[item.tag].id } == true && layout.terminalWidth > 0 ? .on : .off
+            }
+            return w != nil && has
         case #selector(togglePreview(_:)):
             // No menu items or shortcuts while the browser is turned off.
             item.isHidden = !PreviewSettings.shared.enabled
@@ -390,16 +508,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             guard let w, !item.isHidden else { return false }
             let session = PreviewStore.shared.session(for: w)
             return session.url != nil && session.failure == nil
-        case #selector(showInspectorTab(_:)):
-            item.state = w?.inspectorVisible == true && InspectorTab.allCases.indices.contains(item.tag)
-                && w?.inspectorTab == InspectorTab.allCases[item.tag] ? .on : .off
-            return w != nil
-        case #selector(toggleRightColumn(_:)):
-            item.title = w?.rightColumnVisible == true
-                ? "Hide Inspector and Terminal" : "Show Inspector and Terminal"
-            return w != nil
         case #selector(toggleWorkspaces(_:)):
-            item.title = store.sidebarVisible ? "Hide Workspaces" : "Show Workspaces"
+            item.title = split.sidebarItem.isCollapsed ? "Show Workspaces" : "Hide Workspaces"
             return !store.workspaces.isEmpty
         case #selector(closeTab(_:)):
             return terminalFocused ? w?.selectedTerminal != nil : w?.selected != nil

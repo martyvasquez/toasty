@@ -43,9 +43,9 @@ struct WelcomeView: View {
                 Tip(symbol: "mic", title: "Dictation",
                     detail: "Hold Right Option and talk. Double-tap it to keep listening.",
                     keys: "Right ⌥")
-                Tip(symbol: InspectorTab.changes.symbol, title: "Inspector",
-                    detail: "See every file Claude changes, with its diff, and open a terminal below.",
-                    keys: "⇧⌘D")
+                Tip(symbol: "square.grid.2x2", title: "Widgets",
+                    detail: "Git, usage and terminals beside the conversation. Make spaces of your own, and switch with a swipe.",
+                    keys: "⌃⌘I")
             }
             .padding(.horizontal, Theme.Inspector.edge)
             .padding(.top, Theme.Space.l)

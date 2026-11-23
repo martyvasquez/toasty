@@ -165,6 +165,8 @@ enum DebugControl {
                 if let x = cmd["x"] as? Double, let top = cmd["top"] as? Double, let screen = NSScreen.screens.first {
                     f.origin = NSPoint(x: x, y: screen.frame.height - top - h)
                 }
+                // As a drag of the window's edge would ask first.
+                _ = window.delegate?.windowWillResize?(window, to: f.size)
                 window.setFrame(f, display: true)
             }
             return ["width": window.frame.width, "height": window.frame.height]

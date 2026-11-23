@@ -30,7 +30,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
             case .general: "gearshape"
             case .dictation: "mic"
             case .screenshots: "camera.viewfinder"
-            case .teeUp: InspectorTab.teeUp.symbol
+            case .teeUp: WidgetKind.teeUp.symbol
             case .preview: "safari"
             }
         }

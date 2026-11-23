@@ -4,6 +4,24 @@ Features discussed but not built yet. Remove items as they ship. The
 principles in `BUILD_PLAN.md` §1 still apply: Toasty renders and collects
 input; Claude Code (via its own features) decides what Claude does.
 
+## Widgets (follow-ups, 2026-11-22)
+
+The inspector is gone; its tools are widgets in spaces (`Toasty/Widgets`).
+Merging the Widgets branch is a one-time switchover: everyone gets the
+default spaces (Git; Tee-Up; Usage + Activity), widgets showing even where
+the inspector was hidden, terminal at 320pt. Saved spaces are kept after
+that, so any change to the defaults only reaches new users.
+
+- **Drag the gallery's preview** to place a new widget. Today the blue
+  outline in the column is what you drag; the canvas drags the preview.
+- **Hand-check what mctl can't drive**: synthetic drags don't reach
+  SwiftUI gestures, so check by hand: swipe between spaces (it wasn't
+  always caught), the terminal's top edge, resizing and moving widgets,
+  reordering spaces in edit mode, and right-click on an empty column.
+- **More widgets**: the gallery has the inspector's four (Git, Tee-Up,
+  Usage, Activity). Candidates are new tools, judged by speed (the
+  product thesis), each with the same Small / Medium / Large grammar.
+
 ## Claude Code / SDK version drift (soon)
 
 Toasty runs the installed `claude` (terminal tabs and the bridge's
