@@ -194,3 +194,37 @@ struct AppearanceAndSoundSection: View {
         }
     }
 }
+
+/// Whether a click and drag sideways over the widgets switches spaces
+/// (on by default; the two-finger swipe always does).
+@MainActor final class WidgetDragSetting: ObservableObject {
+    static let shared = WidgetDragSetting()
+    private static let key = "ToastyWidgetDragSwitchesSpaces"
+
+    @Published var enabled: Bool {
+        didSet { UserDefaults.standard.set(enabled, forKey: Self.key) }
+    }
+
+    private init() {
+        enabled = UserDefaults.standard.object(forKey: Self.key) as? Bool ?? true
+    }
+}
+
+struct WidgetSettingsSection: View {
+    @ObservedObject private var drag = WidgetDragSetting.shared
+
+    /// The section's height in the General pane.
+    static let height: CGFloat = 116
+
+    var body: some View {
+        Section {
+            Toggle("Drag sideways to switch spaces", isOn: $drag.enabled)
+        } header: {
+            Text("Widgets")
+        } footer: {
+            Text("Click and drag over the widgets to move between spaces, as a swipe does. Not while editing them.")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}

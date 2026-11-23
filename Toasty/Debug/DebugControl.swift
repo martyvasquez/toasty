@@ -264,7 +264,8 @@ enum DebugControl {
         // A drag sent through the window, a step per frame, for SwiftUI's
         // gestures (the tab row's reordering): {"cmd":"dragSend","x1":..,"y1":..,
         // "x2":..,"y2":..}. "hold" leaves the button down; "continue" goes on
-        // from a held drag.
+        // from a held drag; "via":"app" goes through the app's dispatch
+        // (its event monitors see it, as they do a real mouse).
         registerAsync("dragSend") { cmd in
             guard let window else { throw DebugError("no window") }
             let x1 = cmd["x1"] as? Double ?? 0, y1 = cmd["y1"] as? Double ?? 0
@@ -274,7 +275,7 @@ enum DebugControl {
                 if let e = NSEvent.mouseEvent(with: type, location: NSPoint(x: x, y: window.frame.height - y), modifierFlags: [],
                                               timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
                                               context: nil, eventNumber: 0, clickCount: 1, pressure: type == .leftMouseUp ? 0 : 1) {
-                    window.sendEvent(e)
+                    if cmd["via"] as? String == "app" { NSApp.sendEvent(e) } else { window.sendEvent(e) }
                 }
                 try? await Task.sleep(for: .milliseconds(16))
             }

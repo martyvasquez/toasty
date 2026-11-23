@@ -478,10 +478,19 @@ extension MainSplitViewController {
 }
 
 /// The widget column's controller: the SwiftUI grid, and the two-finger
-/// swipe that switches spaces.
+/// swipe (or a click and drag sideways) that switches spaces.
 final class WidgetColumnController: NSHostingController<WidgetColumnView> {
     let store: WorkspaceStore
+    private let layout: WindowLayout
     private var monitor: Any?
+    private var mouseMonitor: Any?
+    /// A click that may become a sideways drag: where it went down, and
+    /// whether it has taken over (its later events are the drag's).
+    private var grab: (start: NSPoint, index: Int)?
+    private var grabbing = false
+    /// The drag's last few moves, for how fast it let go.
+    private var grabMoves: [(time: TimeInterval, x: CGFloat)] = []
+    private var settle: Timer?
     /// A swipe the system is tracking (its later events are its).
     private var tracking = false
     /// Without the system's swipe tracking (turned off in Trackpad
@@ -491,6 +500,7 @@ final class WidgetColumnController: NSHostingController<WidgetColumnView> {
 
     init(store: WorkspaceStore, layout: WindowLayout) {
         self.store = store
+        self.layout = layout
         super.init(rootView: WidgetColumnView(store: store, layout: layout))
         sizingOptions = []
     }
@@ -502,6 +512,134 @@ final class WidgetColumnController: NSHostingController<WidgetColumnView> {
         guard monitor == nil else { return }
         monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] e in
             self?.scrolled(e) ?? e
+        }
+        mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp]) { [weak self] e in
+            self?.dragged(e) ?? e
+        }
+    }
+
+    /// One column's width: the distance a space slides.
+    private var page: CGFloat { WidgetGrid.width + WidgetGrid.margin * 2 }
+
+    /// A click and drag sideways over the widgets (not while editing them,
+    /// when a drag moves a widget): the column follows the pointer as it
+    /// does the fingers, and lets go onto the space it's nearer, or the
+    /// next one if flicked. A drag that starts in a terminal is its own
+    /// (it selects text); one that goes mostly up or down is left alone.
+    private func dragged(_ e: NSEvent) -> NSEvent? {
+        switch e.type {
+        case .leftMouseDown:
+            grab = nil
+            grabbing = false
+            guard WidgetDragSetting.shared.enabled, e.window === view.window,
+                  !store.editingWidgets, !store.galleryOpen,
+                  let w = store.active, store.spaces.count > 1, settle == nil else { return e }
+            let p = view.convert(e.locationInWindow, from: nil)
+            let bar = layout.buttonsMidY > 0 ? layout.buttonsMidY * 2 : 52
+            // The view's flipped or not; the tab row is at the top either way.
+            let fromTop = view.isFlipped ? p.y : view.bounds.height - p.y
+            guard view.bounds.contains(p), fromTop > bar, !inTerminal(e) else { return e }
+            grab = (e.locationInWindow, store.spaceIndex(for: w))
+            return e
+        case .leftMouseDragged:
+            guard let grab else { return e }
+            let dx = e.locationInWindow.x - grab.start.x
+            let dy = e.locationInWindow.y - grab.start.y
+            if !grabbing {
+                if abs(dy) > 6 && abs(dy) > abs(dx) { self.grab = nil; return e }
+                guard abs(dx) > 6 else { return e }
+                grabbing = true
+            }
+            let now = e.timestamp
+            grabMoves.append((now, dx))
+            grabMoves.removeAll { now - $0.time > 0.08 }
+            SpaceSwipe.shared.amount = followed(dx, from: grab.index)
+            return nil
+        case .leftMouseUp:
+            guard let grab else { return e }
+            self.grab = nil
+            guard grabbing else { return e }
+            grabbing = false
+            land(from: grab.index)
+            grabMoves = []
+            // The click's own release lands nowhere, so whatever it went
+            // down on (a button, a row) doesn't take it as a click.
+            return NSEvent.mouseEvent(with: .leftMouseUp, location: NSPoint(x: -10_000, y: -10_000),
+                                      modifierFlags: e.modifierFlags, timestamp: e.timestamp,
+                                      windowNumber: e.windowNumber, context: nil,
+                                      eventNumber: e.eventNumber, clickCount: e.clickCount,
+                                      pressure: 0) ?? e
+        default:
+            return e
+        }
+    }
+
+    private func inTerminal(_ e: NSEvent) -> Bool {
+        guard let content = view.window?.contentView,
+              var v = content.hitTest(content.convert(e.locationInWindow, from: nil)) else { return false }
+        while true {
+            if v is TerminalHostView || v is NSText || v is NSTextField { return true }
+            guard let up = v.superview else { return false }
+            v = up
+        }
+    }
+
+    /// How far the column has followed a drag of `dx`: one for one, except
+    /// toward a space that isn't there, where it gives a little.
+    private func followed(_ dx: CGFloat, from i: Int) -> CGFloat {
+        let amount = dx / page
+        let open = amount > 0 ? i > 0 : i < store.spaces.count - 1
+        if open { return max(-1, min(1, amount)) }
+        let give = abs(amount)
+        return (amount > 0 ? 1 : -1) * 0.12 * give / (give + 0.3)
+    }
+
+    /// Let go: onto the space it's past halfway to, or the one it was
+    /// flicked toward; else back.
+    private func land(from i: Int) {
+        let amount = SpaceSwipe.shared.amount
+        var speed: CGFloat = 0
+        if let first = grabMoves.first, let last = grabMoves.last, last.time > first.time {
+            speed = (last.x - first.x) / CGFloat(last.time - first.time) / page
+        }
+        let toward: CGFloat = amount > 0 ? 1 : -1
+        let open = amount > 0 ? i > 0 : i < store.spaces.count - 1
+        let flicked = speed * toward > 1.2
+        let target: CGFloat = open && amount != 0 && (abs(amount) > 0.5 || flicked) ? toward : 0
+        animate(to: target) { [weak self] in
+            guard let self, target != 0, let w = self.store.active else { return }
+            let to = i + (target > 0 ? -1 : 1)
+            if self.store.spaces.indices.contains(to) {
+                SpaceSwipe.shared.landed = true
+                w.selectSpace(self.store.spaces[to].id)
+            }
+        }
+    }
+
+    /// Eases the column to `target` frame by frame (as the system's swipe
+    /// does, so the space beside it stays drawn until it's off), then
+    /// `done`, with the column back at rest.
+    private func animate(to target: CGFloat, done: @escaping @MainActor () -> Void) {
+        let from = SpaceSwipe.shared.amount
+        let start = CACurrentMediaTime()
+        let duration = 0.12 + 0.18 * Double(abs(target - from))
+        settle?.invalidate()
+        settle = Timer.scheduledTimer(withTimeInterval: 1.0 / 120, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                let p = min(1, (CACurrentMediaTime() - start) / duration)
+                let eased = 1 - pow(1 - p, 3)
+                SpaceSwipe.shared.amount = from + (target - from) * CGFloat(eased)
+                guard p >= 1 else { return }
+                self.settle?.invalidate()
+                self.settle = nil
+                var tr = Transaction()
+                tr.disablesAnimations = true
+                withTransaction(tr) {
+                    done()
+                    SpaceSwipe.shared.amount = 0
+                }
+            }
         }
     }
 
