@@ -174,6 +174,51 @@ struct NewTabButton: View {
     }
 }
 
+/// The tab row's + (a new conversation) with the new-terminal button
+/// tucked behind it: hovering the + slides the terminal button out to its
+/// right, so clicking where the + sits still starts a conversation and a
+/// terminal is one step over. It folds back shortly after the pointer
+/// leaves, so sliding across doesn't lose it. The strip reserves both
+/// buttons' room, so opening it never moves the tabs.
+struct ExpandingNewTabButton: View {
+    let newConversation: () -> Void
+    let newTerminal: () -> Void
+    @State private var open = false
+    @State private var collapse: DispatchWorkItem?
+    private let size = CGSize(width: 28, height: TabStyle.height)
+
+    var body: some View {
+        HStack(spacing: 0) {
+            NewTabButton(tooltip: Tooltip(title: "New Tab", shortcut: "⌘T",
+                                          detail: "Another conversation in this workspace."),
+                         action: newConversation)
+                .onHover(perform: hover)
+            BarIconButton(symbol: "apple.terminal",
+                          tooltip: Tooltip(title: "New Terminal Tab", shortcut: "⇧⌘T",
+                                           detail: "A shell in this workspace's folder, as a tab."),
+                          size: size, action: newTerminal)
+                .onHover(perform: hover)
+                .opacity(open ? 1 : 0)
+                .offset(x: open ? 0 : -10)
+                .allowsHitTesting(open)
+                .frame(width: open ? size.width : 0, alignment: .leading)
+                .clipped()
+        }
+        .frame(width: size.width * 2, alignment: .leading)
+    }
+
+    private func hover(_ inside: Bool) {
+        collapse?.cancel()
+        if inside {
+            withAnimation(.easeOut(duration: 0.16)) { open = true }
+        } else {
+            let work = DispatchWorkItem { withAnimation(.easeOut(duration: 0.16)) { open = false } }
+            collapse = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
+        }
+    }
+}
+
 // MARK: - Tab strip
 
 /// A row of tabs that never grows past the room it's given: tabs share the
@@ -397,17 +442,11 @@ private struct ConversationTabBar: View {
                 TopTerminalTabItem(session: t, selected: t.id == workspace.shownTopTabID, workspace: workspace)
             }
         } trailing: {
-            HStack(spacing: 0) {
-                NewTabButton(tooltip: Tooltip(title: "New Tab", shortcut: "⌘T",
-                                              detail: "Another conversation in this workspace.")) { workspace.newConversation() }
-                BarIconButton(symbol: "apple.terminal",
-                              tooltip: Tooltip(title: "New Terminal Tab", shortcut: "⇧⌘T",
-                                               detail: "A shell in this workspace's folder, as a tab."),
-                              size: CGSize(width: 28, height: TabStyle.height)) {
-                    workspace.newTabTerminal()
-                    AppDelegate.shared.windowController?.focusTabTerminal()
-                }
-            }
+            ExpandingNewTabButton(newConversation: { workspace.newConversation() },
+                                  newTerminal: {
+                                      workspace.newTabTerminal()
+                                      AppDelegate.shared.windowController?.focusTabTerminal()
+                                  })
         }
         .padding(.leading, TitlebarRow.edge)
         .padding(.trailing, 6)
