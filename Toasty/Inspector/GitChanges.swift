@@ -4,10 +4,10 @@ import os
 
 /// The workspace folder's git state for the Git widget: the branch, how
 /// far it is from its upstream and from the repository's main branch,
-/// every uncommitted file with its line counts, and the last commits. The
-/// reads never take the index lock; the widget's buttons commit the files
-/// left checked, push and pull (`GitActions.swift`), and nothing else
-/// (it never discards).
+/// every uncommitted file with its line counts, and the commits not yet
+/// pushed. The reads never take the index lock; the widget's buttons push
+/// and pull (`GitActions.swift`), and nothing else: committing is left to
+/// Claude, and it never discards.
 final class GitChanges: ObservableObject {
     nonisolated struct File: Identifiable, Equatable {
         /// Path relative to the repository root.
@@ -82,15 +82,15 @@ final class GitChanges: ObservableObject {
     @Published private(set) var behindBase = 0
     @Published private(set) var files: [File] = []
     @Published private(set) var root: String?
-    /// The branch's last few commits (the Git widget's Recent).
-    @Published private(set) var recent: [Commit] = []
-    /// Files unchecked in the Git widget: left out of the next commit.
-    @Published var excluded: Set<String> = []
-    /// The next commit's message, as typed so far.
-    @Published var message = ""
-    /// A commit, push or pull under way ("Committing…").
+    /// The commits a push would send, newest first (at most
+    /// `unpushedLimit`): those after the upstream, or, with no upstream,
+    /// those on no remote branch. None when there's no remote at all.
+    @Published private(set) var unpushed: [Commit] = []
+    /// How many there are in all (`unpushed` may be cut short).
+    @Published private(set) var unpushedCount = 0
+    /// A push or pull under way ("Pushing…").
     @Published var busy: String?
-    /// The last commit, push or pull that failed, and why.
+    /// The last push or pull that failed, and why.
     @Published var actionError: String?
 
     nonisolated struct Commit: Identifiable, Equatable, Sendable {
@@ -157,13 +157,9 @@ final class GitChanges: ObservableObject {
         if base != s.base { base = s.base }
         if behindBase != s.behindBase { behindBase = s.behindBase }
         if root != s.root { root = s.root }
-        if files != s.files {
-            files = s.files
-            // Unchecked files that are no longer changed are forgotten.
-            let paths = Set(files.map(\.path))
-            if !excluded.isSubset(of: paths) { excluded.formIntersection(paths) }
-        }
-        if recent != s.recent { recent = s.recent }
+        if files != s.files { files = s.files }
+        if unpushed != s.unpushed { unpushed = s.unpushed }
+        if unpushedCount != s.unpushedCount { unpushedCount = s.unpushedCount }
         if again { again = false; refresh() }
     }
 
@@ -179,8 +175,11 @@ final class GitChanges: ObservableObject {
         var behindBase = 0
         var root: String?
         var files: [File] = []
-        var recent: [Commit] = []
+        var unpushed: [Commit] = []
+        var unpushedCount = 0
     }
+
+    nonisolated static let unpushedLimit = 20
 
     nonisolated static func read(folder: String) -> Snapshot {
         var s = Snapshot()
@@ -273,10 +272,17 @@ final class GitChanges: ObservableObject {
                 s.behindBase = Int(count.text.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
             }
         }
-        if hasHead {
-            let log = git(["log", "-n", "5", "--format=%h%x1f%s%x1f%ct"], in: root)
-            if log.status == 0 {
-                s.recent = log.text.split(separator: "\n").compactMap { line in
+        // What a push would send: past the upstream, or (a branch not on
+        // a remote yet) on no remote branch. A repository with no remote
+        // has nothing to push to.
+        if hasHead, !git(["remote"], in: root).text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let range = s.upstream != nil ? ["@{upstream}..HEAD"] : ["HEAD", "--not", "--remotes"]
+            let count = git(["rev-list", "--count"] + range, in: root)
+            s.unpushedCount = Int(count.text.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+            let log = s.unpushedCount == 0 ? nil
+                : git(["log", "-n", "\(unpushedLimit)", "--format=%h%x1f%s%x1f%ct"] + range, in: root)
+            if let log, log.status == 0 {
+                s.unpushed = log.text.split(separator: "\n").compactMap { line in
                     let parts = line.split(separator: "\u{1f}", omittingEmptySubsequences: false).map(String.init)
                     guard parts.count == 3, let t = Double(parts[2]) else { return nil }
                     return Commit(hash: parts[0], subject: parts[1], date: Date(timeIntervalSince1970: t))

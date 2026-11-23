@@ -102,13 +102,16 @@ private struct GlanceValue: View {
     }
 }
 
-/// The one row every list uses: a leading mark, a label (and a quieter
+/// The one row every list uses: a leading mark (none for an `EmptyView`:
+/// the label then starts on the widget's edge), a label (and a quieter
 /// detail after it), and a trailing value.
 private struct WidgetRow<Lead: View, Trailing: View>: View {
     let label: String
     var detail: String?
     var mono = false
     var quiet = false
+    /// Middle for file names; tail for sentences (a commit's subject).
+    var truncation: Text.TruncationMode = .middle
     var action: (() -> Void)?
     @ViewBuilder var lead: () -> Lead
     @ViewBuilder var trailing: () -> Trailing
@@ -116,13 +119,13 @@ private struct WidgetRow<Lead: View, Trailing: View>: View {
 
     var body: some View {
         HStack(spacing: Theme.Space.s) {
-            lead().frame(width: Theme.Todo.box)
+            if Lead.self != EmptyView.self { lead().frame(width: Theme.Todo.box) }
             HStack(alignment: .firstTextBaseline, spacing: Theme.Space.xs + Theme.Space.xxs) {
                 Text(label)
                     .font(mono ? .toasty(Theme.Size.meta, design: .monospaced) : .toasty(Theme.Size.control))
                     .foregroundStyle(quiet ? .secondary : .primary)
                     .lineLimit(1)
-                    .truncationMode(.middle)
+                    .truncationMode(truncation)
                     .layoutPriority(1)
                 if let detail {
                     Text(detail)
@@ -223,20 +226,6 @@ private struct SummaryLine<Trailing: View>: View {
 
 extension SummaryLine where Trailing == EmptyView {
     init(text: String) { self.init(text: text, trailing: { EmptyView() }) }
-}
-
-/// A Large's action bar, at its bottom.
-private struct ActionBar<Content: View>: View {
-    @ViewBuilder var content: () -> Content
-
-    static var height: CGFloat { 49 }
-
-    var body: some View {
-        HStack(spacing: Theme.Space.s) { content() }
-            .padding(.horizontal, Theme.Space.m)
-            .frame(height: Self.height)
-            .overlay(alignment: .top) { Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1) }
-    }
 }
 
 /// A list cut to the rows there's room for, and how many more there are.
@@ -357,8 +346,11 @@ private struct GitWidget: View {
                     .disabled(changes.busy != nil || changes.branch == nil)
                 }
             }
-            list(room: size.rows(reserving: SummaryLine<EmptyView>.height + ActionBar<EmptyView>.height))
-            if !changes.files.isEmpty { commitBar }
+            // The commits take up to half the rows (at least 3), the files the rest.
+            let room = max(3, size.rows(reserving: SummaryLine<EmptyView>.height) / 2)
+            list(room: size.rows(reserving: SummaryLine<EmptyView>.height
+                                 + UnpushedList.height(changes.unpushedCount, room: room)))
+            UnpushedList(changes: changes, room: room)
         }
     }
 
@@ -374,22 +366,44 @@ private struct GitWidget: View {
         if changes.behind > 0 { parts.append("\(changes.behind) behind") }
         return parts.isEmpty ? "\(branch) · up to date with \(upstream)" : "\(branch) · " + parts.joined(separator: ", ") + " of \(upstream)"
     }
+}
 
-    /// The message and Commit: every changed file goes in.
-    private var commitBar: some View {
-        ActionBar {
-            TextField("Commit message", text: $changes.message)
-                .textFieldStyle(.plain)
-                .font(.toasty(Theme.Size.control))
-                .padding(.horizontal, 10)
-                .frame(height: Theme.Control.height)
-                .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).fill(Theme.Fill.subtle))
-                .onSubmit { changes.commit(andPush: false) }
-            Button(changes.busy != nil ? "Committing…" : "Commit") { changes.commit(andPush: false) }
-                .buttonStyle(WidgetButtonStyle(prominent: true))
-                .disabled(!changes.canCommit)
-                .tooltip(Tooltip(title: "Commit", detail: changes.files.count == 1
-                                 ? "Commits the changed file." : "Commits all \(changes.files.count) changed files."))
+/// The commits a push would send, under a heading at a Large's bottom,
+/// below a hairline; nothing when there are none. (Committing is left to Claude.)
+private struct UnpushedList: View {
+    @ObservedObject var changes: GitChanges
+    /// At most this many rows, the last one "+N more" when there are more.
+    let room: Int
+
+    static let padding = Theme.Space.xs
+
+    /// Its height for `count` commits, for the files above to leave room.
+    static func height(_ count: Int, room: Int) -> CGFloat {
+        guard count > 0 else { return 0 }
+        let rows = min(count, room)
+        let more: CGFloat = count > room ? 20 - Theme.Widget.rowHeight : 0
+        return 1 + padding * 2 + SummaryLine<EmptyView>.height + CGFloat(rows) * Theme.Widget.rowHeight + more
+    }
+
+    var body: some View {
+        let count = changes.unpushedCount
+        if count > 0, !changes.unpushed.isEmpty {
+            let shown = changes.unpushed.prefix(count > room ? room - 1 : room)
+            VStack(spacing: 0) {
+                SummaryLine(text: "Commits to Push").accessibilityAddTraits(.isHeader)
+                ForEach(shown) { commit in
+                    WidgetRow(label: commit.subject, truncation: .tail) {
+                        EmptyView()
+                    } trailing: {
+                        RowValue(text: commit.hash)
+                    }
+                    .tooltip(Tooltip(title: commit.subject, detail: "\(commit.hash) · committed "
+                                     + ActivityTab.ago(Date().timeIntervalSince(commit.date)) + ", not pushed yet"))
+                }
+                MoreLine(count: count - shown.count)
+            }
+            .padding(.vertical, Self.padding)
+            .overlay(alignment: .top) { Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1) }
         }
     }
 }

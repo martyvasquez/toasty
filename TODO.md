@@ -283,8 +283,10 @@ Redesigned 2026-11-21: the branch as the summary row (sync chips, files and
 changed words marked, full-width tints, and ⌃⌘↑/↓ between files.
 
 Open (decide first):
-- **Read-only or not?** Proposed: Commit (message field), Push, and Open
-  Pull Request (`gh`); no discard or staging. Not yet decided by the user.
+- **Read-only or not?** Decided 2026-11-23: no committing in the app
+  (Claude does it better); the Git widget keeps Push and Pull and lists
+  the commits not yet pushed. Open Pull Request (`gh`) still undecided;
+  no discard or staging.
 
 Next (agreed order):
 - **Comment on a diff line → Claude**, like the browser's comments: the
