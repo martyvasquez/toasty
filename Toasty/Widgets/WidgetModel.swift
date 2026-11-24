@@ -62,6 +62,8 @@ enum WidgetPreset: String, CaseIterable, Identifiable {
 
 enum WidgetKind: String, Codable, CaseIterable, Identifiable {
     case git, usage, teeUp, activity
+    /// This Mac's CPU, memory and disk (`SystemWidget`).
+    case system
     /// The workspace's folder, browsed in place; Large only (`FilesWidget`).
     case files
     /// A shell, Large only (`TerminalWidget`, an experiment). The case
@@ -72,7 +74,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
 
     /// What the gallery offers. Saved widgets of other kinds are dropped on
     /// load (`WidgetSpace.current`).
-    static var gallery: [WidgetKind] { [.git, .usage, .teeUp, .activity, .files, .terminal] }
+    static var gallery: [WidgetKind] { [.git, .usage, .teeUp, .activity, .system, .files, .terminal] }
 
     var title: String {
         switch self {
@@ -80,6 +82,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .usage: "Usage"
         case .teeUp: "Tee-Up"
         case .activity: "Activity"
+        case .system: "System"
         case .files: "Files"
         case .terminal: "Terminal"
         }
@@ -92,6 +95,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .usage: "Context and limits"
         case .teeUp: "Prompts written ahead"
         case .activity: "What Claude is doing"
+        case .system: "CPU, memory and disk"
         case .files: "Browse this workspace's folder"
         case .terminal: "A shell in this workspace"
         }
@@ -103,16 +107,20 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .usage: "gauge.with.needle"
         case .teeUp: "list.bullet"
         case .activity: "waveform.path.ecg"
+        case .system: "cpu"
         case .files: "folder"
         case .terminal: "terminal"
         }
     }
 
+    /// Whether edit mode offers its options (a click on it, or its menu).
+    var hasOptions: Bool { self == .system }
+
     /// Whether it can fit its height to what it shows (`WidgetItem.fitsContent`).
     var canFit: Bool {
         switch self {
         case .git, .teeUp, .activity, .files: true
-        case .usage, .terminal: false
+        case .usage, .system, .terminal: false
         }
     }
 
@@ -131,7 +139,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
     var maxUnits: Int {
         switch self {
         case .git: 7
-        case .usage, .activity: 4
+        case .usage, .activity, .system: 4
         case .teeUp, .files: 9
         case .terminal: WidgetPreset.large.units
         }
@@ -156,6 +164,8 @@ struct WidgetItem: Codable, Identifiable, Equatable {
     /// drawn only as tall as what it shows, its saved height the most it
     /// takes; the widgets below move up into what it leaves.
     var fitsContent = false
+    /// A System widget's options (other kinds have none yet).
+    var system = SystemOptions()
 
     /// Drawn as Fit right now: two tracks wide and open (a Small, or a
     /// collapsed one, is its own size whatever it's set to).
@@ -494,7 +504,7 @@ struct WidgetLayout {
 // MARK: - Reading saved spaces, tolerantly
 
 extension WidgetItem {
-    private enum Keys: String, CodingKey { case id, kind, span, track, units, row, collapsed, fitsContent }
+    private enum Keys: String, CodingKey { case id, kind, span, track, units, row, collapsed, fitsContent, system }
 
     /// Fields added later may be missing: they take their defaults (a Git
     /// list widget saved before Fit to Content starts with it on, to try).
@@ -508,6 +518,7 @@ extension WidgetItem {
         row = try c.decodeIfPresent(Int.self, forKey: .row) ?? 0
         collapsed = try c.decodeIfPresent(Bool.self, forKey: .collapsed) ?? false
         fitsContent = try c.decodeIfPresent(Bool.self, forKey: .fitsContent) ?? kind.canFit
+        system = (try? c.decodeIfPresent(SystemOptions.self, forKey: .system)) ?? SystemOptions()
     }
 }
 

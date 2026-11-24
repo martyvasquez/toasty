@@ -204,7 +204,12 @@ enum DebugControl {
         // A real click through the window's event dispatch, at (x, y) in
         // points from the window's top-left corner ("via":"app" for the app's).
         register("click") { cmd in
-            guard let window else { throw DebugError("no window") }
+            guard let main = window else { throw DebugError("no window") }
+            // {"other":true}: the frontmost other window of ours (a popover), as `screenshot`.
+            var window = main
+            if cmd["other"] as? Bool == true, let other = NSApp.windows.first(where: { $0 !== main && $0.isVisible && $0.frame.width > 50 }) {
+                window = other
+            }
             let x = cmd["x"] as? Double ?? 0, y = cmd["y"] as? Double ?? 0
             let point = NSPoint(x: x, y: window.frame.height - y)
             let count = cmd["count"] as? Int ?? 1

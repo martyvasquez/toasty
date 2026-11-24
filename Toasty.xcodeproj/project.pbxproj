@@ -37,6 +37,7 @@
 		346191052BC0573C556FAE23 /* MainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FBCBE999788997C12380B2D /* MainWindowController.swift */; };
 		3502266411B2DCC70D0962EA /* TitlebarTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECA042843FEF43774DB0414C /* TitlebarTabs.swift */; };
 		37643F2E3507FE5CFEF6C9DA /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3353E01CDA88E07D3A7012D3 /* Theme.swift */; };
+		38B1B9C30C29C4C959DCC0BF /* SystemWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F36818B74F6CB0D2C54C01F0 /* SystemWidget.swift */; };
 		39DB48C5EA22DF75F0E540AB /* CTranscribe.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = F8C8A579882F85EF3293A41D /* CTranscribe.xcframework */; };
 		3C7A12F4E8E396CA83D229F1 /* ClaudeSDKTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE3BEB622EF1F6E34C0F08C /* ClaudeSDKTests.swift */; };
 		3EB73BEED88DCBC63A5AB238 /* PreviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C16C7897BCDE55887D514826 /* PreviewTests.swift */; };
@@ -272,6 +273,7 @@
 		ECA042843FEF43774DB0414C /* TitlebarTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitlebarTabs.swift; sourceTree = "<group>"; };
 		F1BDBE0DBA757E69F189BD63 /* InspectorKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorKit.swift; sourceTree = "<group>"; };
 		F27278907AA55A2FF70B1DB4 /* TerminalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalRenderer.swift; sourceTree = "<group>"; };
+		F36818B74F6CB0D2C54C01F0 /* SystemWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemWidget.swift; sourceTree = "<group>"; };
 		F771FAE516553A7AB4E02A7D /* PreviewSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewSettings.swift; sourceTree = "<group>"; };
 		F8C8A579882F85EF3293A41D /* CTranscribe.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = CTranscribe.xcframework; path = Vendor/CTranscribe.xcframework; sourceTree = "<group>"; };
 		FA6ECF9E267AAEB50DBBCB05 /* ClaudeToolViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeToolViews.swift; sourceTree = "<group>"; };
@@ -603,6 +605,7 @@
 			children = (
 				220F4EDF4F84E42CBCA14849 /* FilesWidget.swift */,
 				A9AB29AB73090BF1F610EB2D /* SpaceSwitcher.swift */,
+				F36818B74F6CB0D2C54C01F0 /* SystemWidget.swift */,
 				92CCFEC8DFAB0CFCCB7D7ADD /* TerminalDock.swift */,
 				206C05658B6EB627A54F0D1E /* TerminalWidget.swift */,
 				B5AB1945F8001D73F05CC695 /* WidgetColumn.swift */,
@@ -800,6 +803,7 @@
 				CA38B043EB3850A76D91B054 /* SpaceSwitcher.swift in Sources */,
 				F3EDEAA0B2C742A331699A9C /* SpeechEngine.swift in Sources */,
 				D9F77D560C3635E6D7AD25E2 /* SpeechModels.swift in Sources */,
+				38B1B9C30C29C4C959DCC0BF /* SystemWidget.swift in Sources */,
 				AC946F3D12C8AAF3BB8D8BF1 /* TeeUp.swift in Sources */,
 				E13C8B4B7EE7B6FBBD4F54FE /* TeeUpQuestion.swift in Sources */,
 				74ACC74A36424EC519A104A8 /* TeeUpTab.swift in Sources */,

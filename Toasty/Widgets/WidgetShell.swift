@@ -105,7 +105,15 @@ struct WidgetHeader<Status: View>: View {
                 .font(.toasty(Theme.Size.control, .medium))
                 .lineLimit(1)
             Spacer(minLength: Theme.Space.xs)
-            status()
+            if widget?.editing == true, kind.hasOptions {
+                // Editing: a click on it opens its options.
+                Image(systemName: "slider.horizontal.3")
+                    .font(.toasty(Theme.Size.meta, .medium))
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("Has options")
+            } else {
+                status()
+            }
         }
         .padding(.leading, Theme.Widget.edge)
         .padding(.trailing, Theme.Widget.edge)

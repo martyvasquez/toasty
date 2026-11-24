@@ -33,6 +33,7 @@ struct WidgetContent: View {
                 case .usage: UsageWidget(workspace: workspace, size: size)
                 case .teeUp: TeeUpWidget(workspace: workspace, size: size)
                 case .activity: ActivityWidget(workspace: workspace, size: size)
+                case .system: SystemWidget(workspace: workspace, item: item, size: size)
                 case .files: FilesWidget(workspace: workspace, item: item)
                 case .terminal: TerminalWidget(workspace: workspace, item: item)
                 }
@@ -84,7 +85,7 @@ struct WidgetSize {
 
 /// The body of a Small: one value (a number or a word, or the Usage ring),
 /// what it is, and one footer fact, bottom-aligned on the 14pt edge.
-private struct WidgetGlance<Value: View, Footer: View>: View {
+struct WidgetGlance<Value: View, Footer: View>: View {
     @ViewBuilder var value: () -> Value
     var caption: () -> String
     @ViewBuilder var footer: () -> Footer
@@ -111,7 +112,7 @@ private struct WidgetGlance<Value: View, Footer: View>: View {
 }
 
 /// A Small's value: a number or a word.
-private struct GlanceValue: View {
+struct GlanceValue: View {
     let text: String
 
     var body: some View {
@@ -614,7 +615,7 @@ private struct UsageContent: View {
     }
 }
 
-private struct Meter: Identifiable {
+struct Meter: Identifiable {
     let id: String
     let title: String
     let fraction: Double
@@ -624,7 +625,7 @@ private struct Meter: Identifiable {
 
 /// A meter: its name, how full (and what that means) at the right, a thin
 /// bar under them.
-private struct MeterRow: View {
+struct MeterRow: View {
     let meter: Meter
     static let height: CGFloat = 40
 
@@ -653,9 +654,12 @@ private struct MeterRow: View {
     }
 }
 
-/// The context window's ring: the accent, orange past 90%.
-private struct ContextRing: View {
+/// A ring for how full something is (the context window, or a System
+/// widget's metric): the accent, orange past 90%.
+struct ContextRing: View {
     let fraction: Double?
+    /// What it measures, for VoiceOver.
+    var name = "Context"
     var size: CGFloat = 52
     var lineWidth: CGFloat = 6
 
@@ -673,7 +677,7 @@ private struct ContextRing: View {
         .frame(width: size - lineWidth, height: size - lineWidth)
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Context \(fraction.map { "\(Int(($0 * 100).rounded())) percent" } ?? "not measured")")
+        .accessibilityLabel("\(name) \(fraction.map { "\(Int(($0 * 100).rounded())) percent" } ?? "not measured")")
     }
 }
 

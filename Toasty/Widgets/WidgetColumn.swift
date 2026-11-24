@@ -435,6 +435,8 @@ private struct WidgetSlotView: View {
     @State private var atLimit = false
     /// The space as the resize shows it now: what's kept when it's let go.
     @State private var resizeList: [WidgetItem]?
+    /// Its options popover (edit mode).
+    @State private var showingOptions = false
 
     private struct Snap: Equatable {
         var wide: Bool
@@ -522,6 +524,10 @@ private struct WidgetSlotView: View {
                     Color.clear.contentShape(Rectangle())
                         .widgetCursor(moveBy != nil ? .closedHand : .openHand, held: moveBy != nil)
                         .gesture(moveGesture)
+                        // A click (not a drag) opens its options.
+                        .simultaneousGesture(TapGesture().onEnded {
+                            if item.kind.hasOptions { showingOptions = true }
+                        })
                 }
             }
             .overlay(alignment: .bottomTrailing) {
@@ -547,6 +553,8 @@ private struct WidgetSlotView: View {
                         .transition(.opacity)
                 }
             }
+            .popover(isPresented: $showingOptions, arrowEdge: .leading) { options }
+            .onChange(of: editing) { _, on in if !on { showingOptions = false } }
             // Using: only the way into edit mode. Editing: everything.
             .contextMenu {
                 if editing {
@@ -557,7 +565,22 @@ private struct WidgetSlotView: View {
             }
     }
 
+    /// Its options, in the popover beside it.
+    @ViewBuilder private var options: some View {
+        if item.kind == .system {
+            SystemOptionsView(item: item) { o in
+                // From the space as it is now: the popover may hold an older copy.
+                guard let space = store.spaces.first(where: { $0.id == spaceID }) else { return }
+                store.setWidgets(space.widgets.map { var w = $0; if w.id == item.id { w.system = o }; return w }, in: spaceID)
+            }
+        }
+    }
+
     @ViewBuilder private var widgetMenu: some View {
+        if item.kind.hasOptions {
+            Button("\(item.kind.title) Options…") { showingOptions = true }
+            Divider()
+        }
         ForEach(item.kind.presets) { p in
             Button(p.title) { apply(layout.applyingPreset(p, to: item.id), animation: Theme.Widget.crossfade) }
                 .disabled(!layout.allows(p, for: item.id) || (item.preset == p && !item.collapsed))
