@@ -58,6 +58,28 @@ struct WidgetOptionChoice<Value: Hashable & Identifiable>: View {
     }
 }
 
+/// A row with a switch: one of the things a widget shows. The last one on
+/// can't be turned off (an empty widget shows nothing).
+struct WidgetOptionSwitch: View {
+    let title: String
+    let on: Bool
+    let last: Bool
+    let set: (Bool) -> Void
+
+    var body: some View {
+        HStack(spacing: Theme.Space.m) {
+            Text(title).font(.toasty(Theme.Size.control))
+            Spacer(minLength: Theme.Space.l)
+            Toggle(title, isOn: Binding(get: { on }, set: { if $0 || !last { set($0) } }))
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .labelsHidden()
+                .disabled(on && last)
+        }
+        .frame(minHeight: 24)
+    }
+}
+
 // MARK: - Usage
 
 /// What a Small Usage widget shows.
@@ -81,10 +103,18 @@ enum UsageGlance: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-/// A Usage widget's options (Small only), saved with it.
+/// A Usage widget's options (Small and Slim), saved with it.
 struct UsageOptions: Codable, Equatable {
     var glance: UsageGlance = .context
     var style: WidgetGlanceStyle = .ring
+    /// What a Slim shows, side by side (never none).
+    var slim: Set<UsageGlance> = [.context]
+
+    /// `slim` in order.
+    var slimShown: [UsageGlance] {
+        let list = UsageGlance.allCases.filter(slim.contains)
+        return list.isEmpty ? [.context] : list
+    }
 
     init() {}
 
@@ -92,6 +122,7 @@ struct UsageOptions: Codable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         glance = (try? c.decodeIfPresent(UsageGlance.self, forKey: .glance)) ?? .context
         style = (try? c.decodeIfPresent(WidgetGlanceStyle.self, forKey: .style)) ?? .ring
+        slim = (try? c.decodeIfPresent(Set<UsageGlance>.self, forKey: .slim)) ?? [.context]
     }
 }
 
@@ -102,17 +133,32 @@ struct UsageOptionsView: View {
     private var options: UsageOptions { item.usage }
 
     var body: some View {
-        WidgetOptionsForm(title: "Small Usage Widget") {
-            Grid(alignment: .leading, horizontalSpacing: Theme.Space.m, verticalSpacing: Theme.Space.s) {
-                GridRow {
-                    WidgetOptionLabel("Show")
-                    WidgetOptionChoice(title: "Show", values: UsageGlance.allCases, name: \.title,
-                                       selection: binding(\.glance))
+        // Slim shows bars: no style to pick.
+        let slim = item.span == 2
+        WidgetOptionsForm(title: slim ? "Slim Usage Widget" : "Small Usage Widget") {
+            if slim {
+                // Side by side: as many as are on.
+                ForEach(UsageGlance.allCases) { g in
+                    WidgetOptionSwitch(title: g.title, on: options.slimShown.contains(g),
+                                       last: options.slimShown == [g]) { want in
+                        var o = options
+                        o.slim = Set(o.slimShown)
+                        if want { o.slim.insert(g) } else { o.slim.remove(g) }
+                        set(o)
+                    }
                 }
-                GridRow {
-                    WidgetOptionLabel("Style")
-                    WidgetOptionChoice(title: "Style", values: WidgetGlanceStyle.allCases, name: \.title,
-                                       selection: binding(\.style))
+            } else {
+                Grid(alignment: .leading, horizontalSpacing: Theme.Space.m, verticalSpacing: Theme.Space.s) {
+                    GridRow {
+                        WidgetOptionLabel("Show")
+                        WidgetOptionChoice(title: "Show", values: UsageGlance.allCases, name: \.title,
+                                           selection: binding(\.glance))
+                    }
+                    GridRow {
+                        WidgetOptionLabel("Style")
+                        WidgetOptionChoice(title: "Style", values: WidgetGlanceStyle.allCases, name: \.title,
+                                           selection: binding(\.style))
+                    }
                 }
             }
         }

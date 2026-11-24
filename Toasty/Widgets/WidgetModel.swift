@@ -43,18 +43,35 @@ enum WidgetGrid {
 
 // MARK: - Kinds and sizes
 
-/// The size presets: Apple's Small, Medium and Large.
+/// The size presets: Apple's Small, Medium and Large, and Slim (two
+/// tracks, one unit: a single line) for the widgets that have one.
 enum WidgetPreset: String, CaseIterable, Identifiable {
-    case small, medium, large
+    case small, slim, medium, large
 
     var id: String { rawValue }
     var span: Int { self == .small ? 1 : 2 }
-    var units: Int { self == .large ? 4 : 2 }
+    var units: Int {
+        switch self {
+        case .slim: 1
+        case .large: 4
+        default: 2
+        }
+    }
     var title: String {
         switch self {
         case .small: "Small"
+        case .slim: "Slim"
         case .medium: "Medium"
         case .large: "Large"
+        }
+    }
+    /// The gallery's line under the preview: what this size is for.
+    var purpose: String {
+        switch self {
+        case .small: "One value at a glance"
+        case .slim: "One line"
+        case .medium: "A short list"
+        case .large: "Everything"
         }
     }
     var letter: String { String(title.prefix(1)) }
@@ -121,13 +138,20 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    var presets: [WidgetPreset] { self == .terminal || self == .files ? [.large] : WidgetPreset.allCases }
+    var presets: [WidgetPreset] {
+        switch self {
+        case .terminal, .files: [.large]
+        // Slim only where a single line says something.
+        case .usage, .system: WidgetPreset.allCases
+        default: [.small, .medium, .large]
+        }
+    }
 
     /// Two-track heights, in units. (Small is one track × 2 units; one
     /// track never grows.)
     var minUnits: Int {
         switch self {
-        case .usage: 1
+        case .usage, .system: 1
         case .terminal, .files: WidgetPreset.large.units
         default: 2
         }
@@ -168,8 +192,8 @@ struct WidgetItem: Codable, Identifiable, Equatable {
 
     /// Whether edit mode offers its options (a click on it, or its menu):
     /// a System widget at any size; a Usage widget when Small (bigger, it
-    /// shows everything).
-    var hasOptions: Bool { kind == .system || kind == .usage && span == 1 }
+    /// shows everything), and Slim (a single line: which one).
+    var hasOptions: Bool { kind == .system || kind == .usage && (span == 1 || units == 1) }
 
     /// Drawn as Fit right now: two tracks wide and open (a Small, or a
     /// collapsed one, is its own size whatever it's set to).
@@ -181,6 +205,7 @@ struct WidgetItem: Codable, Identifiable, Equatable {
 
     var preset: WidgetPreset? {
         if span == 1 { return .small }
+        if units == 1 { return .slim }
         if units == 2 { return .medium }
         if units == 4 { return .large }
         return nil

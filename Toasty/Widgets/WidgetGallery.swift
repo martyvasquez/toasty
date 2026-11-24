@@ -111,8 +111,8 @@ private struct WidgetGallery: View {
                 .background(WidgetShellBackground())
                 .id("\(model.kind.rawValue)-\(preset.rawValue)")
                 .transition(.opacity)
-            Text("\(preset.span) × \(preset.units) · \(Int(WidgetGrid.width(span: preset.span))) × \(Int(WidgetGrid.height(preset.units)))")
-                .font(.toasty(Theme.Size.meta)).foregroundStyle(.secondary).monospacedDigit()
+            Text(preset.purpose)
+                .font(.toasty(Theme.Size.meta)).foregroundStyle(.secondary)
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity)
@@ -177,7 +177,7 @@ private struct KindRow: View {
     }
 }
 
-/// Small · Medium · Large, as the tab bar's capsules in a quiet track.
+/// Small · Slim · Medium · Large, as the tab bar's capsules in a quiet track.
 private struct SizePicker: View {
     let presets: [WidgetPreset]
     @Binding var selection: WidgetPreset

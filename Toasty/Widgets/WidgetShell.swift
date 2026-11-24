@@ -267,6 +267,7 @@ struct WidgetUnitsLabel: View {
     private var text: String {
         let size: String
         if span == 1 { size = "Small" }
+        else if units == 1 { size = "Slim" }
         else if units == 2 { size = "Medium" }
         else if units == 4 { size = "Large" }
         else { size = "\(units) \(units == 1 ? "unit" : "units") · \(Int(WidgetGrid.height(units)))" }

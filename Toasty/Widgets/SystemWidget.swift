@@ -206,10 +206,14 @@ struct SystemWidget: View {
     var body: some View {
         VStack(spacing: 0) {
             WidgetHeader(kind: .system)
-            switch size.kind {
-            case .small: small
-            case .medium: meters
-            case .large: large
+            if size.slim {
+                slim
+            } else {
+                switch size.kind {
+                case .small: small
+                case .medium: meters
+                case .large: large
+                }
             }
         }
         .onAppear { monitor.watch(metrics) }
@@ -288,6 +292,18 @@ struct SystemWidget: View {
         }
     }
 
+    /// Its meters side by side, each a name, a percent and a bar.
+    private var slim: some View {
+        SlimMeters(items: options.shown.map { m in
+            let f: Double? = switch m {
+            case .cpu: monitor.cpu
+            case .memory: monitor.memoryFraction
+            case .disk: disk?.fraction
+            }
+            return .init(id: m.rawValue, title: m.title, fraction: f)
+        })
+    }
+
     private var meters: some View {
         VStack(spacing: 0) {
             ForEach(rows) { MeterRow(meter: $0) }
@@ -324,7 +340,7 @@ struct SystemOptionsView: View {
     private var small: Bool { item.span == 1 }
 
     var body: some View {
-        WidgetOptionsForm(title: small ? "Small System Widget" : "System Widget") {
+        WidgetOptionsForm(title: small ? "Small System Widget" : item.units == 1 ? "Slim System Widget" : "System Widget") {
             if small {
                 Grid(alignment: .leading, horizontalSpacing: Theme.Space.m, verticalSpacing: Theme.Space.s) {
                     GridRow {
@@ -347,21 +363,11 @@ struct SystemOptionsView: View {
             } else {
                 ForEach(SystemMetric.allCases) { m in
                     let on = !options.hidden.contains(m)
-                    HStack(spacing: Theme.Space.m) {
-                        Text(m.title).font(.toasty(Theme.Size.control))
-                        Spacer(minLength: Theme.Space.l)
-                        Toggle(m.title, isOn: Binding(get: { on }, set: { want in
-                            var o = options
-                            if want { o.hidden.remove(m) } else if o.shown.count > 1 { o.hidden.insert(m) }
-                            set(o)
-                        }))
-                        .toggleStyle(.switch)
-                        .controlSize(.small)
-                        .labelsHidden()
-                        // One stays on: an empty widget shows nothing.
-                        .disabled(on && options.shown.count == 1)
+                    WidgetOptionSwitch(title: m.title, on: on, last: options.shown == [m]) { want in
+                        var o = options
+                        if want { o.hidden.remove(m) } else { o.hidden.insert(m) }
+                        set(o)
                     }
-                    .frame(minHeight: 24)
                     if m == .disk, on { diskPicker }
                 }
             }

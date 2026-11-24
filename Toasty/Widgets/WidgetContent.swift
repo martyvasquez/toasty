@@ -54,6 +54,10 @@ struct WidgetSize {
         kind = span == 1 ? .small : units >= 4 ? .large : .medium
     }
 
+    /// Slim: two tracks, one unit; a single line under the header (drawn
+    /// by the widgets that offer it; others take it as Medium).
+    var slim: Bool { kind == .medium && units == 1 }
+
     /// Rows that fit under the header (and whatever else is `reserved`).
     func rows(reserving extra: CGFloat = 0) -> Int {
         let room = WidgetGrid.height(units) - WidgetGrid.headerHeight - Theme.Space.s - extra
@@ -543,9 +547,7 @@ private struct UsageContent: View {
         var out: [Meter] = []
         if let fraction { out.append(Meter(id: "context", title: "Context", fraction: fraction, value: tokens)) }
         for l in conversation.rateLimits where l.utilization != nil || l.status == "rejected" {
-            let resets = l.resetsAt.map { r in
-                "resets " + r.formatted(r.timeIntervalSinceNow < 86_400 ? .dateTime.hour().minute() : .dateTime.weekday(.abbreviated))
-            }
+            let resets = l.resetsAt.map(Self.resets)
             out.append(Meter(id: l.id, title: l.title, fraction: l.utilization ?? 1,
                              value: resets ?? "", warns: l.status == "rejected"))
         }
@@ -554,27 +556,53 @@ private struct UsageContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            WidgetHeader(kind: .usage)
-            switch size.kind {
-            case .small: small
-            case .medium: meterList(room: max(1, Int((WidgetGrid.height(size.units) - WidgetGrid.headerHeight) / MeterRow.height)))
-            case .large: large
+            if size.slim {
+                slim
+            } else {
+                WidgetHeader(kind: .usage)
+                switch size.kind {
+                case .small: small
+                case .medium: meterList(room: max(1, Int((WidgetGrid.height(size.units) - WidgetGrid.headerHeight) / MeterRow.height)))
+                case .large: large
+                }
             }
         }
         .onAppear { conversation.refreshContextUsage() }
     }
 
-    /// One value, as its options say: how full the context window is, or
-    /// a plan limit (as a ring or a number).
-    private var small: some View {
-        let limit = options.glance.limitType.flatMap { t in conversation.rateLimits.first { $0.type == t } }
-        let value: Double? = options.glance == .context ? fraction
+    /// The one value a Small shows (or one of a Slim's), as its options
+    /// say: how full the context window is, or a plan limit.
+    private func glance(_ which: UsageGlance) -> (value: Double?, caption: String, detail: String, warns: Bool) {
+        let limit = which.limitType.flatMap { t in conversation.rateLimits.first { $0.type == t } }
+        let value: Double? = which == .context ? fraction
             : limit.flatMap { $0.utilization ?? ($0.status == "rejected" ? 1 : nil) }
-        let caption = limit?.title ?? (options.glance == .session ? "Current Session" : options.glance == .week ? "This Week" : "Context")
-        let footer: String = switch options.glance {
+        let caption = limit?.title ?? (which == .session ? "Current Session" : which == .week ? "This Week" : "Context")
+        let detail: String = switch which {
         case .context: tokens
         case .session, .week: limit?.resetsAt.map { Self.resets($0) } ?? "Not measured yet"
         }
+        return (value, caption, detail, limit?.status == "rejected")
+    }
+
+    /// Its meters under the header: one across the width with its detail,
+    /// or two or three side by side, short.
+    private var slim: some View {
+        let shown = options.slimShown
+        return VStack(spacing: 0) {
+            WidgetHeader(kind: .usage)
+            SlimMeters(items: shown.map { which in
+                let g = glance(which)
+                return shown.count == 1
+                    ? .init(id: which.rawValue, title: g.caption, detail: g.detail, fraction: g.value, warns: g.warns)
+                    : .init(id: which.rawValue, title: which.title, fraction: g.value, warns: g.warns)
+            })
+        }
+    }
+
+    /// One value, as a ring or a number.
+    private var small: some View {
+        let g = glance(options.glance)
+        let (value, caption, footer) = (g.value, g.caption, g.detail)
         return WidgetGlance {
             if options.style == .ring {
                 ContextRing(fraction: value, name: caption)
@@ -659,17 +687,64 @@ struct MeterRow: View {
                 Text("\(Int((meter.fraction * 100).rounded()))%")
                     .font(.toasty(Theme.Size.meta, design: .monospaced)).foregroundStyle(.secondary)
             }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Theme.Fill.selected)
-                    Capsule().fill(meter.warns || meter.fraction >= 0.9 ? StatusColor.needsInput : Color.accentColor)
-                        .frame(width: max(meter.fraction > 0 ? 3 : 0, geo.size.width * min(1, max(0, meter.fraction))))
-                }
-            }
-            .frame(height: 3)
+            MeterBar(fraction: meter.fraction, warns: meter.warns)
         }
         .padding(.horizontal, Theme.Widget.edge)
         .frame(height: Self.height)
+    }
+}
+
+/// A meter's thin bar: the accent, orange past 90% (or when `warns`).
+struct MeterBar: View {
+    let fraction: Double
+    var warns = false
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Theme.Fill.selected)
+                Capsule().fill(warns || fraction >= 0.9 ? StatusColor.needsInput : Color.accentColor)
+                    .frame(width: max(fraction > 0 ? 3 : 0, geo.size.width * min(1, max(0, fraction))))
+            }
+        }
+        .frame(height: 3)
+    }
+}
+
+/// A Slim widget's body under its header: its meters side by side (one
+/// fills the width), each a name, a quiet detail, a percent and a bar,
+/// on the 14pt edges.
+struct SlimMeters: View {
+    struct Item: Identifiable {
+        let id: String
+        let title: String
+        var detail = ""
+        let fraction: Double?
+        var warns = false
+    }
+    let items: [Item]
+
+    var body: some View {
+        HStack(spacing: Theme.Space.l) {
+            ForEach(items) { m in
+                VStack(spacing: 5) {
+                    HStack(alignment: .firstTextBaseline, spacing: Theme.Space.s) {
+                        Text(m.title).font(.toasty(Theme.Size.meta)).foregroundStyle(.secondary).lineLimit(1)
+                        Spacer(minLength: 0)
+                        if !m.detail.isEmpty {
+                            Text(m.detail).font(.toasty(Theme.Size.meta)).foregroundStyle(.tertiary).lineLimit(1)
+                        }
+                        Text(m.fraction.map { "\(Int(($0 * 100).rounded()))%" } ?? "—")
+                            .font(.toasty(Theme.Size.meta, design: .monospaced)).foregroundStyle(.secondary)
+                    }
+                    MeterBar(fraction: m.fraction ?? 0, warns: m.warns)
+                }
+                .accessibilityElement(children: .combine)
+            }
+        }
+        .padding(.horizontal, Theme.Widget.edge)
+        .padding(.bottom, Theme.Widget.edge)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
     }
 }
 
