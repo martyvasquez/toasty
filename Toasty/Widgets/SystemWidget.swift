@@ -157,18 +157,11 @@ enum SystemMetric: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-/// How a Small shows its metric.
-enum SystemGlanceStyle: String, Codable, CaseIterable, Identifiable {
-    case number, ring
-    var id: String { rawValue }
-    var title: String { self == .number ? "Number" : "Ring" }
-}
-
 /// A System widget's options (`SystemOptionsView`), saved with it.
 struct SystemOptions: Codable, Equatable {
     /// What a Small shows.
     var glance: SystemMetric = .cpu
-    var glanceStyle: SystemGlanceStyle = .ring
+    var glanceStyle: WidgetGlanceStyle = .ring
     /// What a Medium or Large leaves out (never all three).
     var hidden: Set<SystemMetric> = []
     /// The disk shown: a volume's mount path, or nil for the workspace's.
@@ -179,7 +172,7 @@ struct SystemOptions: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         glance = (try? c.decodeIfPresent(SystemMetric.self, forKey: .glance)) ?? .cpu
-        glanceStyle = (try? c.decodeIfPresent(SystemGlanceStyle.self, forKey: .glanceStyle)) ?? .ring
+        glanceStyle = (try? c.decodeIfPresent(WidgetGlanceStyle.self, forKey: .glanceStyle)) ?? .ring
         hidden = (try? c.decodeIfPresent(Set<SystemMetric>.self, forKey: .hidden)) ?? []
         volume = try? c.decodeIfPresent(String.self, forKey: .volume)
     }
@@ -331,33 +324,22 @@ struct SystemOptionsView: View {
     private var small: Bool { item.span == 1 }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.s) {
-            Text(small ? "Small System Widget" : "System Widget")
-                .font(.toasty(Theme.Size.control, .semibold))
-                .padding(.bottom, Theme.Space.xs)
+        WidgetOptionsForm(title: small ? "Small System Widget" : "System Widget") {
             if small {
                 Grid(alignment: .leading, horizontalSpacing: Theme.Space.m, verticalSpacing: Theme.Space.s) {
                     GridRow {
-                        label("Show")
-                        Picker("Show", selection: binding(\.glance)) {
-                            ForEach(SystemMetric.allCases) { Text($0.title).tag($0) }
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .fixedSize()
+                        WidgetOptionLabel("Show")
+                        WidgetOptionChoice(title: "Show", values: SystemMetric.allCases, name: \.title,
+                                           selection: binding(\.glance))
                     }
                     GridRow {
-                        label("Style")
-                        Picker("Style", selection: binding(\.glanceStyle)) {
-                            ForEach(SystemGlanceStyle.allCases) { Text($0.title).tag($0) }
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .fixedSize()
+                        WidgetOptionLabel("Style")
+                        WidgetOptionChoice(title: "Style", values: WidgetGlanceStyle.allCases, name: \.title,
+                                           selection: binding(\.glanceStyle))
                     }
                     if options.glance == .disk {
                         GridRow {
-                            label("Disk")
+                            WidgetOptionLabel("Disk")
                             diskPicker
                         }
                     }
@@ -384,16 +366,7 @@ struct SystemOptionsView: View {
                 }
             }
         }
-        .padding(Theme.Space.l)
-        .frame(minWidth: 260, alignment: .leading)
         .onAppear { volumes = Self.mountedVolumes() }
-    }
-
-    private func label(_ text: String) -> some View {
-        Text(text)
-            .font(.toasty(Theme.Size.control))
-            .foregroundStyle(.secondary)
-            .gridColumnAlignment(.trailing)
     }
 
     private var diskPicker: some View {

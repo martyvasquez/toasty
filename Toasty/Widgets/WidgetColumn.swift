@@ -526,7 +526,7 @@ private struct WidgetSlotView: View {
                         .gesture(moveGesture)
                         // A click (not a drag) opens its options.
                         .simultaneousGesture(TapGesture().onEnded {
-                            if item.kind.hasOptions { showingOptions = true }
+                            if item.hasOptions { showingOptions = true }
                         })
                 }
             }
@@ -567,17 +567,22 @@ private struct WidgetSlotView: View {
 
     /// Its options, in the popover beside it.
     @ViewBuilder private var options: some View {
-        if item.kind == .system {
-            SystemOptionsView(item: item) { o in
-                // From the space as it is now: the popover may hold an older copy.
-                guard let space = store.spaces.first(where: { $0.id == spaceID }) else { return }
-                store.setWidgets(space.widgets.map { var w = $0; if w.id == item.id { w.system = o }; return w }, in: spaceID)
-            }
+        switch item.kind {
+        case .system: SystemOptionsView(item: item) { o in update { $0.system = o } }
+        case .usage: UsageOptionsView(item: item) { o in update { $0.usage = o } }
+        default: EmptyView()
         }
     }
 
+    /// Changes this widget, in the space as it is now (the options popover
+    /// may hold an older copy).
+    private func update(_ change: (inout WidgetItem) -> Void) {
+        guard let space = store.spaces.first(where: { $0.id == spaceID }) else { return }
+        store.setWidgets(space.widgets.map { var w = $0; if w.id == item.id { change(&w) }; return w }, in: spaceID)
+    }
+
     @ViewBuilder private var widgetMenu: some View {
-        if item.kind.hasOptions {
+        if item.hasOptions {
             Button("\(item.kind.title) Options…") { showingOptions = true }
             Divider()
         }

@@ -113,9 +113,6 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// Whether edit mode offers its options (a click on it, or its menu).
-    var hasOptions: Bool { self == .system }
-
     /// Whether it can fit its height to what it shows (`WidgetItem.fitsContent`).
     var canFit: Bool {
         switch self {
@@ -166,6 +163,13 @@ struct WidgetItem: Codable, Identifiable, Equatable {
     var fitsContent = false
     /// A System widget's options (other kinds have none yet).
     var system = SystemOptions()
+    /// A Small Usage widget's options.
+    var usage = UsageOptions()
+
+    /// Whether edit mode offers its options (a click on it, or its menu):
+    /// a System widget at any size; a Usage widget when Small (bigger, it
+    /// shows everything).
+    var hasOptions: Bool { kind == .system || kind == .usage && span == 1 }
 
     /// Drawn as Fit right now: two tracks wide and open (a Small, or a
     /// collapsed one, is its own size whatever it's set to).
@@ -504,7 +508,7 @@ struct WidgetLayout {
 // MARK: - Reading saved spaces, tolerantly
 
 extension WidgetItem {
-    private enum Keys: String, CodingKey { case id, kind, span, track, units, row, collapsed, fitsContent, system }
+    private enum Keys: String, CodingKey { case id, kind, span, track, units, row, collapsed, fitsContent, system, usage }
 
     /// Fields added later may be missing: they take their defaults (a Git
     /// list widget saved before Fit to Content starts with it on, to try).
@@ -519,6 +523,7 @@ extension WidgetItem {
         collapsed = try c.decodeIfPresent(Bool.self, forKey: .collapsed) ?? false
         fitsContent = try c.decodeIfPresent(Bool.self, forKey: .fitsContent) ?? kind.canFit
         system = (try? c.decodeIfPresent(SystemOptions.self, forKey: .system)) ?? SystemOptions()
+        usage = (try? c.decodeIfPresent(UsageOptions.self, forKey: .usage)) ?? UsageOptions()
     }
 }
 

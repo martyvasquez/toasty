@@ -30,7 +30,7 @@ struct WidgetContent: View {
             } else {
                 switch item.kind {
                 case .git: GitWidget(workspace: workspace, changes: workspace.changes, size: size)
-                case .usage: UsageWidget(workspace: workspace, size: size)
+                case .usage: UsageWidget(workspace: workspace, size: size, options: item.usage)
                 case .teeUp: TeeUpWidget(workspace: workspace, size: size)
                 case .activity: ActivityWidget(workspace: workspace, size: size)
                 case .system: SystemWidget(workspace: workspace, item: item, size: size)
@@ -509,10 +509,11 @@ private struct GitFileRow: View {
 private struct UsageWidget: View {
     @ObservedObject var workspace: Workspace
     let size: WidgetSize
+    let options: UsageOptions
 
     var body: some View {
         if let c = workspace.selected {
-            UsageContent(conversation: c, size: size).id(c.id)
+            UsageContent(conversation: c, size: size, options: options).id(c.id)
         } else {
             VStack(spacing: 0) {
                 WidgetHeader(kind: .usage)
@@ -525,6 +526,7 @@ private struct UsageWidget: View {
 private struct UsageContent: View {
     @ObservedObject var conversation: ClaudeConversation
     let size: WidgetSize
+    let options: UsageOptions
 
     private var fraction: Double? {
         guard let c = conversation.context else { return nil }
@@ -562,16 +564,33 @@ private struct UsageContent: View {
         .onAppear { conversation.refreshContextUsage() }
     }
 
-    /// The ring: how full the context window is.
+    /// One value, as its options say: how full the context window is, or
+    /// a plan limit (as a ring or a number).
     private var small: some View {
-        WidgetGlance {
-            ContextRing(fraction: fraction)
-                .padding(.bottom, Theme.Space.xs)
-        } caption: {
-            "Context"
-        } footer: {
-            Text(tokens).monospacedDigit()
+        let limit = options.glance.limitType.flatMap { t in conversation.rateLimits.first { $0.type == t } }
+        let value: Double? = options.glance == .context ? fraction
+            : limit.flatMap { $0.utilization ?? ($0.status == "rejected" ? 1 : nil) }
+        let caption = limit?.title ?? (options.glance == .session ? "Current Session" : options.glance == .week ? "This Week" : "Context")
+        let footer: String = switch options.glance {
+        case .context: tokens
+        case .session, .week: limit?.resetsAt.map { Self.resets($0) } ?? "Not measured yet"
         }
+        return WidgetGlance {
+            if options.style == .ring {
+                ContextRing(fraction: value, name: caption)
+                    .padding(.bottom, Theme.Space.xs)
+            } else {
+                GlanceValue(text: value.map { "\(Int(($0 * 100).rounded()))%" } ?? "—")
+            }
+        } caption: {
+            caption
+        } footer: {
+            Text(footer).monospacedDigit()
+        }
+    }
+
+    private static func resets(_ r: Date) -> String {
+        "resets " + r.formatted(r.timeIntervalSinceNow < 86_400 ? .dateTime.hour().minute() : .dateTime.weekday(.abbreviated))
     }
 
     @ViewBuilder private func meterList(room: Int) -> some View {

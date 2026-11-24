@@ -105,7 +105,7 @@ struct WidgetHeader<Status: View>: View {
                 .font(.toasty(Theme.Size.control, .medium))
                 .lineLimit(1)
             Spacer(minLength: Theme.Space.xs)
-            if widget?.editing == true, kind.hasOptions {
+            if let widget, widget.editing, widget.item.hasOptions {
                 // Editing: a click on it opens its options.
                 Image(systemName: "slider.horizontal.3")
                     .font(.toasty(Theme.Size.meta, .medium))

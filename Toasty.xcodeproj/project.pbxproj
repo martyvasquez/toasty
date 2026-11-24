@@ -23,6 +23,7 @@
 		1A8E421209B30F795BE5BBD5 /* PreviewTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FDEDA73E441426DFF2253CD /* PreviewTools.swift */; };
 		1ACC8FE2272EB5760687D654 /* WorkspaceSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6927A423E7E99E5F0D72EB08 /* WorkspaceSidebarView.swift */; };
 		1E3A30CC1AA0A153D5DA32E9 /* WidgetGallery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1C1E158E4C9D354745977B4 /* WidgetGallery.swift */; };
+		1E426404A547C48E083648CD /* WidgetOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA85A52FDD0B4EA6FE831857 /* WidgetOptions.swift */; };
 		20269D1700BC605AB731984E /* ScreenshotDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40C6D34EE079744D4A4A2A5 /* ScreenshotDebug.swift */; };
 		24BE2C53587CFB6E4DB48A76 /* WidgetColumn.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5AB1945F8001D73F05CC695 /* WidgetColumn.swift */; };
 		2D64BC5DEBA0FAD3E38A9F5A /* ClaudeSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DF8B11F0CF51797223AF23B /* ClaudeSetup.swift */; };
@@ -270,6 +271,7 @@
 		E1EB272BCAA69ABEF70DA5DB /* GeneralSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSettings.swift; sourceTree = "<group>"; };
 		E45115F43715FA90DD5CB7C1 /* TeeUpQuestion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeeUpQuestion.swift; sourceTree = "<group>"; };
 		E6DF957BA5BE2D33ABAAE422 /* Toasty.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Toasty.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EA85A52FDD0B4EA6FE831857 /* WidgetOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetOptions.swift; sourceTree = "<group>"; };
 		ECA042843FEF43774DB0414C /* TitlebarTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitlebarTabs.swift; sourceTree = "<group>"; };
 		F1BDBE0DBA757E69F189BD63 /* InspectorKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorKit.swift; sourceTree = "<group>"; };
 		F27278907AA55A2FF70B1DB4 /* TerminalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalRenderer.swift; sourceTree = "<group>"; };
@@ -612,6 +614,7 @@
 				BC01950158358E23F51235DD /* WidgetContent.swift */,
 				C1C1E158E4C9D354745977B4 /* WidgetGallery.swift */,
 				20C3C380A26EF6A301D92FAC /* WidgetModel.swift */,
+				EA85A52FDD0B4EA6FE831857 /* WidgetOptions.swift */,
 				9B4DEC8351A4F3C7DBBDA854 /* WidgetShell.swift */,
 			);
 			path = Widgets;
@@ -830,6 +833,7 @@
 				7AC855F7E8015BF6AE142D6D /* WidgetContent.swift in Sources */,
 				1E3A30CC1AA0A153D5DA32E9 /* WidgetGallery.swift in Sources */,
 				021B898B7DE1F3E302C9080B /* WidgetModel.swift in Sources */,
+				1E426404A547C48E083648CD /* WidgetOptions.swift in Sources */,
 				32FB4409184562527FA5C83A /* WidgetShell.swift in Sources */,
 				F05E7AF8BA36E71A38111FF3 /* Workspace.swift in Sources */,
 				50719BBE528DB4B26987DCF7 /* WorkspaceDebug.swift in Sources */,
