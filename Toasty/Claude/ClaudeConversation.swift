@@ -92,7 +92,12 @@ final class ClaudeItem: ObservableObject, Identifiable {
 final class ClaudeTurnActivity: ObservableObject {
     enum Step: Equatable { case working, thinking, writing }
 
-    @Published private(set) var step: Step = .working
+    @Published private(set) var step: Step = .working {
+        didSet { if step != oldValue { stepStarted = Date() } }
+    }
+    /// When `step` last changed (the Activity widget's "Thinking 0:42").
+    /// Read on a timer, like `lastHeard`.
+    private(set) var stepStarted = Date()
     /// Output tokens this turn: the API's counts for finished messages,
     /// plus an estimate (characters / 4) for the one streaming now.
     @Published private(set) var outputTokens = 0
@@ -101,11 +106,36 @@ final class ClaudeTurnActivity: ObservableObject {
     /// tool's heartbeat, a request). Read on a timer by the Activity tab,
     /// so it isn't published: it changes many times a second.
     private(set) var lastHeard: Date?
+    /// The seconds (since 1970) in which Claude Code was heard, the last
+    /// few minutes, ascending: the Activity widget's heartbeat. At most
+    /// one entry a second, so it costs next to nothing.
+    private(set) var heardSeconds: [Int] = []
+    static let heartbeatSeconds = 120
 
-    func heard() { lastHeard = Date() }
+    func heard() {
+        let now = Date()
+        lastHeard = now
+        let s = Int(now.timeIntervalSince1970)
+        guard heardSeconds.last != s else { return }
+        heardSeconds.append(s)
+        if heardSeconds.count > Self.heartbeatSeconds * 2 { heardSeconds.removeFirst(heardSeconds.count - Self.heartbeatSeconds) }
+    }
 
     #if DEBUG
     func debugSetLastHeard(_ date: Date?) { lastHeard = date }
+    /// A made-up heartbeat: heard in most of the last two minutes, with
+    /// gaps, and `quiet` seconds of nothing at the end.
+    func debugFillHeartbeat(quiet: Int = 0) {
+        let now = Int(Date().timeIntervalSince1970)
+        // Mostly heard, a scatter of missed seconds, and a few longer
+        // pauses (a slow tool step).
+        let last = now - quiet
+        heardSeconds = (min(last, now - Self.heartbeatSeconds)...last).filter { s in
+            let h = (s &* 2_654_435_761) & 0xFFFF
+            return h % 100 > 18 && (s / 9) % 5 != 2
+        }
+        lastHeard = heardSeconds.last.map { Date(timeIntervalSince1970: TimeInterval($0)) }
+    }
     #endif
 
     private var finishedTokens = 0
@@ -171,6 +201,8 @@ struct ClaudePermissionRequest: Identifiable {
     let blockedPath: String?
     let title: String?
     let description: String?
+    /// When it came in (how long Claude has been waiting on you).
+    var received = Date()
 }
 
 extension ClaudePermissionRequest {

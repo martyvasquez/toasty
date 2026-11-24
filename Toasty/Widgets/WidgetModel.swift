@@ -142,7 +142,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .terminal, .files: [.large]
         // Slim only where a single line says something.
-        case .usage, .system: WidgetPreset.allCases
+        case .usage, .system, .activity: WidgetPreset.allCases
         default: [.small, .medium, .large]
         }
     }
@@ -151,7 +151,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
     /// track never grows.)
     var minUnits: Int {
         switch self {
-        case .usage, .system: 1
+        case .usage, .system, .activity: 1
         case .terminal, .files: WidgetPreset.large.units
         default: 2
         }

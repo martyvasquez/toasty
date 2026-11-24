@@ -211,11 +211,15 @@ enum ClaudeDebug {
 
         // What the Activity tab reads: {"cmd":"liveness"}. {"fake":"working"}
         // makes up a running turn (also "stopped", "idle"); {"quiet":200}
-        // pretends Claude Code last spoke that many seconds ago.
+        // pretends Claude Code last spoke that many seconds ago;
+        // {"beats":true} makes up a heartbeat (ending in "quiet" seconds of
+        // nothing, if given).
         DebugControl.register("liveness") { cmd in
             let c = try conv()
             if let fake = cmd["fake"] as? String { c.debugFakeActivity(fake) }
-            if let quiet = cmd["quiet"] as? Double ?? (cmd["quiet"] as? Int).map(Double.init) {
+            let quiet = cmd["quiet"] as? Double ?? (cmd["quiet"] as? Int).map(Double.init)
+            if cmd["beats"] as? Bool == true { c.activity.debugFillHeartbeat(quiet: Int(quiet ?? 0)) }
+            if let quiet {
                 c.activity.debugSetLastHeard(Date().addingTimeInterval(-quiet))
             }
             return [

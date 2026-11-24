@@ -88,6 +88,7 @@
 		A83035FF59935DFD66E04BAC /* PreviewDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19CED90B88C38C1A6B695B76 /* PreviewDebug.swift */; };
 		AC946F3D12C8AAF3BB8D8BF1 /* TeeUp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CE9F5C6D66F52699F8558DC /* TeeUp.swift */; };
 		AC9DFC4D667B3EF0DACDCE40 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FDD4FA67F476B51448A8EB66 /* Assets.xcassets */; };
+		B1E5F803367A428C86749765 /* ActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 355EC5F6FE8515ECE02B9ACA /* ActivityWidget.swift */; };
 		B614E0D5DFBFC6A1EC6A58EB /* ClaudeConversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A3D72521ECFC5F5DC717828 /* ClaudeConversation.swift */; };
 		B7EC6B42A1BE5F57121E7511 /* ConversationColumn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A1AC4F2009B67034788F88E /* ConversationColumn.swift */; };
 		B7F0FB9F1258B0B03E206081 /* Acknowledgements.txt in Resources */ = {isa = PBXBuildFile; fileRef = 46AACC525014FD188E135CFC /* Acknowledgements.txt */; };
@@ -182,6 +183,7 @@
 		3353E01CDA88E07D3A7012D3 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		33D68D9E3E776F9E606A7682 /* WorkspaceDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceDebug.swift; sourceTree = "<group>"; };
 		3404DA2126C706148242107C /* PopoverMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverMenu.swift; sourceTree = "<group>"; };
+		355EC5F6FE8515ECE02B9ACA /* ActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityWidget.swift; sourceTree = "<group>"; };
 		38D1D665E23048F8AD6FBA9E /* RepoPaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoPaths.swift; sourceTree = "<group>"; };
 		38E532463352FE1FCDD0BAFF /* SpeechModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechModels.swift; sourceTree = "<group>"; };
 		3A3D72521ECFC5F5DC717828 /* ClaudeConversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeConversation.swift; sourceTree = "<group>"; };
@@ -605,6 +607,7 @@
 		F64B8236F6C5121285C26E13 /* Widgets */ = {
 			isa = PBXGroup;
 			children = (
+				355EC5F6FE8515ECE02B9ACA /* ActivityWidget.swift */,
 				220F4EDF4F84E42CBCA14849 /* FilesWidget.swift */,
 				A9AB29AB73090BF1F610EB2D /* SpaceSwitcher.swift */,
 				F36818B74F6CB0D2C54C01F0 /* SystemWidget.swift */,
@@ -742,6 +745,7 @@
 			files = (
 				120D5D296EE4BA6C4E33E628 /* Activity.swift in Sources */,
 				D3118FED172FCEB87041C7C0 /* ActivityTab.swift in Sources */,
+				B1E5F803367A428C86749765 /* ActivityWidget.swift in Sources */,
 				C83DB61BBC4E1B55D26FE8AB /* AppDelegate.swift in Sources */,
 				43803B9A1F705D8B04E8B7D9 /* BarIconButton.swift in Sources */,
 				C377CAE6CF74EDB9ACFFE687 /* CaptureClip.swift in Sources */,

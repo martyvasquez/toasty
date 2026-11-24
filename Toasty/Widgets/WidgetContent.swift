@@ -138,6 +138,8 @@ struct WidgetRow<Lead: View, Trailing: View>: View {
     var quiet = false
     /// Middle for file names; tail for sentences (a commit's subject).
     var truncation: Text.TruncationMode = .middle
+    /// Under another row (a subagent's step under the agent).
+    var indent: CGFloat = 0
     var action: (() -> Void)?
     @ViewBuilder var lead: () -> Lead
     @ViewBuilder var trailing: () -> Trailing
@@ -164,6 +166,7 @@ struct WidgetRow<Lead: View, Trailing: View>: View {
             Spacer(minLength: Theme.Space.xs)
             trailing()
         }
+        .padding(.leading, indent)
         .padding(.horizontal, Theme.Space.s)
         .frame(height: Theme.Widget.rowHeight)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
@@ -200,7 +203,7 @@ struct RowValue: View {
 }
 
 /// "+2 more", under a list cut short.
-private struct MoreLine: View {
+struct MoreLine: View {
     let count: Int
 
     var body: some View {
@@ -255,7 +258,7 @@ extension SummaryLine where Trailing == EmptyView {
 }
 
 /// A list cut to the rows there's room for, and how many more there are.
-private func cut<T>(_ list: [T], to room: Int) -> (shown: ArraySlice<T>, more: Int) {
+func cut<T>(_ list: [T], to room: Int) -> (shown: ArraySlice<T>, more: Int) {
     guard list.count > room else { return (list[...], 0) }
     // Room for the "more" line too.
     let shown = max(1, room - 1)
@@ -867,159 +870,6 @@ private struct TeeUpWidget: View {
     static func line(_ t: TeeUp) -> String {
         let first = t.text.split(separator: "\n", omittingEmptySubsequences: true).first.map(String.init) ?? ""
         return first.isEmpty ? (t.images.isEmpty && t.files.isEmpty ? "Empty prompt" : "Attachment") : first
-    }
-}
-
-// MARK: - Activity
-
-private struct ActivityWidget: View {
-    @ObservedObject var workspace: Workspace
-    let size: WidgetSize
-
-    var body: some View {
-        if let c = workspace.selected {
-            ActivityContent(conversation: c, size: size, workspace: workspace.id).id(c.id)
-        } else {
-            VStack(spacing: 0) {
-                WidgetHeader(kind: .activity)
-                EmptyLine(text: "No conversation")
-            }
-            .reportsFit(size.fitMessage, workspace: workspace.id)
-        }
-    }
-}
-
-private struct ActivityContent: View {
-    @ObservedObject var conversation: ClaudeConversation
-    let size: WidgetSize
-    /// Its workspace, for Fit's report.
-    let workspace: UUID
-
-    var body: some View {
-        content
-            .reportsFit(size.fitHeight(count: conversation.runningTools.count + conversation.backgroundTasks.count,
-                                       above: size.kind == .large ? SummaryLine<EmptyView>.height : 0),
-                        workspace: workspace)
-    }
-
-    private var content: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { ctx in
-            VStack(spacing: 0) {
-                WidgetHeader(kind: .activity) {
-                    if size.kind != .small, let clock = clock(ctx.date) { RowValue(text: clock) }
-                }
-                switch size.kind {
-                case .small:
-                    WidgetGlance {
-                        HStack(spacing: Theme.Space.s) {
-                            StatusDot(color: dot)
-                            GlanceValue(text: state)
-                        }
-                    } caption: {
-                        clock(ctx.date) ?? caption
-                    } footer: {
-                        Text(step ?? lastTurn(ctx.date))
-                    }
-                case .medium:
-                    list(room: size.rows(), now: ctx.date)
-                case .large:
-                    SummaryLine(text: "\(state) · \(step ?? lastTurn(ctx.date))")
-                    list(room: size.rows(reserving: SummaryLine<EmptyView>.height), now: ctx.date)
-                }
-            }
-        }
-    }
-
-    /// What's running now, then in the background; each with its time.
-    @ViewBuilder private func list(room: Int, now: Date) -> some View {
-        let rows = self.rows(now: now)
-        if rows.isEmpty {
-            EmptyLine(text: conversation.phase == .working ? "Thinking…" : "Nothing running")
-        } else {
-            let (shown, more) = cut(rows, to: room)
-            VStack(spacing: 0) {
-                ForEach(shown) { r in
-                    WidgetRow(label: r.label, mono: r.mono, quiet: r.background) {
-                        RowGlyph(symbol: r.symbol)
-                    } trailing: {
-                        RowValue(text: r.time)
-                    }
-                }
-                MoreLine(count: more)
-                Spacer(minLength: 0)
-            }
-        }
-    }
-
-    private struct Row: Identifiable {
-        let id: String
-        let symbol: String
-        let label: String
-        let time: String
-        var mono = false
-        var background = false
-    }
-
-    private func rows(now: Date) -> [Row] {
-        var out: [Row] = conversation.runningTools.map { item in
-            let summary = ClaudeToolInfo.summary(item.toolName, item.input, cwd: conversation.cwd)
-            let seconds = item.started.map { max(0, Int(now.timeIntervalSince($0))) } ?? 0
-            return Row(id: "\(item.id)", symbol: ClaudeToolInfo.icon(item.toolName),
-                       label: item.toolName == "Bash" && !summary.isEmpty ? summary
-                           : ClaudeToolInfo.activeVerb(item.toolName) + (summary.isEmpty ? "" : " " + summary),
-                       time: ClaudeToolInfo.duration(seconds), mono: item.toolName == "Bash")
-        }
-        out += conversation.backgroundTasks.map { task in
-            Row(id: task.id, symbol: "clock.arrow.circlepath",
-                label: task.description.isEmpty ? task.type : task.description,
-                time: ClaudeToolInfo.duration(max(0, Int(now.timeIntervalSince(task.started)))), background: true)
-        }
-        return out
-    }
-
-    private var state: String {
-        if !conversation.requests.isEmpty { return "Waiting" }
-        switch conversation.phase {
-        case .starting: return "Starting"
-        case .working: return "Working"
-        case .idle: return conversation.stopped != nil ? "Stopped" : "Idle"
-        }
-    }
-
-    private var dot: Color {
-        if !conversation.requests.isEmpty { return StatusColor.needsInput }
-        switch conversation.phase {
-        case .starting, .working: return Color.accentColor
-        case .idle: return conversation.stopped != nil ? StatusColor.stopped : Theme.Sidebar.restDot
-        }
-    }
-
-    private var caption: String {
-        if !conversation.requests.isEmpty { return "needs you" }
-        return conversation.phase == .idle ? "ready" : "on this turn"
-    }
-
-    /// The running turn's clock.
-    private func clock(_ now: Date) -> String? {
-        guard conversation.phase == .working, let started = conversation.turnStarted else { return nil }
-        return ClaudeToolInfo.duration(max(0, Int(now.timeIntervalSince(started))))
-    }
-
-    /// The step under way, in a few words.
-    private var step: String? {
-        if let request = conversation.requests.first { return request.summary }
-        guard conversation.phase == .working else { return nil }
-        if let item = conversation.runningTools.first {
-            let summary = ClaudeToolInfo.summary(item.toolName, item.input, cwd: conversation.cwd)
-            return ClaudeToolInfo.activeVerb(item.toolName) + (summary.isEmpty ? "" : " " + summary)
-        }
-        return conversation.status ?? "Thinking…"
-    }
-
-    private func lastTurn(_ now: Date) -> String {
-        guard let last = conversation.items.last(where: { $0.endsTurn && $0.finishedAt != nil }),
-              let finished = last.finishedAt else { return "No turns yet" }
-        return "Last turn " + ActivityTab.ago(now.timeIntervalSince(finished))
     }
 }
 
