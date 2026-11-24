@@ -31,10 +31,14 @@ import Testing
         }
     }
 
-    @Test func savedTerminalWidgetsAreDropped() {
-        let old = WidgetSpace(name: "Old", widgets: [item(.git, 4, row: 0), item(.terminal, 3, row: 0)])
-        #expect(old.current.widgets.map(\.kind) == [.git])
-        #expect(!WidgetKind.gallery.contains(.terminal))
+    /// A saved widget of a kind the gallery no longer offers (one taken out,
+    /// as an experiment can be) is dropped on load; the rest stay, in order.
+    @Test func widgetsTheGalleryDoesntOfferAreDropped() {
+        let saved = WidgetSpace(name: "Saved", widgets: [item(.git, 4, row: 0), item(.terminal, 4, row: 4), item(.usage, 2, row: 8)])
+        #expect(saved.offering([.git, .usage]).widgets.map(\.kind) == [.git, .usage])
+        #expect(saved.offering(WidgetKind.allCases).widgets == saved.widgets)
+        // Loading goes by what the gallery offers now.
+        #expect(saved.current.widgets.allSatisfy { WidgetKind.gallery.contains($0.kind) })
     }
 
     @Test func growingPushesDown() throws {

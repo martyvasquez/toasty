@@ -222,9 +222,12 @@ struct WidgetSpace: Codable, Identifiable, Equatable {
     var widgets: [WidgetItem] = []
 
     /// Without the widgets the gallery no longer offers.
-    var current: WidgetSpace {
+    var current: WidgetSpace { offering(WidgetKind.gallery) }
+
+    /// Without the widgets of kinds not in `kinds`.
+    func offering(_ kinds: [WidgetKind]) -> WidgetSpace {
         var s = self
-        s.widgets.removeAll { !WidgetKind.gallery.contains($0.kind) }
+        s.widgets.removeAll { !kinds.contains($0.kind) }
         return s
     }
 
