@@ -56,6 +56,22 @@ private struct FilesWidgetBody: View {
     @ObservedObject var changes: GitChanges
     @ObservedObject var browser: FilesBrowser
     @AppStorage("filesWidget.showHidden") private var showHidden = false
+    /// The list's height as laid out, for Fit.
+    @State private var listHeight: CGFloat?
+    @Environment(\.widget) private var widget
+
+    /// Fit: header, path line and the folder's rows; a message's two rows.
+    private var fit: CGFloat? {
+        guard let units = widget?.units else { return nil }
+        let size = WidgetSize(span: 2, units: units)
+        let path = SummaryLine<EmptyView>.height
+        switch browser.state {
+        case .loading, .missing: return size.fitHeight(count: 0, above: path)
+        case .loaded where browser.entries.isEmpty: return size.fitHeight(count: 0, above: path)
+        case .loaded: return size.fitHeight(content: listHeight, above: path)
+            ?? size.fitHeight(count: browser.entries.count, above: path)
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -81,6 +97,7 @@ private struct FilesWidgetBody: View {
             .frame(height: SummaryLine<EmptyView>.height)
             list
         }
+        .reportsFit(fit, workspace: workspace.id)
         .onAppear { browser.showHidden = showHidden }
         .onChange(of: showHidden) { _, on in browser.showHidden = on }
         .onChange(of: workspace.folder) { _, folder in browser.setRoot(folder) }
@@ -117,6 +134,7 @@ private struct FilesWidgetBody: View {
                     }
                 }
                 .padding(.bottom, Theme.Space.s)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
             }
             .scrollIndicators(.automatic)
             .id(browser.path)

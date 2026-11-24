@@ -109,10 +109,21 @@ private struct ColumnContent: View {
 private struct WorkspaceWidgets: View {
     @ObservedObject var store: WorkspaceStore
     @ObservedObject var workspace: Workspace
+    /// What Fit widgets report wanting (`reportsFit`).
+    @ObservedObject private var fit = WidgetFit.shared
     /// Height the widgets have, from the column's top to just above the
     /// terminal (with the top margin).
     let visible: CGFloat
     @ObservedObject private var swipe = SpaceSwipe.shared
+    /// Fit to Content, as drawn: each fitting widget's height. It grows at
+    /// once (nothing is cut off), and shrinks only once what it shows has
+    /// held still a moment and the pointer is off the column, so the rows
+    /// don't move out from under a click.
+    @State private var fitted: [UUID: CGFloat] = [:]
+    /// What the fitting widgets want now (where `fitted` is headed).
+    @State private var wanted: [UUID: CGFloat] = [:]
+    @State private var hovering = false
+    @State private var shrink: Task<Void, Never>?
     /// A switch by dots, menu or keys: the space it left, sliding out the
     /// way the switch went (+1: toward the next), and how far along.
     @State private var leaving: UUID?
@@ -146,6 +157,13 @@ private struct WorkspaceWidgets: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .clipped()
+        .onHover { hovering = $0 }
+        .onAppear { wanted = target(current); fitted = wanted }
+        .onChange(of: target(current)) { _, new in follow(new) }
+        // Done editing: straight to what they show, pointer or not.
+        .onChange(of: store.editingWidgets) { _, on in
+            if !on, fitted != wanted { withAnimation(Theme.Widget.settle) { fitted = wanted } }
+        }
         .onChange(of: current?.id) { old, new in
             guard let old, let new, old != new else { return }
             if swipe.landed { swipe.landed = false; return }
@@ -160,13 +178,50 @@ private struct WorkspaceWidgets: View {
         .id(workspace.id)
     }
 
+    /// The heights the space's fitting widgets want.
+    private func target(_ space: WidgetSpace?) -> [UUID: CGFloat] {
+        var out: [UUID: CGFloat] = [:]
+        for w in space?.widgets ?? [] where w.fits {
+            // Nothing reported yet (never drawn here): small, so it grows
+            // into what it shows rather than shrinking out of held space.
+            let full = WidgetGrid.height(w.units)
+            out[w.id] = min(fit.height(of: w.id, in: workspace.id) ?? fitted[w.id]
+                            ?? WidgetGrid.headerHeight + Theme.Widget.rowHeight * 2 + Theme.Space.s, full)
+        }
+        return out
+    }
+
+    private func follow(_ new: [UUID: CGFloat]) {
+        wanted = new
+        // Editing shows each at its limit: nothing to wait for.
+        if store.editingWidgets { shrink?.cancel(); fitted = new; return }
+        // Taller, new, or no longer fitting: at once.
+        var now = fitted.filter { new[$0.key] != nil }
+        for (id, h) in new where (now[id] ?? 0) < h || now[id] == nil { now[id] = h }
+        if now != fitted { withAnimation(Theme.Widget.settle) { fitted = now } }
+        // Shorter: once it's settled.
+        guard new != fitted else { shrink?.cancel(); return }
+        shrink?.cancel()
+        shrink = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1))
+            while hovering, !Task.isCancelled { try? await Task.sleep(for: .milliseconds(250)) }
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.3)) { fitted = wanted }
+        }
+    }
+
     /// A space's grid, scrolling when it's taller than the room above the
     /// terminal; only the shown one takes clicks.
     private func grid(_ space: WidgetSpace, live: Bool) -> some View {
         let fit = visible - WidgetGrid.margin * 2
-        let content = SpaceGrid.drawn(space, fit: fit, store: store).height + WidgetGrid.margin * 2
+        // Shown: what each wants, except where a shrink is still held
+        // (`fitted`); a space just switched to is right from its first
+        // frame, not full height until `follow` catches up.
+        let wants = target(space)
+        let heights = live ? wants.merging(fitted.filter { wants[$0.key] != nil }) { _, held in held } : wants
+        let content = SpaceGrid.drawn(space, fit: fit, store: store, heights: heights).height + WidgetGrid.margin * 2
         return ScrollView(.vertical) {
-            SpaceGrid(store: store, workspace: workspace, space: space, fit: fit)
+            SpaceGrid(store: store, workspace: workspace, space: space, fit: fit, heights: heights)
                 .padding(WidgetGrid.margin)
         }
         .scrollDisabled(content <= visible + 0.5)
@@ -184,13 +239,13 @@ struct SpaceGrid: View {
     /// Where the widgets are drawn in `fit` points: each widget's top
     /// (packed, `WidgetLayout.packedTops`; as saved while editing), and the
     /// height they take (the whole grid while editing).
-    @MainActor static func drawn(_ space: WidgetSpace, fit: CGFloat, store: WorkspaceStore) -> (tops: [UUID: CGFloat], height: CGFloat) {
+    @MainActor static func drawn(_ space: WidgetSpace, fit: CGFloat, store: WorkspaceStore, heights: [UUID: CGFloat] = [:]) -> (tops: [UUID: CGFloat], height: CGFloat) {
         let layout = WidgetLayout(space: space)
         if store.editingWidgets {
             return (Dictionary(uniqueKeysWithValues: layout.slots.map { ($0.id, WidgetGrid.y($0.top)) }), WidgetGrid.height(WidgetGrid.rows))
         }
         if space.widgets.isEmpty { return ([:], WidgetGrid.height(3)) }
-        return layout.packedTops(toFit: fit)
+        return layout.packedTops(toFit: fit, heights: heights)
     }
 
     @ObservedObject var store: WorkspaceStore
@@ -198,6 +253,8 @@ struct SpaceGrid: View {
     let space: WidgetSpace
     /// Points the room above the terminal holds.
     let fit: CGFloat
+    /// Widgets fitting their content: their heights (not while editing).
+    var heights: [UUID: CGFloat] = [:]
     @ObservedObject private var gallery = WidgetGalleryModel.shared
     /// A drag under way (`WidgetDragPreview`): the space as it would leave
     /// it, drawn live, and the widget being moved (its own place shows as
@@ -214,7 +271,7 @@ struct SpaceGrid: View {
             return s
         } ?? space
         let layout = WidgetLayout(space: shown)
-        let drawn = Self.drawn(shown, fit: fit, store: store)
+        let drawn = Self.drawn(shown, fit: fit, store: store, heights: heights)
         let editing = store.editingWidgets
         ZStack(alignment: .topLeading) {
             // The canvas: Control-click for the column's menu.
@@ -238,7 +295,8 @@ struct SpaceGrid: View {
             }
             ForEach(layout.slots) { slot in
                 WidgetSlotView(store: store, workspace: workspace, spaceID: space.id, slot: slot, layout: saved,
-                               y: drawn.tops[slot.id] ?? WidgetGrid.y(slot.top))
+                               y: drawn.tops[slot.id] ?? WidgetGrid.y(slot.top),
+                               fitted: editing ? nil : heights[slot.id])
             }
             if store.galleryOpen, let target = gallery.target(in: saved) {
                 GalleryGhost(item: target, layout: saved)
@@ -360,6 +418,8 @@ private struct WidgetSlotView: View {
     let layout: WidgetLayout
     /// Its top as drawn (packed above the terminal).
     let y: CGFloat
+    /// Fitting its content: the height it's drawn (at most its units').
+    var fitted: CGFloat?
 
     /// The drags under way: they reset themselves when the drag ends or is
     /// cancelled.
@@ -385,9 +445,16 @@ private struct WidgetSlotView: View {
     /// As saved: what a drag measures from.
     private var saved: WidgetItem { layout.widgets.first { $0.id == slot.id } ?? slot.item }
     private var editing: Bool { store.editingWidgets }
+    @ObservedObject private var fit = WidgetFit.shared
 
     var body: some View {
-        let height = slot.headerOnly ? WidgetGrid.headerHeight : WidgetGrid.height(slot.units)
+        let full = WidgetGrid.height(slot.units)
+        let fits = item.fits && !slot.headerOnly
+        // Fit: as tall as its content (while editing, worked out at the
+        // size being dragged to), its units the limit, drawn dashed.
+        let content = editing && fits ? fit.height(of: slot.id, in: workspace.id) : fitted
+        let height = slot.headerOnly ? WidgetGrid.headerHeight : min(content ?? full, full)
+        let limit: CGFloat? = editing && fits ? full : nil
         let x = WidgetGrid.x(track: item.span == 2 ? 0 : item.track)
         // Moving: it's drawn from where it was, under the pointer; the
         // outline is where it lands.
@@ -397,17 +464,19 @@ private struct WidgetSlotView: View {
 
         return ZStack(alignment: .topLeading) {
             if movingFrom != nil {
-                outline(width: WidgetGrid.width(span: item.span), height: height)
+                outline(width: WidgetGrid.width(span: item.span), height: limit ?? height)
                     .offset(x: x, y: y)
             }
             // At a limit, it gives a little past it with the pointer (and
             // springs back when let go).
             let give = resizeBy.map(stretch) ?? .zero
-            shell(width: WidgetGrid.width(span: item.span) + give.width, height: height + give.height)
+            shell(width: WidgetGrid.width(span: item.span) + give.width,
+                  height: limit == nil ? height + give.height : min(height, full + give.height),
+                  limit: limit.map { $0 + give.height })
                 .animation(.spring(response: 0.32, dampingFraction: 0.72), value: resizeBy == nil)
                 .overlay(alignment: .bottomTrailing) {
                     if resizeBy != nil {
-                        WidgetUnitsLabel(span: item.span, units: item.units).padding(Theme.Space.s)
+                        WidgetUnitsLabel(span: item.span, units: item.units, upTo: fits).padding(Theme.Space.s)
                     }
                 }
                 .offset(x: movingFrom?.x ?? x, y: movingFrom?.y ?? y)
@@ -430,15 +499,23 @@ private struct WidgetSlotView: View {
         return nil
     }
 
-    private func shell(width: CGFloat, height: CGFloat) -> some View {
-        WidgetContent(workspace: workspace, item: item, units: item.units, headerOnly: slot.headerOnly)
-            .environment(\.widget, WidgetContext(item: item, units: item.units, editing: editing))
-            // A new size's layout comes in at once: only the shell springs
-            // (a fade would show both layouts at once).
-            .transaction { $0.animation = nil }
-            .frame(width: width, height: height, alignment: .top)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
-            .background(WidgetShellBackground())
+    /// The widget `height` tall; for a Fit widget in edit mode, over its
+    /// `limit`, dashed (the handles are on the limit).
+    private func shell(width: CGFloat, height: CGFloat, limit: CGFloat? = nil) -> some View {
+        ZStack(alignment: .top) {
+            if let limit, limit > height + 0.5 {
+                WidgetLimitOutline().frame(width: width, height: limit)
+            }
+            WidgetContent(workspace: workspace, item: item, units: item.units, headerOnly: slot.headerOnly)
+                .environment(\.widget, WidgetContext(item: item, units: item.units, editing: editing))
+                // A new size's layout comes in at once: only the shell springs
+                // (a fade would show both layouts at once).
+                .transaction { $0.animation = nil }
+                .frame(width: width, height: height, alignment: .top)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
+                .background(WidgetShellBackground())
+        }
+        .frame(width: width, height: max(height, limit ?? 0), alignment: .top)
             .overlay {
                 if editing {
                     // Editing: the widget is moved, not used.
@@ -462,6 +539,14 @@ private struct WidgetSlotView: View {
                         .transition(.scale.combined(with: .opacity))
                 }
             }
+            .overlay(alignment: .bottom) {
+                // Fixed or Fit, straddling the bottom edge.
+                if editing, item.kind.canFit, item.span == 2, !slot.headerOnly, resizeBy == nil, moveBy == nil {
+                    WidgetHeightSwitch(fits: item.fitsContent) { setFits($0) }
+                        .offset(y: 11)
+                        .transition(.opacity)
+                }
+            }
             // Using: only the way into edit mode. Editing: everything.
             .contextMenu {
                 if editing {
@@ -478,6 +563,14 @@ private struct WidgetSlotView: View {
                 .disabled(!layout.allows(p, for: item.id) || (item.preset == p && !item.collapsed))
         }
         Button(item.collapsed ? "Expand" : "Collapse") { apply(layout.togglingCollapse(item.id), animation: Theme.Widget.settle) }
+        if item.kind.canFit, item.span == 2 {
+            Divider()
+            Picker("Height", selection: Binding(get: { item.fitsContent }, set: { setFits($0) })) {
+                Text("Fixed").tag(false)
+                Text("Fit to Content").tag(true)
+            }
+            .pickerStyle(.inline)
+        }
         Divider()
         Button("Remove Widget") { remove() }
         Divider()
@@ -487,6 +580,12 @@ private struct WidgetSlotView: View {
     private func apply(_ widgets: [WidgetItem]?, animation: Animation) {
         guard let widgets else { NSSound.beep(); return }
         withAnimation(animation) { store.setWidgets(widgets, in: spaceID) }
+    }
+
+    private func setFits(_ on: Bool) {
+        guard on != item.fitsContent else { return }
+        apply(layout.widgets.map { var w = $0; if w.id == item.id { w.fitsContent = on }; return w },
+              animation: Theme.Widget.settle)
     }
 
     private func remove() {

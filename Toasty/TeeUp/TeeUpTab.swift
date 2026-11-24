@@ -16,6 +16,8 @@ struct TeeUpTab: View {
     /// In a widget: the list alone (the widget has its own summary, with
     /// Auto-Send's controls).
     var compact = false
+    /// Compact: the list's height as laid out, for the widget's Fit.
+    var contentHeight: ((CGFloat) -> Void)?
     /// Files are being dragged over the tab, or over one of its text fields.
     @State private var dropTargeted = false
     @State private var filesOverText = false
@@ -31,6 +33,7 @@ struct TeeUpTab: View {
             if !compact { TeeUpSummary(workspace: workspace) }
             if workspace.teeUps.isEmpty, compact {
                 NewPromptRow { newAtEnd() }
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight?($0) }
                 Spacer(minLength: 0)
                     .frame(maxWidth: .infinity)
                     .contentShape(Rectangle())
@@ -115,6 +118,7 @@ struct TeeUpTab: View {
                 .background(AnchorView(anchor: rowsAnchor))
                 .padding(.horizontal, Theme.Todo.inset)
                 .padding(.bottom, Theme.Todo.inset)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight?($0) }
             }
             .scrollBounceBehavior(.basedOnSize)
             // A double-click in the empty space under the rows starts a new

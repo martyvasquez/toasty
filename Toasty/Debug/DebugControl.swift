@@ -146,6 +146,35 @@ enum DebugControl {
             return ["path": path, "width": image.width, "height": image.height]
         }
 
+        register("editWidgets") { cmd in
+            let on = cmd["on"] as? Bool ?? true
+            if on { WorkspaceStore.shared.editingWidgets = true } else { WorkspaceStore.shared.endEditingWidgets() }
+            return nil
+        }
+
+        // A widget on the active workspace's space, at the first free place:
+        // {"kind":"files","preset":"large","units":6}.
+        register("addWidget") { cmd in
+            let store = WorkspaceStore.shared
+            guard let w = store.active, let space = store.space(for: w),
+                  let kind = WidgetKind(rawValue: cmd["kind"] as? String ?? ""),
+                  let preset = WidgetPreset(rawValue: cmd["preset"] as? String ?? "large") else { throw DebugError("bad kind/preset or no space") }
+            let layout = WidgetLayout(space: space)
+            guard var item = layout.placement(for: kind, preset: preset) else { throw DebugError("no room") }
+            var list = space.widgets + [item]
+            if let units = cmd["units"] as? Int,
+               let grown = WidgetLayout(widgets: list).applyingUnits(units, to: item.id) { list = grown; item = list.last! }
+            store.setWidgets(list, in: space.id)
+            return ["id": item.id.uuidString]
+        }
+
+        // Fit: what each widget has reported wanting, by workspace and widget.
+        register("fit") { _ in
+            var out: [String: Any] = [:]
+            for (k, h) in WidgetFit.shared.heights { out["\(k.workspace.uuidString.prefix(8))/\(k.widget.uuidString.prefix(8))"] = h }
+            return out
+        }
+
         register("appearance") { cmd in
             switch cmd["mode"] as? String {
             case "light": NSApp.appearance = NSAppearance(named: .aqua)

@@ -24,6 +24,53 @@ extension EnvironmentValues {
     }
 }
 
+// MARK: - Fit
+
+/// Fit: how tall each widget's content wants to be, as the widgets report
+/// it (`reportsFit`), per workspace (spaces are app-wide, contents aren't).
+/// The column draws a Fit widget at this height, its units the limit.
+@MainActor final class WidgetFit: ObservableObject {
+    static let shared = WidgetFit()
+
+    struct Key: Hashable {
+        var workspace: UUID
+        var widget: UUID
+    }
+
+    @Published private(set) var heights: [Key: CGFloat] = [:]
+
+    func height(of widget: UUID, in workspace: UUID) -> CGFloat? {
+        heights[Key(workspace: workspace, widget: widget)]
+    }
+
+    fileprivate func report(_ height: CGFloat, widget: UUID, workspace: UUID) {
+        let key = Key(workspace: workspace, widget: widget)
+        let h = height.rounded(.up)
+        if heights[key] != h { heights[key] = h }
+    }
+}
+
+extension View {
+    /// Tell the column how tall this widget's content wants to be (nil:
+    /// can't say yet, say while loading; the last height stands).
+    func reportsFit(_ height: CGFloat?, workspace: UUID) -> some View {
+        modifier(FitReport(height: height, workspace: workspace))
+    }
+}
+
+private struct FitReport: ViewModifier {
+    let height: CGFloat?
+    let workspace: UUID
+    @Environment(\.widget) private var widget
+
+    func body(content: Content) -> some View {
+        content.onChange(of: height, initial: true) { _, h in
+            guard let h, let id = widget?.item.id else { return }
+            WidgetFit.shared.report(h, widget: id, workspace: workspace)
+        }
+    }
+}
+
 // MARK: - Shell
 
 /// A widget's surface: the inspector's chrome, at the composer's radius,
@@ -202,16 +249,20 @@ struct WidgetRemoveBadge: View {
     }
 }
 
-/// A dragged edge's target, on the grid: "Medium", or "3 units · 264".
+/// A dragged edge's target, on the grid: "Medium", or "3 units · 264";
+/// for a Fit widget, its limit: "Up to Large".
 struct WidgetUnitsLabel: View {
     let span: Int
     let units: Int
+    var upTo = false
 
     private var text: String {
-        if span == 1 { return "Small" }
-        if units == 2 { return "Medium" }
-        if units == 4 { return "Large" }
-        return "\(units) \(units == 1 ? "unit" : "units") · \(Int(WidgetGrid.height(units)))"
+        let size: String
+        if span == 1 { size = "Small" }
+        else if units == 2 { size = "Medium" }
+        else if units == 4 { size = "Large" }
+        else { size = "\(units) \(units == 1 ? "unit" : "units") · \(Int(WidgetGrid.height(units)))" }
+        return upTo && span == 2 ? "Up to \(size)" : size
     }
 
     var body: some View {
@@ -225,6 +276,63 @@ struct WidgetUnitsLabel: View {
             .overlay(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
                 .strokeBorder(Theme.Tooltip.innerBorder, lineWidth: 0.5))
             .popoverShadow()
+    }
+}
+
+/// Edit mode's choice for a list widget, on its bottom edge: Fixed (always
+/// its size) or Fit (as tall as its content, up to its size).
+struct WidgetHeightSwitch: View {
+    let fits: Bool
+    let set: (Bool) -> Void
+
+    var body: some View {
+        HStack(spacing: 2) {
+            segment("Fixed", on: !fits, tip: Tooltip(title: "Fixed", detail: "Always this size.")) { set(false) }
+            segment("Fit", on: fits, tip: Tooltip(title: "Fit", detail: "Grows with its content, up to this size.")) { set(true) }
+        }
+        .padding(2)
+        .background(Capsule().fill(Theme.Surface.floating))
+        .overlay(Capsule().strokeBorder(Theme.Tooltip.innerBorder, lineWidth: 0.5))
+        .overlay(Capsule().stroke(Theme.Tooltip.outerBorder, lineWidth: 0.5))
+        .popoverShadow()
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Height")
+    }
+
+    private func segment(_ title: String, on: Bool, tip: Tooltip, action: @escaping () -> Void) -> some View {
+        Segment(title: title, on: on, action: action).tooltip(tip)
+    }
+
+    private struct Segment: View {
+        let title: String
+        let on: Bool
+        let action: () -> Void
+        @State private var hovering = false
+
+        var body: some View {
+            Button(action: action) {
+                Text(title)
+                    .font(.toasty(Theme.Size.caption, .medium))
+                    .foregroundStyle(on ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                    .padding(.horizontal, 9)
+                    .frame(height: 18)
+                    .background(Capsule().fill(on ? Theme.Fill.selected : hovering ? Theme.Fill.hover : Color.clear))
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .onHover { hovering = $0 }
+            .accessibilityAddTraits(on ? .isSelected : [])
+        }
+    }
+}
+
+/// The room a Fit widget may grow into, below what it shows now: its
+/// limit, dashed (edit mode).
+struct WidgetLimitOutline: View {
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous)
+        shape.fill(Theme.Surface.chrome.opacity(0.35))
+            .overlay(shape.strokeBorder(Color.primary.opacity(0.28), style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
     }
 }
 

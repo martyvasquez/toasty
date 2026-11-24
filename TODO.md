@@ -29,6 +29,15 @@ that, so any change to the defaults only reaches new users.
   whole file there); a real mouse drag-select hasn't been checked by hand
   (mctl can't drive the text view's tracking; `inspector selectLines`
   stands in).
+- **Fit to Content** (merged to main 2026-11-23, not yet pushed):
+  Git, Tee-Up, Activity and Files (each reports what it wants:
+  `reportsFit`, `WidgetFit`). Its saved height is the most it takes; it's drawn as tall as
+  its rows, grows at once, shrinks after a 1s settle with the pointer off
+  the column. Widgets below move up. Each list widget picks Fixed or Fit
+  (switch on its bottom edge in edit mode, and Height in its menu); a Fit
+  widget's limit shows dashed below its content. New list widgets start as
+  Fit. Watch: Activity's rows come and go with each tool, so it may
+  bob; a longer shrink delay for it alone is the first fix to try.
 - **Stale test**: `WidgetLayoutTests.savedTerminalWidgetsAreDropped`
   expects Terminal out of the gallery, but it's back as an experiment.
 

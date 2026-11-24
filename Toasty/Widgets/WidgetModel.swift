@@ -108,6 +108,14 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         }
     }
 
+    /// Whether it can fit its height to what it shows (`WidgetItem.fitsContent`).
+    var canFit: Bool {
+        switch self {
+        case .git, .teeUp, .activity, .files: true
+        case .usage, .terminal: false
+        }
+    }
+
     var presets: [WidgetPreset] { self == .terminal || self == .files ? [.large] : WidgetPreset.allCases }
 
     /// Two-track heights, in units. (Small is one track × 2 units; one
@@ -144,6 +152,14 @@ struct WidgetItem: Codable, Identifiable, Equatable {
     /// Rows above it.
     var row: Int = 0
     var collapsed = false
+    /// Fit to Content (an experiment, Git only): outside edit mode it's
+    /// drawn only as tall as what it shows, its saved height the most it
+    /// takes; the widgets below move up into what it leaves.
+    var fitsContent = false
+
+    /// Drawn as Fit right now: two tracks wide and open (a Small, or a
+    /// collapsed one, is its own size whatever it's set to).
+    var fits: Bool { fitsContent && kind.canFit && span == 2 && !collapsed }
 
     /// Rows it holds on the grid: a collapsed widget holds the unit its
     /// header sits in.
@@ -237,10 +253,13 @@ struct WidgetLayout {
     /// above each widget (between it and the one above, or the top) shrinks
     /// point by point, the space nearest the bottom first, down to the
     /// grid's 12pt gap; past that the column scrolls.
-    func packedTops(toFit height: CGFloat) -> (tops: [UUID: CGFloat], height: CGFloat) {
+    /// `heights`: widgets drawn shorter than their units (Fit to Content).
+    func packedTops(toFit height: CGFloat, heights: [UUID: CGFloat] = [:]) -> (tops: [UUID: CGFloat], height: CGFloat) {
         let order = widgets.sorted { ($0.row, $0.track) < ($1.row, $1.track) }
         let unit = WidgetGrid.unit + WidgetGrid.gap
-        func h(_ w: WidgetItem) -> CGFloat { w.collapsed ? WidgetGrid.headerHeight : WidgetGrid.height(w.units) }
+        func h(_ w: WidgetItem) -> CGFloat {
+            w.collapsed ? WidgetGrid.headerHeight : heights[w.id].map { min($0, WidgetGrid.height(w.units)) } ?? WidgetGrid.height(w.units)
+        }
         // Each widget's room above it, as saved: whole empty rows.
         var extra: [CGFloat] = order.enumerated().map { i, w in
             let above = order[..<i].filter { $0.tracks.overlaps(w.tracks) }.map { $0.row + $0.heldUnits }.max() ?? 0
@@ -415,7 +434,9 @@ struct WidgetLayout {
             for track in (span == 1 ? [0, 1] : [0]) {
                 let probe = WidgetSlot(item: WidgetItem(kind: kind, span: span, track: track, units: units), top: top, units: units)
                 if !taken.contains(where: { $0.overlaps(probe) }) {
-                    return WidgetItem(kind: kind, span: span, track: track, units: units, row: top)
+                    // A list starts as Fit (its height a limit), anything else Fixed.
+                    return WidgetItem(kind: kind, span: span, track: track, units: units, row: top,
+                                      fitsContent: kind.canFit)
                 }
             }
         }
@@ -471,6 +492,24 @@ struct WidgetLayout {
 }
 
 // MARK: - Reading saved spaces, tolerantly
+
+extension WidgetItem {
+    private enum Keys: String, CodingKey { case id, kind, span, track, units, row, collapsed, fitsContent }
+
+    /// Fields added later may be missing: they take their defaults (a Git
+    /// list widget saved before Fit to Content starts with it on, to try).
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: Keys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        kind = try c.decode(WidgetKind.self, forKey: .kind)
+        span = try c.decode(Int.self, forKey: .span)
+        track = try c.decodeIfPresent(Int.self, forKey: .track) ?? 0
+        units = try c.decode(Int.self, forKey: .units)
+        row = try c.decodeIfPresent(Int.self, forKey: .row) ?? 0
+        collapsed = try c.decodeIfPresent(Bool.self, forKey: .collapsed) ?? false
+        fitsContent = try c.decodeIfPresent(Bool.self, forKey: .fitsContent) ?? kind.canFit
+    }
+}
 
 /// Spaces as saved, read so that nothing in them can cost the rest of the
 /// state: a widget this build doesn't know (one from a newer Toasty, or a

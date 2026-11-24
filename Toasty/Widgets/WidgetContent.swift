@@ -58,6 +58,26 @@ struct WidgetSize {
         let room = WidgetGrid.height(units) - WidgetGrid.headerHeight - Theme.Space.s - extra
         return max(1, Int(room / Theme.Widget.rowHeight))
     }
+
+    /// Fit: the height a list of `count` rows takes at this size, with
+    /// `above` (a summary line) and `below` (Git's commits) around it; an
+    /// empty list's line takes two rows. Never taller than the size.
+    func fitHeight(count: Int, above: CGFloat = 0, below: CGFloat = 0) -> CGFloat? {
+        guard kind != .small else { return nil }
+        let row = Theme.Widget.rowHeight
+        let room = rows(reserving: above + below)
+        let list = count == 0 ? row * 2 : count > room ? CGFloat(max(1, room - 1)) * row + 20 : CGFloat(count) * row
+        return min(WidgetGrid.headerHeight + above + list + below + Theme.Space.s, WidgetGrid.height(units))
+    }
+
+    /// Fit: a header over measured content (nil, not measured yet).
+    func fitHeight(content: CGFloat?, above: CGFloat = 0) -> CGFloat? {
+        guard kind != .small, let content else { return nil }
+        return min(WidgetGrid.headerHeight + above + content, WidgetGrid.height(units))
+    }
+
+    /// Fit: a header and a one-line message (not a repository, no conversation).
+    var fitMessage: CGFloat? { fitHeight(count: 0) }
 }
 
 // MARK: - The kit every widget is built from
@@ -249,6 +269,7 @@ private struct GitWidget: View {
             WidgetHeader(kind: .git) { status }
             content
         }
+        .reportsFit(Self.fittedHeight(changes, size: size), workspace: workspace.id)
         // Kept current while it's on screen: git status is cheap and
         // takes no locks. Also right after each turn (ClaudeConversation).
         .task(id: workspace.folder) {
@@ -352,6 +373,24 @@ private struct GitWidget: View {
             list(room: size.rows(reserving: SummaryLine<EmptyView>.height
                                  + UnpushedList.height(changes.unpushedCount, room: room)))
             UnpushedList(changes: changes, room: room)
+        }
+    }
+
+    /// Fit: how tall it needs to be to show what it has (loading: small,
+    /// so it grows into its list rather than shrinking onto it).
+    static func fittedHeight(_ changes: GitChanges, size: WidgetSize) -> CGFloat? {
+        switch changes.state {
+        case .loading, .notRepository, .failed: return size.fitMessage
+        case .loaded: break
+        }
+        switch size.kind {
+        case .small: return nil
+        case .medium: return size.fitHeight(count: changes.files.count)
+        case .large:
+            let summary = SummaryLine<EmptyView>.height
+            let room = max(3, size.rows(reserving: summary) / 2)
+            let unpushed = changes.unpushed.isEmpty ? 0 : UnpushedList.height(changes.unpushedCount, room: room)
+            return size.fitHeight(count: changes.files.count, above: summary, below: unpushed)
         }
     }
 
@@ -652,6 +691,19 @@ private struct TeeUpWidget: View {
         return "Auto-sending"
     }
 
+    /// Large: the queue's height as laid out (cards open to edit).
+    @State private var queueHeight: CGFloat?
+
+    private var fit: CGFloat? {
+        switch size.kind {
+        case .small: nil
+        case .medium: size.fitHeight(count: workspace.teeUps.count)
+        // (Until it's laid out: its prompts and New Prompt, as rows.)
+        case .large: size.fitHeight(content: queueHeight, above: SummaryLine<EmptyView>.height)
+            ?? size.fitHeight(count: workspace.teeUps.count + 1, above: SummaryLine<EmptyView>.height)
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if size.kind == .large {
@@ -659,7 +711,7 @@ private struct TeeUpWidget: View {
                 WidgetHeader(kind: .teeUp)
                 SummaryLine(text: workspace.teeUps.isEmpty ? "Nothing teed up"
                                 : "\(workspace.teeUps.count) teed up · \(sending)") { feedControls }
-                TeeUpTab(workspace: workspace, compact: true).id(workspace.id)
+                TeeUpTab(workspace: workspace, compact: true, contentHeight: { queueHeight = $0 }).id(workspace.id)
             } else {
                 WidgetHeader(kind: .teeUp) {
                     if size.kind == .medium { Text(sending).font(.toasty(Theme.Size.meta)).foregroundStyle(.secondary) }
@@ -690,6 +742,7 @@ private struct TeeUpWidget: View {
                 }
             }
         }
+        .reportsFit(fit, workspace: workspace.id)
     }
 
     /// Auto-Send: start it; pause or stop it; resume or stop it.
@@ -727,12 +780,13 @@ private struct ActivityWidget: View {
 
     var body: some View {
         if let c = workspace.selected {
-            ActivityContent(conversation: c, size: size).id(c.id)
+            ActivityContent(conversation: c, size: size, workspace: workspace.id).id(c.id)
         } else {
             VStack(spacing: 0) {
                 WidgetHeader(kind: .activity)
                 EmptyLine(text: "No conversation")
             }
+            .reportsFit(size.fitMessage, workspace: workspace.id)
         }
     }
 }
@@ -740,8 +794,17 @@ private struct ActivityWidget: View {
 private struct ActivityContent: View {
     @ObservedObject var conversation: ClaudeConversation
     let size: WidgetSize
+    /// Its workspace, for Fit's report.
+    let workspace: UUID
 
     var body: some View {
+        content
+            .reportsFit(size.fitHeight(count: conversation.runningTools.count + conversation.backgroundTasks.count,
+                                       above: size.kind == .large ? SummaryLine<EmptyView>.height : 0),
+                        workspace: workspace)
+    }
+
+    private var content: some View {
         TimelineView(.periodic(from: .now, by: 1)) { ctx in
             VStack(spacing: 0) {
                 WidgetHeader(kind: .activity) {
