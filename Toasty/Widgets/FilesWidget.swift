@@ -59,6 +59,10 @@ private struct FilesWidgetBody: View {
     @AppStorage("filesWidget.showHidden") private var showHidden = false
     /// The list's height as laid out, for Fit.
     @State private var listHeight: CGFloat?
+    /// Rows below the list's visible bottom, for the "+N more" line.
+    @State private var below = 0
+    @State private var scroll = ScrollPosition()
+    @State private var geometry: ScrollGeometry?
     @Environment(\.widget) private var widget
 
     /// Fit: header, path line and the folder's rows; a message's two rows.
@@ -102,6 +106,8 @@ private struct FilesWidgetBody: View {
         .onAppear { browser.showHidden = showHidden }
         .onChange(of: showHidden) { _, on in browser.showHidden = on }
         .onChange(of: workspace.folder) { _, folder in browser.setRoot(folder) }
+        // A folder opens at its top.
+        .onChange(of: browser.path) { scroll = ScrollPosition(); below = 0 }
         // Kept current while it's on screen: a folder's own changes come
         // straight from the file system; edits inside files (their times,
         // git's letters) every few seconds.
@@ -138,9 +144,59 @@ private struct FilesWidgetBody: View {
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
             }
             .scrollIndicators(.automatic)
+            .scrollPosition($scroll)
+            .onScrollGeometryChange(for: ScrollGeometry.self) { $0 } action: { _, g in
+                geometry = g
+                below = Self.rowsBelow(g)
+            }
+            .overlay(alignment: .bottom) { moreBelow }
             .id(browser.path)
             .transition(.opacity)
         }
+    }
+}
+
+extension FilesWidgetBody {
+    /// The "+N more" line's height (its fade above leaves rows readable).
+    static let moreHeight = 20 + Theme.Space.xxs
+
+    /// Rows not wholly in sight: past the bottom, or under the "+N more"
+    /// line (the list's end padding aside). None once you reach the end.
+    static func rowsBelow(_ g: ScrollGeometry) -> Int {
+        let end = g.contentSize.height - Theme.Space.s
+        let bottom = g.contentOffset.y + g.containerSize.height
+        guard end - bottom > 1 else { return 0 }
+        return Int(((end - bottom + moreHeight) / Theme.Widget.rowHeight).rounded(.up))
+    }
+
+    /// A folder longer than the widget says so at its foot: "+N more",
+    /// counting down as you scroll and gone at the end. Click it to go a
+    /// page down. The rows fade into it rather than being cut mid-line.
+    @ViewBuilder var moreBelow: some View {
+        if below > 0 {
+            VStack(spacing: 0) {
+                LinearGradient(colors: [Theme.Surface.chrome.opacity(0), Theme.Surface.chrome],
+                               startPoint: .top, endPoint: .bottom)
+                    .frame(height: Theme.Space.m)
+                    .allowsHitTesting(false)
+                Button(action: pageDown) {
+                    MoreLine(count: below)
+                        .padding(.bottom, Theme.Space.xxs)
+                        .background(Theme.Surface.chrome)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .tooltipText("Scroll down")
+            }
+            .transition(.opacity)
+        }
+    }
+
+    private func pageDown() {
+        guard let g = geometry else { return }
+        let end = g.contentSize.height - g.containerSize.height
+        let next = g.contentOffset.y + g.containerSize.height - Theme.Widget.rowHeight * 2
+        withAnimation(.easeOut(duration: 0.25)) { scroll.scrollTo(y: min(end, next)) }
     }
 }
 
