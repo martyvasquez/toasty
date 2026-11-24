@@ -212,10 +212,7 @@ struct FilePage: View {
                                                              detail: "Write Claude a note about this file. Select lines to comment on just those.")) {
                     comment = comment?.lines == nil && comment != nil ? nil : FileComment(lines: nil)
                 }
-                BarIconButton(symbol: "arrow.up.forward.app",
-                              tooltip: Tooltip(title: "Open in Default App", detail: url.lastPathComponent)) {
-                    NSWorkspace.shared.open(url)
-                }
+                OpenExternallyButton(file: url, project: workspace.folder, detail: url.lastPathComponent)
             }
         }
         .padding(.horizontal, 14)
@@ -450,6 +447,7 @@ struct FileTextView: NSViewRepresentable {
                                                name: NSView.boundsDidChangeNotification, object: scroll.contentView)
         fill(text)
         context.coordinator.shown = lines
+        ShownCode.register(text)
         return scroll
     }
 

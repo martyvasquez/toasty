@@ -84,10 +84,7 @@ struct DiffPage: View {
                 }
             }
             if file.status != .deleted {
-                BarIconButton(symbol: "arrow.up.forward.app",
-                              tooltip: Tooltip(title: "Open in Default App", detail: file.path)) {
-                    NSWorkspace.shared.open(file.url)
-                }
+                OpenExternallyButton(file: file.url, project: file.root, detail: file.path)
             }
         }
         .padding(.horizontal, 14)

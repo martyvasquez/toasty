@@ -501,7 +501,8 @@ private struct GitFileRow: View {
         .contextMenu {
             Button(selected ? "Hide Diff" : "Show Diff") { workspace.diffFile = selected ? nil : file }
             Divider()
-            Button("Open") { NSWorkspace.shared.open(file.url) }.disabled(deleted)
+            if !deleted { OpenInEditorButton(file: file.url, project: file.root) }
+            Button("Open in Default App") { NSWorkspace.shared.open(file.url) }.disabled(deleted)
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([file.url]) }.disabled(deleted)
             Button("Copy Path") {
                 NSPasteboard.general.clearContents()

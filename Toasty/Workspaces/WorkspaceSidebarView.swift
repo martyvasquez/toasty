@@ -443,6 +443,7 @@ private struct WorkspaceRow: View {
             } else if workspace.isWorktree {
                 Button("Rename…") { store.renamingID = workspace.id }
                 Button("Open in Finder") { NSWorkspace.shared.open(URL(fileURLWithPath: workspace.folder)) }
+                OpenFolderInEditorButton(folder: workspace.folder)
                 Divider()
                 Button("Move Up") { store.moveWorktree(workspace.id, by: -1) }
                     .disabled(!store.canMoveWorktree(workspace.id, by: -1))
@@ -456,6 +457,7 @@ private struct WorkspaceRow: View {
                 Button("Rename…") { store.renamingID = workspace.id }
                 Button("Change Folder…") { store.chooseFolder(for: workspace.id) }
                 Button("Open in Finder") { NSWorkspace.shared.open(URL(fileURLWithPath: workspace.folder)) }
+                OpenFolderInEditorButton(folder: workspace.folder)
                 Divider()
                 Button("Move Up") { store.move(workspace.id, by: -1) }
                     .disabled(!store.canMove(workspace.id, by: -1))

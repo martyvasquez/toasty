@@ -15,7 +15,8 @@ import UniformTypeIdentifiers
 //   a file shows in the conversation column (`FilePage`). Trailing: git's change letter (a dot on a
 //   folder that holds changes) and when it last changed, so what Claude
 //   just touched stands out. Git-ignored items are quiet.
-// - Right-click: Open, Open in Default App, Show in Finder, Show Diff (changed files), Mention
+// - Right-click: Open, Open in <Editor> (Settings ▸ General ▸ Editor; a folder
+//   in the project's window, or as its own project), Open in Default App, Show in Finder, Show Diff (changed files), Mention
 //   in Conversation, Copy Path. Rows drag out as files (to the composer,
 //   the Finder, a terminal).
 //
@@ -267,7 +268,10 @@ private struct FileRow: View {
 
     @ViewBuilder private var menu: some View {
         Button("Open") { open() }
-        if !entry.isFolder {
+        if entry.isFolder {
+            OpenSubfolderInEditorButtons(folder: entry.url.path, project: workspace.folder)
+        } else {
+            OpenInEditorButton(file: entry.url, project: workspace.folder)
             Button("Open in Default App") { NSWorkspace.shared.open(entry.url) }
         }
         Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([entry.url]) }

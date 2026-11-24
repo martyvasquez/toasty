@@ -146,6 +146,21 @@ enum DebugControl {
             return ["path": path, "width": image.width, "height": image.height]
         }
 
+        // The editor files open in: {"path": file, "line": n} opens one in
+        // the active workspace's project; {"choice": bundleID} picks; always
+        // returns what's installed and picked.
+        register("editor") { cmd in
+            let e = ExternalEditor.shared
+            if let choice = cmd["choice"] as? String { e.choiceID = choice }
+            var root: String?
+            if let path = cmd["path"] as? String {
+                let folder = WorkspaceStore.shared.active?.folder
+                root = ExternalEditor.projectRoot(for: URL(fileURLWithPath: path), workspace: folder)
+                e.open(URL(fileURLWithPath: path), project: folder, line: cmd["line"] as? Int)
+            }
+            return ["installed": e.installed.map(\.id), "choice": e.choiceID, "editor": e.editor?.name ?? "-", "root": root ?? "-", "line": ShownCode.line() ?? -1]
+        }
+
         register("editWidgets") { cmd in
             let on = cmd["on"] as? Bool ?? true
             if on { WorkspaceStore.shared.editingWidgets = true } else { WorkspaceStore.shared.endEditingWidgets() }

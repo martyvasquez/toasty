@@ -40,6 +40,9 @@ enum MainMenu {
         file.addItem(item("New Terminal Tab", #selector(W.newTerminalTab(_:)), "T"))
         file.addItem(item("New Workspace…", #selector(W.newWorkspace(_:)), "n"))
         file.addItem(.separator())
+        // Titled by the editor picked in Settings (validateMenuItem).
+        file.addItem(item("Open in Editor", #selector(W.openInEditor(_:)), "O"))
+        file.addItem(.separator())
         // Also a system-wide shortcut (ScreenshotCapture), unless that's turned off.
         let screenshot = item("Attach Screenshot", #selector(ScreenshotCapture.capture(_:)), "0", ScreenshotCapture.menuModifiers)
         screenshot.target = ScreenshotCapture.shared
@@ -103,6 +106,7 @@ enum MainMenu {
         workspace.addItem(.separator())
         workspace.addItem(item("Change Folder…", #selector(W.changeWorkspaceFolder(_:)), ""))
         workspace.addItem(item("Open in Finder", #selector(W.openWorkspaceInFinder(_:)), ""))
+        workspace.addItem(item("Open in Editor", #selector(W.openWorkspaceInEditor(_:)), ""))
         workspace.addItem(.separator())
         workspace.addItem(item("Next Workspace", #selector(W.selectNextWorkspace(_:)), arrow(NSDownArrowFunctionKey), [.command, .option]))
         workspace.addItem(item("Previous Workspace", #selector(W.selectPreviousWorkspace(_:)), arrow(NSUpArrowFunctionKey), [.command, .option]))

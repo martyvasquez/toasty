@@ -387,6 +387,7 @@ struct DiffTextView: NSViewRepresentable {
         text.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         scroll.documentView = text
         fill(text)
+        ShownCode.register(text)
         return scroll
     }
 

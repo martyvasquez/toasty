@@ -633,14 +633,17 @@ enum ClaudeFileLinks {
         return exists
     }
 
-    /// Open a link from Claude's output: web links in the browser, files in
-    /// their default app (or reveal folders in Finder).
+    /// Open a link from Claude's output: web links in the browser; text and
+    /// code in the editor (Settings ▸ General ▸ Editor) at the link's line,
+    /// in the workspace's project; other files in their default app.
     @MainActor
     static func open(_ url: URL) {
         if url.isFileURL {
             var plain = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            let line = plain?.fragment.flatMap { $0.hasPrefix("L") ? Int($0.dropFirst()) : nil }
             plain?.fragment = nil
-            NSWorkspace.shared.open(plain?.url ?? url)
+            ExternalEditor.shared.open(plain?.url ?? url, project: WorkspaceStore.shared.active?.folder,
+                                       line: line, textOnly: true)
         } else {
             NSWorkspace.shared.open(url)
         }

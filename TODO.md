@@ -21,6 +21,15 @@ that, so any change to the defaults only reaches new users.
 - **More widgets**: the gallery has the inspector's four (Git, Tee-Up,
   Usage, Activity). Candidates are new tools, judged by speed (the
   product thesis), each with the same Small / Medium / Large grammar.
+- **Open in Editor** (2026-11-24, on trial, `App/ExternalEditor.swift`):
+  Settings ▸ General ▸ Editor; "Open in <Editor>" opens a file in the
+  editor's window for its project (workspace folder, else git root), at
+  the line in view (`ShownCode`): file/diff page header button and
+  File ▸ Open in … (⇧⌘O), the Files and Git widgets' menus, file links
+  in replies (text files only), and a workspace's right-click menu
+  (its folder). Sublime was checked for real; VS Code family, JetBrains
+  and Zed are wired from their documented CLIs and need a hand check.
+  The user may ditch it.
 - **Files widget** (2026-11-23, Large only, `FilesWidget.swift`): a click
   shows a file in the conversation column (`Inspector/FilePage.swift`),
   read-only (the user's call: a viewer, not an editor, not a tab).

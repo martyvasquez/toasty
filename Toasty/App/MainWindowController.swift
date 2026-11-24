@@ -551,6 +551,26 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         if let w = store.active { NSWorkspace.shared.open(URL(fileURLWithPath: w.folder)) }
     }
 
+    @objc func openWorkspaceInEditor(_ sender: Any?) {
+        if let w = store.active { ExternalEditor.shared.openFolder(w.folder) }
+    }
+
+    /// ⇧⌘O: the file or diff on screen, in the editor at the line in view.
+    @objc func openInEditor(_ sender: Any?) {
+        guard let file = shownFile else { return NSSound.beep() }
+        ExternalEditor.shared.open(file.url, project: file.project, line: ShownCode.line(), textOnly: true)
+    }
+
+    /// The file on the active workspace's page: a diff's (not a deleted
+    /// file's), else the file page's.
+    private var shownFile: (url: URL, project: String)? {
+        guard let w = store.active else { return nil }
+        if let diff = w.diffFile {
+            return diff.status == .deleted ? nil : (diff.url, w.folder)
+        }
+        return w.viewedFile.map { ($0, w.folder) }
+    }
+
     @objc func newWorktree(_ sender: Any?) {
         if let id = store.activeID { store.requestNewWorktree(for: id) }
     }
@@ -613,6 +633,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         case #selector(toggleWorkspaces(_:)):
             item.title = split.sidebarItem.isCollapsed ? "Show Workspaces" : "Hide Workspaces"
             return !store.workspaces.isEmpty
+        case #selector(openInEditor(_:)):
+            let editor = ExternalEditor.shared.editor
+            item.title = editor.map { "Open in \($0.name)" } ?? "Open in Default App"
+            return shownFile != nil
+        case #selector(openWorkspaceInEditor(_:)):
+            let editor = ExternalEditor.shared.editor
+            item.isHidden = editor == nil
+            item.title = editor.map { "Open in \($0.name)" } ?? "Open in Editor"
+            return w != nil && editor != nil
         case #selector(closeTab(_:)):
             return terminalFocused ? w?.selectedTerminal != nil : w?.selected != nil
         case #selector(newTerminal(_:)), #selector(renameWorkspace(_:)),
