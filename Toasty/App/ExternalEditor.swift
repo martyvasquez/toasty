@@ -103,8 +103,9 @@ final class ExternalEditor: ObservableObject {
     /// Open `file` in the editor's window for `project` (a folder), at
     /// `line` when given. Without an editor, the file's default app; with
     /// `textOnly`, also when the file isn't text (an image, a PDF).
-    func open(_ file: URL, project: String?, line: Int? = nil, textOnly: Bool = false) {
-        guard let editor, let app = editor.app, !textOnly || Self.isText(file) else {
+    /// `in`: this editor instead of the one picked (Open In's others).
+    func open(_ file: URL, project: String?, line: Int? = nil, textOnly: Bool = false, in other: Editor? = nil) {
+        guard let editor = other ?? editor, let app = editor.app, !textOnly || Self.isText(file) else {
             NSWorkspace.shared.open(file)
             return
         }
@@ -288,23 +289,76 @@ struct EditorSettingsSection: View {
 
 /// A page header's open button: in the editor when one is picked, at the
 /// line in view (right-click for the default app), else the default app.
-/// ⇧⌘O (File ▸ Open in …) does the same.
+/// ⇧⌘O (File ▸ Open in …) does the same. Hovering it slides out the other
+/// installed editors, to open this file in one of them instead.
 struct OpenExternallyButton: View {
     let file: URL
     let project: String?
     let detail: String
     @ObservedObject private var editors = ExternalEditor.shared
 
+    private static let size = CGSize(width: 32, height: 24)
+
     var body: some View {
-        BarIconButton(symbol: "arrow.up.forward.app",
-                      tooltip: Tooltip(title: editors.editor.map { "Open in \($0.name)" } ?? "Open in Default App",
-                                       shortcut: "⇧⌘O", detail: detail)) {
-            editors.open(file, project: project, line: ShownCode.line(), textOnly: true)
+        let others = editors.installed.filter { $0 != editors.editor }
+        HoverRevealButtons(count: others.count, size: Self.size) {
+            ForEach(others) { editor in
+                EditorIconButton(editor: editor, tooltip: Tooltip(title: "Open in \(editor.name)", detail: detail), size: Self.size) {
+                    editors.open(file, project: project, line: ShownCode.line(), textOnly: true, in: editor)
+                }
+            }
+        } main: {
+            Group {
+                if let editor = editors.editor {
+                    EditorIconButton(editor: editor, tooltip: Tooltip(title: "Open in \(editor.name)", shortcut: "⇧⌘O", detail: detail),
+                                     size: Self.size) {
+                        editors.open(file, project: project, line: ShownCode.line(), textOnly: true)
+                    }
+                } else {
+                    BarIconButton(symbol: "arrow.up.forward.app",
+                                  tooltip: Tooltip(title: "Open in Default App", shortcut: "⇧⌘O", detail: detail)) {
+                        editors.open(file, project: project, line: ShownCode.line(), textOnly: true)
+                    }
+                }
+            }
+            .contextMenu {
+                OpenInEditorButton(file: file, project: project, line: ShownCode.line())
+                Button("Open in Default App") { NSWorkspace.shared.open(file) }
+            }
         }
-        .contextMenu {
-            OpenInEditorButton(file: file, project: project, line: ShownCode.line())
-            Button("Open in Default App") { NSWorkspace.shared.open(file) }
+    }
+}
+
+/// An editor's own app icon as a bar button: gray at rest so the bar stays
+/// quiet, in its colors under the pointer.
+private struct EditorIconButton: View {
+    let editor: ExternalEditor.Editor
+    let tooltip: Tooltip
+    let size: CGSize
+    let action: () -> Void
+    @State private var hovering = false
+    @Environment(\.isEnabled) private var enabled
+
+    var body: some View {
+        Button(action: action) {
+            Group {
+                if let app = editor.app {
+                    Image(nsImage: NSWorkspace.shared.icon(forFile: app.path)).resizable().interpolation(.high)
+                } else {
+                    Image(systemName: "arrow.up.forward.app")
+                }
+            }
+            .frame(width: 18, height: 18)
+            .saturation(hovering && enabled ? 1 : 0)
+            .opacity(!enabled ? 0.3 : hovering ? 1 : 0.7)
+            .frame(width: size.width, height: size.height)
+            .contentShape(Capsule())
         }
+        .buttonStyle(BarButtonStyle(hovering: hovering && enabled))
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .tooltip(tooltip)
+        .accessibilityLabel(tooltip.title)
     }
 }
 

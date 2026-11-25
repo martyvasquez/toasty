@@ -732,54 +732,30 @@ struct PreviewBrowser: Equatable, Identifiable {
 }
 
 /// Open In: the default browser's mark, with the other installed
-/// browsers tucked behind it, as the tab row's + hides New Terminal:
-/// hovering slides them out to its left, so a click where it sits always
-/// uses the default and another browser is one step over. It folds back
-/// shortly after the pointer leaves. The bar reserves their room, so
+/// browsers sliding out to its left on hover. The bar keeps their room, so
 /// opening never moves the address.
 private struct OpenInBrowserButton: View {
     let browsers: [PreviewBrowser]
     let size: CGSize
     let open: (PreviewBrowser) -> Void
-    @State private var expanded = false
-    @State private var collapse: DispatchWorkItem?
 
     private static let detail = "The same address, in your own browser (its own cookies and logins)."
 
     var body: some View {
-        HStack(spacing: 0) {
-            Spacer(minLength: 0)
+        HoverRevealButtons(count: max(0, browsers.count - 1), size: size, reserve: true) {
             ForEach(Array(browsers.dropFirst())) { browser in
                 BrowserIconButton(browser: browser, tooltip: Tooltip(title: "Open in \(browser.name)", detail: Self.detail),
                                   size: size) { open(browser) }
-                    .onHover(perform: hover)
-                    .opacity(expanded ? 1 : 0)
-                    .offset(x: expanded ? 0 : 10)
-                    .allowsHitTesting(expanded)
-                    .frame(width: expanded ? size.width : 0, alignment: .trailing)
-                    .clipped()
             }
+        } main: {
             if let main = browsers.first {
                 BrowserIconButton(browser: main, tooltip: Tooltip(title: "Open in \(main.name)", detail: Self.detail),
                                   size: size) { open(main) }
-                    .onHover(perform: hover)
             } else {
                 BarIconButton(symbol: "arrow.up.forward.app", tooltip: Tooltip(title: "Open in Browser", detail: Self.detail),
                               glyphSize: Theme.Size.body, size: size) {}
                     .disabled(true)
             }
-        }
-        .frame(width: size.width * CGFloat(max(1, browsers.count)), alignment: .trailing)
-    }
-
-    private func hover(_ inside: Bool) {
-        collapse?.cancel()
-        if inside {
-            withAnimation(.easeOut(duration: 0.16)) { expanded = true }
-        } else {
-            let work = DispatchWorkItem { withAnimation(.easeOut(duration: 0.16)) { expanded = false } }
-            collapse = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
         }
     }
 }

@@ -84,3 +84,49 @@ struct BarLabelButton: View {
         .accessibilityLabel(title)
     }
 }
+
+/// A bar button with others tucked behind it, as the tab row's + hides
+/// New Terminal: hovering slides them out to its left, so a click where it
+/// sits always does the usual thing and the others are one step over. They
+/// fold back shortly after the pointer leaves. With `reserve`, their room
+/// is kept while they're hidden (nothing beside them moves); without it,
+/// what's to their left makes way as they open.
+struct HoverRevealButtons<Hidden: View, Main: View>: View {
+    /// How many buttons `hidden` holds, each `size` wide.
+    let count: Int
+    let size: CGSize
+    var reserve = false
+    @ViewBuilder let hidden: () -> Hidden
+    @ViewBuilder let main: () -> Main
+    @State private var open = false
+    @State private var collapse: DispatchWorkItem?
+
+    var body: some View {
+        let room = size.width * CGFloat(count)
+        HStack(spacing: 0) {
+            if count > 0 {
+                HStack(spacing: 0) { hidden() }
+                    .fixedSize()
+                    .onHover(perform: hover)
+                    .opacity(open ? 1 : 0)
+                    .offset(x: open ? 0 : 10)
+                    .allowsHitTesting(open)
+                    .frame(width: open ? room : 0, alignment: .trailing)
+                    .clipped()
+            }
+            main().onHover(perform: hover)
+        }
+        .frame(width: reserve ? room + size.width : nil, alignment: .trailing)
+    }
+
+    private func hover(_ inside: Bool) {
+        collapse?.cancel()
+        if inside {
+            withAnimation(.easeOut(duration: 0.16)) { open = true }
+        } else {
+            let work = DispatchWorkItem { withAnimation(.easeOut(duration: 0.16)) { open = false } }
+            collapse = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
+        }
+    }
+}
