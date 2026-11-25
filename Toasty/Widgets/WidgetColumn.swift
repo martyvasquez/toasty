@@ -90,7 +90,7 @@ private struct ColumnContent: View {
         }
         .animation(.easeOut(duration: 0.2), value: shown)
         // Opening or collapsing it: the widgets move along with it.
-        .animation(.easeOut(duration: 0.2), value: open)
+        .animation(TerminalDock.morph, value: open)
     }
 }
 
