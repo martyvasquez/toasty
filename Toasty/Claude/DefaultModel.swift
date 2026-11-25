@@ -125,10 +125,13 @@ struct GeneralSettingsView: View {
             if Updater.isAvailable { UpdateSettingsSection() }
         }
         .formStyle(.grouped)
+        // An editor installed or removed since (the Editor section shows
+        // with two or more).
+        .onAppear { ExternalEditor.shared.refresh() }
         .frame(width: 600, height: 118 + (settings.removed != nil ? 28 : 0) + (settings.models.isEmpty ? 24 : 0)
             + AppearanceAndSoundSection.height
             + TypingSettingsSection.height
-            + EditorSettingsSection.height
+            + (EditorSettingsSection.shows ? EditorSettingsSection.height : 0)
             + WidgetSettingsSection.height
             + (Updater.isAvailable ? UpdateSettingsSection.height : 0))
     }

@@ -68,13 +68,11 @@ final class ExternalEditor: ObservableObject {
     /// The known editors on this Mac.
     @Published private(set) var installed: [Editor] = []
 
-    /// The bundle ID picked in Settings; "" for the default app.
+    /// The bundle ID picked in Settings ("" before any pick; see `editor`).
     @Published var choiceID: String {
         didSet { UserDefaults.standard.set(choiceID, forKey: Self.key) }
     }
 
-    /// What "none" is stored as: open in each file's default app.
-    static let defaultApp = ""
     private static let key = "ToastyExternalEditor"
 
     private init() {
@@ -95,8 +93,10 @@ final class ExternalEditor: ObservableObject {
         }
     }
 
-    /// The editor files open in, if one is picked and still installed.
-    var editor: Editor? { installed.first { $0.id == choiceID } }
+    /// The editor files open in: the one picked in Settings, or the first
+    /// installed when none is (or the pick is gone). Nil only when no
+    /// known editor is installed: then files open in their default app.
+    var editor: Editor? { installed.first { $0.id == choiceID } ?? installed.first }
 
     // MARK: Opening
 
@@ -258,39 +258,41 @@ struct OpenInEditorButton: View {
     }
 }
 
-/// Settings ▸ General ▸ Editor.
+/// Settings ▸ General ▸ Editor: which installed editor is the one
+/// (shown only when there's more than one to choose from).
 struct EditorSettingsSection: View {
     @ObservedObject private var editors = ExternalEditor.shared
 
     /// The section's height in the General pane.
     static let height: CGFloat = 140
+    /// Whether it shows: more than one known editor installed.
+    static var shows: Bool { ExternalEditor.shared.installed.count > 1 }
 
     var body: some View {
-        Section {
-            Picker("Open files in", selection: $editors.choiceID) {
-                ForEach(editors.installed) { Text($0.name).tag($0.id) }
-                if !editors.installed.isEmpty { Divider() }
-                Text("Each File's Default App").tag(ExternalEditor.defaultApp)
-                // A pick that's since been uninstalled.
-                if !editors.choiceID.isEmpty, editors.editor == nil {
-                    Text("Default App (editor not found)").tag(editors.choiceID)
+        if Self.shows {
+            Section {
+                Picker("Open files in", selection: Binding(get: { editors.editor?.id ?? "" },
+                                                           set: { editors.choiceID = $0 })) {
+                    ForEach(editors.installed) { Text($0.name).tag($0.id) }
                 }
+            } header: {
+                Text("Editor")
+            } footer: {
+                Text("Files open in the editor's window for their project, with its sidebar, search and language tools, rather than on their own. A file's page also has a button for the app macOS opens it with.")
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-        } header: {
-            Text("Editor")
-        } footer: {
-            Text("Files open in the editor's window for their project, with its sidebar, search and language tools, rather than on their own.")
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
         }
-        .onAppear { editors.refresh() }
     }
 }
 
-/// A page header's open button: in the editor when one is picked, at the
-/// line in view (right-click for the default app), else the default app.
-/// ⇧⌘O (File ▸ Open in …) does the same. Hovering it slides out the other
-/// installed editors, to open this file in one of them instead.
+/// A page header's open buttons: Open in Default App (the app macOS
+/// opens the file with), and beside it the editor picked in Settings
+/// (Settings ▸ General ▸ Editor; the first installed when it's set to the
+/// default app), at the line in view. Hovering the editor slides out the
+/// other installed editors, to use one of those instead. No editor
+/// installed, only the default app. ⇧⌘O (File ▸ Open in …) is the
+/// Settings pick.
 struct OpenExternallyButton: View {
     let file: URL
     let project: String?
@@ -300,32 +302,36 @@ struct OpenExternallyButton: View {
     private static let size = CGSize(width: 32, height: 24)
 
     var body: some View {
-        let others = editors.installed.filter { $0 != editors.editor }
-        HoverRevealButtons(count: others.count, size: Self.size) {
-            ForEach(others) { editor in
-                EditorIconButton(editor: editor, tooltip: Tooltip(title: "Open in \(editor.name)", detail: detail), size: Self.size) {
-                    editors.open(file, project: project, line: ShownCode.line(), textOnly: true, in: editor)
-                }
+        let main = editors.editor ?? editors.installed.first
+        let others = editors.installed.filter { $0 != main }
+        HStack(spacing: 0) {
+            BarIconButton(symbol: "arrow.up.forward.app",
+                          tooltip: Tooltip(title: "Open in \(defaultAppName)", shortcut: editors.editor == nil ? "⇧⌘O" : nil,
+                                           detail: detail)) {
+                NSWorkspace.shared.open(file)
             }
-        } main: {
-            Group {
-                if let editor = editors.editor {
-                    EditorIconButton(editor: editor, tooltip: Tooltip(title: "Open in \(editor.name)", shortcut: "⇧⌘O", detail: detail),
+            if let main {
+                HoverRevealButtons(count: others.count, size: Self.size) {
+                    ForEach(others) { editor in
+                        EditorIconButton(editor: editor, tooltip: Tooltip(title: "Open in \(editor.name)", detail: detail), size: Self.size) {
+                            editors.open(file, project: project, line: ShownCode.line(), in: editor)
+                        }
+                    }
+                } main: {
+                    EditorIconButton(editor: main, tooltip: Tooltip(title: "Open in \(main.name)",
+                                                                    shortcut: editors.editor != nil ? "⇧⌘O" : nil, detail: detail),
                                      size: Self.size) {
-                        editors.open(file, project: project, line: ShownCode.line(), textOnly: true)
-                    }
-                } else {
-                    BarIconButton(symbol: "arrow.up.forward.app",
-                                  tooltip: Tooltip(title: "Open in Default App", shortcut: "⇧⌘O", detail: detail)) {
-                        editors.open(file, project: project, line: ShownCode.line(), textOnly: true)
+                        editors.open(file, project: project, line: ShownCode.line(), in: main)
                     }
                 }
-            }
-            .contextMenu {
-                OpenInEditorButton(file: file, project: project, line: ShownCode.line())
-                Button("Open in Default App") { NSWorkspace.shared.open(file) }
             }
         }
+    }
+
+    /// The app macOS opens the file with, by name.
+    private var defaultAppName: String {
+        guard let app = NSWorkspace.shared.urlForApplication(toOpen: file) else { return "Default App" }
+        return FileManager.default.displayName(atPath: app.path).replacingOccurrences(of: ".app", with: "")
     }
 }
 
