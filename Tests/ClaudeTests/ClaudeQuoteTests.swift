@@ -5,18 +5,18 @@ import Testing
 @Suite struct ClaudeQuoteTests {
     typealias F = ClaudeQuoteFormat
 
-    @Test func oneQuoteIsNotNumbered() {
+    @Test func oneQuote() {
         let p = F.prompt([ClaudeQuote(text: "being damaged in real time")], typed: "Cut this.")
         #expect(p == "> being damaged in real time\n\nCut this.")
     }
 
-    @Test func severalQuotesAreNumberedWithNotes() {
+    @Test func severalQuotesWithNotes() {
         let quotes = [
             ClaudeQuote(text: "first line\nsecond line", note: "Too dramatic"),
             ClaudeQuote(text: "- a bullet"),
         ]
         let p = F.prompt(quotes, typed: "Thanks")
-        #expect(p == "> [1] first line\n> second line\nToo dramatic\n\n> [2] - a bullet\n\nThanks")
+        #expect(p == "> first line\n> second line\nToo dramatic\n\n> - a bullet\n\nThanks")
     }
 
     @Test func blankLinesInAQuoteStayQuoted() {

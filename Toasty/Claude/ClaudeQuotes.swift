@@ -52,23 +52,17 @@ extension ClaudeConversation {
 /// transcript): plain Markdown quotes ahead of the typed text, each
 /// followed by its note.
 ///
-///     > [1] the quoted passage
+///     > the quoted passage
 ///     > its second line
-///     The note on it.
+///     The comment on it.
 ///
-///     > [2] another passage
+///     > another passage
 ///
 ///     What the user typed.
-///
-/// Numbered only when there are several, so the text can say "1" and "2".
 nonisolated enum ClaudeQuoteFormat {
     static func prompt(_ quotes: [ClaudeQuote], typed: String) -> String {
-        let numbered = quotes.count > 1
-        let blocks = quotes.enumerated().map { i, q in
-            var lines = q.text.components(separatedBy: "\n").map { $0.isEmpty ? ">" : "> " + $0 }
-            if numbered, !lines.isEmpty {
-                lines[0] = "> [\(i + 1)] " + lines[0].dropFirst(lines[0].hasPrefix("> ") ? 2 : 1)
-            }
+        let blocks = quotes.map { q in
+            let lines = q.text.components(separatedBy: "\n").map { $0.isEmpty ? ">" : "> " + $0 }
             let note = oneLine(q.note)
             return (lines + (note.isEmpty ? [] : [note])).joined(separator: "\n")
         }
@@ -95,9 +89,6 @@ nonisolated enum ClaudeQuoteFormat {
                 i += 1
             }
             while i < lines.count, lines[i].trimmingCharacters(in: .whitespaces).isEmpty { i += 1 }
-            if let first = quoted.first, let r = first.range(of: #"^\[\d+\] "#, options: .regularExpression) {
-                quoted[0] = String(first[r.upperBound...])
-            }
             quotes.append((quoted.joined(separator: "\n"), note.joined(separator: "\n")))
         }
         guard !quotes.isEmpty else { return ([], raw) }
@@ -214,7 +205,7 @@ struct QuotePill: View {
 
 /// The quotes gathered for the next message, above the composer's text:
 /// each passage (click to see it in the transcript), a comment on it (the
-/// keyboard goes there when it's quoted), and a remove button. Numbered when there are several, as they're sent.
+/// keyboard goes there when it's quoted), and a remove button.
 struct ComposerQuotes: View {
     @ObservedObject var conversation: ClaudeConversation
     @FocusState private var focusedNote: UUID?
@@ -222,8 +213,8 @@ struct ComposerQuotes: View {
     var body: some View {
         let quotes = conversation.quotes
         let list = VStack(alignment: .leading, spacing: Theme.Space.xs) {
-            ForEach(Array(quotes.enumerated()), id: \.element.id) { i, quote in
-                row(quote, number: quotes.count > 1 ? i + 1 : nil).id(quote.id)
+            ForEach(quotes) { quote in
+                row(quote).id(quote.id)
             }
         }
         // Past four, the list scrolls rather than pushing the box up.
@@ -252,28 +243,21 @@ struct ComposerQuotes: View {
         DispatchQueue.main.async { focusedNote = id }
     }
 
-    private func row(_ quote: ClaudeQuote, number: Int?) -> some View {
+    private func row(_ quote: ClaudeQuote) -> some View {
         HStack(alignment: .top, spacing: Theme.Space.s) {
             RoundedRectangle(cornerRadius: 1, style: .continuous)
                 .fill(Color.accentColor.opacity(0.7))
                 .frame(width: 2)
             VStack(alignment: .leading, spacing: 3) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    if let number {
-                        Text("\(number)")
-                            .font(.toasty(Theme.Size.caption, .semibold))
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    }
-                    Text(ClaudeQuoteFormat.oneLine(quote.text))
-                        .font(.toasty(Theme.Size.control))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .contentShape(Rectangle())
-                        .onTapGesture { conversation.revealQuote(quote.text, source: quote.source) }
-                        .tooltipText(quote.text)
-                }
+                Text(ClaudeQuoteFormat.oneLine(quote.text))
+                    .font(.toasty(Theme.Size.control))
+                    .italic()
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .contentShape(Rectangle())
+                    .onTapGesture { conversation.revealQuote(quote.text, source: quote.source) }
+                    .tooltipText(quote.text)
                 HStack(alignment: .firstTextBaseline, spacing: 5) {
                     Image(systemName: "text.bubble")
                         .font(.toasty(Theme.Size.caption))
@@ -335,8 +319,8 @@ struct SentQuotes: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.xs + 2) {
-            ForEach(Array(quotes.enumerated()), id: \.offset) { i, q in
-                card(q, number: quotes.count > 1 ? i + 1 : nil)
+            ForEach(Array(quotes.enumerated()), id: \.offset) { _, q in
+                card(q)
             }
         }
     }
@@ -345,25 +329,18 @@ struct SentQuotes: View {
         onBlue ? Color.white.opacity(opacity) : Color.primary.opacity(opacity)
     }
 
-    private func card(_ q: (text: String, note: String), number: Int?) -> some View {
+    private func card(_ q: (text: String, note: String)) -> some View {
         HStack(alignment: .top, spacing: Theme.Space.s) {
             RoundedRectangle(cornerRadius: 1, style: .continuous)
                 .fill(onBlue ? Color.white.opacity(0.55) : Color.accentColor.opacity(0.7))
                 .frame(width: 2)
             VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    if let number {
-                        Text("\(number)")
-                            .font(.toasty(Theme.Size.caption, .semibold))
-                            .monospacedDigit()
-                            .foregroundStyle(ink(0.6))
-                    }
-                    Text(q.text)
-                        .font(.toasty(Theme.Size.control))
-                        .foregroundStyle(ink(0.72))
-                        .lineLimit(3)
-                        .truncationMode(.tail)
-                }
+                Text(q.text)
+                    .font(.toasty(Theme.Size.control))
+                    .italic()
+                    .foregroundStyle(ink(0.72))
+                    .lineLimit(3)
+                    .truncationMode(.tail)
                 if !q.note.isEmpty {
                     Text(q.note)
                         .font(.toasty(Theme.Size.control))
