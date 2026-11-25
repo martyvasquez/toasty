@@ -47,6 +47,7 @@
 		3FEABD3A753F771169A42D82 /* ClaudeStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F85C0CF7B802A8107EAC802 /* ClaudeStyle.swift */; };
 		43803B9A1F705D8B04E8B7D9 /* BarIconButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FBF5CE3CA1577B6F4103E79 /* BarIconButton.swift */; };
 		440B3223CC9068684E18E197 /* DictationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE77E4EB884D2153CA08A895 /* DictationController.swift */; };
+		4AB24957E85A687927C2AD9F /* AppMover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9819A826F10AD2B7DCA8FCE2 /* AppMover.swift */; };
 		4E868E3636D7E457ADD0303E /* ContextVocabulary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 080B0B6B44543BB4052752BD /* ContextVocabulary.swift */; };
 		500B9ECC5A22E8386FBB831D /* TerminalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27278907AA55A2FF70B1DB4 /* TerminalRenderer.swift */; };
 		5044C8F9C7B16559001A2B48 /* SpeechModels in Resources */ = {isa = PBXBuildFile; fileRef = AAFDD6D5C02551210E270F85 /* SpeechModels */; };
@@ -231,6 +232,7 @@
 		938002554F60AC3FFC1B8C75 /* TriggerMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TriggerMonitor.swift; sourceTree = "<group>"; };
 		944191F92E33894586D21416 /* SidebarHandle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarHandle.swift; sourceTree = "<group>"; };
 		953B4EC2E8F32D9B902082DE /* TextPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextPipeline.swift; sourceTree = "<group>"; };
+		9819A826F10AD2B7DCA8FCE2 /* AppMover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMover.swift; sourceTree = "<group>"; };
 		9B4DEC8351A4F3C7DBBDA854 /* WidgetShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetShell.swift; sourceTree = "<group>"; };
 		9CCEEDDC3B6D5A771D67C9DC /* ClaudeRequestCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeRequestCard.swift; sourceTree = "<group>"; };
 		9FDEDA73E441426DFF2253CD /* PreviewTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewTools.swift; sourceTree = "<group>"; };
@@ -567,6 +569,7 @@
 			isa = PBXGroup;
 			children = (
 				DB24559E15BED10BF20F7121 /* AppDelegate.swift */,
+				9819A826F10AD2B7DCA8FCE2 /* AppMover.swift */,
 				3FBF5CE3CA1577B6F4103E79 /* BarIconButton.swift */,
 				0A1AC4F2009B67034788F88E /* ConversationColumn.swift */,
 				CC88AC37DB6ACA36E634603C /* ExternalEditor.swift */,
@@ -756,6 +759,7 @@
 				D3118FED172FCEB87041C7C0 /* ActivityTab.swift in Sources */,
 				B1E5F803367A428C86749765 /* ActivityWidget.swift in Sources */,
 				C83DB61BBC4E1B55D26FE8AB /* AppDelegate.swift in Sources */,
+				4AB24957E85A687927C2AD9F /* AppMover.swift in Sources */,
 				43803B9A1F705D8B04E8B7D9 /* BarIconButton.swift in Sources */,
 				C377CAE6CF74EDB9ACFFE687 /* CaptureClip.swift in Sources */,
 				308C0EB67B57D5743742E49F /* ClaudeAgent.swift in Sources */,

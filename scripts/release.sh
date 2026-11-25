@@ -1,5 +1,6 @@
 #!/bin/zsh
-# Builds a Developer ID–signed Release of Toasty and zips it.
+# Builds a Developer ID–signed Release of Toasty, zips it (for updates)
+# and makes Toasty.dmg (for first installs: drag it to Applications).
 #
 #   scripts/release.sh                       # build + sign + verify + zip
 #   scripts/release.sh --notarize            # ...then notarize and staple (zip is re-made)
@@ -10,7 +11,9 @@
 # the commit count (always increasing on main): 0.1.431. TOASTY_BUILD
 # overrides the build number (local test builds only).
 #
-# --publish makes GitHub release v<version> holding the zip, delta updates
+# --publish makes GitHub release v<version> holding the zip, Toasty.dmg
+# (always the same name, so releases/latest/download/Toasty.dmg is the
+# download link), delta updates
 # from the last few releases, and appcast.xml: the feed installed copies of
 # Toasty read (Info.plist SUFeedURL; Toasty/App/Updater.swift). The feed is
 # signed with the "toasty" EdDSA key in your login keychain, made once with
@@ -37,6 +40,7 @@ OUT=build/release
 ARCHIVE="$OUT/Toasty.xcarchive"
 APP="$OUT/export/Toasty.app"
 ZIP="$OUT/Toasty.zip"
+DMG="$OUT/Toasty.dmg"
 # Kept between releases: the last few zips (deltas are made against them)
 # and the feed.
 UPDATES=build/updates
@@ -116,6 +120,25 @@ echo "▸ Zipping…"
 rm -f "$ZIP"
 ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
 
+# The disk image people download: Toasty beside a link to Applications, to
+# drag it onto. Signed like the app and, when notarizing, notarized and
+# stapled itself (so it opens without a warning even offline).
+echo "▸ Making the disk image…"
+STAGE="$OUT/dmg"
+rm -rf "$STAGE" "$DMG"; mkdir -p "$STAGE"
+ditto "$APP" "$STAGE/Toasty.app"
+ln -s /Applications "$STAGE/Applications"
+hdiutil create -quiet -volname "Toasty" -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov "$DMG"
+rm -rf "$STAGE"
+IDENTITY="$(codesign -dvv "$APP" 2>&1 | sed -n 's/^Authority=\(Developer ID Application.*\)/\1/p' | head -1)"
+codesign --sign "$IDENTITY" --timestamp "$DMG"
+if (( NOTARIZE )); then
+  echo "▸ Notarizing the disk image…"
+  xcrun notarytool submit "$DMG" "${NOTARY_AUTH[@]}" --wait
+  xcrun stapler staple "$DMG"
+  spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG"
+fi
+
 if (( PUBLISH )); then
   [[ -x "$SPARKLE_BIN/generate_appcast" ]] || { echo "Sparkle's tools not found in $SPARKLE_BIN"; exit 1; }
   mkdir -p "$UPDATES"
@@ -156,7 +179,7 @@ if (( PUBLISH )); then
   echo "▸ Publishing $TAG…"
   # Deltas to this build from the releases before it (Toasty<build>-<from>.delta).
   DELTAS=("$UPDATES"/Toasty"$BUILD"-*.delta(N))
-  gh release create "$TAG" "$UPDATES/Toasty-$VERSION.zip" "${DELTAS[@]}" "$UPDATES/appcast.xml" \
+  gh release create "$TAG" "$UPDATES/Toasty-$VERSION.zip" "$DMG" "${DELTAS[@]}" "$UPDATES/appcast.xml" \
     --repo "$REPO" --title "Toasty $VERSION" --notes-file "$NOTES_MD" --target "$COMMIT"
   # Deltas to older builds are no use to anyone now.
   for delta in "$UPDATES"/*.delta(N); do
@@ -182,4 +205,4 @@ if (( INSTALL )); then
   ditto "$APP" /Applications/Toasty.app
   echo "Installed /Applications/Toasty.app"
 fi
-echo "✓ Done: $ZIP"
+echo "✓ Done: $ZIP and $DMG"

@@ -18,6 +18,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if Self.isRunningTests { return }
+        // Outside Applications Toasty can't update itself: it asks to move
+        // there (and opens again from there) before anything else starts.
+        if AppMover.checkAtLaunch() { return }
         // Finder's Services menu: "New Toasty Tab Here".
         NSApp.servicesProvider = ServiceProvider()
         NSUpdateDynamicServices()
