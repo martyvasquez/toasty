@@ -169,9 +169,10 @@ enum PreviewDebug {
         }
 
         // JavaScript in the picker's own world: {"cmd":"previewPicker","js":"return 1"}
+        // ({"twin":true}: side by side's iPhone page)
         DebugControl.registerAsync("previewPicker") { cmd in
             guard let w = WorkspaceStore.shared.active else { throw DebugControl.DebugError("no workspace") }
-            let value = try await PreviewStore.shared.session(for: w).debugPickerWorld(cmd["js"] as? String ?? "")
+            let value = try await PreviewStore.shared.session(for: w).debugPickerWorld(cmd["js"] as? String ?? "", inTwin: cmd["twin"] as? Bool == true)
             return "\(value ?? "nil")"
         }
 

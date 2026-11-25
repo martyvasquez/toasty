@@ -108,6 +108,9 @@ final class PreviewSession: NSObject, ObservableObject {
         let url: String
         /// Picked in side by side's iPhone page, not the main one.
         var inTwin = false
+        /// Where an element was clicked, in the page's coordinates (nil for
+        /// an area, which is placed by its middle).
+        var point: CGPoint?
     }
 
     let workspaceID: UUID
@@ -598,8 +601,8 @@ final class PreviewSession: NSObject, ObservableObject {
 
     #if DEBUG
     /// Debug: run JavaScript in the picker's world.
-    func debugPickerWorld(_ body: String) async throws -> Any? {
-        try await web().callAsyncJavaScript(body, arguments: [:], in: nil, contentWorld: Self.world)
+    func debugPickerWorld(_ body: String, inTwin: Bool = false) async throws -> Any? {
+        try await (inTwin ? (twin ?? web()) : web()).callAsyncJavaScript(body, arguments: [:], in: nil, contentWorld: Self.world)
     }
     #endif
 
@@ -737,7 +740,8 @@ final class PreviewSession: NSObject, ObservableObject {
             pick = Pick(kind: kind, selector: m["selector"] as? String ?? "", text: m["text"] as? String ?? "",
                         rect: CGRect(x: r["x"] as? Double ?? 0, y: r["y"] as? Double ?? 0,
                                      width: r["width"] as? Double ?? 0, height: r["height"] as? Double ?? 0),
-                        viewport: size("viewport", "width", "height"), url: m["url"] as? String ?? "", inTwin: inTwin)
+                        viewport: size("viewport", "width", "height"), url: m["url"] as? String ?? "", inTwin: inTwin,
+                        point: (m["point"] as? [String: Any]).map { CGPoint(x: $0["x"] as? Double ?? 0, y: $0["y"] as? Double ?? 0) })
         default:
             break
         }

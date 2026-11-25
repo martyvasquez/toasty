@@ -931,6 +931,9 @@ private struct PreviewPage: View {
     @State private var confirmation: String?
     /// The comment field's height (it grows as the comment does).
     @State private var commentHeight = CommentField.restingHeight
+    /// Its width as drawn (wider than `CommentField.width` with a long tab
+    /// name in its tab menu).
+    @State private var commentWidth = CommentField.width
 
     var body: some View {
         GeometryReader { whole in
@@ -966,7 +969,8 @@ private struct PreviewPage: View {
           // either one, and the confirmation centered on the whole window.
           .overlay(alignment: .topLeading) {
               if session.failure == nil, let pick = session.pick, let fit = pickFit(pick, in: whole.size, column: column) {
-                  let field = CommentField.frame(for: pick.rect, fit: fit, pane: whole.size, height: commentHeight)
+                  let field = CommentField.frame(for: pick.rect, point: pick.point, fit: fit, pane: whole.size,
+                                                 width: commentWidth, height: commentHeight)
                   CommentField(destination: $settings.commentsTo, workspace: workspace.id, height: $commentHeight,
                                tabs: CommentTabs(workspace: workspace, pinnedID: $session.commentTabID)) { note, images, files in
                       Task { await session.comment(note, images: images, files: files, in: workspace, to: settings.commentDestination) }
@@ -974,9 +978,11 @@ private struct PreviewPage: View {
                       session.cancelPick()
                   }
                   // At least its width, wider when its controls need it
-                  // (a long tab name), growing right from where it's placed.
-                  .frame(minWidth: field.width, alignment: .leading)
+                  // (a long tab name).
+                  .frame(minWidth: min(CommentField.width, max(120, whole.size.width - 16)), alignment: .leading)
                   .fixedSize(horizontal: true, vertical: false)
+                  // Its real width, so it's placed all in the window.
+                  .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { commentWidth = $0 }
                   .frame(height: field.height)
                   .offset(x: field.minX, y: field.minY)
                   .id(pick)
@@ -1083,17 +1089,29 @@ struct CommentField: View {
     private static let attachmentsRow = thumb + 5 + 6
     static let width: CGFloat = 420
 
-    /// Under the pick when there's room, else above it; always in the pane.
-    static func frame(for rect: CGRect, fit: PreviewViewport.Fit, pane: CGSize, height: CGFloat) -> CGRect {
+    /// By the pick: centered on where it was clicked (an area: on its
+    /// middle), under it when there's room, else above it; always all in
+    /// the pane, by the box's real `width` (it grows past `Self.width`
+    /// when its controls need it, a long tab name). A tall element (a
+    /// section, the whole page) puts it by the click, not its far edge.
+    static func frame(for rect: CGRect, point: CGPoint?, fit: PreviewViewport.Fit, pane: CGSize,
+                      width measured: CGFloat, height: CGFloat) -> CGRect {
         let shown = CGRect(x: fit.display.minX + rect.minX * fit.scale, y: fit.display.minY + rect.minY * fit.scale,
                            width: rect.width * fit.scale, height: rect.height * fit.scale)
-        let width = min(Self.width, max(120, pane.width - 16))
-        let x = min(max(8, shown.midX - width / 2), max(8, pane.width - width - 8))
-        var y = shown.maxY + 8
-        if y + height > pane.height - 8 { y = shown.minY - 8 - height }
+        let click = point.map { CGPoint(x: fit.display.minX + $0.x * fit.scale, y: fit.display.minY + $0.y * fit.scale) }
+        let width = min(max(measured, Self.width), max(120, pane.width - 16))
+        let x = min(max(8, (click?.x ?? shown.midX) - width / 2), max(8, pane.width - width - 8))
+        var below = shown.maxY, above = shown.minY
+        if let click, shown.maxY - click.y > Self.nearEdge { below = click.y + 14; above = click.y - 14 }
+        var y = below + 8
+        if y + height > pane.height - 8 { y = above - 8 - height }
         y = min(max(8, y), max(8, pane.height - height - 8))
         return CGRect(x: x, y: y, width: width, height: height)
     }
+
+    /// How far under the click an element's bottom edge can be for the box
+    /// to go under the element rather than under the click.
+    private static let nearEdge: CGFloat = 60
 
     private var teeUp: Bool { destination == .teeUp && teeUpWidget.active }
 

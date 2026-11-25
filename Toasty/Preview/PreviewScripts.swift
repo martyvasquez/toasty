@@ -189,7 +189,9 @@ enum PreviewScripts {
         const rect = el.getBoundingClientRect();
         frozen = true;
         show(rect);
-        post(describe(el, rect, "element"));
+        // Where it was clicked: the comment box opens by the pointer, not
+        // the middle of a wide element.
+        post({ ...describe(el, rect, "element"), point: { x: e.clientX, y: e.clientY } });
       };
       // The pointer left the page (for the other page beside it, say): no
       // highlight left behind. A pick or a drag in progress stays.
