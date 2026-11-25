@@ -538,11 +538,21 @@ final class WidgetColumnController: NSHostingController<WidgetColumnView> {
             let bar = layout.buttonsMidY > 0 ? layout.buttonsMidY * 2 : 52
             // The view's flipped or not; the tab row is at the top either way.
             let fromTop = view.isFlipped ? p.y : view.bounds.height - p.y
-            guard view.bounds.contains(p), fromTop > bar, !inTerminal(e) else { return e }
+            guard view.bounds.contains(p), fromTop > bar, !inTerminal(e),
+                  !Self.onResizeEdge(e.locationInWindow, of: view.window) else { return e }
             grab = (e.locationInWindow, store.spaceIndex(for: w))
             return e
         case .leftMouseDragged:
             guard let grab else { return e }
+            // The window is being resized (its edge was grabbed): that's
+            // not a swipe, so let the column go back where it was.
+            if view.window?.inLiveResize == true {
+                self.grab = nil
+                grabbing = false
+                grabMoves = []
+                SpaceSwipe.shared.amount = 0
+                return e
+            }
             let dx = e.locationInWindow.x - grab.start.x
             let dy = e.locationInWindow.y - grab.start.y
             if !grabbing {
@@ -572,6 +582,17 @@ final class WidgetColumnController: NSHostingController<WidgetColumnView> {
         default:
             return e
         }
+    }
+
+    /// The band along the window's right and bottom edges where a click
+    /// resizes the window (the column runs to both).
+    static let resizeEdge: CGFloat = 8
+
+    private static func onResizeEdge(_ p: NSPoint, of window: NSWindow?) -> Bool {
+        guard let window, window.styleMask.contains(.resizable),
+              !window.styleMask.contains(.fullScreen) else { return false }
+        let size = window.frame.size
+        return p.x > size.width - resizeEdge || p.y < resizeEdge
     }
 
     private func inTerminal(_ e: NSEvent) -> Bool {
@@ -651,6 +672,12 @@ final class WidgetColumnController: NSHostingController<WidgetColumnView> {
     private func scrolled(_ e: NSEvent) -> NSEvent? {
         guard e.window === view.window, e.hasPreciseScrollingDeltas,
               view.bounds.contains(view.convert(e.locationInWindow, from: nil)) else { return e }
+        // Not while the button's held or the window's being resized: fingers
+        // moving on the trackpad during a resize aren't a swipe.
+        if view.window?.inLiveResize == true || NSEvent.pressedMouseButtons != 0 {
+            if e.phase == .ended || e.phase == .cancelled { swipe = 0; swiped = false }
+            return e
+        }
         let sideways = abs(e.scrollingDeltaX) > abs(e.scrollingDeltaY)
         // The tracked swipe's own events, and its momentum.
         if tracking || e.momentumPhase != [] { return sideways ? nil : e }
