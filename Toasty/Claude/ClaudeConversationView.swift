@@ -634,9 +634,20 @@ struct ClaudeUserMessage: View {
                 }
                 let (quotes, text) = ClaudeQuoteFormat.split(item.text)
                 if !quotes.isEmpty {
-                    SentQuotes(quotes: quotes, messageID: item.id)
-                }
-                if !text.isEmpty {
+                    // One message, one bubble: the quotes (with comments)
+                    // inside it, then what was typed.
+                    VStack(alignment: .leading, spacing: Theme.Space.s) {
+                        SentQuotes(quotes: quotes, messageID: item.id, onBlue: !item.queued)
+                        if !text.isEmpty {
+                            ClaudeRichText(text: Self.attributed(text, queued: item.queued))
+                                .padding(.horizontal, Theme.Space.l - Self.quoteInset)
+                                .padding(.bottom, Theme.Space.xxs)
+                        }
+                    }
+                    .padding(Self.quoteInset)
+                    .frame(maxWidth: 480, alignment: .leading)
+                    .background(bubble)
+                } else if !text.isEmpty {
                     ClaudeRichText(text: Self.attributed(text, queued: item.queued), hugs: true)
                         // Solid blue with white text (as the Claude app's),
                         // Things' card corners: yours at a glance.
@@ -648,6 +659,9 @@ struct ClaudeUserMessage: View {
         }
         .animation(.easeOut(duration: 0.2), value: item.queued)
     }
+
+    /// Quotes sit this far inside the bubble's edge.
+    static let quoteInset = Theme.Space.s
 
     /// Solid once Claude Code has it; a dashed outline while it waits in
     /// line behind the running turn.

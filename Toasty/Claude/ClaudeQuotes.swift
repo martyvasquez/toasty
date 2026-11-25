@@ -323,26 +323,32 @@ struct ComposerQuotes: View {
 
 // MARK: - In a sent message
 
-/// A sent message's quotes, over its bubble: each passage (a few lines;
-/// click to see it in the transcript) with the note under it.
+/// A sent message's quotes, inside its bubble: each passage (a few lines;
+/// click to see it in the transcript) with the comment under it. On the
+/// blue bubble in white; on a queued (outlined) one in the usual colors.
 struct SentQuotes: View {
     let quotes: [(text: String, note: String)]
     /// The message they were sent in (the passage is looked for before it).
     let messageID: String
+    var onBlue = true
     @Environment(\.claudeQuoteTarget) private var target
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 6) {
+        VStack(alignment: .leading, spacing: Theme.Space.xs + 2) {
             ForEach(Array(quotes.enumerated()), id: \.offset) { i, q in
                 card(q, number: quotes.count > 1 ? i + 1 : nil)
             }
         }
     }
 
+    private func ink(_ opacity: Double) -> Color {
+        onBlue ? Color.white.opacity(opacity) : Color.primary.opacity(opacity)
+    }
+
     private func card(_ q: (text: String, note: String), number: Int?) -> some View {
         HStack(alignment: .top, spacing: Theme.Space.s) {
             RoundedRectangle(cornerRadius: 1, style: .continuous)
-                .fill(Color.accentColor.opacity(0.7))
+                .fill(onBlue ? Color.white.opacity(0.55) : Color.accentColor.opacity(0.7))
                 .frame(width: 2)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -350,18 +356,18 @@ struct SentQuotes: View {
                         Text("\(number)")
                             .font(.toasty(Theme.Size.caption, .semibold))
                             .monospacedDigit()
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(ink(0.6))
                     }
                     Text(q.text)
                         .font(.toasty(Theme.Size.control))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(ink(0.72))
                         .lineLimit(3)
                         .truncationMode(.tail)
                 }
                 if !q.note.isEmpty {
                     Text(q.note)
                         .font(.toasty(Theme.Size.control))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(ink(0.95))
                         .textSelection(.enabled)
                 }
             }
@@ -369,9 +375,10 @@ struct SentQuotes: View {
         .padding(.vertical, Theme.Space.s)
         .padding(.leading, Theme.Space.s + 2)
         .padding(.trailing, Theme.Space.m)
-        .frame(maxWidth: 440, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
-        .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).fill(Theme.Fill.subtle))
+        .background(RoundedRectangle(cornerRadius: max(Theme.Radius.message - Theme.Space.s, 4), style: .continuous)
+            .fill(onBlue ? Color.black.opacity(0.16) : Theme.Fill.subtle))
         .contentShape(Rectangle())
         .onTapGesture { target?.conversation?.revealQuote(q.text, before: messageID) }
         .tooltipText("Show in the conversation")
