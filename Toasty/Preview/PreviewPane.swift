@@ -703,6 +703,8 @@ private struct PreviewSizeMenu: View {
 struct PreviewBrowser: Equatable, Identifiable {
     let app: URL
     let name: String
+    /// Its bundle identifier, for its glyph.
+    let bundleID: String?
     var id: URL { app }
 
     private static let known = ["com.apple.Safari", "com.google.Chrome", "org.mozilla.firefox"]
@@ -715,21 +717,20 @@ struct PreviewBrowser: Equatable, Identifiable {
         func add(_ url: URL?) {
             guard let url, !list.contains(where: { $0.app.standardizedFileURL == url.standardizedFileURL }) else { return }
             list.append(PreviewBrowser(app: url, name: FileManager.default.displayName(atPath: url.path)
-                .replacingOccurrences(of: ".app", with: "")))
+                .replacingOccurrences(of: ".app", with: ""), bundleID: Bundle(url: url)?.bundleIdentifier))
         }
         add(ws.urlForApplication(toOpen: URL(string: "http://localhost")!))
         for id in known { add(ws.urlForApplication(withBundleIdentifier: id)) }
         return list
     }
 
-    var icon: NSImage { NSWorkspace.shared.icon(forFile: app.path) }
 
     func open(_ url: URL) {
         NSWorkspace.shared.open([url], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
     }
 }
 
-/// Open In: the default browser's own icon, with the other installed
+/// Open In: the default browser's mark, with the other installed
 /// browsers tucked behind it, as the tab row's + hides New Terminal:
 /// hovering slides them out to its left, so a click where it sits always
 /// uses the default and another browser is one step over. It folds back
@@ -782,8 +783,9 @@ private struct OpenInBrowserButton: View {
     }
 }
 
-/// A bar button showing a browser's own app icon (as BarIconButton does a
-/// symbol), grayed while it can't be used.
+/// A bar button with a browser's mark drawn as the bar's other glyphs
+/// are (one color, a line as heavy as the symbols' medium weight): Safari's
+/// own symbol, Chrome's and Firefox's drawn here, a globe for any other.
 private struct BrowserIconButton: View {
     let browser: PreviewBrowser
     let tooltip: Tooltip
@@ -794,12 +796,9 @@ private struct BrowserIconButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(nsImage: browser.icon)
-                .resizable()
-                .interpolation(.high)
-                .frame(width: 18, height: 18)
-                .saturation(enabled ? 1 : 0)
-                .opacity(enabled ? 1 : 0.4)
+            glyph
+                .foregroundStyle(!enabled ? AnyShapeStyle(.tertiary)
+                                 : hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
                 .frame(width: size.width, height: size.height)
                 .contentShape(Capsule())
         }
@@ -808,6 +807,62 @@ private struct BrowserIconButton: View {
         .animation(.easeOut(duration: 0.12), value: hovering)
         .tooltip(tooltip)
         .accessibilityLabel(tooltip.title)
+    }
+
+    private static let line = StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round)
+
+    @ViewBuilder private var glyph: some View {
+        switch browser.bundleID {
+        case "com.apple.Safari", "com.apple.SafariTechnologyPreview":
+            Image(systemName: "safari").font(.toasty(Theme.Size.body, .medium))
+        case "com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.canary":
+            ChromeGlyph().stroke(style: Self.line).frame(width: 13.6, height: 13.6)
+        case "org.mozilla.firefox", "org.mozilla.firefoxdeveloperedition", "org.mozilla.nightly":
+            FirefoxGlyph().stroke(style: Self.line).frame(width: 14, height: 14)
+        default:
+            Image(systemName: "globe").font(.toasty(Theme.Size.body, .medium))
+        }
+    }
+}
+
+/// Chrome's mark in outline: the rim, the hub, and the three tangents
+/// between them.
+nonisolated private struct ChromeGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        let c = CGPoint(x: rect.midX, y: rect.midY)
+        let R = min(rect.width, rect.height) / 2
+        let r = R * 0.42
+        var p = Path()
+        p.addEllipse(in: CGRect(x: c.x - R, y: c.y - R, width: 2 * R, height: 2 * R))
+        p.addEllipse(in: CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))
+        let reach = sqrt(R * R - r * r)
+        for deg in [-30.0, 90.0, 210.0] {
+            let a = deg * .pi / 180
+            let start = CGPoint(x: c.x + r * cos(a), y: c.y + r * sin(a))
+            p.move(to: start)
+            p.addLine(to: CGPoint(x: start.x - sin(a) * reach, y: start.y + cos(a) * reach))
+        }
+        return p
+    }
+}
+
+/// Firefox's mark in outline: the fox curled round the globe, its tail
+/// over the top to its head and ear at the top left.
+nonisolated private struct FirefoxGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        let s = min(rect.width, rect.height)
+        let o = CGPoint(x: rect.midX - s / 2, y: rect.midY - s / 2)
+        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: o.x + x * s, y: o.y + y * s) }
+        var p = Path()
+        p.addArc(center: pt(0.5, 0.53), radius: s * 0.47, startAngle: .degrees(186), endAngle: .degrees(-70), clockwise: true)
+        p.addCurve(to: pt(0.30, 0.30), control1: pt(0.46, 0.08), control2: pt(0.30, 0.14))
+        p.addLine(to: pt(0.16, 0.02))
+        p.addCurve(to: pt(0.03, 0.48), control1: pt(0.08, 0.16), control2: pt(0.02, 0.32))
+        let g = s * 0.19
+        let gc = pt(0.55, 0.58)
+        p.move(to: CGPoint(x: gc.x + g, y: gc.y))
+        p.addEllipse(in: CGRect(x: gc.x - g, y: gc.y - g, width: 2 * g, height: 2 * g))
+        return p
     }
 }
 
