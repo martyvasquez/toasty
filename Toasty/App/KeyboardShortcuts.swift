@@ -59,6 +59,7 @@ final class KeyboardShortcuts: NSObject {
                 plain("Interrupt Claude, or deny a request", "esc"),
                 plain("Commands", "/"),
                 plain("Message another tab", "@"),
+                menu("Quote the selected text in your reply", #selector(ClaudeOutputTextView.quoteSelection(_:))),
                 menu("Attach a screenshot", #selector(ScreenshotCapture.capture(_:))),
                 plain("Dictate", "hold right ⌥"),
             ].compactMap { $0 }),

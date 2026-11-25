@@ -7,11 +7,42 @@ import SwiftUI
 /// NSTextView (TextKit 1 so Markdown tables can use NSTextTable), so
 /// selection, copy, look up, services, drag and links all behave like any
 /// Mac app. It sizes itself to its content for the proposed width.
-struct ClaudeRichText: NSViewRepresentable {
+///
+/// In a transcript (`claudeQuoteTarget` set), selecting text with the mouse
+/// shows a Quote pill over it; Quote (⌘', also in the text's menu) puts the
+/// selection in the composer as a quote.
+struct ClaudeRichText: View {
     let text: NSAttributedString
     var insets = NSSize(width: 0, height: 0)
     /// Size to the text's own width (up to the proposal), like a label.
     var hugs = false
+    @Environment(\.claudeQuoteTarget) private var quoteTarget
+    /// Where the Quote pill sits: the top center of the selection.
+    @State private var pill: CGPoint?
+    @State private var handle = ClaudeOutputTextView.Handle()
+
+    var body: some View {
+        ClaudeRichTextView(text: text, insets: insets, hugs: hugs, quoteTarget: quoteTarget,
+                           handle: handle, onPill: { p in if p != pill { pill = p } })
+            .overlay(alignment: .topLeading) {
+                if let pill, quoteTarget != nil {
+                    QuotePill { handle.view?.quoteSelection(nil) }
+                        .offset(x: max(0, pill.x - QuotePill.size.width / 2),
+                                y: pill.y - QuotePill.size.height - 6)
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: 0.12), value: pill == nil)
+    }
+}
+
+struct ClaudeRichTextView: NSViewRepresentable {
+    let text: NSAttributedString
+    var insets = NSSize(width: 0, height: 0)
+    var hugs = false
+    var quoteTarget: ClaudeQuoteTarget?
+    var handle: ClaudeOutputTextView.Handle?
+    var onPill: ((CGPoint?) -> Void)?
 
     func makeNSView(context: Context) -> ClaudeOutputTextView {
         let view = ClaudeOutputTextView(usingTextLayoutManager: false)
@@ -33,10 +64,16 @@ struct ClaudeRichText: NSViewRepresentable {
         view.textStorage?.setAttributedString(text)
         view.shownText = text
         view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        view.quoteTarget = quoteTarget
+        view.onPill = onPill
+        handle?.view = view
         return view
     }
 
     func updateNSView(_ view: ClaudeOutputTextView, context: Context) {
+        view.quoteTarget = quoteTarget
+        view.onPill = onPill
+        handle?.view = view
         // The same (cached) string as last time: nothing to compare.
         guard view.shownText !== text else { return }
         view.shownText = text
@@ -88,6 +125,98 @@ final class ClaudeOutputTextView: NSTextView {
     }
     private var usedWidths: [Int: CGFloat] = [:]
     private var lastKey: Int?
+
+    // MARK: Quoting
+
+    /// Lets the SwiftUI side reach its text view (the Quote pill's action).
+    final class Handle {
+        weak var view: ClaudeOutputTextView?
+    }
+
+    /// Where Quote sends the selection; nil outside a transcript.
+    var quoteTarget: ClaudeQuoteTarget?
+    /// Shows the Quote pill at a point (the selection's top center) or
+    /// hides it (nil).
+    var onPill: ((CGPoint?) -> Void)?
+    private var showsPill = false
+    /// The one text view showing its pill: selecting in another hides it.
+    private static weak var pillOwner: ClaudeOutputTextView?
+
+    private var selectedText: [NSRange] {
+        selectedRanges.map(\.rangeValue).filter { $0.length > 0 && NSMaxRange($0) <= (textStorage?.length ?? 0) }
+    }
+
+    /// Quote the selection (each selected range, for a ⌘-drag selection of
+    /// several) in the next message, then let it go.
+    @objc func quoteSelection(_ sender: Any?) {
+        guard let quoteTarget, let storage = textStorage else { return }
+        let ranges = selectedText
+        guard !ranges.isEmpty else { return }
+        quoteTarget.quote(ranges.map { ClaudeQuoteFormat.text(of: storage, in: $0) })
+        setSelectedRange(NSRange(location: ranges[0].location, length: 0))
+        hidePill()
+    }
+
+    override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
+        if item.action == #selector(quoteSelection(_:)) { return quoteTarget != nil && !selectedText.isEmpty }
+        return super.validateUserInterfaceItem(item)
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let menu = super.menu(for: event)
+        if let menu, quoteTarget != nil, !selectedText.isEmpty {
+            let item = NSMenuItem(title: "Quote in Reply", action: #selector(quoteSelection(_:)), keyEquivalent: "'")
+            item.target = self
+            menu.insertItem(item, at: 0)
+            menu.insertItem(.separator(), at: 1)
+        }
+        return menu
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        super.mouseDown(with: event)  // tracks until the mouse is up
+        updatePill()
+    }
+
+    override func setSelectedRanges(_ ranges: [NSValue], affinity: NSSelectionAffinity, stillSelecting: Bool) {
+        super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelecting)
+        if showsPill, stillSelecting || selectedText.isEmpty { hidePill() }
+    }
+
+    #if DEBUG
+    /// Select passages as a mouse selection would (the debug `selectReply`).
+    func debugSelect(_ ranges: [NSRange]) {
+        window?.makeFirstResponder(self)
+        selectedRanges = ranges.map { NSValue(range: $0) }
+        updatePill()
+    }
+    #endif
+
+    private func updatePill() {
+        guard quoteTarget != nil, let onPill, let layout = layoutManager, let container = textContainer,
+              let first = selectedText.first else { return hidePill() }
+        let glyphs = layout.glyphRange(forCharacterRange: first, actualCharacterRange: nil)
+        var line = NSRange()
+        _ = layout.lineFragmentRect(forGlyphAt: glyphs.location, effectiveRange: &line)
+        let top = layout.boundingRect(forGlyphRange: NSIntersectionRange(glyphs, line), in: container)
+        // Over the middle of what's selected (of its first line, when
+        // that's all there is).
+        var all = top
+        for r in selectedText {
+            all = all.union(layout.boundingRect(forGlyphRange: layout.glyphRange(forCharacterRange: r, actualCharacterRange: nil), in: container))
+        }
+        let x = (selectedText.count == 1 && NSMaxRange(glyphs) <= NSMaxRange(line) ? top.midX : all.midX) + textContainerOrigin.x
+        if Self.pillOwner !== self { Self.pillOwner?.hidePill() }
+        Self.pillOwner = self
+        showsPill = true
+        onPill(CGPoint(x: min(x, bounds.width - QuotePill.size.width / 2), y: top.minY + textContainerOrigin.y))
+    }
+
+    func hidePill() {
+        guard showsPill else { return }
+        showsPill = false
+        onPill?(nil)
+    }
 
     /// Copied (or dragged) text has ordinary newlines. The rendered text
     /// breaks lines inside a paragraph with line separators (U+2028, see

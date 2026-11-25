@@ -300,6 +300,8 @@ private struct TranscriptRows: View, Equatable {
         ForEach(Array(rows.enumerated()), id: \.element.id) { i, row in
             // Tool lines and thoughts sit at the reply's left edge.
             rowView(row)
+                // Text selected in it can be quoted in the next message.
+                .environment(\.claudeQuoteTarget, ClaudeQuoteTarget(conversation: conversation, source: row.first?.id))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, i == 0 ? 0 : spacing(before: row, after: rows[i - 1]))
         }
@@ -630,8 +632,12 @@ struct ClaudeUserMessage: View {
                         ForEach(item.files, id: \.self) { AttachedFileChip(url: $0) }
                     }
                 }
-                if !item.text.isEmpty {
-                    ClaudeRichText(text: Self.attributed(item.text, queued: item.queued), hugs: true)
+                let (quotes, text) = ClaudeQuoteFormat.split(item.text)
+                if !quotes.isEmpty {
+                    SentQuotes(quotes: quotes, messageID: item.id)
+                }
+                if !text.isEmpty {
+                    ClaudeRichText(text: Self.attributed(text, queued: item.queued), hugs: true)
                         // Solid blue with white text (as the Claude app's),
                         // Things' card corners: yours at a glance.
                         .padding(.horizontal, Theme.Space.l)
@@ -1157,11 +1163,16 @@ struct ClaudeComposerBox: View {
 
     private var isEmpty: Bool {
         conversation.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && conversation.attachments.isEmpty && conversation.files.isEmpty
+            && conversation.attachments.isEmpty && conversation.files.isEmpty && conversation.quotes.isEmpty
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if !conversation.quotes.isEmpty {
+                ComposerQuotes(conversation: conversation)
+                    .padding(.horizontal, Self.inset - Theme.Space.s)
+                    .padding(.top, Theme.Space.m)
+            }
             if !conversation.attachments.isEmpty || !conversation.files.isEmpty {
                 attachments.padding(.horizontal, Self.inset - Theme.Space.xxs).padding(.top, Theme.Space.m)
             }
@@ -1189,7 +1200,8 @@ struct ClaudeComposerBox: View {
                 onKeyCommand: { commandKey($0) || mentionKey($0) },
                 dictationID: conversation.id,
                 suggestion: conversation.phase == .idle && conversation.requests.isEmpty
-                    && conversation.attachments.isEmpty && conversation.files.isEmpty ? conversation.suggestion : nil,
+                    && conversation.attachments.isEmpty && conversation.files.isEmpty
+                    && conversation.quotes.isEmpty ? conversation.suggestion : nil,
                 onAcceptSuggestion: { conversation.acceptSuggestion() })
                 // Room for a couple of lines at rest; it grows as you type.
                 .frame(height: max(height, Self.textMinHeight), alignment: .top)

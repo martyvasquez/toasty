@@ -25,6 +25,32 @@ enum ClaudeDebug {
             try conv().draft += (cmd["text"] as? String ?? "").replacingOccurrences(of: "\\n", with: "\n")
             return nil
         }
+        // Quote passages in the next message, as Quote does with a
+        // selection: {"cmd":"quote","texts":["…","…"],"notes":["…"]}
+        DebugControl.register("quote") { cmd in
+            let c = try conv()
+            c.addQuotes(cmd["texts"] as? [String] ?? [cmd["text"] as? String ?? ""], source: nil)
+            for (i, note) in (cmd["notes"] as? [String] ?? []).enumerated() where c.quotes.indices.contains(i) {
+                c.quotes[i].note = note
+            }
+            return c.quotes.map(\.text)
+        }
+        // Select text in a reply, as dragging over it would (the Quote pill
+        // shows): {"cmd":"selectReply","texts":["passage","another"]}
+        DebugControl.register("selectReply") { cmd in
+            let texts = cmd["texts"] as? [String] ?? [cmd["text"] as? String ?? ""]
+            func find(_ v: NSView) -> ClaudeOutputTextView? {
+                if let t = v as? ClaudeOutputTextView, t.string.contains(texts[0]) { return t }
+                for s in v.subviews { if let f = find(s) { return f } }
+                return nil
+            }
+            guard let view = NSApp.windows.lazy.compactMap({ $0.contentView.flatMap(find) }).first else {
+                throw E("no reply text has that")
+            }
+            let ns = view.string as NSString
+            view.debugSelect(texts.map { ns.range(of: $0) }.filter { $0.location != NSNotFound })
+            return nil
+        }
         // Show a prompt suggestion (ghost text): {"cmd":"suggest","text":"…"}
         DebugControl.register("suggest") { cmd in
             try conv().debugSuggest(cmd["text"] as? String)

@@ -354,6 +354,9 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     /// Live step and token count of the running turn.
     let activity = ClaudeTurnActivity()
     @Published var draft: String = ""
+    /// Passages of the transcript quoted in the next message (see
+    /// `ClaudeQuoteFormat`).
+    @Published var quotes: [ClaudeQuote] = []
 
     struct ModelOption: Identifiable, Equatable {
         let value: String
@@ -700,11 +703,13 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     }
 
     func submit() {
-        let typed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !typed.isEmpty || !attachments.isEmpty || !files.isEmpty else { return }
+        var typed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !typed.isEmpty || !attachments.isEmpty || !files.isEmpty || !quotes.isEmpty else { return }
+        if !quotes.isEmpty { typed = ClaudeQuoteFormat.prompt(quotes, typed: typed) }
         let images = attachments
         let attachedFiles = files
         draft = ""
+        quotes = []
         attachments = []
         files = []
         // The user is steering this tab themselves now.

@@ -60,6 +60,8 @@ enum MainMenu {
         edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
         edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
         edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        // Text selected in a conversation, into the next message as a quote.
+        edit.addItem(item("Quote in Reply", #selector(ClaudeOutputTextView.quoteSelection(_:)), "'"))
         edit.addItem(.separator())
         edit.addItem(withTitle: "Clear Terminal", action: #selector(TerminalView.clearTerminal(_:)), keyEquivalent: "k")
         edit.addItem(.separator())
