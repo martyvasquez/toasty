@@ -357,6 +357,8 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     /// Passages of the transcript quoted in the next message (see
     /// `ClaudeQuoteFormat`).
     @Published var quotes: [ClaudeQuote] = []
+    /// A quote just added, whose comment field should take the keyboard.
+    @Published var quoteToComment: UUID?
 
     struct ModelOption: Identifiable, Equatable {
         let value: String

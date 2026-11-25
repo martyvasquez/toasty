@@ -22,8 +22,10 @@ extension ClaudeConversation {
             !t.isEmpty && !quotes.contains { $0.text == t }
         }
         guard !fresh.isEmpty else { return }
-        quotes += fresh.map { ClaudeQuote(text: $0, source: source) }
-        focusComposer()
+        let added = fresh.map { ClaudeQuote(text: $0, source: source) }
+        quotes += added
+        // Straight into a comment on it: select, ⌘', comment, next.
+        quoteToComment = added.last?.id
     }
 
     /// Bring a quoted passage's message into view: the item it was quoted
@@ -211,8 +213,8 @@ struct QuotePill: View {
 // MARK: - In the composer
 
 /// The quotes gathered for the next message, above the composer's text:
-/// each passage (click to see it in the transcript), a note on it, and a
-/// remove button. Numbered when there are several, as they're sent.
+/// each passage (click to see it in the transcript), a comment on it (the
+/// keyboard goes there when it's quoted), and a remove button. Numbered when there are several, as they're sent.
 struct ComposerQuotes: View {
     @ObservedObject var conversation: ClaudeConversation
     @FocusState private var focusedNote: UUID?
@@ -221,16 +223,33 @@ struct ComposerQuotes: View {
         let quotes = conversation.quotes
         let list = VStack(alignment: .leading, spacing: Theme.Space.xs) {
             ForEach(Array(quotes.enumerated()), id: \.element.id) { i, quote in
-                row(quote, number: quotes.count > 1 ? i + 1 : nil)
+                row(quote, number: quotes.count > 1 ? i + 1 : nil).id(quote.id)
             }
         }
         // Past four, the list scrolls rather than pushing the box up.
-        if quotes.count > 4 {
-            ScrollView(.vertical) { list }
-                .frame(height: 4 * 52)
-        } else {
-            list
+        Group {
+            if quotes.count > 4 {
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical) { list }
+                        .frame(height: 4 * 52)
+                        .onChange(of: focusedNote) { _, id in
+                            if let id { withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(id) } }
+                        }
+                }
+            } else {
+                list
+            }
         }
+        .onAppear(perform: takeComment)
+        .onChange(of: conversation.quoteToComment) { _, _ in takeComment() }
+    }
+
+    /// A quote just added: its comment takes the keyboard.
+    private func takeComment() {
+        guard let id = conversation.quoteToComment else { return }
+        conversation.quoteToComment = nil
+        // After the row is in the window.
+        DispatchQueue.main.async { focusedNote = id }
     }
 
     private func row(_ quote: ClaudeQuote, number: Int?) -> some View {
@@ -255,14 +274,19 @@ struct ComposerQuotes: View {
                         .onTapGesture { conversation.revealQuote(quote.text, source: quote.source) }
                         .tooltipText(quote.text)
                 }
-                TextField("Add a note", text: note(quote.id))
-                    .textFieldStyle(.plain)
-                    .font(.toasty(Theme.Size.control))
-                    .focused($focusedNote, equals: quote.id)
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    Image(systemName: "text.bubble")
+                        .font(.toasty(Theme.Size.caption))
+                        .foregroundStyle(focusedNote == quote.id || !quote.note.isEmpty ? Color.accentColor : Color.secondary)
+                    TextField("Add a comment", text: note(quote.id))
+                        .textFieldStyle(.plain)
+                        .font(.toasty(Theme.Size.control))
+                        .focused($focusedNote, equals: quote.id)
                     // Return goes back to the message (sending is the
                     // message's Return, so a note is never sent by accident).
                     .onSubmit { conversation.focusComposer() }
                     .onExitCommand { conversation.focusComposer() }
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Button {
