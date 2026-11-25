@@ -294,7 +294,7 @@ struct FilePage: View {
         let cwd = existing?.cwd ?? workspace.folder
         let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
         let line = "Comment on " + Workspace.mentionToken(url, cwd: cwd, lines: c.lines) + (trimmed.isEmpty ? "" : ": \(trimmed)")
-        switch settings.commentsTo {
+        switch settings.commentDestination {
         case .teeUp:
             var item = TeeUp(text: line)
             images.forEach { item.attach($0) }

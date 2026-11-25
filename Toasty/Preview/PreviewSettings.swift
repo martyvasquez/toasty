@@ -1,3 +1,4 @@
+import Combine
 import AppKit
 import SwiftUI
 
@@ -54,6 +55,13 @@ final class PreviewSettings: ObservableObject {
         }
     }
 
+    /// Where a comment goes now: Tee-Up only while its widget is in a space
+    /// (its list is nowhere to be seen otherwise). The choice is kept, for
+    /// when the widget comes back.
+    var commentDestination: CommentDestination {
+        TeeUpWidgetPresence.shared.active ? commentsTo : .conversation
+    }
+
     @Published var commentsTo: CommentDestination {
         didSet { if commentsTo != oldValue { UserDefaults.standard.set(commentsTo.rawValue, forKey: Self.commentsKey) } }
     }
@@ -66,9 +74,32 @@ final class PreviewSettings: ObservableObject {
     }
 }
 
+/// Whether the Tee-Up widget is in any space: while it isn't, Tee-Up isn't
+/// offered as a place for comments (what went there couldn't be seen).
+@MainActor
+final class TeeUpWidgetPresence: ObservableObject {
+    static let shared = TeeUpWidgetPresence()
+    @Published private(set) var active: Bool
+    private var observer: AnyCancellable?
+
+    private init() {
+        let store = WorkspaceStore.shared
+        active = Self.present(in: store.spaces)
+        observer = store.$spaces
+            .map(Self.present(in:))
+            .removeDuplicates()
+            .sink { [weak self] in self?.active = $0 }
+    }
+
+    private static func present(in spaces: [WidgetSpace]) -> Bool {
+        spaces.contains { $0.widgets.contains { $0.kind == .teeUp } }
+    }
+}
+
 /// Settings ▸ Browser.
 struct PreviewSettingsView: View {
     @ObservedObject private var settings = PreviewSettings.shared
+    @ObservedObject private var teeUpWidget = TeeUpWidgetPresence.shared
     @AppStorage(ReturnKey.defaultsKey) private var returnKey = ReturnKey.sends
 
     var body: some View {
@@ -78,29 +109,36 @@ struct PreviewSettingsView: View {
             } footer: {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Experimental. A browser for the site you're developing, one per workspace with its own logins and storage, that Claude can use to open pages, click, type, take screenshots and read the console, instead of your own browser.")
-                    Text("It runs in the background. One browser window, which never opens or comes forward by itself, shows the selected workspace's page. The compass at the end of the tabs shows when Claude is using it; click it (or press ⇧⌘B) to watch, or to use the same page yourself. The page is at phone or desktop size (⇧⌘M switches). Comment on anything in it to send it to the conversation you have open (or to Tee-Up, below).")
+                    Text("It runs in the background. One browser window, which never opens or comes forward by itself, shows the selected workspace's page. The globe at the end of the tabs shows when Claude is using it; click it (or press ⇧⌘B) to watch, or to use the same page yourself. The page is at phone or desktop size (⇧⌘M switches). Comment on anything in it to send it to the conversation you have open\(teeUpWidget.active ? " (or to Tee-Up, below)" : "").")
                     Text("Claude gets the browser's tools as soon as you turn this on, in every conversation. While it's off, the browser isn't in Toasty at all and Claude Code runs exactly as it does by itself.")
                 }
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             }
-            Section {
-                Picker("A comment goes to", selection: $settings.commentsTo) {
-                    ForEach(PreviewSettings.CommentDestination.allCases) { Text($0.title).tag($0) }
+            // Only with the Tee-Up widget in a space: without it, comments
+            // go to the conversation.
+            if teeUpWidget.active {
+                Section {
+                    Picker("A comment goes to", selection: $settings.commentsTo) {
+                        ForEach(PreviewSettings.CommentDestination.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.radioGroup)
+                    .disabled(!settings.enabled)
+                } header: {
+                    Text("Comments")
+                } footer: {
+                    Text(commentsDetail)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .pickerStyle(.radioGroup)
-                .disabled(!settings.enabled)
-            } header: {
-                Text("Comments")
-            } footer: {
-                Text(commentsDetail)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .formStyle(.grouped)
-        .frame(width: 600, height: 390)
+        .frame(width: 600, height: teeUpWidget.active ? 390 : 390 - Self.commentsHeight)
     }
+
+    /// The Comments section's height, gone with the Tee-Up widget.
+    private static let commentsHeight: CGFloat = 150
 
     private var commentsDetail: String {
         switch settings.commentsTo {

@@ -17,7 +17,7 @@ import WebKit
 /// main window says which conversation I'm in, the browser which browser I'm
 /// inspecting; neither changes the other). Selecting a workspace in Toasty
 /// doesn't change it. What does: the workspace menu in its footer, and
-/// asking for a workspace's browser from the main window (its compass, ⇧⌘C,
+/// asking for a workspace's browser from the main window (its globe, ⇧⌘C,
 /// a local link clicked in its terminal). ⇧⌘B and Window ▸ Browser only
 /// bring the window back as it was. It's kept across launches; a workspace
 /// that closes gives way to another with a page open.
@@ -1057,7 +1057,7 @@ private struct PreviewPage: View {
                   let field = CommentField.frame(for: pick.rect, fit: fit, pane: whole.size, height: commentHeight)
                   CommentField(destination: $settings.commentsTo, workspace: workspace.id, height: $commentHeight,
                                tabs: CommentTabs(workspace: workspace, pinnedID: $session.commentTabID)) { note, images, files in
-                      Task { await session.comment(note, images: images, files: files, in: workspace, to: settings.commentsTo) }
+                      Task { await session.comment(note, images: images, files: files, in: workspace, to: settings.commentDestination) }
                   } cancel: {
                       session.cancelPick()
                   }
@@ -1154,6 +1154,8 @@ struct CommentField: View {
     /// mic doesn't light up too).
     @State private var dictationID = UUID()
     @AppStorage(ReturnKey.defaultsKey) private var returnKey = ReturnKey.sends
+    /// Send or Tee-Up is offered only while the Tee-Up widget is in a space.
+    @ObservedObject private var teeUpWidget = TeeUpWidgetPresence.shared
 
     private static let fontSize = Theme.Size.control
     private static let lineHeight = ceil(ClaudeTypography.lineHeight(.systemFont(ofSize: fontSize), ClaudeTypography.inputLineHeightMultiple))
@@ -1181,7 +1183,7 @@ struct CommentField: View {
         return CGRect(x: x, y: y, width: width, height: height)
     }
 
-    private var teeUp: Bool { destination == .teeUp }
+    private var teeUp: Bool { destination == .teeUp && teeUpWidget.active }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -1206,13 +1208,15 @@ struct CommentField: View {
             }
             if !images.isEmpty || !files.isEmpty { attachments }
             HStack(spacing: 6) {
-                CommentDestinationSwitch(destination: $destination, sendTip: sendTip, refocus: { focusToken += 1 }, commit: {
-                    // Nothing written yet: the click only picks where it goes.
-                    let empty = note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && images.isEmpty && files.isEmpty
-                    if empty { return false }
-                    submit(note, images, files)
-                    return true
-                })
+                if teeUpWidget.active {
+                    CommentDestinationSwitch(destination: $destination, sendTip: sendTip, refocus: { focusToken += 1 }, commit: {
+                        // Nothing written yet: the click only picks where it goes.
+                        let empty = note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && images.isEmpty && files.isEmpty
+                        if empty { return false }
+                        submit(note, images, files)
+                        return true
+                    })
+                }
                 if let tabs, !teeUp { tabs }
                 Spacer(minLength: 4)
                 CommentIconButton(symbol: "plus", tip: "Pictures and files to go with the comment. You can also paste or drop them, or press \(ScreenshotCapture.shortcutLabel) for a screenshot.",
