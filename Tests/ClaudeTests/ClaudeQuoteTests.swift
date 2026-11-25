@@ -42,9 +42,12 @@ import Testing
         #expect(F.split(raw).text == raw)
     }
 
-    @Test func notesAreOneLine() {
-        let p = F.prompt([ClaudeQuote(text: "x", note: "a\nb")], typed: "")
-        #expect(p == "> x\na b")
+    @Test func commentsKeepLineBreaksButNotBlankLines() {
+        let p = F.prompt([ClaudeQuote(text: "x", note: "a\n\n b \nc")], typed: "rest")
+        #expect(p == "> x\na\nb\nc\n\nrest")
+        let split = F.split(p)
+        #expect(split.quotes.first?.note == "a\nb\nc")
+        #expect(split.text == "rest")
     }
 
     @Test func cleansSelectedText() {

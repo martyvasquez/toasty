@@ -63,7 +63,7 @@ nonisolated enum ClaudeQuoteFormat {
     static func prompt(_ quotes: [ClaudeQuote], typed: String) -> String {
         let blocks = quotes.map { q in
             let lines = q.text.components(separatedBy: "\n").map { $0.isEmpty ? ">" : "> " + $0 }
-            let note = oneLine(q.note)
+            let note = commentLines(q.note)
             return (lines + (note.isEmpty ? [] : [note])).joined(separator: "\n")
         }
         return (blocks + (typed.isEmpty ? [] : [typed])).joined(separator: "\n\n")
@@ -104,6 +104,13 @@ nonisolated enum ClaudeQuoteFormat {
             .replacingOccurrences(of: "\t", with: " ")
         while t.contains("\n\n\n") { t = t.replacingOccurrences(of: "\n\n\n", with: "\n\n") }
         return t.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// A comment as sent: its own line breaks, but no blank lines (a blank
+    /// line ends the comment when the message is read back).
+    static func commentLines(_ s: String) -> String {
+        s.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }.joined(separator: "\n")
     }
 
     static func oneLine(_ s: String) -> String {
@@ -270,10 +277,16 @@ struct ComposerQuotes: View {
                     .truncationMode(.tail)
                     .fixedSize(horizontal: false, vertical: true)
                 if isOpen || !quote.note.isEmpty {
-                    TextField("Add a comment", text: note(quote.id))
+                    TextField("Add a comment", text: note(quote.id), axis: .vertical)
                         .textFieldStyle(.plain)
                         .font(.toasty(Theme.Size.control))
                         .focused($focusedNote, equals: quote.id)
+                        // Shift-Return starts a new line, as in the message.
+                        .onKeyPress(.return, phases: .down) { press in
+                            guard press.modifiers.contains(.shift) || press.modifiers.contains(.option) else { return .ignored }
+                            NSApp.sendAction(#selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)), to: nil, from: nil)
+                            return .handled
+                        }
                         // Return goes back to the message (sending is the
                         // message's Return, so a comment is never sent by
                         // accident).
@@ -310,7 +323,7 @@ struct ComposerQuotes: View {
             get: { conversation.quotes.first { $0.id == id }?.note ?? "" },
             set: { v in
                 if let i = conversation.quotes.firstIndex(where: { $0.id == id }) {
-                    conversation.quotes[i].note = ClaudeQuoteFormat.oneLine(v)
+                    conversation.quotes[i].note = v
                 }
             })
     }
