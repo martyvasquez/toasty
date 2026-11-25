@@ -375,7 +375,13 @@ enum DebugControl {
 
         // Send an action up the responder chain (copy:, paste:, clearTerminal:…).
         register("about") { _ in AboutPanel.shared.show(nil); return nil }
-        register("settings") { _ in SettingsWindowController.shared.show(nil); return nil }
+        // {"pane":"dictation"} switches pane; returns the window's frame.
+        register("settings") { cmd in
+            let c = SettingsWindowController.shared
+            if let pane = cmd["pane"] as? String { c.debugSelect(pane) }
+            if c.window?.isVisible != true { c.show(nil) }
+            return NSStringFromRect(c.window?.frame ?? .zero)
+        }
         register("shortcuts") { _ in KeyboardShortcuts.shared.showKeyboardShortcuts(nil); return nil }
 
         register("action") { cmd in

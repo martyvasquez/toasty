@@ -64,28 +64,56 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         toolbar.displayMode = .iconAndLabel
         toolbar.selectedItemIdentifier = Pane.general.id
         window.toolbar = toolbar
+        pinTopLeft(window)
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
     @objc func show(_ sender: Any?) {
-        if window?.isVisible != true { window?.center() }
+        if window?.isVisible != true {
+            window?.center()
+            anchor = window.map { NSPoint(x: $0.frame.minX, y: $0.frame.maxY) }
+        }
         showWindow(sender)
         window?.makeKeyAndOrderFront(sender)
         NSApp.activate()
     }
 
-    /// Show a pane, keeping the window's top edge where it is.
+    /// Where the window's top-left corner stays while panes change size
+    /// (updated when the window is moved).
+    private var anchor: NSPoint?
+    private var observers: [NSObjectProtocol] = []
+
+    /// Keep the top-left corner put whenever the window resizes: a pane's
+    /// SwiftUI content settles its size after it's shown, and AppKit
+    /// resizes from the bottom-left, so the window would jump.
+    private func pinTopLeft(_ window: NSWindow) {
+        let center = NotificationCenter.default
+        observers.append(center.addObserver(forName: NSWindow.didMoveNotification, object: window, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.anchor = NSPoint(x: window.frame.minX, y: window.frame.maxY) }
+        })
+        observers.append(center.addObserver(forName: NSWindow.didResizeNotification, object: window, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let anchor = self?.anchor, window.frame.width > 0 else { return }
+                if window.frame.minX != anchor.x || window.frame.maxY != anchor.y { window.setFrameTopLeftPoint(anchor) }
+            }
+        })
+    }
+
+    /// Show a pane, keeping the window's top-left corner where it is: the
+    /// new pane is measured first and the window takes its size in one step.
     private func select(_ new: Pane) {
         guard new != pane, let window else { return }
         pane = new
-        let top = window.frame.maxY
-        window.contentViewController = new.makeController()
+        let anchor = self.anchor ?? NSPoint(x: window.frame.minX, y: window.frame.maxY)
+        self.anchor = anchor
+        let controller = new.makeController()
+        let size = controller.view.fittingSize
+        if size.width > 0, size.height > 0 { controller.view.setFrameSize(size) }
+        window.contentViewController = controller
         window.title = new.title
         window.toolbar?.selectedItemIdentifier = new.id
-        var frame = window.frame
-        frame.origin.y = top - frame.height
-        window.setFrame(frame, display: true)
+        window.setFrameTopLeftPoint(anchor)
     }
 
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier,
