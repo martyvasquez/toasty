@@ -261,8 +261,16 @@ struct ComposerQuotes: View {
 
     private func open(_ id: UUID) {
         openID = id
-        // After the field is in the window.
-        DispatchQueue.main.async { focusedNote = id }
+        // After the field is in the window. The caret goes to the end of
+        // the comment (focusing a field selects all of it otherwise, and a
+        // keystroke would replace it).
+        DispatchQueue.main.async {
+            focusedNote = id
+            DispatchQueue.main.async {
+                guard let editor = NSApp.keyWindow?.firstResponder as? NSTextView, editor.isFieldEditor else { return }
+                editor.moveToEndOfDocument(nil)
+            }
+        }
     }
 
     private func row(_ quote: ClaudeQuote) -> some View {
@@ -276,7 +284,13 @@ struct ComposerQuotes: View {
                     .lineLimit(isOpen ? nil : 1)
                     .truncationMode(.tail)
                     .fixedSize(horizontal: false, vertical: true)
-                if isOpen || !quote.note.isEmpty {
+                if !isOpen, !quote.note.isEmpty {
+                    // Closed: the comment on one line too.
+                    Text(ClaudeQuoteFormat.oneLine(quote.note))
+                        .font(.toasty(Theme.Size.control))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                } else if isOpen {
                     TextField("Add a comment", text: note(quote.id), axis: .vertical)
                         .textFieldStyle(.plain)
                         .font(.toasty(Theme.Size.control))
