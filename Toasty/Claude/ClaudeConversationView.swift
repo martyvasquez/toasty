@@ -1752,7 +1752,7 @@ struct ClaudeRemoteControlMenu: View {
                       symbol: Self.symbol, enabled: false) {},
             ]
             if let url, let link = URL(string: url) {
-                list.append(.init(title: "Open in Browser", symbol: "safari") { NSWorkspace.shared.open(link) })
+                list.append(.init(title: "Open in Browser", symbol: "arrow.up.forward.app") { NSWorkspace.shared.open(link) })
                 list.append(.init(title: "Copy Link", symbol: "link") {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(url, forType: .string)

@@ -374,7 +374,7 @@ private struct PreviewWindowRoot: View {
                 }
                 .id(workspace.id)
             } else {
-                InspectorEmpty(symbol: "safari", title: "No Workspace", detail: "Each workspace has a browser of its own.")
+                InspectorEmpty(symbol: "globe", title: "No Workspace", detail: "Each workspace has a browser of its own.")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
@@ -785,7 +785,7 @@ private struct OpenInBrowserButton: View {
 
 /// A bar button with a browser's mark drawn as the bar's other glyphs
 /// are (one color, a line as heavy as the symbols' medium weight): Safari's
-/// own symbol, Chrome's and Firefox's drawn here, a globe for any other.
+/// own symbol, Chrome's and Firefox's drawn here, Open In's arrow for any other.
 private struct BrowserIconButton: View {
     let browser: PreviewBrowser
     let tooltip: Tooltip
@@ -824,7 +824,8 @@ private struct BrowserIconButton: View {
         case "org.mozilla.firefox", "org.mozilla.firefoxdeveloperedition", "org.mozilla.nightly":
             FirefoxGlyph().stroke(style: Self.line).frame(width: Self.firefox, height: Self.firefox)
         default:
-            Image(systemName: "globe").font(.toasty(Theme.Size.body, .medium))
+            // Not the globe: that's Toasty's own browser.
+            Image(systemName: "arrow.up.forward.app").font(.toasty(Theme.Size.body, .medium))
         }
     }
 }
@@ -982,7 +983,7 @@ struct PreviewIndicator: View {
             guard let workspace = WorkspaceStore.shared.workspaces.first(where: { $0.id == session.workspaceID }) else { return }
             AppDelegate.shared.windowController?.showWorkspaceBrowser(workspace)
         } label: {
-            Image(systemName: "safari")
+            Image(systemName: "globe")
                 .font(.toasty(Theme.Size.body, .medium))
                 .foregroundStyle(session.agentActive ? AnyShapeStyle(Color.accentColor)
                                  : hovering || session.windowOpen ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
@@ -1011,7 +1012,7 @@ private struct PreviewStart: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            Image(systemName: "safari")
+            Image(systemName: "globe")
                 .font(.toasty(Theme.Glyph.hero, .light))
                 .foregroundStyle(.tertiary)
             Text("Browser")
