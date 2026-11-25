@@ -496,7 +496,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         PreviewStore.shared.showWindow()
     }
 
-    /// The titlebar's globe: the browser window, showing this workspace's
+    /// The titlebar's compass: the browser window, showing this workspace's
     /// browser (asked for, so the window switches to it).
     func showWorkspaceBrowser(_ workspace: Workspace) {
         guard PreviewSettings.shared.enabled else { return }

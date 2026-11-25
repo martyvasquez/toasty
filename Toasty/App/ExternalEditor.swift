@@ -313,12 +313,12 @@ struct OpenExternallyButton: View {
             if let main {
                 HoverRevealButtons(count: others.count, size: Self.size) {
                     ForEach(others) { editor in
-                        EditorIconButton(editor: editor, tooltip: Tooltip(title: "Open in \(editor.name)", detail: detail), size: Self.size) {
+                        AppIconButton(app: editor.app, tooltip: Tooltip(title: "Open in \(editor.name)", detail: detail), size: Self.size) {
                             editors.open(file, project: project, line: ShownCode.line(), in: editor)
                         }
                     }
                 } main: {
-                    EditorIconButton(editor: main, tooltip: Tooltip(title: "Open in \(main.name)",
+                    AppIconButton(app: main.app, tooltip: Tooltip(title: "Open in \(main.name)",
                                                                     shortcut: editors.editor != nil ? "⇧⌘O" : nil, detail: detail),
                                      size: Self.size) {
                         editors.open(file, project: project, line: ShownCode.line(), in: main)
@@ -335,10 +335,11 @@ struct OpenExternallyButton: View {
     }
 }
 
-/// An editor's own app icon as a bar button: gray at rest so the bar stays
-/// quiet, in its colors under the pointer.
-private struct EditorIconButton: View {
-    let editor: ExternalEditor.Editor
+/// An app's own icon as a bar button (an editor on a file's page, a
+/// browser in the browser's Open In): gray at rest so the bar stays quiet,
+/// in its colors under the pointer.
+struct AppIconButton: View {
+    let app: URL?
     let tooltip: Tooltip
     let size: CGSize
     let action: () -> Void
@@ -348,7 +349,7 @@ private struct EditorIconButton: View {
     var body: some View {
         Button(action: action) {
             Group {
-                if let app = editor.app {
+                if let app {
                     Image(nsImage: NSWorkspace.shared.icon(forFile: app.path)).resizable().interpolation(.high)
                 } else {
                     Image(systemName: "arrow.up.forward.app")
@@ -356,7 +357,7 @@ private struct EditorIconButton: View {
             }
             .frame(width: 18, height: 18)
             .saturation(hovering && enabled ? 1 : 0)
-            .opacity(!enabled ? 0.3 : hovering ? 1 : 0.7)
+            .opacity(!enabled ? 0.3 : hovering ? 1 : 0.6)
             .frame(width: size.width, height: size.height)
             .contentShape(Capsule())
         }

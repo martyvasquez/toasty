@@ -259,7 +259,12 @@ enum DebugControl {
         // ("warp": true moves the real cursor there, for hover states that
         // only follow the window server).
         register("hover") { cmd in
-            guard let window else { throw DebugError("no window") }
+            guard let main = window else { throw DebugError("no window") }
+            // {"other":true}: the frontmost other window of ours, as `click`.
+            var window = main
+            if cmd["other"] as? Bool == true, let other = NSApp.windows.first(where: { $0 !== main && $0.isVisible && $0.frame.width > 50 }) {
+                window = other
+            }
             let x = cmd["x"] as? Double ?? 0, y = cmd["y"] as? Double ?? 0
             let p = NSPoint(x: x, y: window.frame.height - y)
             if cmd["warp"] as? Bool == true {

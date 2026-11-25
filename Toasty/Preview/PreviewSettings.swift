@@ -109,7 +109,7 @@ struct PreviewSettingsView: View {
             } footer: {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Experimental. A browser for the site you're developing, one per workspace with its own logins and storage, that Claude can use to open pages, click, type, take screenshots and read the console, instead of your own browser.")
-                    Text("It runs in the background. One browser window, which never opens or comes forward by itself, shows the selected workspace's page. The globe at the end of the tabs shows when Claude is using it; click it (or press ⇧⌘B) to watch, or to use the same page yourself. The page is at phone or desktop size (⇧⌘M switches). Comment on anything in it to send it to the conversation you have open\(teeUpWidget.active ? " (or to Tee-Up, below)" : "").")
+                    Text("It runs in the background. One browser window, which never opens or comes forward by itself, shows the selected workspace's page. The compass at the end of the tabs shows when Claude is using it; click it (or press ⇧⌘B) to watch, or to use the same page yourself. The page is at phone or desktop size (⇧⌘M switches). Comment on anything in it to send it to the conversation you have open\(teeUpWidget.active ? " (or to Tee-Up, below)" : "").")
                     Text("Claude gets the browser's tools as soon as you turn this on, in every conversation. While it's off, the browser isn't in Toasty at all and Claude Code runs exactly as it does by itself.")
                 }
                 .foregroundStyle(.secondary)
