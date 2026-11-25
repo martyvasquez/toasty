@@ -246,7 +246,11 @@ struct ComposerQuotes: View {
         .onChange(of: conversation.quoteToComment) { _, _ in takeComment() }
         // The comment lost the keyboard (Return, Esc, a click elsewhere):
         // its card closes.
-        .onChange(of: focusedNote) { _, id in if id != openID { openID = id } }
+        .onChange(of: focusedNote) { _, id in
+            if id != openID { openID = id }
+            conversation.commentingQuote = id
+        }
+        .onDisappear { conversation.commentingQuote = nil }
         // Back to the message (Return, Esc, ×, a new quote's focus moving
         // on): nothing stays open without the keyboard.
         .onChange(of: conversation.composerFocusToken) { _, _ in openID = nil }

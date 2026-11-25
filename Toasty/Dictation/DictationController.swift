@@ -50,6 +50,8 @@ final class DictationController: ObservableObject {
     private struct Capture {
         let id: Int
         weak var view: ComposerTextView?
+        /// A quote's comment had the keyboard: the words go there.
+        let comment: Comment?
         let conversation: UUID?
         /// The target's workspace folder (its project vocabulary).
         let folder: String?
@@ -59,8 +61,15 @@ final class DictationController: ObservableObject {
         let press: TimeInterval
     }
 
+    /// A quote's comment field (in the composer's quotes) as a target.
+    struct Comment {
+        weak var conversation: ClaudeConversation?
+        let quote: UUID
+    }
+
     private struct Job {
         weak var view: ComposerTextView?
+        var comment: Comment?
         var text: String?
         var failure: String?
         var vocabulary = Vocabulary.Effective()
@@ -116,7 +125,9 @@ final class DictationController: ObservableObject {
             capture = nil
             return
         }
-        if view.window?.firstResponder !== view { view.window?.makeFirstResponder(view) }
+        // In a quote's comment, it stays there; else the composer.
+        let comment = Self.currentComment(of: view)
+        if comment == nil, view.window?.firstResponder !== view { view.window?.makeFirstResponder(view) }
         switch MicCapture.permission {
         case .authorized: break
         case .notDetermined where MicCapture.previouslyGranted:
@@ -139,7 +150,7 @@ final class DictationController: ObservableObject {
             if let folder = input.folder { _ = RepoPaths.index(folder: folder) }
             return ContextVocabulary.gather(input)
         }
-        capture = Capture(id: nextJob, view: view, conversation: view.dictationID,
+        capture = Capture(id: nextJob, view: view, comment: comment, conversation: view.dictationID,
                           folder: workspace?.folder, context: context, press: press)
         MicCapture.shared.begin(press: press)
         target = view.dictationID
@@ -179,7 +190,8 @@ final class DictationController: ObservableObject {
             case .tooShort, .none: DictationTones.retractStart()
             case .failed: break
             }
-            let job = await Self.transcribe(outcome, view: capture.view, vocabulary: vocabulary)
+            var job = await Self.transcribe(outcome, view: capture.view, vocabulary: vocabulary)
+            job.comment = capture.comment
             complete(capture.id, job)
         }
     }
@@ -238,7 +250,9 @@ final class DictationController: ObservableObject {
     private func flush() {
         while let job = finished.removeValue(forKey: nextToInsert + 1) {
             nextToInsert += 1
-            if let raw = job.text, !raw.isEmpty { insert(raw, into: job.view, vocabulary: job.vocabulary) }
+            guard let raw = job.text, !raw.isEmpty else { continue }
+            if let comment = job.comment, insert(raw, into: comment, vocabulary: job.vocabulary) { continue }
+            insert(raw, into: job.view, vocabulary: job.vocabulary)
         }
     }
 
@@ -257,6 +271,33 @@ final class DictationController: ObservableObject {
         if let stoppedAt, ProcessInfo.processInfo.systemUptime - stoppedAt >= DictationConfig.doneToneAfter {
             DictationTones.play(.done)
         }
+    }
+
+    /// Into a quote's comment: at the caret while it still has the
+    /// keyboard, else added to the end of it. False when the quote is gone
+    /// (the words go to the composer instead).
+    private func insert(_ raw: String, into comment: Comment, vocabulary: Vocabulary.Effective) -> Bool {
+        guard let conversation = comment.conversation,
+              let i = conversation.quotes.firstIndex(where: { $0.id == comment.quote }) else { return false }
+        let processed = TextPipeline.process(raw, vocabulary: vocabulary)
+        let text: String
+        if conversation.commentingQuote == comment.quote,
+           let editor = (NSApp.keyWindow ?? NSApp.mainWindow)?.firstResponder as? NSTextView, editor.isFieldEditor {
+            let caret = editor.selectedRange()
+            let before = (editor.string as NSString).substring(to: min(caret.location, (editor.string as NSString).length))
+            text = TextPipeline.forComposer(processed, before: before)
+            guard !text.isEmpty else { return true }
+            editor.insertText(text, replacementRange: caret)
+        } else {
+            text = TextPipeline.forComposer(processed, before: conversation.quotes[i].note)
+            guard !text.isEmpty else { return true }
+            conversation.quotes[i].note += text
+        }
+        lastDictation = (raw, text)
+        if let stoppedAt, ProcessInfo.processInfo.systemUptime - stoppedAt >= DictationConfig.doneToneAfter {
+            DictationTones.play(.done)
+        }
+        return true
     }
 
     // MARK: Indicator
@@ -343,6 +384,15 @@ final class DictationController: ObservableObject {
     }
 
     // MARK: Target
+
+    /// The quote comment that has the keyboard in the composer's window, if
+    /// one does.
+    static func currentComment(of view: ComposerTextView) -> Comment? {
+        guard let editor = view.window?.firstResponder as? NSTextView, editor.isFieldEditor,
+              let conversation = workspace(of: view)?.conversations.first(where: { $0.id == view.dictationID }),
+              let quote = conversation.commentingQuote else { return nil }
+        return Comment(conversation: conversation, quote: quote)
+    }
 
     /// The focused composer, else the visible one in the key window.
     static func currentComposer() -> ComposerTextView? {
