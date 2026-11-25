@@ -36,8 +36,7 @@ final class PreviewSettings: ObservableObject {
         }
     }
 
-    /// Where a comment goes when it's finished with Return.
-    /// (⇧Return sends it to the other one.)
+    /// Where a comment goes when it's finished with Return (the send key).
     enum CommentDestination: String, CaseIterable, Identifiable {
         /// Sent to the open conversation at once, as its own prompt.
         case conversation
@@ -70,6 +69,7 @@ final class PreviewSettings: ObservableObject {
 /// Settings ▸ Browser.
 struct PreviewSettingsView: View {
     @ObservedObject private var settings = PreviewSettings.shared
+    @AppStorage(ReturnKey.defaultsKey) private var returnKey = ReturnKey.sends
 
     var body: some View {
         Form {
@@ -105,9 +105,9 @@ struct PreviewSettingsView: View {
     private var commentsDetail: String {
         switch settings.commentsTo {
         case .conversation:
-            "Return sends a comment to the open conversation at once, with a screenshot of the page. You can also switch to Tee-Up in the comment itself."
+            "\(returnKey.send) sends a comment to the open conversation at once, with a screenshot of the page. You can also switch to Tee-Up in the comment itself."
         case .teeUp:
-            "Return adds a comment to the workspace's Tee-Up list, with a screenshot of the page, and you can go on commenting. Send them when you're ready, one by one or with Auto-Send. You can also switch to Send in the comment itself."
+            "\(returnKey.send) adds a comment to the workspace's Tee-Up list, with a screenshot of the page, and you can go on commenting. Send them when you're ready, one by one or with Auto-Send. You can also switch to Send in the comment itself."
         }
     }
 }

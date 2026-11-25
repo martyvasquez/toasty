@@ -238,7 +238,7 @@ struct FilePage: View {
                 let frame = commentFrame(comment, in: geo.size)
                 CommentField(destination: $settings.commentsTo, workspace: workspace.id, height: $commentHeight,
                              tabs: CommentTabs(workspace: workspace, pinnedID: $pinnedTab),
-                             sendTip: "Send the comment to Claude now. Return does what's highlighted.") { note, images, files in
+                             sendTip: "Send the comment to Claude now.") { note, images, files in
                     send(comment, note: note, images: images, files: files)
                 } cancel: {
                     self.comment = nil

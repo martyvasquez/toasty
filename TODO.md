@@ -63,6 +63,17 @@ the drawer under the conversation (⌘J), and the one under the widgets
 - **Cursor blink setting** blinks even when a program asks for a steady
   cursor (the engine reports "steady" both for that and for nothing asked).
 
+## Return key setting (trying it, 2026-11-24)
+
+Settings ▸ General ▸ Typing ▸ Return key: "Sends the message" (default) or
+"Starts a new line" (⌘Return sends), asked for by a friend of the user's.
+Either way ⌘Return sends and Shift-Return starts a new line; the @ and /
+menus still pick with Return. Shipped to try; drop it if it doesn't earn
+its place.
+
+- While a request card shows, its ⌘Return (Allow / Submit) still wins over
+  sending from the composer.
+
 ## Claude Code / SDK version drift (soon)
 
 Toasty runs the installed `claude` (terminal tabs and the bridge's

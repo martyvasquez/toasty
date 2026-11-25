@@ -299,15 +299,20 @@ struct ComposerQuotes: View {
                         .textFieldStyle(.plain)
                         .font(.toasty(Theme.Size.control))
                         .focused($focusedNote, equals: quote.id)
-                        // Shift-Return starts a new line, as in the message.
+                        // The message's keys: its new-line key starts a new
+                        // line, its send key goes back to the message
+                        // (sending is the message's, so a comment is never
+                        // sent by accident).
                         .onKeyPress(.return, phases: .down) { press in
-                            guard press.modifiers.contains(.shift) || press.modifiers.contains(.option) else { return .ignored }
+                            if press.modifiers.contains(.command) {
+                                conversation.focusComposer()
+                                return .handled
+                            }
+                            guard press.modifiers.contains(.shift) || press.modifiers.contains(.option)
+                                    || ReturnKey.current == .newLine else { return .ignored }
                             NSApp.sendAction(#selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)), to: nil, from: nil)
                             return .handled
                         }
-                        // Return goes back to the message (sending is the
-                        // message's Return, so a comment is never sent by
-                        // accident).
                         .onSubmit { conversation.focusComposer() }
                         .onExitCommand { conversation.focusComposer() }
                 }

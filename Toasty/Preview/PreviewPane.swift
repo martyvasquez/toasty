@@ -987,7 +987,7 @@ private struct PreviewFailure: View {
 /// which tab. Pictures and files can go with it: pasted, dropped on the
 /// text, picked with +, or a ⇧⌘0 screenshot (which comes here while a
 /// comment is open). Return does what's chosen, Shift-Return starts a new
-/// line, Esc drops the pick.
+/// line (the other way round with `ReturnKey.newLine`), Esc drops the pick.
 struct CommentField: View {
     @Binding var destination: PreviewSettings.CommentDestination
     /// For dictation's vocabulary (the field isn't a conversation).
@@ -997,7 +997,7 @@ struct CommentField: View {
     /// Which tab it goes to, shown when the workspace has more than one.
     let tabs: CommentTabs?
     /// What Send does, for its tooltip.
-    var sendTip = "Send the comment to Claude now, with a screenshot. Return does what's highlighted."
+    var sendTip = "Send the comment to Claude now, with a screenshot."
     let submit: (_ note: String, _ images: [NSImage], _ files: [URL]) -> Void
     let cancel: () -> Void
     @State private var note = ""
@@ -1008,6 +1008,7 @@ struct CommentField: View {
     /// Dictation's target id for this field (its own, so the conversation's
     /// mic doesn't light up too).
     @State private var dictationID = UUID()
+    @AppStorage(ReturnKey.defaultsKey) private var returnKey = ReturnKey.sends
 
     private static let fontSize = Theme.Size.control
     private static let lineHeight = ceil(ClaudeTypography.lineHeight(.systemFont(ofSize: fontSize), ClaudeTypography.inputLineHeightMultiple))
@@ -1072,10 +1073,10 @@ struct CommentField: View {
                 CommentIconButton(symbol: "plus", tip: "Pictures and files to go with the comment. You can also paste or drop them, or press \(ScreenshotCapture.shortcutLabel) for a screenshot.",
                                   label: "Attach Files", action: pick)
                 DictationMicButton(conversation: dictationID, width: 30, height: 22)
-                Text("↩").font(.toasty(Theme.Size.caption)).foregroundStyle(.tertiary)
+                Text(returnKey == .sends ? "↩" : "⌘↩").font(.toasty(Theme.Size.caption)).foregroundStyle(.tertiary)
                     .fixedSize()
-                    .tooltipText(teeUp ? "Return adds the comment to Tee-Up. Shift-Return starts a new line."
-                                : "Return sends the comment to Claude. Shift-Return starts a new line.")
+                    .tooltipText(teeUp ? "\(returnKey.send) adds the comment to Tee-Up. \(returnKey.newLine) starts a new line."
+                                : "\(returnKey.send) sends the comment to Claude. \(returnKey.newLine) starts a new line.")
             }
             .frame(height: Self.footer)
         }
@@ -1176,8 +1177,8 @@ struct CommentIconButton: View {
 }
 
 /// Send or Tee-Up, side by side in a capsule; the chosen one stands out and
-/// is what Return does. Clicking one sends the comment there (and makes it
-/// Return's); with nothing written yet it only chooses. The keyboard stays
+/// is what Return (the send key) does. Clicking one sends the comment
+/// there (and makes it Return's); with nothing written yet it only chooses. The keyboard stays
 /// in the comment (`refocus`).
 struct CommentDestinationSwitch: View {
     @Binding var destination: PreviewSettings.CommentDestination
@@ -1185,11 +1186,13 @@ struct CommentDestinationSwitch: View {
     let refocus: () -> Void
     /// Sends the comment; false when there's nothing to send.
     let commit: () -> Bool
+    @AppStorage(ReturnKey.defaultsKey) private var returnKey = ReturnKey.sends
 
     var body: some View {
+        let highlighted = "\(returnKey.send) does what's highlighted."
         HStack(spacing: 2) {
-            segment(.conversation, "Send", "arrow.up", sendTip)
-            segment(.teeUp, "Tee-Up", "text.badge.plus", "Add the comment to the workspace's Tee-Up list and go on commenting. Return does what's highlighted.")
+            segment(.conversation, "Send", "arrow.up", "\(sendTip) \(highlighted)")
+            segment(.teeUp, "Tee-Up", "text.badge.plus", "Add the comment to the workspace's Tee-Up list and go on commenting. \(highlighted)")
         }
         .padding(2)
         .background(Capsule().fill(Theme.Fill.subtle))

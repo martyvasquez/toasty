@@ -1073,6 +1073,7 @@ struct ClaudeBackgroundLine: View {
 
 struct ClaudeComposerBox: View {
     @ObservedObject var conversation: ClaudeConversation
+    @AppStorage(ReturnKey.defaultsKey) private var returnKey = ReturnKey.sends
     static let radius = Theme.Radius.large
     /// Left edge shared by the text and the first control's glyph.
     static let inset = Theme.Space.l
@@ -1361,8 +1362,8 @@ struct ClaudeComposerBox: View {
             }
             .buttonStyle(.plain)
             .disabled(isEmpty)
-            .tooltip(queues ? "Queue" : "Send", shortcut: "⏎",
-                     detail: queues ? "Claude reads it when it's ready. Esc stops Claude." : "⇧⏎ starts a new line.")
+            .tooltip(queues ? "Queue" : "Send", shortcut: returnKey.sendSymbol,
+                     detail: queues ? "Claude reads it when it's ready. Esc stops Claude." : "\(returnKey.newLineSymbol) starts a new line.")
             .accessibilityLabel("Send")
         }
     }

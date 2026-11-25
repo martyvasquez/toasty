@@ -119,6 +119,7 @@ struct GeneralSettingsView: View {
                 .fixedSize(horizontal: false, vertical: true)
             }
             AppearanceAndSoundSection()
+            TypingSettingsSection()
             EditorSettingsSection()
             WidgetSettingsSection()
             if Updater.isAvailable { UpdateSettingsSection() }
@@ -126,8 +127,35 @@ struct GeneralSettingsView: View {
         .formStyle(.grouped)
         .frame(width: 600, height: 118 + (settings.removed != nil ? 28 : 0) + (settings.models.isEmpty ? 24 : 0)
             + AppearanceAndSoundSection.height
+            + TypingSettingsSection.height
             + EditorSettingsSection.height
             + WidgetSettingsSection.height
             + (Updater.isAvailable ? UpdateSettingsSection.height : 0))
+    }
+}
+
+/// What Return does where you write to Claude: the composer, a quote's
+/// comment, a teed-up prompt, a comment in the browser or on a file.
+struct TypingSettingsSection: View {
+    @AppStorage(ReturnKey.defaultsKey) private var returnKey = ReturnKey.sends
+
+    /// The section's height in the General pane.
+    static let height: CGFloat = 124
+
+    var body: some View {
+        Section {
+            Picker("Return key", selection: $returnKey) {
+                ForEach(ReturnKey.allCases) { Text($0.title).tag($0) }
+            }
+        } header: {
+            Text("Typing")
+        } footer: {
+            Text((returnKey == .sends
+                  ? "Shift-Return starts a new line. Command-Return also sends."
+                  : "Command-Return sends. Shift-Return also starts a new line.")
+                 + " The same keys work in comments on quotes, files and the browser, and in teed-up prompts.")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }

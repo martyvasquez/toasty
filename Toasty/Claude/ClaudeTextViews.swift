@@ -310,8 +310,40 @@ final class ClaudeOutputTextView: NSTextView {
 /// caret, selection, undo/redo, cut/copy/paste, input methods, dictation and
 /// all the standard keyboard navigation work as in any Mac text field.
 ///
-/// Return submits; Shift-Return or Option-Return inserts a newline. While an
-/// input method is composing (marked text), Return goes to the input method.
+/// What Return does in the composer and the fields that send like it
+/// (Settings ▸ General ▸ Typing). Either way Command-Return sends and
+/// Shift-Return starts a new line, so the habit works in both.
+enum ReturnKey: String, CaseIterable, Identifiable {
+    /// Return sends; Shift-Return starts a new line.
+    case sends
+    /// Return starts a new line; Command-Return sends.
+    case newLine
+
+    var id: String { rawValue }
+    static let defaultsKey = "returnKey"
+    static var current: ReturnKey {
+        UserDefaults.standard.string(forKey: defaultsKey).flatMap(ReturnKey.init) ?? .sends
+    }
+
+    var title: String {
+        switch self {
+        case .sends: "Sends the message"
+        case .newLine: "Starts a new line"
+        }
+    }
+
+    /// The key that sends, finishes a comment or a teed-up prompt.
+    var send: String { self == .sends ? "Return" : "Command-Return" }
+    var sendSymbol: String { self == .sends ? "⏎" : "⌘⏎" }
+    /// The key that starts a new line.
+    var newLine: String { self == .sends ? "Shift-Return" : "Return" }
+    var newLineSymbol: String { self == .sends ? "⇧⏎" : "⏎" }
+}
+
+/// Return submits (Command-Return always does); Shift-Return or
+/// Option-Return inserts a newline. With `ReturnKey.newLine` plain Return
+/// inserts one too. While an input method is composing (marked text),
+/// Return goes to the input method.
 struct ClaudeComposer: NSViewRepresentable {
     @Binding var text: String
     @Binding var height: CGFloat
@@ -504,11 +536,23 @@ struct ClaudeComposer: NSViewRepresentable {
         }
 
         func textView(_ textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+            // Command-Return has no text-system command (it comes as
+            // noop:): it goes the way Return does, so a menu open over the
+            // composer picks with it and otherwise it sends. Key
+            // equivalents (a request card's ⌘⏎) have had it first.
+            let key = (textView as? ComposerTextView)?.keyEvent ?? NSApp.currentEvent
+            if selector == Selector(("noop:")), let e = key, e.type == .keyDown,
+               e.keyCode == 36 || e.keyCode == 76,
+               e.modifierFlags.intersection([.command, .option, .control, .shift]) == .command {
+                return self.textView(textView, doCommandBy: #selector(NSResponder.insertNewline(_:)))
+            }
             if parent.onKeyCommand?(selector) == true { return true }
             switch selector {
             case #selector(NSResponder.insertNewline(_:)):
-                let mods = NSApp.currentEvent?.modifierFlags.intersection(.deviceIndependentFlagsMask) ?? []
-                if mods.contains(.shift) || mods.contains(.option) {
+                let mods = key?.modifierFlags.intersection(.deviceIndependentFlagsMask) ?? []
+                if mods.contains(.command) {
+                    parent.onSubmit()
+                } else if mods.contains(.shift) || mods.contains(.option) || ReturnKey.current == .newLine {
                     textView.insertNewlineIgnoringFieldEditor(nil)
                 } else {
                     parent.onSubmit()
@@ -552,6 +596,15 @@ final class ComposerTextView: NSTextView {
     var dictationID: UUID?
     /// Its workspace, when `dictationID` isn't one of its conversations.
     var dictationWorkspace: UUID?
+
+    /// The key being handled, for its modifiers (NSApp.currentEvent isn't
+    /// it when the key was sent to the window directly).
+    private(set) var keyEvent: NSEvent?
+    override func keyDown(with event: NSEvent) {
+        keyEvent = event
+        defer { keyEvent = nil }
+        super.keyDown(with: event)
+    }
 
     /// No system badge beside the cursor (Siri, dictation, input source).
     override func preferredTextAccessoryPlacement() -> NSTextCursorAccessoryPlacement { .invisible }
@@ -725,3 +778,4 @@ final class ComposerTextView: NSTextView {
         return super.performDragOperation(sender)
     }
 }
+
