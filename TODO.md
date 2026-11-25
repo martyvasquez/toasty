@@ -223,6 +223,14 @@ tab is seen or dismissed.
   to ⌘1–9 = workspaces and an easier "next needing me" key.
 - **Crash rows.** "Claude Code stopped unexpectedly" (agent exit) doesn't
   notify today, so it never gets a row.
+- **Drop the in-window toast? (discussed 2026-11-25, user undecided.)**
+  The top-right toast only shows while Toasty is in front and the tab
+  isn't on screen; dots, sound and ⌃⌘U already cover that, and it sits over
+  the widgets' top for 6s. If removed, fill two gaps: a dot on the
+  sidebar's edge handle when the sidebar is hidden and another workspace
+  needs you (tabs only show the active workspace), and send `announce`
+  (default model removed, `DefaultModel.swift`) as a macOS notification
+  even while frontmost. Out-of-app banners stay as they are.
 
 ## Activity (inspector tab)
 
