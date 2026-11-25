@@ -613,6 +613,8 @@ struct ClaudeItemView: View {
 /// The user's prompt: a soft bubble on the trailing side, sized to its text.
 struct ClaudeUserMessage: View {
     @ObservedObject var item: ClaudeItem
+    @State private var hovering = false
+    @State private var copied = false
 
     var body: some View {
         HStack {
@@ -656,7 +658,28 @@ struct ClaudeUserMessage: View {
                         .background(bubble)
                 }
             }
+            // Hovering the message shows Copy beside its bubble, as under a
+            // reply (beside, so it never covers what follows).
+            .overlay(alignment: .bottomLeading) {
+                if !item.text.isEmpty {
+                    ReplyActionButton(symbol: copied ? "checkmark" : "square.on.square",
+                                      tooltip: Tooltip(title: copied ? "Copied" : "Copy Message",
+                                                       detail: "What you sent, as Markdown."),
+                                      edgeInset: 0) {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(item.text, forType: .string)
+                        copied = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
+                    }
+                    .offset(x: -(28 + Theme.Space.xs), y: -2)
+                    .opacity(hovering || copied ? 1 : 0)
+                    .allowsHitTesting(hovering)
+                    .animation(.easeOut(duration: 0.12), value: hovering)
+                }
+            }
         }
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.2), value: item.queued)
     }
 
@@ -779,6 +802,8 @@ struct ClaudeReplyActions: View {
 private struct ReplyActionButton: View {
     let symbol: String
     let tooltip: Tooltip
+    /// The glyph, not its capsule, sits on the reply's edge.
+    var edgeInset: CGFloat = -7
     let action: () -> Void
     @State private var hovering = false
 
@@ -794,8 +819,7 @@ private struct ReplyActionButton: View {
         .onHover { hovering = $0 }
         .tooltip(tooltip)
         .accessibilityLabel(tooltip.title)
-        // The glyph, not its capsule, sits on the reply's edge.
-        .padding(.leading, -7)
+        .padding(.leading, edgeInset)
     }
 }
 
