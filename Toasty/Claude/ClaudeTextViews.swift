@@ -9,8 +9,8 @@ import SwiftUI
 /// Mac app. It sizes itself to its content for the proposed width.
 ///
 /// In a transcript (`claudeQuoteTarget` set), selecting text with the mouse
-/// shows a Quote pill over it; Quote (⌘', also in the text's menu) puts the
-/// selection in the composer as a quote.
+/// shows a Quote pill over it; Quote (Return, or ⌘' and the text's menu)
+/// puts the selection in the composer as a quote.
 struct ClaudeRichText: View {
     let text: NSAttributedString
     var insets = NSSize(width: 0, height: 0)
@@ -176,6 +176,17 @@ final class ClaudeOutputTextView: NSTextView {
     override func mouseDown(with event: NSEvent) {
         super.mouseDown(with: event)  // tracks until the mouse is up
         updatePill()
+    }
+
+    /// Return quotes the selection (as on a file page it comments on the
+    /// selected lines). Read-only text has no other use for it.
+    override func keyDown(with event: NSEvent) {
+        let plain = event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty
+        if plain, event.keyCode == 36 || event.keyCode == 76, quoteTarget != nil, !selectedText.isEmpty {
+            quoteSelection(nil)
+            return
+        }
+        super.keyDown(with: event)
     }
 
     override func setSelectedRanges(_ ranges: [NSValue], affinity: NSSelectionAffinity, stillSelecting: Bool) {

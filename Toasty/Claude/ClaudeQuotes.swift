@@ -151,7 +151,7 @@ extension EnvironmentValues {
 
 // MARK: - The pill over a selection
 
-/// A small floating button beside a selection ("Comment ↩", "Quote ⌘'"):
+/// A small floating button beside a selection ("Comment ↩", "Quote ↩"):
 /// it doesn't take the keyboard, so the selection can still be copied.
 struct SelectionPill: View {
     let symbol: String
@@ -192,10 +192,10 @@ struct SelectionPill: View {
 struct QuotePill: View {
     let action: () -> Void
     /// About its drawn size, for placing it.
-    static let size = CGSize(width: 96, height: SelectionPill.height)
+    static let size = CGSize(width: 92, height: SelectionPill.height)
 
     var body: some View {
-        SelectionPill(symbol: "text.quote", title: "Quote", shortcut: "⌘'",
+        SelectionPill(symbol: "text.quote", title: "Quote", shortcut: "↩",
                       tooltip: "Quote in Your Reply", action: action)
             .fixedSize()
     }
