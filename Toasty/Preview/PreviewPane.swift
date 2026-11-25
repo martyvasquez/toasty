@@ -469,9 +469,12 @@ private struct PreviewBarControls: View {
     private static let gap = Theme.Space.s
     static let addressMax: CGFloat = 640
 
+    /// The browsers that Open In offers, the default first.
+    @State private var browsers = PreviewBrowser.installed()
+
     var body: some View {
         GeometryReader { geo in
-            let place = Self.address(in: geo.size.width)
+            let place = Self.address(in: geo.size.width, trailing: Self.button.width * CGFloat(max(1, browsers.count)))
             ZStack(alignment: .leading) {
                 HStack(spacing: Theme.Space.xxs) {
                     BarIconButton(symbol: "chevron.left", tooltip: Tooltip(title: "Back", shortcut: "⌘["),
@@ -484,11 +487,8 @@ private struct PreviewBarControls: View {
                     }
                     .disabled(!session.started)
                     Spacer(minLength: 0)
-                    BarIconButton(symbol: "arrow.up.forward.app",
-                                  tooltip: Tooltip(title: "Open in \(PreviewBrowser.name)",
-                                                   detail: "The same address, in your own browser (its own cookies and logins)."),
-                                  glyphSize: Theme.Size.body, size: Self.button) {
-                        if let url = session.url { NSWorkspace.shared.open(url) }
+                    OpenInBrowserButton(browsers: browsers, size: Self.button) { browser in
+                        if let url = session.url { browser.open(url) }
                     }
                     .disabled(session.url == nil)
                 }
@@ -498,16 +498,22 @@ private struct PreviewBarControls: View {
             }
             .frame(height: geo.size.height)
         }
+        // A browser installed, or made the default, since.
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+            let now = PreviewBrowser.installed()
+            if now != browsers { browsers = now }
+        }
     }
 
     /// Where the address goes in a row `width` wide (the row starts after
     /// the window buttons' room and ends at the right margin): as wide as
     /// there is room for, to 640 points, and as near the window's center as
     /// that room allows. In a narrow window it fills the room between
-    /// reload and Open in; in a wide one it's centered in the window.
-    static func address(in width: CGFloat) -> (x: CGFloat, width: CGFloat) {
+    /// reload and Open In (`trailing` wide, with the browsers it reveals);
+    /// in a wide one it's centered in the window.
+    static func address(in width: CGFloat, trailing: CGFloat) -> (x: CGFloat, width: CGFloat) {
         let first = navigation + gap
-        let last = width - button.width - gap
+        let last = width - trailing - gap
         let w = max(0, min(addressMax, last - first))
         let center = (width + PreviewBar.leading + TitlebarRow.edge) / 2 - PreviewBar.leading
         let x = min(max(first, center - w / 2), last - w)
@@ -692,11 +698,116 @@ private struct PreviewSizeMenu: View {
     }
 }
 
-/// The user's default browser, for "Open in …".
-private enum PreviewBrowser {
-    static var name: String {
-        guard let app = NSWorkspace.shared.urlForApplication(toOpen: URL(string: "http://localhost")!) else { return "Browser" }
-        return FileManager.default.displayName(atPath: app.path).replacingOccurrences(of: ".app", with: "")
+/// A browser that Open In offers: the user's default, and whichever of
+/// Safari, Chrome and Firefox are installed.
+struct PreviewBrowser: Equatable, Identifiable {
+    let app: URL
+    let name: String
+    var id: URL { app }
+
+    private static let known = ["com.apple.Safari", "com.google.Chrome", "org.mozilla.firefox"]
+
+    /// The default browser first, then the others of the three in that
+    /// order. Empty only when nothing opens web pages.
+    static func installed() -> [PreviewBrowser] {
+        let ws = NSWorkspace.shared
+        var list: [PreviewBrowser] = []
+        func add(_ url: URL?) {
+            guard let url, !list.contains(where: { $0.app.standardizedFileURL == url.standardizedFileURL }) else { return }
+            list.append(PreviewBrowser(app: url, name: FileManager.default.displayName(atPath: url.path)
+                .replacingOccurrences(of: ".app", with: "")))
+        }
+        add(ws.urlForApplication(toOpen: URL(string: "http://localhost")!))
+        for id in known { add(ws.urlForApplication(withBundleIdentifier: id)) }
+        return list
+    }
+
+    var icon: NSImage { NSWorkspace.shared.icon(forFile: app.path) }
+
+    func open(_ url: URL) {
+        NSWorkspace.shared.open([url], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
+    }
+}
+
+/// Open In: the default browser's own icon, with the other installed
+/// browsers tucked behind it, as the tab row's + hides New Terminal:
+/// hovering slides them out to its left, so a click where it sits always
+/// uses the default and another browser is one step over. It folds back
+/// shortly after the pointer leaves. The bar reserves their room, so
+/// opening never moves the address.
+private struct OpenInBrowserButton: View {
+    let browsers: [PreviewBrowser]
+    let size: CGSize
+    let open: (PreviewBrowser) -> Void
+    @State private var expanded = false
+    @State private var collapse: DispatchWorkItem?
+
+    private static let detail = "The same address, in your own browser (its own cookies and logins)."
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Spacer(minLength: 0)
+            ForEach(Array(browsers.dropFirst())) { browser in
+                BrowserIconButton(browser: browser, tooltip: Tooltip(title: "Open in \(browser.name)", detail: Self.detail),
+                                  size: size) { open(browser) }
+                    .onHover(perform: hover)
+                    .opacity(expanded ? 1 : 0)
+                    .offset(x: expanded ? 0 : 10)
+                    .allowsHitTesting(expanded)
+                    .frame(width: expanded ? size.width : 0, alignment: .trailing)
+                    .clipped()
+            }
+            if let main = browsers.first {
+                BrowserIconButton(browser: main, tooltip: Tooltip(title: "Open in \(main.name)", detail: Self.detail),
+                                  size: size) { open(main) }
+                    .onHover(perform: hover)
+            } else {
+                BarIconButton(symbol: "arrow.up.forward.app", tooltip: Tooltip(title: "Open in Browser", detail: Self.detail),
+                              glyphSize: Theme.Size.body, size: size) {}
+                    .disabled(true)
+            }
+        }
+        .frame(width: size.width * CGFloat(max(1, browsers.count)), alignment: .trailing)
+    }
+
+    private func hover(_ inside: Bool) {
+        collapse?.cancel()
+        if inside {
+            withAnimation(.easeOut(duration: 0.16)) { expanded = true }
+        } else {
+            let work = DispatchWorkItem { withAnimation(.easeOut(duration: 0.16)) { expanded = false } }
+            collapse = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
+        }
+    }
+}
+
+/// A bar button showing a browser's own app icon (as BarIconButton does a
+/// symbol), grayed while it can't be used.
+private struct BrowserIconButton: View {
+    let browser: PreviewBrowser
+    let tooltip: Tooltip
+    let size: CGSize
+    let action: () -> Void
+    @State private var hovering = false
+    @Environment(\.isEnabled) private var enabled
+
+    var body: some View {
+        Button(action: action) {
+            Image(nsImage: browser.icon)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: 18, height: 18)
+                .saturation(enabled ? 1 : 0)
+                .opacity(enabled ? 1 : 0.4)
+                .frame(width: size.width, height: size.height)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(BarButtonStyle(hovering: hovering && enabled))
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .tooltip(tooltip)
+        .accessibilityLabel(tooltip.title)
     }
 }
 
