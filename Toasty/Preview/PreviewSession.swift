@@ -981,8 +981,10 @@ final class PreviewStore {
         prune()
         if let s = sessions[workspace.id] { return s }
         let saved = (UserDefaults.standard.dictionary(forKey: Self.key)?[workspace.id.uuidString] as? [String: String]) ?? [:]
+        // Desktop until the workspace's browser has been switched; then
+        // what it was left at.
         let s = PreviewSession(workspaceID: workspace.id, address: saved["address"] ?? "",
-                               viewport: saved["viewport"].flatMap(PreviewViewport.init(rawValue:)) ?? .mobile,
+                               viewport: saved["viewport"].flatMap(PreviewViewport.init(rawValue:)) ?? .desktop,
                                phone: saved["phone"].flatMap(PreviewViewport.init(rawValue:)))
         sessions[workspace.id] = s
         return s
