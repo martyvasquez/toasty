@@ -28,6 +28,26 @@ struct PreviewTests {
         }
     }
 
+    @Test func settingsChooseWhichLinksOpenHere() {
+        func opens(_ s: String, localhost: Bool = true, ip: Bool = true, sites: [String] = []) -> Bool {
+            PreviewStore.opensInBrowser(URL(string: s)!, localhost: localhost, ipAddresses: ip, sites: sites)
+        }
+        #expect(PreviewStore.opensInBrowser(URL(string: "https://github.com")!, every: true, localhost: false,
+                                            ipAddresses: false, sites: []))
+        #expect(!PreviewStore.opensInBrowser(URL(string: "mailto:a@b.co")!, every: true, localhost: true,
+                                             ipAddresses: true, sites: []))
+        #expect(!opens("http://localhost:3000", localhost: false))
+        #expect(opens("http://127.0.0.1:3000", localhost: false))
+        #expect(!opens("http://192.168.1.20:3000", ip: false))
+        #expect(opens("http://app.local:3000", ip: false))
+        #expect(opens("https://staging.example.com/a", sites: ["example.com"]))
+        #expect(opens("https://example.com", sites: ["example.com"]))
+        #expect(!opens("https://notexample.com", sites: ["example.com"]))
+        #expect(PreviewSettings.host(of: " https://Staging.Example.com:8080/x ") == "staging.example.com")
+        #expect(PreviewSettings.host(of: "*.ngrok.app") == "ngrok.app")
+        #expect(PreviewSettings.host(of: "  ") == nil)
+    }
+
     @Test func addressesDisplayWithoutNoise() {
         #expect(PreviewSession.display(URL(string: "http://localhost:3000/")!) == "localhost:3000")
         #expect(PreviewSession.display(URL(string: "http://localhost:3000/pricing")!) == "localhost:3000/pricing")

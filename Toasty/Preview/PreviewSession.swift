@@ -1071,19 +1071,38 @@ final class PreviewStore {
     /// with a name: `localhost`, `*.localhost`, `*.local`, `127.0.0.1`,
     /// `192.168.1.20`, `[::1]`.
     nonisolated static func isLocal(_ url: URL) -> Bool {
+        opensInBrowser(url, localhost: true, ipAddresses: true, sites: [])
+    }
+
+    /// Whether a clicked link opens in Toasty's browser (Settings ▸ Browser):
+    /// every link, or only localhost names (`localhost`, `*.localhost`, `*.local`), IP addresses
+    /// (`127.0.0.1`, `192.168.1.20`, `[::1]`), and the user's own sites, each
+    /// with its subdomains. Only http and https.
+    nonisolated static func opensInBrowser(_ url: URL, every: Bool = false, localhost: Bool, ipAddresses: Bool,
+                                           sites: [String]) -> Bool {
         guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https",
               let host = url.host?.lowercased(), !host.isEmpty else { return false }
-        if host == "localhost" || host.hasSuffix(".localhost") || host.hasSuffix(".local") { return true }
+        if every { return true }
+        if localhost, host == "localhost" || host.hasSuffix(".localhost") || host.hasSuffix(".local") { return true }
+        if ipAddresses, isIPAddress(host) { return true }
+        return sites.contains { site in host == site || host.hasSuffix("." + site) }
+    }
+
+    nonisolated private static func isIPAddress(_ host: String) -> Bool {
         if host.contains(":") { return true }  // an IPv6 address
         let parts = host.split(separator: ".", omittingEmptySubsequences: false)
         return parts.count == 4 && parts.allSatisfy { !$0.isEmpty && $0.allSatisfy(\.isNumber) }
     }
 
-    /// A link clicked in a terminal: a local address opens in that
-    /// workspace's browser, and the browser window comes forward showing it. False when the
-    /// browser is off or the link isn't local: the default browser gets it.
+    /// A link clicked in a terminal: an address Settings ▸ Browser sends
+    /// here opens in that workspace's browser, and the browser window comes
+    /// forward showing it. False when the browser is off or the link isn't
+    /// one of those: the default browser gets it.
     func open(_ url: URL, fromTerminal view: TerminalView) -> Bool {
-        guard PreviewSettings.shared.enabled, Self.isLocal(url),
+        let settings = PreviewSettings.shared
+        guard settings.enabled,
+              Self.opensInBrowser(url, every: settings.opensEveryLink, localhost: settings.opensLocalhost,
+                                  ipAddresses: settings.opensIPAddresses, sites: settings.sites),
               let workspace = WorkspaceStore.shared.workspaces.first(where: { w in
                   w.terminals.contains { $0.terminalView === view }
               }) else { return false }

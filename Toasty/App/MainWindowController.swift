@@ -488,7 +488,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     /// ⇧⌘B (View ▸ Show Browser): back to the browser window as it was
     /// left, on whatever workspace it shows (the user, 2026-11-20: going
     /// back to the browser and showing this workspace's are two things).
-    /// Never opened: it opens on this workspace. (Experimental; no menu
+    /// Never opened: it opens on this workspace. (No menu
     /// item while it's turned off.) From the browser window, the same keys
     /// put it away (`PreviewWindowController`).
     @objc func togglePreview(_ sender: Any?) {

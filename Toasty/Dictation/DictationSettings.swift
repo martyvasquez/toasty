@@ -237,8 +237,8 @@ struct DictationSettingsView: View {
 
 private func names(_ n: Int) -> String { n == 1 ? "1 name" : "\(n) names" }
 
-/// The macOS +/− pair under a table.
-private struct AddRemove: View {
+/// The macOS +/− pair under a table (Dictation's lists, the Browser's sites).
+struct AddRemove: View {
     let add: () -> Void
     let remove: () -> Void
     let canRemove: Bool
