@@ -810,15 +810,19 @@ private struct BrowserIconButton: View {
     }
 
     private static let line = StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round)
+    /// Outer edges (the line's half-width either side included) as wide as
+    /// Safari's symbol: 14 points. Firefox's path spans 0.94 of its frame.
+    private static let chrome: CGFloat = 14 - 1.4
+    private static let firefox: CGFloat = (14 - 1.4) / 0.94
 
     @ViewBuilder private var glyph: some View {
         switch browser.bundleID {
         case "com.apple.Safari", "com.apple.SafariTechnologyPreview":
             Image(systemName: "safari").font(.toasty(Theme.Size.body, .medium))
         case "com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.canary":
-            ChromeGlyph().stroke(style: Self.line).frame(width: 13.6, height: 13.6)
+            ChromeGlyph().stroke(style: Self.line).frame(width: Self.chrome, height: Self.chrome)
         case "org.mozilla.firefox", "org.mozilla.firefoxdeveloperedition", "org.mozilla.nightly":
-            FirefoxGlyph().stroke(style: Self.line).frame(width: 14, height: 14)
+            FirefoxGlyph().stroke(style: Self.line).frame(width: Self.firefox, height: Self.firefox)
         default:
             Image(systemName: "globe").font(.toasty(Theme.Size.body, .medium))
         }
