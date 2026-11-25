@@ -121,7 +121,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         guard let pane = Pane(rawValue: id.rawValue) else { return nil }
         let item = NSToolbarItem(itemIdentifier: id)
         item.label = pane.title
-        item.image = pane == .preview ? BrowserGlyph.image(size: 17, diameter: 11.6, line: 0.72)
+        item.image = pane == .preview ? BrowserGlyph.image(size: 17, diameter: 10.6, line: 0.72)
             : NSImage(systemSymbolName: pane.symbol, accessibilityDescription: pane.title)
         item.target = self
         item.action = #selector(selectPane(_:))
