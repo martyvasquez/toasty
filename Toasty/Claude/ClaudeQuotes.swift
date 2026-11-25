@@ -203,16 +203,19 @@ struct QuotePill: View {
 
 // MARK: - In the composer
 
-/// The quotes gathered for the next message, above the composer's text:
-/// each passage (click to see it in the transcript), a comment on it (the
-/// keyboard goes there when it's quoted), and a remove button.
+/// The quotes gathered for the next message, above the composer's text.
+/// Closed, a card is the passage on one line (and its comment, if it has
+/// one); open (clicked, or just quoted) it shows the whole passage and the
+/// comment field, which has the keyboard. × removes it.
 struct ComposerQuotes: View {
     @ObservedObject var conversation: ClaudeConversation
     @FocusState private var focusedNote: UUID?
+    /// The open card: the one whose comment has the keyboard.
+    @State private var openID: UUID?
 
     var body: some View {
         let quotes = conversation.quotes
-        let list = VStack(alignment: .leading, spacing: Theme.Space.xs) {
+        let list = VStack(alignment: .leading, spacing: Theme.Space.s - 2) {
             ForEach(quotes) { quote in
                 row(quote).id(quote.id)
             }
@@ -222,8 +225,8 @@ struct ComposerQuotes: View {
             if quotes.count > 4 {
                 ScrollViewReader { proxy in
                     ScrollView(.vertical) { list }
-                        .frame(height: 4 * 52)
-                        .onChange(of: focusedNote) { _, id in
+                        .frame(height: 4 * 56)
+                        .onChange(of: openID) { _, id in
                             if let id { withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(id) } }
                         }
                 }
@@ -231,45 +234,51 @@ struct ComposerQuotes: View {
                 list
             }
         }
+        .animation(.easeOut(duration: 0.15), value: openID)
         .onAppear(perform: takeComment)
         .onChange(of: conversation.quoteToComment) { _, _ in takeComment() }
+        // The comment lost the keyboard (Return, Esc, a click elsewhere):
+        // its card closes.
+        .onChange(of: focusedNote) { _, id in if id != openID { openID = id } }
+        // Back to the message (Return, Esc, ×, a new quote's focus moving
+        // on): nothing stays open without the keyboard.
+        .onChange(of: conversation.composerFocusToken) { _, _ in openID = nil }
     }
 
-    /// A quote just added: its comment takes the keyboard.
+    /// A quote just added: its card opens, its comment takes the keyboard.
     private func takeComment() {
         guard let id = conversation.quoteToComment else { return }
         conversation.quoteToComment = nil
-        // After the row is in the window.
+        open(id)
+    }
+
+    private func open(_ id: UUID) {
+        openID = id
+        // After the field is in the window.
         DispatchQueue.main.async { focusedNote = id }
     }
 
     private func row(_ quote: ClaudeQuote) -> some View {
-        HStack(alignment: .top, spacing: Theme.Space.s) {
-            RoundedRectangle(cornerRadius: 1, style: .continuous)
-                .fill(Color.accentColor.opacity(0.7))
-                .frame(width: 2)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(ClaudeQuoteFormat.oneLine(quote.text))
+        let isOpen = openID == quote.id
+        return HStack(alignment: .top, spacing: Theme.Space.s) {
+            VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                Text(isOpen ? quote.text : ClaudeQuoteFormat.oneLine(quote.text))
                     .font(.toasty(Theme.Size.control))
                     .italic()
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .lineLimit(isOpen ? nil : 1)
                     .truncationMode(.tail)
-                    .contentShape(Rectangle())
-                    .onTapGesture { conversation.revealQuote(quote.text, source: quote.source) }
-                    .tooltipText(quote.text)
-                HStack(alignment: .firstTextBaseline, spacing: 5) {
-                    Image(systemName: "text.bubble")
-                        .font(.toasty(Theme.Size.caption))
-                        .foregroundStyle(focusedNote == quote.id || !quote.note.isEmpty ? Color.accentColor : Color.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if isOpen || !quote.note.isEmpty {
                     TextField("Add a comment", text: note(quote.id))
                         .textFieldStyle(.plain)
                         .font(.toasty(Theme.Size.control))
                         .focused($focusedNote, equals: quote.id)
-                    // Return goes back to the message (sending is the
-                    // message's Return, so a note is never sent by accident).
-                    .onSubmit { conversation.focusComposer() }
-                    .onExitCommand { conversation.focusComposer() }
+                        // Return goes back to the message (sending is the
+                        // message's Return, so a comment is never sent by
+                        // accident).
+                        .onSubmit { conversation.focusComposer() }
+                        .onExitCommand { conversation.focusComposer() }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -280,17 +289,19 @@ struct ComposerQuotes: View {
                 Image(systemName: "xmark")
                     .font(.toasty(Theme.Size.caption, .semibold))
                     .foregroundStyle(.tertiary)
-                    .frame(width: 20, height: 20)
+                    .frame(width: 18, height: 18)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .tooltip("Remove Quote")
             .accessibilityLabel("Remove Quote")
         }
-        .padding(.vertical, Theme.Space.xs + 2)
-        .padding(.leading, Theme.Space.s)
-        .padding(.trailing, Theme.Space.xs)
-        .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).fill(Theme.Fill.faint))
+        .padding(.vertical, Theme.Space.s + 2)
+        .padding(.leading, Theme.Space.m + 2)
+        .padding(.trailing, Theme.Space.s + 2)
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(Theme.Fill.subtle))
+        .contentShape(Rectangle())
+        .onTapGesture { open(quote.id) }
         .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -307,8 +318,8 @@ struct ComposerQuotes: View {
 
 // MARK: - In a sent message
 
-/// A sent message's quotes, inside its bubble: each passage (a few lines;
-/// click to see it in the transcript) with the comment under it. On the
+/// A sent message's quotes, inside its bubble: each passage on a line
+/// (click to see it in the transcript) with the comment under it. On the
 /// blue bubble in white; on a queued (outlined) one in the usual colors.
 struct SentQuotes: View {
     let quotes: [(text: String, note: String)]
@@ -330,32 +341,26 @@ struct SentQuotes: View {
     }
 
     private func card(_ q: (text: String, note: String)) -> some View {
-        HStack(alignment: .top, spacing: Theme.Space.s) {
-            RoundedRectangle(cornerRadius: 1, style: .continuous)
-                .fill(onBlue ? Color.white.opacity(0.55) : Color.accentColor.opacity(0.7))
-                .frame(width: 2)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(q.text)
+        VStack(alignment: .leading, spacing: Theme.Space.xs) {
+            Text(ClaudeQuoteFormat.oneLine(q.text))
+                .font(.toasty(Theme.Size.control))
+                .italic()
+                .foregroundStyle(ink(0.72))
+                .lineLimit(1)
+                .truncationMode(.tail)
+            if !q.note.isEmpty {
+                Text(q.note)
                     .font(.toasty(Theme.Size.control))
-                    .italic()
-                    .foregroundStyle(ink(0.72))
-                    .lineLimit(3)
-                    .truncationMode(.tail)
-                if !q.note.isEmpty {
-                    Text(q.note)
-                        .font(.toasty(Theme.Size.control))
-                        .foregroundStyle(ink(0.95))
-                        .textSelection(.enabled)
-                }
+                    .foregroundStyle(ink(0.95))
+                    .textSelection(.enabled)
             }
         }
-        .padding(.vertical, Theme.Space.s)
-        .padding(.leading, Theme.Space.s + 2)
-        .padding(.trailing, Theme.Space.m)
+        .padding(.vertical, Theme.Space.s + 2)
+        .padding(.horizontal, Theme.Space.m)
         .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
-        .background(RoundedRectangle(cornerRadius: max(Theme.Radius.message - Theme.Space.s, 4), style: .continuous)
-            .fill(onBlue ? Color.black.opacity(0.16) : Theme.Fill.subtle))
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+            .fill(onBlue ? Color.white.opacity(0.1) : Theme.Fill.subtle))
         .contentShape(Rectangle())
         .onTapGesture { target?.conversation?.revealQuote(q.text, before: messageID) }
         .tooltipText("Show in the conversation")
