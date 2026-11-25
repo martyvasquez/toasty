@@ -33,7 +33,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
             case .dictation: "mic"
             case .screenshots: "camera.viewfinder"
             case .teeUp: WidgetKind.teeUp.symbol
-            case .preview: "globe"
+            case .preview: "globe"  // unused: drawn (BrowserGlyph)
             }
         }
 
@@ -121,7 +121,8 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         guard let pane = Pane(rawValue: id.rawValue) else { return nil }
         let item = NSToolbarItem(itemIdentifier: id)
         item.label = pane.title
-        item.image = NSImage(systemSymbolName: pane.symbol, accessibilityDescription: pane.title)
+        item.image = pane == .preview ? BrowserGlyph.image(size: 17, diameter: 11.6, line: 1.05)
+            : NSImage(systemSymbolName: pane.symbol, accessibilityDescription: pane.title)
         item.target = self
         item.action = #selector(selectPane(_:))
         return item

@@ -366,12 +366,18 @@ struct InspectorEmpty: View {
     let symbol: String
     let title: String
     var detail: String?
+    /// Drawn in place of `symbol` (a glyph that isn't a symbol).
+    var glyph: AnyView? = nil
 
     var body: some View {
         VStack(spacing: Theme.Space.s) {
-            Image(systemName: symbol)
-                .font(.toasty(Theme.Glyph.hero, .light))
-                .foregroundStyle(.tertiary)
+            if let glyph {
+                glyph
+            } else {
+                Image(systemName: symbol)
+                    .font(.toasty(Theme.Glyph.hero, .light))
+                    .foregroundStyle(.tertiary)
+            }
             Text(title)
                 .font(.toasty(Theme.Size.title, .semibold))
                 .foregroundStyle(.secondary)

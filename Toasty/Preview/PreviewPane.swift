@@ -374,7 +374,8 @@ private struct PreviewWindowRoot: View {
                 }
                 .id(workspace.id)
             } else {
-                InspectorEmpty(symbol: "globe", title: "No Workspace", detail: "Each workspace has a browser of its own.")
+                InspectorEmpty(symbol: "", title: "No Workspace", detail: "Each workspace has a browser of its own.",
+                               glyph: AnyView(BrowserGlyph.hero))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
@@ -983,11 +984,10 @@ struct PreviewIndicator: View {
             guard let workspace = WorkspaceStore.shared.workspaces.first(where: { $0.id == session.workspaceID }) else { return }
             AppDelegate.shared.windowController?.showWorkspaceBrowser(workspace)
         } label: {
-            Image(systemName: "globe")
-                .font(.toasty(Theme.Size.body, .medium))
+            BrowserGlyph.bar
                 .foregroundStyle(session.agentActive ? AnyShapeStyle(Color.accentColor)
                                  : hovering || session.windowOpen ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                .symbolEffect(.pulse, options: .repeating, isActive: session.agentActive)
+                .modifier(PulseWhile(active: session.agentActive))
                 .frame(width: 32, height: TabStyle.height)
                 .contentShape(Capsule())
         }
@@ -1012,9 +1012,7 @@ private struct PreviewStart: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            Image(systemName: "globe")
-                .font(.toasty(Theme.Glyph.hero, .light))
-                .foregroundStyle(.tertiary)
+            BrowserGlyph.hero
             Text("Browser")
                 .font(.toasty(Theme.Size.control, .medium))
                 .foregroundStyle(.secondary)
@@ -1616,5 +1614,77 @@ final class PreviewTwinStage: NSView {
         canvas.setBoundsOrigin(.zero)
         canvas.setBoundsSize(page)
         session?.twin?.frame = NSRect(origin: .zero, size: page)
+    }
+}
+
+// MARK: - Toasty's browser's glyph
+
+/// Toasty's own browser: a globe at its simplest (the rim, one meridian,
+/// the equator), drawn as the bar's symbols are so it isn't taken for any
+/// real browser's mark.
+nonisolated struct BrowserGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        let c = CGPoint(x: rect.midX, y: rect.midY)
+        let R = min(rect.width, rect.height) / 2
+        let w = R * 0.45
+        var p = Path()
+        p.addEllipse(in: CGRect(x: c.x - R, y: c.y - R, width: 2 * R, height: 2 * R))
+        p.addEllipse(in: CGRect(x: c.x - w, y: c.y - R, width: 2 * w, height: 2 * R))
+        p.move(to: CGPoint(x: c.x - R, y: c.y))
+        p.addLine(to: CGPoint(x: c.x + R, y: c.y))
+        return p
+    }
+
+    /// In a bar, beside medium-weight symbols: 14 points across.
+    @MainActor static var bar: some View {
+        BrowserGlyph().stroke(style: StrokeStyle(lineWidth: 1.4, lineCap: .round)).frame(width: 12.6, height: 12.6)
+    }
+
+    /// Over an empty page, as the light hero symbols.
+    @MainActor static var hero: some View {
+        BrowserGlyph().stroke(style: StrokeStyle(lineWidth: 1.3, lineCap: .round))
+            .frame(width: Theme.Glyph.hero - 1.3, height: Theme.Glyph.hero - 1.3)
+            .foregroundStyle(.tertiary)
+    }
+
+    /// For AppKit (the Settings toolbar): a template image `size` across,
+    /// the globe `diameter` across in its middle (a toolbar scales the
+    /// whole image to its own size, so the margin sets the globe's).
+    @MainActor static func image(size: CGFloat, diameter: CGFloat, line: CGFloat) -> NSImage {
+        let d = diameter - line, inset = (size - d) / 2
+        let path = BrowserGlyph().path(in: CGRect(x: inset, y: inset, width: d, height: d)).cgPath
+        let image = NSImage(size: NSSize(width: size, height: size), flipped: true) { _ in
+            guard let cg = NSGraphicsContext.current?.cgContext else { return false }
+            cg.addPath(path)
+            cg.setLineWidth(line)
+            cg.setLineCap(.round)
+            cg.setStrokeColor(NSColor.black.cgColor)
+            cg.strokePath()
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }
+}
+
+/// Fades a glyph in and out while `active` (as a symbol's pulse effect,
+/// for a glyph that isn't a symbol).
+struct PulseWhile: ViewModifier {
+    let active: Bool
+    @State private var dim = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(dim ? 0.35 : 1)
+            .onAppear(perform: update)
+            .onChange(of: active) { update() }
+    }
+
+    private func update() {
+        if active {
+            withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) { dim = true }
+        } else {
+            withAnimation(.easeOut(duration: 0.2)) { dim = false }
+        }
     }
 }
