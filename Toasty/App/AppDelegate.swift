@@ -42,6 +42,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowController = controller
         controller.showWindow(nil)
         store.startShownConversation()
+        // Browser tabs that were in windows of their own, in them again.
+        DispatchQueue.main.async { PreviewStore.shared.restoreWindows() }
         pendingFolders.forEach(store.openFolder)
         pendingFolders = []
         // Dictation's speech model loads and prewarms in the background once

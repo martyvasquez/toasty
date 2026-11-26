@@ -86,6 +86,7 @@ enum MainMenu {
         view.addItem(item("Show Browser", #selector(W.togglePreview(_:)), "b", [.command, .shift]))
         view.addItem(item("Show at Phone Size", #selector(W.togglePreviewSize(_:)), "m", [.command, .shift]))
         view.addItem(item("Comment on the Page", #selector(W.togglePreviewComment(_:)), "c", [.command, .shift]))
+        view.addItem(item("Fill Window with Browser", #selector(W.toggleBrowserFill(_:)), "f", [.command, .shift]))
         view.addItem(.separator())
         // ⌃⌘1–9: the spaces, by their place (hidden past the last one).
         for i in 0..<9 {
@@ -135,10 +136,7 @@ enum MainMenu {
         let servers = item("Local Servers", #selector(LocalServersWindowController.show(_:)), "")
         servers.target = LocalServersWindowController.shared
         window.addItem(servers)
-        // The browser window as it was left (hidden while it's turned off).
-        let browser = item("Browser", #selector(PreviewWindowMenu.showBrowser(_:)), "")
-        browser.target = PreviewWindowMenu.shared
-        window.addItem(browser)
+        // (Browser windows, a tab's each, are listed by AppKit with the others.)
         window.addItem(.separator())
         window.addItem(item("Show Next Tab", #selector(W.selectNextTab(_:)), arrow(NSRightArrowFunctionKey), [.command, .option]))
         window.addItem(item("Show Previous Tab", #selector(W.selectPreviousTab(_:)), arrow(NSLeftArrowFunctionKey), [.command, .option]))

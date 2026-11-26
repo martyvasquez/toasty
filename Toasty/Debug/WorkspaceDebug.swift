@@ -589,6 +589,7 @@ enum WorkspaceDebug {
                         switch tab {
                         case .conversation(let c): return (tab.id == w.shownTopTabID ? "*" : "") + c.title
                         case .terminal(let t): return (tab.id == w.shownTopTabID ? "*" : "") + "⌨ " + t.displayTitle
+                        case .browser: return (tab.id == w.shownTopTabID ? "*" : "") + "🧭 Browser"
                         }
                     },
                     "terminals": w.terminals.map { "\($0.displayTitle)\($0.isStarted ? "" : " (not started)")" },

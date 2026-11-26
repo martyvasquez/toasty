@@ -385,6 +385,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             w.requestCloseDrawerTerminal(t.id)
         } else if let t = w.shownTabTerminal {
             w.requestCloseTabTerminal(t.id)
+        } else if let page = w.shownBrowserTabID {
+            PreviewStore.shared.closeBrowserTab(page, in: w)
         } else if let c = w.selected {
             w.requestClose(c)
         }
@@ -422,6 +424,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     /// alone) or bring them back as they were.
     @objc func toggleWidgets(_ sender: Any?) {
         guard let w = store.active else { return }
+        if stopBrowserFill() { return }
         let hadTerminalFocus = terminalFocused
         // What's on screen: set aside by a narrow window counts as hidden.
         let shown = layout.terminalWidth > 0
@@ -493,32 +496,56 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     /// put it away (`PreviewWindowController`).
     @objc func togglePreview(_ sender: Any?) {
         guard PreviewSettings.shared.enabled else { return }
-        PreviewStore.shared.showWindow()
+        // A tab (the experiment): to it, and back to the tab you were on.
+        if let w = store.active, w.browserShown {
+            if let t = w.lastTabTerminalID, t == browserReturnTab, w.tabTerminals.contains(where: { $0.id == t }) {
+                w.showTabTerminal(t)
+                focusTabTerminal()
+            } else if let c = w.selected {
+                w.select(c)
+            }
+            return
+        }
+        browserReturnTab = store.active?.shownTabTerminalID
+        PreviewStore.shared.showTab(store.active)
     }
 
-    /// The titlebar's compass: the browser window, showing this workspace's
-    /// browser (asked for, so the window switches to it).
-    func showWorkspaceBrowser(_ workspace: Workspace) {
-        guard PreviewSettings.shared.enabled else { return }
-        PreviewStore.shared.showWindow(workspace)
+    /// The terminal tab ⇧⌘B left for the browser's (nil: a conversation).
+    private var browserReturnTab: UUID?
+
+    /// ⇧⌘F: the browser tab fills the window (the workspaces and widgets
+    /// step aside while it shows), or stops.
+    @objc func toggleBrowserFill(_ sender: Any?) {
+        let settings = PreviewSettings.shared
+        guard settings.enabled, store.active?.browserShown == true else { return }
+        settings.fillsWindow.toggle()
+    }
+
+    /// Showing the workspaces or the widgets by hand while the browser
+    /// fills the window: it stops filling it.
+    private func stopBrowserFill() -> Bool {
+        guard split.browserFills else { return false }
+        PreviewSettings.shared.fillsWindow = false
+        return true
     }
 
     /// ⇧⌘M: the workspace's page at the other size, phone or desktop.
     @objc func togglePreviewSize(_ sender: Any?) {
         guard let w = store.active, PreviewSettings.shared.enabled else { return }
-        PreviewStore.shared.session(for: w).toggleViewport()
+        PreviewStore.shared.shownPage(in: w).toggleViewport()
     }
 
     /// ⇧⌘C: comment on the workspace's page, in its browser window.
     @objc func togglePreviewComment(_ sender: Any?) {
         guard let w = store.active, PreviewSettings.shared.enabled else { return }
-        let session = PreviewStore.shared.session(for: w)
+        let session = PreviewStore.shared.shownPage(in: w)
         guard session.url != nil, session.failure == nil else { return }
-        PreviewStore.shared.showWindow(w)
+        PreviewStore.shared.showTab(w, page: session.pageID)
         session.setCommenting(true)
     }
 
     @objc func toggleWorkspaces(_ sender: Any?) {
+        if stopBrowserFill() { return }
         // On screen (a narrow window may have set it aside): hide it;
         // else show it, widening the window if it needs room.
         let shown = !split.sidebarItem.isCollapsed
@@ -616,19 +643,19 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         case #selector(togglePreview(_:)):
             // No menu items or shortcuts while the browser is turned off.
             item.isHidden = !PreviewSettings.shared.enabled
-            item.title = "Show Browser"
+            item.title = w?.browserShown == true ? "Hide Browser" : "Show Browser"
             return w != nil && !item.isHidden
         case #selector(togglePreviewSize(_:)):
             item.isHidden = !PreviewSettings.shared.enabled
             guard let w, !item.isHidden else { return false }
-            let s = PreviewStore.shared.session(for: w)
+            let s = PreviewStore.shared.shownPage(in: w)
             item.title = s.viewport.isPhone ? "Show at Desktop Size" : "Show at \(s.lastPhone.title) Size"
             return true
         case #selector(togglePreviewComment(_:)):
             item.isHidden = !PreviewSettings.shared.enabled
             item.title = "Comment on the Page"
             guard let w, !item.isHidden else { return false }
-            let session = PreviewStore.shared.session(for: w)
+            let session = PreviewStore.shared.shownPage(in: w)
             return session.url != nil && session.failure == nil
         case #selector(toggleWorkspaces(_:)):
             item.title = split.sidebarItem.isCollapsed ? "Show Workspaces" : "Hide Workspaces"
@@ -643,7 +670,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             item.title = editor.map { "Open in \($0.name)" } ?? "Open in Editor"
             return w != nil && editor != nil
         case #selector(closeTab(_:)):
-            return terminalFocused ? w?.selectedTerminal != nil : w?.selected != nil
+            return terminalFocused ? w?.selectedTerminal != nil : w?.selected != nil || w?.browserShown == true
+        case #selector(toggleBrowserFill(_:)):
+            item.isHidden = !PreviewSettings.shared.enabled
+            item.title = PreviewSettings.shared.fillsWindow && w?.browserShown == true ? "Show Workspaces and Widgets" : "Fill Window with Browser"
+            return !item.isHidden && w?.browserShown == true
         case #selector(newTerminal(_:)), #selector(renameWorkspace(_:)),
              #selector(openWorkspaceInFinder(_:)), #selector(closeWorkspace(_:)):
             return w != nil

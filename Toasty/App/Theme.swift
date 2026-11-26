@@ -104,6 +104,10 @@ enum Theme {
         })
         /// A bar button under the pointer: a hairline capsule.
         static let hover = Color.primary.opacity(0.15)
+        /// A dashed outline that has to be seen at rest (the browser's
+        /// pseudo-tab), and under the pointer.
+        static let dashed = Color.primary.opacity(0.32)
+        static let dashedHover = Color.primary.opacity(0.45)
         /// The rule under a heading (Things': white 15% / navy 10%).
         static let rule = Color(nsColor: NSColor(name: nil) { a in
             a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua

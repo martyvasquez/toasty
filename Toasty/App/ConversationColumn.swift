@@ -5,12 +5,13 @@ import SwiftUI
 /// The middle column: the active workspace's selected conversation.
 struct ConversationColumn: View {
     @ObservedObject var store: WorkspaceStore
+    @ObservedObject var layout: WindowLayout
 
     var body: some View {
         ZStack {
             Color.claudeBackground.ignoresSafeArea()
             if let workspace = store.active {
-                WorkspaceConversation(workspace: workspace)
+                WorkspaceConversation(workspace: workspace, layout: layout)
             } else {
                 WelcomeView(store: store)
             }
@@ -20,9 +21,18 @@ struct ConversationColumn: View {
 
 private struct WorkspaceConversation: View {
     @ObservedObject var workspace: Workspace
+    let layout: WindowLayout
 
     var body: some View {
-        if let file = workspace.diffFile {
+        if let page = workspace.shownBrowserTabID, PreviewSettings.shared.enabled {
+            // The tab row's band, from the window's top; the page starts
+            // right under its divider.
+            let bar = layout.buttonsMidY > 0 ? layout.buttonsMidY * 2 : 38
+            BrowserTabPage(workspace: workspace, session: PreviewStore.shared.page(page, in: workspace), barHeight: bar)
+                .id(page)
+                .padding(.top, bar)
+                .ignoresSafeArea(edges: .top)
+        } else if let file = workspace.diffFile {
             DiffPage(file: file, files: workspace.changes.files, select: { workspace.diffFile = $0 }) { workspace.diffFile = nil }
                 .id(file.id)
         } else if let url = workspace.viewedFile {
@@ -109,7 +119,7 @@ final class ConversationColumnController: NSViewController {
     required init?(coder: NSCoder) { fatalError() }
 
     override func loadView() {
-        let column = NSHostingView(rootView: ConversationColumn(store: store))
+        let column = NSHostingView(rootView: ConversationColumn(store: store, layout: layout))
         column.sizingOptions = []
         let drawer = NSHostingView(rootView: TerminalDrawerView(store: store, window: layout))
         drawer.sizingOptions = []
@@ -138,9 +148,10 @@ final class ConversationColumnController: NSViewController {
             return
         }
         let page = w.$diffFile.combineLatest(w.$viewedFile).map { $0 != nil || $1 != nil }
-        workspaceCancellable = w.$selectedID.combineLatest(w.$conversations, page, w.$shownTabTerminalID)
-            .sink { [weak self] id, conversations, page, terminal in
-                let c = !page && terminal == nil ? conversations.first { $0.id == id } : nil
+        let other = w.$shownTabTerminalID.combineLatest(w.$shownBrowserTabID).map { $0 != nil || $1 != nil }
+        workspaceCancellable = w.$selectedID.combineLatest(w.$conversations, page, other)
+            .sink { [weak self] id, conversations, page, other in
+                let c = !page && !other ? conversations.first { $0.id == id } : nil
                 self?.host.show(c.map { ConversationViews.shared.view(for: $0) })
             }
     }

@@ -525,6 +525,55 @@ the iPhone/desktop toggle, show conversation, the size menu.
   Comments (⇧⌘C): click an element or drag an area, type a note; Return
   sends or tees up per the field's Send | Tee-Up switch.
 
+- Browser as a tab (experiment, branch Browser-Tab, 2026-11-26; the user
+  was never thrilled with the separate window): Settings ▸ Browser ▸ Show In:
+  Its Own Window | A Tab (default Tab on the branch). In a tab: one per
+  workspace in the top row (compass + address, pulses while Claude uses
+  it). Selected, the tab itself is the address bar, as Safari's compact
+  tabs (the user, 2026-11-26: "a bit more Apple, keep things compact"):
+  260–400 wide, never the whole row; selected, back and forward (⌘[ ⌘])
+  where the compass is (the user: no compass on the active tab), the
+  address centered, reload on hover and a ≡ page menu (Open in each
+  browser, Fill the Window, Move to Window, Close Tab); the window's
+  footer has Move to Tab. One rule for open and close (the user,
+  2026-11-26: "close tab, close browser, new browser… really confusing"):
+  the browser is open (a tab, or its own window) or closed. Open: + ▸
+  Open Browser, ⇧⌘B, a link, Claude opening a page. Close: the tab's ×,
+  ⌘W, the window's close button, ≡ ▸ Close Browser: all the same, the
+  page unloaded and forgotten and nothing in the row. Hide (window only):
+  ⇧⌘B in the window, or switching away; its pseudo-tab (`BrowserPill`,
+  window mode only: never highlighted, a dashed outline (the user: "both
+  tabs appear active"), compass + host + ≡, compass pulses while Claude
+  uses it) brings it back; its ≡: Show Browser Window / Move Back to Tab /
+  Close Browser. The window's titlebar has the same address pill as the
+  selected tab (`BrowserAddressBar`: back, forward, address, reload, ≡ with
+  Open In, Move Back to Tab, Close Browser), centered; its footer lost
+  Move to Tab (the user: window and tab controls consistent). The titlebar compass is gone.
+  Several browser tabs (the user, 2026-11-26), tab mode only (the window
+  keeps one page per workspace, shared with Claude, as before): + ▸
+  Browser opens another page on the workspace's logins and storage (the
+  first is the main page, the one the window shows). Each conversation
+  whose Claude uses the browser gets its own tab (blue: an accent outline,
+  the whole tab accent-tinted when shown; the user tried it instead of a ✦; the
+  compass), made by its first tool call right after the conversation's
+  tab, never shown or focused; closed by the user, the next call makes a
+  new one (`PreviewStore.agentPage`). Closing a tab closes that page (the
+  main one is reset). ⇧⌘M/⇧⌘C act on the shown tab's page; a terminal
+  link opens in the main page's tab; a turn's end reloads every page of
+  the workspace. Tabs and their addresses are kept across launches. A
+  closed conversation's tab stays (as an ordinary tab). Moving flips Settings ▸ Browser ▸ Show In (one
+  window for every workspace's browser), page untouched; clicking it edits the whole URL,
+  selected, with an accent ring and a clear button. Closed with ⌘W
+  or its menu. The page starts right under the row, and the window's
+  footer stays (the user loves it; a one-row bar with no footer was tried
+  and rejected; controls beside the tabs was the step before this)
+  without the workspace menu or Show Conversation.
+  Desktop size = the tab's room, no presets. ⇧⌘B goes to it and back, ⌘W closes it (the page keeps
+  running), the compass, ⇧⌘C and terminal links open it. Fill the Window
+  (button at the bar's end, ⇧⌘F; remembered): the workspaces and widgets
+  step aside while it shows, back with any other tab; showing either by
+  hand stops filling. If the user drops it: delete the branch.
+
 Not done / to decide after living with it:
 - The indicator shows only the workspace on screen; Claude using the
   browser in a background workspace shows nowhere (the sidebar could).
@@ -634,3 +683,22 @@ Toasty's). `onUserDialog` exists in the SDK code but isn't documented.
   `ai-title` entry (not sent on the stream); `/rename` changes a running
   session's address immediately, the SDK's `renameSession` only on its next
   start.
+
+### Browser windows: one per moved-out tab (2026-11-26, the user: "Build it")
+
+Replaces the single shared browser window and Settings ▸ Browser ▸ Show In
+(both gone). Every browser starts as a tab; Move to Window (the tab's ≡ or
+right-click) moves that one tab to a window of its own, as dragging a tab
+out of Safari. The window is that tab's page for good (one workspace, one
+page): no workspace menu, its title "workspace — host", its own frame
+(autosave per page; a new one cascades from the browser window in front).
+The tab stays in the row as a dashed pseudo-tab (blue dashes for Claude's):
+click brings the window forward; ≡/right-click: Show Window, Move Back to
+Tab, Close Browser. Several can be out at once. The window's close button,
+⌘W and ⇧⌘B only put it away (the user, 2026-11-26): the page goes on and
+the pseudo-tab brings the window right back; Close Browser (the window's
+or the pseudo-tab's ≡) closes the page. Claude's tab can be moved out
+too, and its tools keep driving it there. Moved-out tabs reopen in their
+windows at launch (behind the main window). ⌃⇥ / ⌥⌘→ skip pseudo-tabs;
+closing a tab never lands on one. Window ▸ Browser is gone (AppKit lists
+the windows). Not done: dragging a tab out of the row to detach it.

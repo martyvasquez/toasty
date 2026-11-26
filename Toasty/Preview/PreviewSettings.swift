@@ -37,6 +37,13 @@ final class PreviewSettings: ObservableObject {
         }
     }
 
+    /// The browser tab fills the window: while it shows, the workspaces
+    /// and the widgets step aside (they come back with any other tab).
+    @Published var fillsWindow: Bool {
+        didSet { if fillsWindow != oldValue { UserDefaults.standard.set(fillsWindow, forKey: Self.fillsKey) } }
+    }
+    private static let fillsKey = "PreviewTabFillsWindow"
+
     /// Where a comment goes when it's finished with Return (the send key).
     enum CommentDestination: String, CaseIterable, Identifiable {
         /// Sent to the open conversation at once, as its own prompt.
@@ -99,6 +106,7 @@ final class PreviewSettings: ObservableObject {
     private init() {
         // On unless the user turned it off.
         enabled = UserDefaults.standard.object(forKey: Self.key) as? Bool ?? true
+        fillsWindow = UserDefaults.standard.bool(forKey: Self.fillsKey)
         commentsTo = UserDefaults.standard.string(forKey: Self.commentsKey).flatMap(CommentDestination.init(rawValue:)) ?? .conversation
         opensEveryLink = UserDefaults.standard.bool(forKey: Self.everyLinkKey)
         opensLocalhost = UserDefaults.standard.object(forKey: Self.localhostKey) as? Bool ?? true
@@ -144,7 +152,7 @@ struct PreviewSettingsView: View {
             } footer: {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("A browser for the site you're developing, one per workspace with its own logins and storage, that Claude can use to open pages, click, type, take screenshots and read the console, instead of your own browser.")
-                    Text("It runs in the background. One browser window, which never opens or comes forward by itself, shows the selected workspace's page. The compass at the end of the tabs shows when Claude is using it; click it (or press ⇧⌘B) to watch, or to use the same page yourself. The page is at phone or desktop size (⇧⌘M switches). Comment on anything in it to send it to the conversation you have open\(teeUpWidget.active ? " (or to Tee-Up, with the switch in the comment)" : "").")
+                    Text("It's browser tabs beside your conversations (+ opens one; ⇧⌘B goes to it and back), each of which can move to a window of its own (its ≡ menu). Each conversation's Claude gets a tab of its own, blue, that never comes forward by itself; it pulses while Claude uses it, and you can watch or use the same page yourself. The page is at phone or desktop size (⇧⌘M switches). Comment on anything in it to send it to the conversation you have open\(teeUpWidget.active ? " (or to Tee-Up, with the switch in the comment)" : "").")
                     Text("Claude gets the browser's tools as soon as you turn this on, in every conversation. While it's off, the browser isn't in Toasty at all and Claude Code runs exactly as it does by itself.")
                 }
                 .foregroundStyle(.secondary)

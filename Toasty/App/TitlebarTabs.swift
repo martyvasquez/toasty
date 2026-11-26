@@ -63,6 +63,7 @@ private struct TitlebarContent: View {
         let editing = store.editingWidgets && column > 0
         HStack(spacing: 0) {
             ConversationTabBar(workspace: workspace)
+                .id(workspace.id)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                 .padding(.leading, layout.leadingInset)
             // The browser belongs to the conversation: its indicator ends
@@ -75,12 +76,7 @@ private struct TitlebarContent: View {
                           size: CGSize(width: 28, height: TabStyle.height)) {
                 AppDelegate.shared.windowController?.setTerminalDrawer(open: !workspace.drawerOpen)
             }
-            .padding(.trailing, preview.enabled ? 0 : (column > 1 ? Theme.Space.s : TitlebarRow.edge - Theme.Space.xs))
-            if preview.enabled {
-                PreviewIndicator(session: PreviewStore.shared.session(for: workspace))
-                    .id(workspace.id)
-                    .padding(.trailing, column > 1 ? Theme.Space.s : TitlebarRow.edge - Theme.Space.xs)
-            }
+            .padding(.trailing, column > 1 ? Theme.Space.s : TitlebarRow.edge - Theme.Space.xs)
             // Over the column (at its open width, uncovered from its edge as
             // it slides): the dots, centered, and Edit Widgets in its
             // corner; editing, the spaces' thumbnails and Done. (The
@@ -182,6 +178,8 @@ struct NewTabButton: View {
 /// buttons' room, so opening it never moves the tabs.
 struct ExpandingNewTabButton: View {
     let newConversation: () -> Void
+    /// The workspace's browser (its tab, or its window), while it's on.
+    var newBrowser: (() -> Void)? = nil
     let newTerminal: () -> Void
     @State private var open = false
     @State private var collapse: DispatchWorkItem?
@@ -203,8 +201,19 @@ struct ExpandingNewTabButton: View {
                 .allowsHitTesting(open)
                 .frame(width: open ? size.width : 0, alignment: .leading)
                 .clipped()
+            if let newBrowser {
+                BarIconButton(symbol: "safari",
+                              tooltip: Tooltip(title: "New Browser Tab", detail: "A page in this workspace's browser (its logins and storage), for the site you're building."),
+                              size: size, action: newBrowser)
+                    .onHover(perform: hover)
+                    .opacity(open ? 1 : 0)
+                    .offset(x: open ? 0 : -10)
+                    .allowsHitTesting(open)
+                    .frame(width: open ? size.width : 0, alignment: .leading)
+                    .clipped()
+            }
         }
-        .frame(width: size.width * 2, alignment: .leading)
+        .frame(width: size.width * (newBrowser == nil ? 2 : 3), alignment: .leading)
     }
 
     private func hover(_ inside: Bool) {
@@ -245,6 +254,12 @@ struct FittingTabStrip<Item: Identifiable, Tab: View, Trailing: View>: View wher
     var move: ((Item.ID, Int) -> Void)?
     /// The trailing buttons' width.
     var trailingWidth: CGFloat = 28
+    /// A tab that takes the room the others leave, from `expandedMin` to
+    /// `expandedMax` (the browser's tab while selected: it's the address
+    /// bar, as Safari's compact tabs). Not dragged by its body.
+    var expandedID: Item.ID? = nil
+    var expandedMin: CGFloat = 0
+    var expandedMax: CGFloat = .infinity
     @ViewBuilder let tab: (Item) -> Tab
     @ViewBuilder let trailing: () -> Trailing
 
@@ -288,7 +303,8 @@ struct FittingTabStrip<Item: Identifiable, Tab: View, Trailing: View>: View wher
                                         // The dragged tab stays under the pointer
                                         // while the others slide.
                                         .transaction { if dragged, drag?.settling == false { $0.animation = nil } }
-                                        .gesture(reorder(item, at: i, widths: widths, xs: xs), including: move == nil ? .subviews : .all)
+                                        .gesture(reorder(item, at: i, widths: widths, xs: xs),
+                                                 including: move == nil || item.id == expandedID ? .subviews : .all)
                                 }
                             }
                             .padding(.vertical, 4)
@@ -310,6 +326,15 @@ struct FittingTabStrip<Item: Identifiable, Tab: View, Trailing: View>: View wher
 
     /// Each tab's width in `room`.
     private func layout(room: CGFloat) -> [CGFloat] {
+        if let id = expandedID, let i = items.firstIndex(where: { $0.id == id }) {
+            let rest = FittingTabStrip(items: items.filter { $0.id != id }, selectedID: selectedID, minWidth: minWidth,
+                                       maxWidth: maxWidth, naturalWidth: naturalWidth, tab: tab, trailing: trailing)
+            let gap = items.count > 1 ? TabStyle.gap : 0
+            var widths = rest.layout(room: max(0, room - expandedMin - gap))
+            let used = widths.reduce(0, +) + TabStyle.gap * CGFloat(max(0, widths.count - 1)) + gap
+            widths.insert(max(expandedMin, min(expandedMax, (room - used).rounded(.down))), at: i)
+            return widths
+        }
         let n = CGFloat(items.count)
         guard n > 0 else { return [] }
         let gaps = TabStyle.gap * (n - 1)
@@ -414,6 +439,7 @@ struct FittingTabStrip<Item: Identifiable, Tab: View, Trailing: View>: View wher
 
 private struct ConversationTabBar: View {
     @ObservedObject var workspace: Workspace
+    @ObservedObject private var settings = PreviewSettings.shared
 
     var body: some View {
         FittingTabStrip(items: workspace.topTabs, selectedID: workspace.shownTopTabID,
@@ -430,19 +456,31 @@ private struct ConversationTabBar: View {
                             case .terminal(let t):
                                 // The terminal mark, its gap, and the title.
                                 return TabStyle.titleWidth(workspace.tabTerminalLabel(t)) + Theme.Space.m * 2 + 1 + 18
+                            case .browser(let id):
+                                // A pseudo-tab (in its window) has the ≡ too.
+                                let session = PreviewStore.shared.page(id, in: workspace)
+                                return TabStyle.titleWidth(BrowserTabItem.title(session)) + Theme.Space.m * 2 + 1 + 18
+                                    + (workspace.browserTab(id)?.isDetached == true ? 26 : 0)
                             }
                         },
                         pick: { if $0.id != workspace.shownTopTabID { workspace.selectTopTab($0) } },
                         move: { workspace.moveTopTab($0, to: $1) },
-                        trailingWidth: 28 * 2) { tab in
+                        trailingWidth: 28 * (settings.enabled ? 3 : 2),
+                        expandedID: settings.enabled ? workspace.shownBrowserTabID : nil,
+                        expandedMin: BrowserTabItem.expandedMin,
+                        expandedMax: BrowserTabItem.expandedMax) { tab in
             switch tab {
             case .conversation(let c):
                 ConversationTabItem(conversation: c, selected: c.id == workspace.shownTopTabID, workspace: workspace)
             case .terminal(let t):
                 TopTerminalTabItem(session: t, selected: t.id == workspace.shownTopTabID, workspace: workspace)
+            case .browser(let id):
+                BrowserTabItem(session: PreviewStore.shared.page(id, in: workspace), id: id,
+                               selected: id == workspace.shownTopTabID, workspace: workspace)
             }
         } trailing: {
             ExpandingNewTabButton(newConversation: { workspace.newConversation() },
+                                  newBrowser: settings.enabled ? { workspace.newBrowserTab() } : nil,
                                   newTerminal: {
                                       workspace.newTabTerminal()
                                       AppDelegate.shared.windowController?.focusTabTerminal()
@@ -580,6 +618,160 @@ private struct TopTerminalTabItem: View {
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
         .accessibilityLabel("Terminal: \(session.displayTitle)")
+    }
+}
+
+/// The browser's tab (the experiment): the compass and the page's
+/// address, styled exactly as the other tabs. The compass is accent-colored
+/// and pulses while Claude is using the page, as the titlebar's.
+private struct BrowserTabItem: View {
+    @ObservedObject var session: PreviewSession
+    let id: UUID
+    let selected: Bool
+    let workspace: Workspace
+    @ObservedObject private var settings = PreviewSettings.shared
+    @State private var hovering = false
+
+    /// Selected, the tab is the address bar (as Safari's compact tabs):
+    /// a little wider than a tab, never the whole row.
+    static let expandedMin: CGFloat = 260
+    static let expandedMax: CGFloat = 400
+
+    static func title(_ session: PreviewSession) -> String {
+        session.url.map { PreviewSession.display($0) } ?? (session.address.isEmpty ? "Browser" : session.address)
+    }
+
+    private var expanded: Bool { selected && workspace.shownBrowserTabID == id && settings.enabled }
+    /// In a window of its own: a pseudo-tab (dashed, never selected) that
+    /// brings the window forward.
+    private var detached: Bool { workspace.browserTab(id)?.isDetached == true }
+    /// Claude's tab: the conversation whose Claude drives it.
+    private var owner: ClaudeConversation? {
+        workspace.browserTab(id)?.owner.flatMap { o in workspace.conversations.first { $0.id == o } }
+    }
+
+    var body: some View {
+        Group {
+            if detached { pseudo } else if expanded { bar } else { tab }
+        }
+        .frame(height: TabStyle.height)
+        .background {
+            // Claude's tab is blue (the user, 2026-11-26, instead of a
+            // mark): an accent outline, the whole tab blue when shown.
+            if detached {
+                // Never filled (it isn't the shown tab): a dashed outline,
+                // the tab that left the row for its window (blue for
+                // Claude's).
+                Capsule().strokeBorder(isClaude ? Color.accentColor.opacity(hovering ? 0.9 : 0.7)
+                                                : (hovering ? Theme.Stroke.dashedHover : Theme.Stroke.dashed),
+                                       style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            } else if isClaude {
+                Capsule().fill(Color.accentColor.opacity(selected ? 0.24 : (hovering ? 0.08 : 0)))
+                    .overlay(Capsule().strokeBorder(Color.accentColor.opacity(selected ? 0 : 0.75), lineWidth: 1))
+            } else {
+                TabBackground(selected: selected, hovering: hovering)
+            }
+        }
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+        .contextMenu {
+            let index = workspace.topTabs.firstIndex { $0.id == id } ?? 0
+            Button("Move Left") { workspace.moveTopTab(id, to: index - 1) }
+                .disabled(index == 0)
+            Button("Move Right") { workspace.moveTopTab(id, to: index + 1) }
+                .disabled(index >= workspace.topTabs.count - 1)
+            Divider()
+            if detached {
+                Button("Show Window") { PreviewStore.shared.showWindow(page: id, in: workspace) }
+                Button("Move Back to Tab") { PreviewStore.shared.attach(id, in: workspace) }
+            } else {
+                Button("Move to Window") { PreviewStore.shared.detach(id, in: workspace) }
+            }
+            Divider()
+            Button(detached ? "Close Browser" : "Close Tab") { PreviewStore.shared.closeBrowserTab(id, in: workspace) }
+        }
+        .accessibilityElement(children: expanded ? .contain : .combine)
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityLabel("Browser: \(Self.title(session))")
+    }
+
+    /// Claude's tab (its conversation may be closed since).
+    private var isClaude: Bool { workspace.browserTab(id)?.owner != nil }
+
+    /// The compass: accent and pulsing while Claude uses the page.
+    private var compass: some View {
+        Image(systemName: "safari")
+            .font(.toasty(Theme.Glyph.small, .semibold))
+            .foregroundStyle(session.agentActive ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
+            .modifier(PulseWhile(active: session.agentActive))
+    }
+
+    /// In its own window: the compass and the address (a click brings the
+    /// window forward) and ≡: Show Window, Move Back to Tab, Close.
+    private var pseudo: some View {
+        HStack(spacing: Theme.Space.xxs) {
+            HStack(spacing: Theme.Space.xs + Theme.Space.xxs) {
+                compass
+                Text(Self.title(session))
+                    .font(.toasty(TabStyle.fontSize))
+                    .foregroundStyle(hovering ? .primary : .secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture { PreviewStore.shared.showWindow(page: id, in: workspace) }
+            ClaudePopUp(items: [], makeItems: {
+                [.init(title: "Show Window", symbol: "macwindow") { PreviewStore.shared.showWindow(page: id, in: workspace) },
+                 .init(title: "Move Back to Tab", symbol: "rectangle.topthird.inset.filled") { PreviewStore.shared.attach(id, in: workspace) },
+                 .init(title: "Close Browser", symbol: "xmark") { PreviewStore.shared.closeBrowserTab(id, in: workspace) }]
+            }) { over in
+                Image(systemName: "line.3.horizontal")
+                    .font(.toasty(Theme.Size.meta, .medium))
+                    .foregroundStyle(over ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                    .frame(width: 22, height: 22)
+                    .background(Circle().fill(over ? Theme.Fill.subtle : Color.clear))
+            }
+        }
+        .padding(.leading, Theme.Space.m)
+        .padding(.trailing, Theme.Space.xs)
+        .tooltipText((owner.map { "Claude's browser, for “\($0.title)”, in its own window" } ?? "Browser, in its own window")
+                     + (session.url.map { "\n\($0.absoluteString)" } ?? ""))
+    }
+
+    /// Not selected: a tab like the others (the compass and the address).
+    private var tab: some View {
+        HStack(spacing: Theme.Space.xs + Theme.Space.xxs) {
+            compass
+            Text(Self.title(session))
+                .font(.toasty(TabStyle.fontSize, selected ? .medium : .regular))
+                .foregroundStyle(selected ? .primary : .secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, Theme.Space.m)
+        .padding(.trailing, hovering ? TabStyle.closeRoom : Theme.Space.m)
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .onTapGesture { workspace.showBrowserTab(id) }
+        .overlay(alignment: .trailing) {
+            TabCloseButton(visible: hovering, help: "Close Tab (⌘W)") { PreviewStore.shared.closeBrowserTab(id, in: workspace) }
+        }
+        .tooltipText((owner.map { "Claude's browser tab, for “\($0.title)”" } ?? "Browser")
+                     + (session.url.map { "\n\($0.absoluteString)" } ?? ""))
+    }
+
+    /// Selected: the address bar (`BrowserAddressBar`, the window's too),
+    /// its ≡ menu with what a tab can do.
+    private var bar: some View {
+        BrowserAddressBar(session: session) {
+            [.init(title: settings.fillsWindow ? "Show Workspaces and Widgets" : "Fill the Window",
+                   symbol: settings.fillsWindow ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right") {
+                 settings.fillsWindow.toggle()
+             },
+             .init(title: "Move to Window", symbol: "macwindow") { PreviewStore.shared.detach(id, in: workspace) },
+             .init(title: "Close Tab", symbol: "xmark") { PreviewStore.shared.closeBrowserTab(id, in: workspace) }]
+        }
     }
 }
 

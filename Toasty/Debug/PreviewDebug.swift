@@ -22,12 +22,36 @@ enum PreviewDebug {
             // {"open":"localhost:3000"} opens a page without showing the
             // window; {"window":true} shows it, false closes it.
             if let address = cmd["open"] as? String { s.open(address) }
-            if let show = cmd["window"] as? Bool {
-                if show { PreviewStore.shared.showWindow() } else { PreviewStore.shared.presenter?.close() }
+            // {"redButton":true}: the close button of the browser window in front.
+            if cmd["redButton"] as? Bool == true { PreviewStore.shared.frontWindow?.window?.performClose(nil) }
+            // {"reopen":true}: the first moved-out tab's pseudo-tab, clicked.
+            if cmd["reopen"] as? Bool == true, let ref = w.browserTabs.first(where: \.isDetached) {
+                PreviewStore.shared.showWindow(page: ref.id, in: w)
             }
-            // {"showWorkspace":"name"}: pick it in the window's workspace menu.
-            if let name = cmd["showWorkspace"] as? String {
-                PreviewStore.shared.presenter?.show(WorkspaceStore.shared.workspaces.first { $0.name == name })
+            // {"raise":true}: the browser window in front of Toasty's, forward (its pseudo-tab's click).
+            if cmd["raise"] as? Bool == true, let c = PreviewStore.shared.frontWindow { PreviewStore.shared.showWindow(page: c.session.pageID, in: c.workspace) }
+            // {"window":true}: ⇧⌘B (the browser tab); false: close the window in front.
+            if let show = cmd["window"] as? Bool {
+                if show { PreviewStore.shared.showTab(w) } else { PreviewStore.shared.frontWindow?.close() }
+            }
+            // {"move":"window"} / {"move":"tab"}: the tab's Move to Window, the window's Move to Tab.
+            // {"newTab":"address"}: + ▸ Browser, then open the address in it.
+            if let address = cmd["newTab"] as? String {
+                w.newBrowserTab()
+                if let id = w.shownBrowserTabID { PreviewStore.shared.page(id, in: w).open(address) }
+            }
+            // {"agent":0,"agentOpen":"address"}: the page conversation 0's Claude drives (its own tab), opened.
+            if let i = cmd["agent"] as? Int, w.conversations.indices.contains(i) {
+                let page = PreviewStore.shared.agentPage(for: w.conversations[i], in: w)
+                if let address = cmd["agentOpen"] as? String { page.open(address) }
+            }
+            // {"closePage":true}: close the shown browser tab (⌘W).
+            if cmd["closePage"] as? Bool == true, let id = w.shownBrowserTabID { PreviewStore.shared.closeBrowserTab(id, in: w) }
+            // {"move":"window"}: the shown browser tab's Move to Window;
+            // {"move":"tab"}: the window in front's Move Back to Tab.
+            if let to = cmd["move"] as? String {
+                if to == "window", let id = w.shownBrowserTabID { PreviewStore.shared.detach(id, in: w) }
+                if to == "tab", let c = PreviewStore.shared.frontWindow { PreviewStore.shared.attach(c.session.pageID, in: c.workspace) }
             }
             if let v = (cmd["viewport"] as? String).flatMap(PreviewViewport.init(rawValue:)) { s.setViewport(v) }
             if let on = cmd["commenting"] as? Bool { s.setCommenting(on) }
@@ -36,7 +60,7 @@ enum PreviewDebug {
             // {"sideBySide":true}: the footer's side-by-side button.
             if let on = cmd["sideBySide"] as? Bool {
                 s.setSideBySide(on)
-                PreviewStore.shared.presenter?.fitSideBySide(of: s)
+                PreviewStore.shared.window(for: s)?.fitSideBySide(of: s)
             }
             var out: [String: Any] = ["enabled": true, "address": s.address, "loading": s.isLoading]
             out["url"] = s.url?.absoluteString ?? ""
@@ -49,6 +73,11 @@ enum PreviewDebug {
             if let pick = s.pick { out["pick"] = "\(pick.kind.rawValue) \(pick.selector) \(pick.rect)" }
             out["console"] = s.console.map { "[\($0.level)] \($0.text)" }
             out["hosted"] = s.stage != nil
+            if let f = PreviewStore.shared.frontWindow?.session {
+                out["front"] = "started=\(f.started) url=\(f.url?.absoluteString ?? "-") address=\(f.address) open=\(f.windowOpen) hosted=\(f.stage != nil) web=\(f.webView?.superview.map { "\(type(of: $0))" } ?? "none") loading=\(f.isLoading) failure=\(f.failure?.reason ?? "-") webFrame=\(f.webView.map { NSStringFromRect($0.convert($0.bounds, to: nil)) } ?? "-") hidden=\(f.webView?.isHiddenOrHasHiddenAncestor ?? false) inWindow=\(f.webView?.window === PreviewStore.shared.frontWindow?.window) backstage=\(f.webView?.window.map { "\(type(of: $0)) \($0.frame)" } ?? "-")"
+            }
+            out["windowOpen"] = s.windowOpen
+            out["webSuperview"] = s.webView?.superview.map { "\(type(of: $0)) in \($0.window.map { "\(type(of: $0))" } ?? "no window")" } ?? "none"
             if let web = s.webView { out["frame"] = NSStringFromRect(web.convert(web.bounds, to: nil)) }
             // {"action":"closeTab:"}: a menu command, sent the way the menu
             // sends it (to the key window's responder chain).
@@ -62,29 +91,29 @@ enum PreviewDebug {
             }
             if cmd["back"] as? Bool == true { s.goBack() }
             // {"commentText":"…"}: typed into the comment field (as dictation inserts).
-            if let text = cmd["commentText"] as? String, let window = PreviewStore.shared.presenter?.window,
+            if let text = cmd["commentText"] as? String, let window = PreviewStore.shared.frontWindow?.window,
                let field = window.firstResponder as? ComposerTextView {
                 field.insertText(text, replacementRange: field.selectedRange())
             }
             out["canGoBack"] = s.canGoBack
             out["commentTab"] = s.commentTab(in: w)?.title ?? ""
             out["selectedTab"] = w.selected?.title ?? ""
-            out["withPages"] = PreviewStore.shared.workspacesWithPages().map(\.name)
+            out["windows"] = w.browserTabs.filter(\.isDetached).count
             out["activeWorkspace"] = w.name
             // {"browserFrame":"{{x, y}, {w, h}}"}: move the browser window (for pictures).
-            if let f = cmd["browserFrame"] as? String { PreviewStore.shared.presenter?.window?.setFrame(NSRectFromString(f), display: true) }
+            if let f = cmd["browserFrame"] as? String { PreviewStore.shared.frontWindow?.window?.setFrame(NSRectFromString(f), display: true) }
             // {"pageSize":"1440x900"}: a desktop preset from the size menu.
             if let p = cmd["pageSize"] as? String {
                 let n = p.split(separator: "x").compactMap { Double($0) }
-                if n.count == 2 { PreviewStore.shared.presenter?.setPageSize(CGSize(width: n[0], height: n[1])) }
+                if n.count == 2 { PreviewStore.shared.frontWindow?.setPageSize(CGSize(width: n[0], height: n[1])) }
             }
-            if let shown = PreviewStore.shared.presenter?.session {
+            if let shown = PreviewStore.shared.frontWindow?.session {
                 out["shownViewport"] = shown.viewport.rawValue
                 out["shownPage"] = "\(Int(shown.shownPageSize.width))x\(Int(shown.shownPageSize.height))"
             }
             // {"click":[x, y]}: a click in the browser window, in points from its
             // top-left (through the app, where menus' event monitors listen).
-            if let xy = cmd["click"] as? [Double], xy.count == 2, let window = PreviewStore.shared.presenter?.window {
+            if let xy = cmd["click"] as? [Double], xy.count == 2, let window = PreviewStore.shared.frontWindow?.window {
                 let point = NSPoint(x: xy[0], y: window.frame.height - xy[1])
                 for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
                     if let e = NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
@@ -94,7 +123,7 @@ enum PreviewDebug {
                 }
             }
             // {"menuShot":"/path.png"}: a picture of the menu open over the browser window.
-            if let path = cmd["menuShot"] as? String, let window = PreviewStore.shared.presenter?.window,
+            if let path = cmd["menuShot"] as? String, let window = PreviewStore.shared.frontWindow?.window,
                let panel = window.childWindows?.first(where: { $0.isVisible }) {
                 out["menuFrame"] = NSStringFromRect(panel.frame)
                 out["menuContentFitting"] = NSStringFromSize(panel.contentView?.fittingSize ?? .zero)
@@ -115,10 +144,8 @@ enum PreviewDebug {
                 out["windowMenuShown"] = !menu.items[i].isHidden
                 menu.performActionForItem(at: i)
             }
-            // {"compass":true}: a click on the titlebar's compass (this workspace's browser).
-            if cmd["compass"] as? Bool == true { AppDelegate.shared.windowController?.showWorkspaceBrowser(w) }
             // {"shot":"/path.png"}: a picture of the browser window itself.
-            if let path = cmd["shot"] as? String, let window = PreviewStore.shared.presenter?.window,
+            if let path = cmd["shot"] as? String, let window = PreviewStore.shared.frontWindow?.window,
                let image = DebugControl.captureWindow(window.windowNumber),
                let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) {
                 try? png.write(to: URL(fileURLWithPath: path))
@@ -126,8 +153,8 @@ enum PreviewDebug {
             out["windowOpen"] = s.windowOpen
             out["backstage"] = PreviewBackstage.shared.holding
             out["agentActive"] = s.agentActive
-            if let window = PreviewStore.shared.presenter?.window {
-                out["windowShows"] = PreviewStore.shared.presenter?.workspace?.name ?? "" 
+            if let window = PreviewStore.shared.frontWindow?.window {
+                out["windowShows"] = PreviewStore.shared.frontWindow?.workspace.name ?? "" 
                 out["windowVisible"] = window.isVisible
                 out["windowKey"] = window.isKeyWindow
                 out["windowFrame"] = NSStringFromRect(window.frame)

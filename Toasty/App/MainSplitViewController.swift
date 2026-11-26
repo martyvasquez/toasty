@@ -113,7 +113,7 @@ final class MainSplitViewController: NSSplitViewController {
     /// `exact`: show or hide it as asked (the width rule already decided).
     private func applySidebar(wanted: Bool? = nil, animated: Bool = true, exact: Bool = false) {
         guard isViewLoaded else { return }
-        let wants = wanted ?? (store.sidebarVisible && !store.workspaces.isEmpty)
+        let wants = wanted ?? (store.sidebarVisible && !store.workspaces.isEmpty && !browserFills)
         let visible = exact ? wants
             : wants && fits(sidebar: true, widgets: store.active?.widgetsVisible ?? false, width: splitView.bounds.width)
         guard sidebarItem.isCollapsed == visible else { return }
@@ -165,15 +165,26 @@ final class MainSplitViewController: NSSplitViewController {
             return
         }
         applyWidth(splitView.bounds.width, animated: false)
-        w.$widgetsVisible
-            .dropFirst()
-            .removeDuplicates()
+        // The browser tab filling the window (the experiment) comes and
+        // goes with the tab and the setting.
+        let settings = PreviewSettings.shared
+        w.$widgetsVisible.map { _ in () }
+            .merge(with: w.$shownBrowserTabID.map { $0 != nil }.removeDuplicates().map { _ in () },
+                   settings.$fillsWindow.removeDuplicates().map { _ in () })
+            .dropFirst(3)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 guard let self else { return }
                 self.applyWidth(self.splitView.bounds.width, animated: true)
             }
             .store(in: &workspaceCancellables)
+    }
+
+    /// The browser's tab is showing and fills the window (the experiment):
+    /// the workspaces and widgets step aside, as if hidden.
+    var browserFills: Bool {
+        let settings = PreviewSettings.shared
+        return settings.enabled && settings.fillsWindow && store.active?.browserShown == true
     }
 
     // MARK: Narrow windows
@@ -204,8 +215,9 @@ final class MainSplitViewController: NSSplitViewController {
     /// come back once the window has the width (after it).
     func applyWidth(_ width: CGFloat, animated: Bool, arrivals: Bool = true) {
         guard isViewLoaded, view.window != nil else { return }
-        let wantsWidgets = store.active?.widgetsVisible ?? false
-        let wantsSidebar = store.sidebarVisible && !store.workspaces.isEmpty
+        let fill = browserFills
+        let wantsWidgets = (store.active?.widgetsVisible ?? false) && !fill
+        let wantsSidebar = store.sidebarVisible && !store.workspaces.isEmpty && !fill
         let widgets = wantsWidgets && fits(sidebar: false, widgets: true, width: width)
         let sidebar = wantsSidebar && fits(sidebar: true, widgets: wantsWidgets, width: width)
         // Each column waits out its own slide (and catches up after it).

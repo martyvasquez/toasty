@@ -137,7 +137,7 @@ final class ScreenshotCapture: NSObject {
     /// it while Toasty is in the background), if it takes pictures: the
     /// composer, or one of the Tee-Up tab's.
     private var focusedPrompt: ComposerTextView? {
-        if let browser = PreviewStore.shared.presenter?.window, browser.isVisible,
+        if let browser = PreviewStore.shared.frontWindow?.window, browser.isVisible,
            let comment = Self.prompt(in: browser.contentView) {
             return comment
         }

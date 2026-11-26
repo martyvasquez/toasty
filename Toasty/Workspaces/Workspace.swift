@@ -21,6 +21,17 @@ final class Workspace: ObservableObject, Identifiable {
     /// The terminal tab filling the conversation column (nil: the
     /// selected conversation shows).
     @Published private(set) var shownTabTerminalID: UUID?
+    /// Browser tabs in the top row (an experiment, Settings ▸ Browser ▸
+    /// Show In: Tab), each its own page on the workspace's logins and
+    /// storage. The user's (+ ▸ Browser; the first is the workspace's main
+    /// page, id = the workspace's, the one its window shows), and Claude's:
+    /// one per conversation that uses the browser, made by its tools.
+    @Published private(set) var browserTabs: [BrowserTabRef] = []
+    /// The browser tab filling the conversation column.
+    @Published private(set) var shownBrowserTabID: UUID?
+    var browserShown: Bool { shownBrowserTabID != nil }
+    /// The browser tab shown last (⇧⌘B goes back to it).
+    private var lastBrowserTabID: UUID?
     /// The terminal drawer under the conversation (another experiment):
     /// its own terminals and tabs, open or closed.
     @Published private(set) var drawerTerminals: [TerminalSession] = []
@@ -132,18 +143,19 @@ final class Workspace: ObservableObject, Identifiable {
     func add(_ conversation: ClaudeConversation, select: Bool, after: ClaudeConversation? = nil) {
         conversation.workspace = self
         observe(conversation)
+        // A new tab goes at the end of the row, by the + (the user,
+        // 2026-11-26: the natural convention); a fork goes right after the
+        // conversation it came from.
         var list = conversations
-        if let i = list.firstIndex(where: { $0.id == (after?.id ?? selectedID) }) {
+        if let after, let i = list.firstIndex(where: { $0.id == after.id }) {
             list.insert(conversation, at: i + 1)
         } else {
             list.append(conversation)
         }
         conversations = list
-        // In the row: right after the tab it was opened from.
         if !tabOrder.isEmpty {
             var order = topTabs.map(\.id).filter { $0 != conversation.id }
-            let from = after?.id ?? shownTopTabID
-            if let i = order.firstIndex(where: { $0 == from }) { order.insert(conversation.id, at: i + 1) } else { order.append(conversation.id) }
+            if let after, let i = order.firstIndex(where: { $0 == after.id }) { order.insert(conversation.id, at: i + 1) } else { order.append(conversation.id) }
             tabOrder = order
         }
         if select || selectedID == nil { self.select(conversation) }
@@ -154,6 +166,7 @@ final class Workspace: ObservableObject, Identifiable {
         guard conversations.contains(where: { $0.id == conversation.id }) else { return }
         selectedID = conversation.id
         shownTabTerminalID = nil
+        shownBrowserTabID = nil
         diffFile = nil
         viewedFile = nil
         conversation.attention = false
@@ -163,7 +176,11 @@ final class Workspace: ObservableObject, Identifiable {
 
     /// The next or previous tab in the top row (conversation or terminal).
     func selectRelative(_ delta: Int) {
-        let tabs = topTabs
+        // (Not a browser tab in its own window: it's never the shown tab.)
+        let tabs = topTabs.filter { tab in
+            if case .browser(let b) = tab { return !(browserTab(b)?.isDetached ?? false) }
+            return true
+        }
         guard !tabs.isEmpty else { return }
         let i = tabs.firstIndex { $0.id == shownTopTabID } ?? 0
         selectTopTab(tabs[(i + delta + tabs.count) % tabs.count])
@@ -208,7 +225,7 @@ final class Workspace: ObservableObject, Identifiable {
         if selectedID == conversation.id {
             selectedID = list.isEmpty ? nil : list[min(i, list.count - 1)].id
             // It was showing: its neighbour in the row shows instead.
-            if shownTabTerminalID == nil, let neighbour { selectTopTab(neighbour) }
+            if shownTabTerminalID == nil, !browserShown, let neighbour { selectTopTab(neighbour) }
         }
         store?.workspaceSelectionChanged(self)
         changed()
@@ -353,6 +370,7 @@ final class Workspace: ObservableObject, Identifiable {
     /// yet (conversations first, as they were).
     var topTabs: [TopTab] {
         let all = conversations.map(TopTab.conversation) + tabTerminals.map(TopTab.terminal)
+            + browserTabs.map { TopTab.browser($0.id) }
         let place = Dictionary(uniqueKeysWithValues: tabOrder.enumerated().map { ($1, $0) })
         return all.enumerated()
             .sorted { (place[$0.element.id] ?? tabOrder.count + $0.offset) < (place[$1.element.id] ?? tabOrder.count + $1.offset) }
@@ -360,19 +378,104 @@ final class Workspace: ObservableObject, Identifiable {
     }
 
     /// The tab showing in the conversation column.
-    var shownTopTabID: UUID? { shownTabTerminalID ?? selectedID }
+    var shownTopTabID: UUID? { shownTabTerminalID ?? shownBrowserTabID ?? selectedID }
     var shownTabTerminal: TerminalSession? { tabTerminals.first { $0.id == shownTabTerminalID } }
 
     func selectTopTab(_ tab: TopTab) {
         switch tab {
         case .conversation(let c): select(c)
         case .terminal(let t): showTabTerminal(t.id)
+        case .browser(let id):
+            // In its own window: that window comes forward instead.
+            if browserTab(id)?.isDetached == true { PreviewStore.shared.showWindow(page: id, in: self) } else { showBrowserTab(id) }
         }
+    }
+
+    // MARK: Browser tab (an experiment)
+
+    /// Show a browser tab: `id`, else the one shown last, else the user's
+    /// first (a new one if there's none).
+    func showBrowserTab(_ id: UUID? = nil) {
+        func inRow(_ i: UUID) -> UUID? { browserTabs.contains { $0.id == i && !$0.isDetached } ? i : nil }
+        let target = id.flatMap(inRow) ?? lastBrowserTabID.flatMap(inRow)
+            ?? browserTabs.first { $0.owner == nil && !$0.isDetached }?.id
+        guard let target else { newBrowserTab(); return }
+        shownTabTerminalID = nil
+        shownBrowserTabID = target
+        lastBrowserTabID = target
+        diffFile = nil
+        viewedFile = nil
+        store?.workspaceSelectionChanged(self)
+        changed()
+    }
+
+    /// + ▸ Browser: a new browser tab of the user's, at the end of the row,
+    /// shown. The first is the workspace's main page.
+    func newBrowserTab() {
+        let id = browserTabs.contains { $0.id == self.id } ? UUID() : self.id
+        insertBrowserTab(BrowserTabRef(id: id, owner: nil), after: nil)
+        showBrowserTab(id)
+    }
+
+    /// Claude's tab for `conversation` (its tools made one): right after
+    /// the conversation's tab, not shown (Claude never takes the screen).
+    @discardableResult
+    func claudeBrowserTab(for conversation: UUID) -> BrowserTabRef {
+        if let ref = browserTabs.first(where: { $0.owner == conversation }) { return ref }
+        let ref = BrowserTabRef(id: UUID(), owner: conversation)
+        insertBrowserTab(ref, after: browserTabs.last { $0.owner == conversation }?.id ?? conversation)
+        changed()
+        return ref
+    }
+
+    private func insertBrowserTab(_ ref: BrowserTabRef, after: UUID?) {
+        var order = topTabs.map(\.id)
+        if let i = order.firstIndex(where: { $0 == after }) { order.insert(ref.id, at: i + 1) } else { order.append(ref.id) }
+        browserTabs.append(ref)
+        tabOrder = order
+    }
+
+    func browserTab(_ id: UUID) -> BrowserTabRef? { browserTabs.first { $0.id == id } }
+
+    /// Move to Window / Move Back to Tab (the store makes or closes the
+    /// window). Moved out while shown, the row shows its neighbour.
+    func setDetached(_ id: UUID, _ detached: Bool) {
+        guard let i = browserTabs.firstIndex(where: { $0.id == id }) else { return }
+        browserTabs[i].detached = detached ? true : nil
+        if detached, shownBrowserTabID == id {
+            shownBrowserTabID = nil
+            let tabs = topTabs.filter { tab in
+                if case .browser(let b) = tab { return !(browserTab(b)?.isDetached ?? false) }
+                return true
+            }
+            if let c = selected { select(c) } else if let first = tabs.first { selectTopTab(first) }
+        }
+        store?.workspaceSelectionChanged(self)
+        changed()
+    }
+
+    /// Take a browser tab out of the row (its page is the store's to close:
+    /// `PreviewStore.closeBrowserTab`).
+    func removeBrowserTab(_ id: UUID) {
+        guard browserTabs.contains(where: { $0.id == id }) else { return }
+        let neighbour = topTabNeighbour(of: id)
+        browserTabs.removeAll { $0.id == id }
+        tabOrder.removeAll { $0 == id }
+        if shownBrowserTabID == id {
+            shownBrowserTabID = nil
+            if let neighbour { selectTopTab(neighbour) }
+        }
+        store?.workspaceSelectionChanged(self)
+        changed()
     }
 
     /// The tab after `id` in the row (else the one before), for when it closes.
     private func topTabNeighbour(of id: UUID) -> TopTab? {
-        let tabs = topTabs
+        // (Not a browser tab in its own window: it can't be the shown tab.)
+        let tabs = topTabs.filter { tab in
+            if case .browser(let b) = tab, b != id { return !(browserTab(b)?.isDetached ?? false) }
+            return true
+        }
         guard let i = tabs.firstIndex(where: { $0.id == id }) else { return nil }
         if i + 1 < tabs.count { return tabs[i + 1] }
         return i > 0 ? tabs[i - 1] : nil
@@ -387,13 +490,13 @@ final class Workspace: ObservableObject, Identifiable {
         changed()
     }
 
-    /// A new terminal tab right after the shown tab, in the workspace's folder.
+    /// A new terminal tab at the end of the row, in the workspace's folder.
     @discardableResult
     func newTabTerminal(cwd: String? = nil) -> TerminalSession {
         let t = TerminalSession(cwd: cwd ?? folder)
         attachTab(t)
         var order = topTabs.map(\.id)
-        if let i = order.firstIndex(where: { $0 == shownTopTabID }) { order.insert(t.id, at: i + 1) } else { order.append(t.id) }
+        order.append(t.id)
         tabTerminals.append(t)
         tabOrder = order
         showTabTerminal(t.id)
@@ -411,6 +514,7 @@ final class Workspace: ObservableObject, Identifiable {
     func showTabTerminal(_ id: UUID) {
         guard tabTerminals.contains(where: { $0.id == id }) else { return }
         shownTabTerminalID = id
+        shownBrowserTabID = nil
         lastTabTerminalID = id
         diffFile = nil
         viewedFile = nil
@@ -847,6 +951,9 @@ final class Workspace: ObservableObject, Identifiable {
         /// and the one showing.
         var tabTerminals: [SavedTerminal]?
         var tabOrder: [UUID]?
+        /// The browser's tab (the experiment) and whether it's showing.
+        var browserTabs: [BrowserTabRef]?
+        var shownBrowserTab: UUID?
         var shownTabTerminal: UUID?
         /// The terminal drawer's.
         var drawerTerminals: [SavedTerminal]?
@@ -885,7 +992,13 @@ final class Workspace: ObservableObject, Identifiable {
               teeUps: teeUps.isEmpty ? nil : teeUps,
               heading: headingID,
               tabTerminals: tabTerminals.isEmpty ? nil : tabTerminals.map { SavedTerminal(id: $0.id, cwd: $0.directory) },
-              tabOrder: tabTerminals.isEmpty ? nil : tabOrder,
+              tabOrder: tabTerminals.isEmpty && browserTabs.isEmpty ? nil : tabOrder,
+              browserTabs: browserTabs.isEmpty ? nil : browserTabs.map { ref in
+                  var r = ref
+                  r.address = PreviewStore.shared.existingPage(ref.id)?.address ?? ref.address
+                  return r
+              },
+              shownBrowserTab: shownBrowserTabID,
               shownTabTerminal: shownTabTerminalID,
               drawerTerminals: drawerTerminals.isEmpty ? nil : drawerTerminals.map { SavedTerminal(id: $0.id, cwd: $0.directory) },
               selectedDrawerTerminal: selectedDrawerTerminalID,
@@ -923,6 +1036,9 @@ final class Workspace: ObservableObject, Identifiable {
         selectedDrawerTerminalID = s.selectedDrawerTerminal.flatMap { id in drawerTerminals.contains { $0.id == id } ? id : nil } ?? drawerTerminals.first?.id
         drawerOpen = (s.drawerOpen ?? false) && !drawerTerminals.isEmpty
         shownTabTerminalID = s.shownTabTerminal.flatMap { id in tabTerminals.contains { $0.id == id } ? id : nil }
+        browserTabs = s.browserTabs ?? []
+        shownBrowserTabID = shownTabTerminalID == nil ? s.shownBrowserTab.flatMap { id in browserTabs.contains { $0.id == id } ? id : nil } : nil
+        lastBrowserTabID = shownBrowserTabID
         terminalOpen = (s.terminalVisible ?? false) && !terminals.isEmpty
         widgetsVisible = !(s.widgetsHidden ?? false)
         // (Not a new prompt that was still empty when Toasty quit.)
@@ -959,15 +1075,30 @@ struct TeeUpFeed: Equatable {
     var paused: String?
 }
 
+/// A browser tab in the top row (the experiment): its page's id, whose
+/// conversation's Claude drives it (nil: the user's), and its address
+/// (kept for the next launch; the main page keeps its own).
+struct BrowserTabRef: Codable, Identifiable, Equatable {
+    var id: UUID
+    var owner: UUID?
+    var address: String?
+    /// Moved out of the row to a window of its own (its pseudo-tab stays).
+    var detached: Bool?
+    var isDetached: Bool { detached == true }
+}
+
 /// A tab in the top row: a conversation or a terminal.
 enum TopTab: Identifiable {
     case conversation(ClaudeConversation)
     case terminal(TerminalSession)
+    /// The workspace's browser (its id is its place in the row).
+    case browser(UUID)
 
     var id: UUID {
         switch self {
         case .conversation(let c): return c.id
         case .terminal(let t): return t.id
+        case .browser(let id): return id
         }
     }
 }

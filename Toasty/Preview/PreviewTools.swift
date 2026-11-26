@@ -23,8 +23,8 @@ enum PreviewTools {
         The preview is a browser in Toasty, the app this conversation runs in, for the site the user is developing. \
         Use it for local dev servers: it leaves the user's own browser alone. \
         Each workspace has its own, with its own cookies and storage; this conversation's is its workspace's. \
-        It runs in the background: the user's browser window, which shows the workspace they have selected, may be hidden or showing another workspace, and using the browser never shows it or interrupts the user. \
-        When they look at this workspace's browser they see the same page you are using, and can use it too. \
+        It runs in the background, and using it never shows it or interrupts the user. \
+        The page you use is yours: when the browser is a row of tabs in Toasty, it's a tab of this conversation's own (made when you first use the browser, and again if the user closes it), which the user can look at and use too; when it's a separate window, it's the workspace's one page, which the user sees there. \
         It shows a page at one of three sizes: mobile (an iPhone, 402×874), mobile-max (an iPhone Pro Max, 440×956), both with an iPhone user agent, or desktop (1280 wide); every result says which. \
         It is WebKit (Safari's engine), not Chromium. \
         The user can comment on things in the page: a comment arrives in their message with a CSS selector, the viewport and a screenshot with the thing outlined.
@@ -72,7 +72,7 @@ enum PreviewTools {
             reply(error("This conversation has no workspace."))
             return
         }
-        let session = PreviewStore.shared.session(for: workspace)
+        let session = PreviewStore.shared.agentPage(for: conversation, in: workspace)
         let input = call["input"] as? [String: Any] ?? [:]
         let name = call["tool"] as? String ?? ""
         session.agentBegan(from: conversation.id)

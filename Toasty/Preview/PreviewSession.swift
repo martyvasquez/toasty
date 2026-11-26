@@ -120,6 +120,8 @@ final class PreviewSession: NSObject, ObservableObject {
     @Published private(set) var isLoading = false
     /// There's a page before this one to go back to.
     @Published private(set) var canGoBack = false
+    /// There's a page after this one (gone back from) to go forward to.
+    @Published private(set) var canGoForward = false
     @Published private(set) var progress: Double = 0
     @Published private(set) var failure: Failure?
     @Published private(set) var viewport: PreviewViewport
@@ -137,6 +139,8 @@ final class PreviewSession: NSObject, ObservableObject {
     /// header”"): the pane says so for a moment, since neither the list
     /// nor the conversation is in view. A new id each time.
     @Published private(set) var commentConfirmation: (id: UUID, text: String)?
+    /// Bumped by ⌘L: the address field takes the keyboard.
+    @Published var addressFocusRequest = 0
     /// A page has been asked for (the start screen is over).
     @Published private(set) var started = false
     /// The browser window is open (shown, or minimized): the page is in it.
@@ -182,8 +186,14 @@ final class PreviewSession: NSObject, ObservableObject {
     private static let world = WKContentWorld.world(name: "ToastyPreview")
     private static let consoleLimit = 500
 
-    init(workspaceID: UUID, address: String, viewport: PreviewViewport, phone: PreviewViewport? = nil) {
+    /// Which page this is: the workspace's main one (its id), or another
+    /// browser tab's (the experiment).
+    let pageID: UUID
+    var isMain: Bool { pageID == workspaceID }
+
+    init(workspaceID: UUID, pageID: UUID? = nil, address: String, viewport: PreviewViewport, phone: PreviewViewport? = nil) {
         self.workspaceID = workspaceID
+        self.pageID = pageID ?? workspaceID
         self.address = address
         self.viewport = viewport
         if let phone, phone.isPhone { lastPhone = phone }
@@ -220,6 +230,7 @@ final class PreviewSession: NSObject, ObservableObject {
         web.publisher(for: \.estimatedProgress).sink { [weak self] in self?.progress = $0 }.store(in: &observers)
         web.publisher(for: \.isLoading).sink { [weak self] in self?.isLoading = $0 }.store(in: &observers)
         web.publisher(for: \.canGoBack).sink { [weak self] in self?.canGoBack = $0 }.store(in: &observers)
+        web.publisher(for: \.canGoForward).sink { [weak self] in self?.canGoForward = $0 }.store(in: &observers)
         web.publisher(for: \.url).sink { [weak self] url in
             guard let self, let url, url.absoluteString != "about:blank" else { return }
             self.url = url
@@ -308,6 +319,24 @@ final class PreviewSession: NSObject, ObservableObject {
         dropTwin()
     }
 
+    /// Close Browser (the user's): the page is unloaded and forgotten,
+    /// as if the workspace's browser had never been opened. The session
+    /// stays (Claude's tools reach this one), and makes a new page the
+    /// next time anything opens one.
+    func reset() {
+        setCommenting(false)
+        close()
+        started = false
+        url = nil
+        address = ""
+        failure = nil
+        canGoBack = false
+        canGoForward = false
+        isLoading = false
+        progress = 0
+        PreviewStore.shared.remember(self)
+    }
+
     // MARK: Side by side
 
     /// Show the iPhone page beside the desktop one, or stop.
@@ -360,7 +389,7 @@ final class PreviewSession: NSObject, ObservableObject {
         let old = lastPhone
         lastPhone = v
         PreviewStore.shared.remember(self)
-        PreviewStore.shared.presenter?.fitTwinPhone(of: self, from: old)
+        PreviewStore.shared.window(for: self)?.fitTwinPhone(of: self, from: old)
         guard let twin else { return }
         twin.customUserAgent = v.userAgent
         if twin.url != nil { twinFollowing = true; twin.reload() }
@@ -553,6 +582,20 @@ final class PreviewSession: NSObject, ObservableObject {
         web.goBack()
     }
 
+    func goForward() {
+        guard let web = webView, web.canGoForward else { return }
+        failure = nil
+        if sideBySide, twin != nil, let next = web.backForwardList.forwardItem?.url {
+            // Both to the page after, as `goBack`.
+            synced = next.absoluteString
+            mainFollowing = true
+            web.goForward()
+            loadTwin(next)
+            return
+        }
+        web.goForward()
+    }
+
     /// The other size, phone or desktop (⇧⌘M: the user's).
     func toggleViewport() {
         setViewport(viewport.isPhone ? .desktop : lastPhone, byUser: true)
@@ -566,7 +609,7 @@ final class PreviewSession: NSObject, ObservableObject {
         viewport = v
         if v.isPhone { lastPhone = v }
         PreviewStore.shared.remember(self)
-        if byUser { PreviewStore.shared.presenter?.fitViewport(of: self) }
+        if byUser { PreviewStore.shared.window(for: self)?.fitViewport(of: self) }
         guard let web = webView else { return }
         web.customUserAgent = v.userAgent
         if let stage { stage.needsLayout = true } else { web.setFrameSize(v.nominal) }
@@ -974,11 +1017,11 @@ final class PreviewStore {
     static let shared = PreviewStore()
     private static let key = "PreviewState"
 
-    /// One per open workspace, each with its own cookies and storage. Claude
-    /// reaches the one of its conversation's workspace, whichever is on view.
+    /// Pages by id: each open workspace's main page (its id), with its own
+    /// cookies and storage, and its other browser tabs' (the experiment),
+    /// on the same storage. Claude reaches its conversation's page
+    /// (`agentPage`), whichever is on view.
     private var sessions: [UUID: PreviewSession] = [:]
-    /// The browser window, made the first time it's shown.
-    private(set) var presenter: PreviewWindowController?
     private var cleanedData = false
 
     func session(for workspace: Workspace) -> PreviewSession {
@@ -994,26 +1037,147 @@ final class PreviewStore {
         return s
     }
 
-    /// Show the browser window and bring it forward, showing `workspace`'s
-    /// browser if one is given (the user asked for that one), else what it
-    /// showed. Only for what the user does: Claude's tools never call this.
-    func showWindow(_ workspace: Workspace? = nil) {
+    /// A browser tab's page (the main one's is `session(for:)`), made on
+    /// first use at the address the tab was left at.
+    func page(_ id: UUID, in workspace: Workspace) -> PreviewSession {
+        if id == workspace.id { return session(for: workspace) }
+        if let s = sessions[id] { return s }
+        let main = session(for: workspace)
+        let s = PreviewSession(workspaceID: workspace.id, pageID: id, address: workspace.browserTab(id)?.address ?? "",
+                               viewport: main.viewport.isPhone ? .desktop : main.viewport)
+        sessions[id] = s
+        return s
+    }
+
+    func existingPage(_ id: UUID) -> PreviewSession? { sessions[id] }
+
+    /// The page a conversation's Claude drives: its own browser tab (the
+    /// user, 2026-11-26), made (not shown) if it has none, including after
+    /// the user closed it. It may be in a window of its own.
+    func agentPage(for conversation: ClaudeConversation, in workspace: Workspace) -> PreviewSession {
+        let ref = workspace.claudeBrowserTab(for: conversation.id)
+        return page(ref.id, in: workspace)
+    }
+
+    /// The page the user is looking at in `workspace` (⇧⌘M, ⇧⌘C): its
+    /// shown browser tab, else the browser window in front, else its main
+    /// page.
+    func shownPage(in workspace: Workspace) -> PreviewSession {
+        if let id = workspace.shownBrowserTabID { return page(id, in: workspace) }
+        if let w = frontWindow, w.workspace === workspace { return w.session }
+        return session(for: workspace)
+    }
+
+    // MARK: Windows (a browser tab moved out of the row)
+
+    /// The windows of the browser tabs moved out of the row, by page.
+    private var windows: [UUID: PreviewWindowController] = [:]
+
+    func window(for session: PreviewSession) -> PreviewWindowController? { windows[session.pageID] }
+
+    /// The browser window most recently in front.
+    var frontWindow: PreviewWindowController? {
+        NSApp.orderedWindows.lazy.compactMap { w in self.windows.values.first { $0.window === w } }.first
+    }
+
+    /// Move to Window: the tab leaves the row for a window of its own (its
+    /// pseudo-tab stays in the row), which comes forward.
+    func detach(_ id: UUID, in workspace: Workspace) {
+        guard workspace.browserTab(id) != nil else { return }
+        workspace.setDetached(id, true)
+        let session = page(id, in: workspace)
+        showWindow(page: id, in: workspace)
+        // The tab's page view lets go of the web view after the new
+        // window has taken it, which can leave it in neither: once both
+        // have settled, put it back in the window if it's nowhere.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            guard session.windowOpen, session.stage == nil else { return }
+            session.setWindowOpen(false)
+            DispatchQueue.main.async { session.setWindowOpen(true) }
+        }
+    }
+
+    /// Move Back to Tab: the window goes (its page doesn't), and the tab is
+    /// back in the row, shown.
+    func attach(_ id: UUID, in workspace: Workspace) {
+        if let controller = windows[id] {
+            controller.close()
+        }
+        workspace.setDetached(id, false)
+        showTab(workspace, page: id)
+    }
+
+    /// A moved-out tab's window, forward (made if it isn't open: after a
+    /// launch, or when its page was moved out before).
+    func showWindow(page id: UUID, in workspace: Workspace) {
         guard PreviewSettings.shared.enabled else { return }
-        let controller = presenter ?? PreviewWindowController(store: WorkspaceStore.shared)
-        presenter = controller
-        if let workspace { controller.show(workspace) }
+        let controller = windows[id] ?? {
+            let c = PreviewWindowController(workspace: workspace, session: page(id, in: workspace))
+            windows[id] = c
+            return c
+        }()
         controller.reveal()
     }
 
-    /// The workspaces whose browser has a page (made by the user or by
-    /// Claude), in the sidebar's order: what the window's menu offers.
-    func workspacesWithPages() -> [Workspace] {
-        WorkspaceStore.shared.workspaces.filter { sessions[$0.id]?.webView != nil }
+    /// At launch: the windows of tabs that were moved out, open again
+    /// (behind the main window).
+    func restoreWindows() {
+        guard PreviewSettings.shared.enabled else { return }
+        for w in WorkspaceStore.shared.workspaces {
+            for ref in w.browserTabs where ref.isDetached && windows[ref.id] == nil {
+                let c = PreviewWindowController(workspace: w, session: page(ref.id, in: w))
+                windows[ref.id] = c
+                c.session.setWindowOpen(true)
+                c.window?.orderBack(nil)
+            }
+        }
+    }
+
+    func windowClosed(_ controller: PreviewWindowController) {
+        if windows[controller.session.pageID] === controller { windows[controller.session.pageID] = nil }
+    }
+
+    /// Close a browser tab (its window too, if it's in one): the main page
+    /// is unloaded and forgotten (it stays for Claude's tools to find);
+    /// any other is gone.
+    func closeBrowserTab(_ id: UUID, in workspace: Workspace) {
+        if let controller = windows.removeValue(forKey: id) {
+            controller.close()
+        }
+        UserDefaults.standard.removeObject(forKey: "NSWindow Frame " + PreviewWindowController.frameKey(id))
+        workspace.removeBrowserTab(id)
+        if id == workspace.id {
+            session(for: workspace).reset()
+        } else if let s = sessions.removeValue(forKey: id) {
+            s.close()
+        }
+    }
+
+    /// ⇧⌘B, a terminal link, ⇧⌘C: `workspace`'s browser, shown in the
+    /// main window (its workspace selected). `page`, else the browser tab
+    /// shown last, else a new one. A page in its own window comes forward
+    /// there instead.
+    func showTab(_ workspace: Workspace?, page: UUID? = nil) {
+        guard PreviewSettings.shared.enabled, let workspace, let store = workspace.store else { return }
+        if let page, workspace.browserTab(page)?.isDetached == true {
+            showWindow(page: page, in: workspace)
+            return
+        }
+        store.activate(workspace.id)
+        if let page, workspace.browserTab(page) == nil {
+            // The main page, back in the row.
+            workspace.newBrowserTab()
+        } else {
+            workspace.showBrowserTab(page)
+        }
+        AppDelegate.shared.windowController?.showWindow(nil)
+        NSApp.activate()
     }
 
     /// Keep a workspace's address and viewport for next time.
     func remember(_ session: PreviewSession) {
         var all = UserDefaults.standard.dictionary(forKey: Self.key) ?? [:]
+        guard session.isMain else { return }
         all[session.workspaceID.uuidString] = ["address": session.address, "viewport": session.viewport.rawValue,
                                                "phone": session.lastPhone.rawValue]
         UserDefaults.standard.set(all, forKey: Self.key)
@@ -1022,7 +1186,11 @@ final class PreviewStore {
     /// Closed workspaces' previews go with them.
     private func prune() {
         let open = Set(WorkspaceStore.shared.workspaces.map(\.id))
-        for (id, session) in sessions where !open.contains(id) {
+        for (id, c) in windows where !open.contains(c.workspace.id) {
+            c.close()
+            windows[id] = nil
+        }
+        for (id, session) in sessions where !open.contains(session.workspaceID) {
             session.close()
             sessions[id] = nil
         }
@@ -1058,15 +1226,17 @@ final class PreviewStore {
     /// server's hot reload. Not while the user is in the middle of a comment
     /// (the pick would be lost), and never makes a preview that isn't open.
     func turnEnded(in workspace: Workspace) {
-        guard PreviewSettings.shared.enabled, let session = sessions[workspace.id],
-              session.url != nil, session.failure == nil, session.pick == nil, !session.isLoading else { return }
-        session.reload()
+        guard PreviewSettings.shared.enabled else { return }
+        for session in sessions.values where session.workspaceID == workspace.id
+            && session.url != nil && session.failure == nil && session.pick == nil && !session.isLoading {
+            session.reload()
+        }
     }
 
     /// The setting was turned off: every window and web view goes.
     func turnedOff() {
-        presenter?.close()
-        presenter = nil
+        for c in windows.values { c.close() }
+        windows = [:]
         sessions.values.forEach { $0.close() }
         sessions = [:]
     }
@@ -1113,7 +1283,7 @@ final class PreviewStore {
         // "Listening on 0.0.0.0" means every interface; this Mac is one.
         let address = url.absoluteString.replacingOccurrences(of: "://0.0.0.0", with: "://localhost")
         session(for: workspace).open(address)
-        showWindow(workspace)
+        showTab(workspace, page: workspace.id)
         return true
     }
 

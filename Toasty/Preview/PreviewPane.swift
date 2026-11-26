@@ -5,37 +5,24 @@ import WebKit
 
 // MARK: - Window
 
-/// The browser window: one native window, apart from the main window, that
-/// shows one workspace's browser. Each workspace's browser
-/// (`PreviewSession`) is its own: its own cookies, storage and page, running
-/// whether this window shows it or not. Switching only changes which one is
-/// on view here; no page is reloaded, navigated or interrupted, and Claude's
-/// tools go on reaching their own workspace's browser (`PreviewTools` finds
-/// it from the conversation, never from this window).
-///
-/// Which workspace it shows is the window's own (the user, 2026-11-20: the
-/// main window says which conversation I'm in, the browser which browser I'm
-/// inspecting; neither changes the other). Selecting a workspace in Toasty
-/// doesn't change it. What does: the workspace menu in its footer, and
-/// asking for a workspace's browser from the main window (its compass, ⇧⌘C,
-/// a local link clicked in its terminal). ⇧⌘B and Window ▸ Browser only
-/// bring the window back as it was. It's kept across launches; a workspace
-/// that closes gives way to another with a page open.
-///
-/// Closing the window hides it; every page keeps running. Claude's tools
-/// never open it, bring it forward or give it focus. Only the user does
-/// that (the titlebar's indicator, ⇧⌘B, a local link clicked in a terminal,
-/// ⇧⌘C).
+/// A browser tab that left the tab row for a window of its own (the user,
+/// 2026-11-26: "Move to Window" moves that tab, as dragging a tab out of
+/// Safari; it replaced one shared window that picked a workspace). The
+/// window is that tab's page, for good: one workspace, one page, so it
+/// picks nothing. Its tab stays in the row as a dashed pseudo-tab that
+/// brings it forward; Move Back to Tab puts the page back in the row.
+/// Its close button only puts it away; Close Browser closes the page.
+/// Claude's tools never open, raise or focus it.
 @MainActor
 final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {
-    /// The workspace whose browser the window shows.
-    private(set) var workspace: Workspace?
-    private(set) var session: PreviewSession?
+    let workspace: Workspace
+    let session: PreviewSession
     private let model = PreviewWindowModel()
     private var cancellables: Set<AnyCancellable> = []
-    private var titleCancellables: Set<AnyCancellable> = []
 
-    init(store: WorkspaceStore) {
+    init(workspace: Workspace, session: PreviewSession) {
+        self.workspace = workspace
+        self.session = session
         let size = NSSize(width: 1280, height: 820)
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
@@ -52,6 +39,7 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
         super.init(window: window)
         window.delegate = self
 
+        model.shown = (workspace, session)
         let host = NSHostingController(rootView: PreviewWindowRoot(model: model))
         host.sizingOptions = []
         host.view.frame = NSRect(origin: .zero, size: size)
@@ -61,9 +49,11 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
         window.setContentSize(size)
         installBar()
 
-        window.setFrameAutosaveName("PreviewWindow")
-        if UserDefaults.standard.string(forKey: "NSWindow Frame PreviewWindow") == nil { place(window) }
-        // A frame saved smaller than the minimum (restoring skips it).
+        // Each page's window keeps its own frame; a new one starts where the
+        // last browser window was, a step down and right.
+        let autosave = Self.frameKey(session.pageID)
+        if !window.setFrameUsingName(autosave) { place(window) }
+        window.setFrameAutosaveName(autosave)
         let least = window.frameRect(forContentRect: NSRect(origin: .zero, size: Self.minimumContent)).size
         if window.frame.width < least.width || window.frame.height < least.height {
             var frame = window.frame
@@ -71,27 +61,18 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
             frame.size = NSSize(width: max(frame.width, least.width), height: max(frame.height, least.height))
             window.setFrame(frame, display: false)
         }
+        sizedForPhone = session.viewport.isPhone
 
-        model.choose = { [weak self] in self?.show($0) }
-
-        // The workspace it showed last time, else the one selected in Toasty.
-        let saved = UserDefaults.standard.string(forKey: Self.shownKey).flatMap(UUID.init(uuidString:))
-        show(store.workspaces.first { $0.id == saved } ?? store.active)
-
-        // The workspace shown was closed: another with a page open, else the
-        // one selected in Toasty.
-        store.$workspaces
+        workspace.$name.combineLatest(session.$url)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self, weak store] list in
-                guard let self, let store, let shown = self.workspace, !list.contains(where: { $0 === shown }) else { return }
-                self.show(PreviewStore.shared.workspacesWithPages().first ?? store.active)
-            }
+            .sink { [weak self] _, _ in self?.updateTitle() }
             .store(in: &cancellables)
+        updateTitle()
     }
 
-    private static let shownKey = "PreviewWindowWorkspace"
-
     required init?(coder: NSCoder) { fatalError() }
+
+    static func frameKey(_ page: UUID) -> String { "PreviewWindow-\(page.uuidString)" }
 
     /// The titlebar row, in the titlebar view (clicks under a transparent
     /// titlebar don't reach content), centered on the window buttons' line.
@@ -132,29 +113,6 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
         return NSSize(width: max(frameSize.width, least.width), height: max(frameSize.height, least.height))
     }
 
-    /// Show `workspace`'s browser here instead of the one shown now. The one
-    /// shown now is left as it is (only commenting on it ends: the comment
-    /// field was in this window). Toasty's selected workspace is untouched.
-    func show(_ next: Workspace?) {
-        guard next !== workspace else { return }
-        if let next { UserDefaults.standard.set(next.id.uuidString, forKey: Self.shownKey) }
-        session?.setCommenting(false)
-        session?.setWindowOpen(false)
-        workspace = next
-        session = next.map { PreviewStore.shared.session(for: $0) }
-        if window?.isVisible == true { session?.setWindowOpen(true) }
-        sizedForPhone = session?.viewport.isPhone ?? false
-        model.shown = workspace.flatMap { w in session.map { (w, $0) } }
-        titleCancellables = []
-        if let workspace, let session {
-            workspace.$name.combineLatest(session.$url)
-                .receive(on: DispatchQueue.main)
-                .sink { [weak self] _, _ in self?.updateTitle() }
-                .store(in: &titleCancellables)
-        }
-        updateTitle()
-    }
-
     /// The window's content at a viewport's own size: a phone with room
     /// either side (enough for the whole titlebar row), a desktop page at
     /// 1280 (both under the titlebar).
@@ -165,9 +123,16 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
         }
     }
 
-    /// First time: centered on the main window's screen, at desktop size
-    /// (never larger than the screen).
+    /// A new window: a step down and right of the browser window in front,
+    /// else centered on the main window's screen (never larger than it).
     private func place(_ window: NSWindow) {
+        if let last = PreviewStore.shared.frontWindow?.window, last !== window {
+            var frame = last.frame
+            frame.origin.x += 28
+            frame.origin.y -= 28
+            window.setFrame(frame, display: false)
+            return
+        }
         let main = AppDelegate.shared.windowController?.window
         guard let screen = main?.screen ?? NSScreen.main else { window.center(); return }
         let visible = screen.visibleFrame
@@ -179,34 +144,28 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
         window.setFrame(frame, display: false)
     }
 
-    /// The workspace shown, for the Window menu, Mission Control and the
+    /// The workspace and page, for the Window menu, Mission Control and the
     /// Dock (the titlebar row shows the address).
     private func updateTitle() {
-        let page = session?.url.map { PreviewSession.display($0) }
-        let parts = [workspace?.displayName, page].compactMap { $0 }.filter { !$0.isEmpty }
+        let page = session.url.map { PreviewSession.display($0) }
+        let parts = [workspace.displayName, page].compactMap { $0 }.filter { !$0.isEmpty }
         window?.title = parts.isEmpty ? "Browser" : parts.joined(separator: " — ")
     }
 
     /// Show the window and bring it forward: the user asked for it.
     func reveal() {
         guard let window else { return }
-        session?.setWindowOpen(true)
+        session.setWindowOpen(true)
         if window.isMiniaturized { window.deminiaturize(nil) }
         showWindow(nil)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }
 
-    /// ⌘L: the address field, as in any browser.
-    func focusAddress() {
-        guard session != nil else { return }
-        model.focusAddress += 1
-    }
-
-    /// The user changed the shown page's size: the window takes it
-    /// (keeping its top-left corner), if it's showing.
+    /// The user changed the page's size: the window takes it (keeping its
+    /// top-left corner), if it's showing.
     func fitViewport(of changed: PreviewSession) {
-        guard changed === session, let session, let window, window.isVisible,
+        guard changed === session, let window, window.isVisible,
               !window.styleMask.contains(.fullScreen) else { return }
         let phone = session.viewport.isPhone
         defer { sizedForPhone = phone }
@@ -235,7 +194,7 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
     /// its screen allows) so the desktop page keeps its width beside the
     /// phone's column; turned off, it gives that room back.
     func fitSideBySide(of changed: PreviewSession) {
-        guard changed === session, let session, let window, window.isVisible,
+        guard changed === session, let window, window.isVisible,
               !window.styleMask.contains(.fullScreen) else { return }
         let column = session.lastPhone.nominal.width + 40
         var frame = window.frame
@@ -249,7 +208,7 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
     /// Side by side's iPhone changed: the window changes width by as much as
     /// its column did, so the desktop page keeps its size.
     func fitTwinPhone(of changed: PreviewSession, from old: PreviewViewport) {
-        guard changed === session, let session, session.sideBySide, let window, window.isVisible,
+        guard changed === session, session.sideBySide, let window, window.isVisible,
               !window.styleMask.contains(.fullScreen) else { return }
         var frame = window.frame
         let visible = window.screen?.visibleFrame ?? frame
@@ -299,25 +258,42 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
 
     // MARK: Window delegate
 
-    /// Closing only hides: the pages, their consoles and Claude's use of
-    /// them go on. The shown page's view is let go of until the window is back.
+    /// The close button (and ⌘W) only puts the window away (the user,
+    /// 2026-11-26): the page goes on, and its pseudo-tab brings the window
+    /// right back. Close Browser (its ≡, or the pseudo-tab's) closes the
+    /// page.
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        hide()
+        return false
+    }
+
+    /// Put away, not closed: the page goes on running out of view.
+    func hide() {
+        session.setCommenting(false)
+        session.setWindowOpen(false)
+        window?.orderOut(nil)
+    }
+
+    /// Really closed (Move Back to Tab, Close Browser): the store lets go.
     func windowWillClose(_ notification: Notification) {
-        session?.setCommenting(false)
-        session?.setWindowOpen(false)
+        session.setCommenting(false)
+        session.setWindowOpen(false)
+        PreviewStore.shared.windowClosed(self)
     }
 
     // MARK: Commands (the main menu, while this window is key)
 
-    /// ⇧⌘B here puts the browser away (the main window is in front again).
-    @objc func togglePreview(_ sender: Any?) { window?.performClose(nil) }
+    /// ⇧⌘B here hides the window (the main window is in front again);
+    /// its pseudo-tab in the tab row brings it back.
+    @objc func togglePreview(_ sender: Any?) { hide() }
 
-    /// ⌘W closes the browser window (it has no tabs).
-    @objc func closeTab(_ sender: Any?) { window?.performClose(nil) }
+    /// ⌘W, as the close button: the window goes away, the page doesn't.
+    @objc func closeTab(_ sender: Any?) { hide() }
 
-    @objc func togglePreviewSize(_ sender: Any?) { session?.toggleViewport() }
+    @objc func togglePreviewSize(_ sender: Any?) { session.toggleViewport() }
 
     @objc func togglePreviewComment(_ sender: Any?) {
-        guard let session, session.commenting || (session.url != nil && session.failure == nil) else { return }
+        guard session.commenting || (session.url != nil && session.failure == nil) else { return }
         session.setCommenting(!session.commenting)
     }
 
@@ -327,13 +303,12 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
             item.title = "Hide Browser"
             return true
         case #selector(closeTab(_:)):
-            item.title = "Close Browser"
+            item.title = "Close Window"
             return true
         case #selector(togglePreviewSize(_:)):
-            item.title = session.map { $0.viewport.isPhone ? "Show at Desktop Size" : "Show at \($0.lastPhone.title) Size" } ?? "Show at Desktop Size"
-            return session != nil
+            item.title = session.viewport.isPhone ? "Show at Desktop Size" : "Show at \(session.lastPhone.title) Size"
+            return true
         case #selector(togglePreviewComment(_:)):
-            guard let session else { return false }
             item.title = session.commenting ? "Done Commenting" : "Comment on the Page"
             return session.commenting || (session.url != nil && session.failure == nil)
         default:
@@ -342,8 +317,8 @@ final class PreviewWindowController: NSWindowController, NSWindowDelegate, NSMen
     }
 }
 
-/// Which workspace's browser the window shows, and what its titlebar row
-/// needs from the window.
+/// What the window's bars need from the window: its page, and the window
+/// buttons' place.
 @MainActor
 private final class PreviewWindowModel: ObservableObject {
     @Published var shown: (Workspace, PreviewSession)?
@@ -354,10 +329,6 @@ private final class PreviewWindowModel: ObservableObject {
     @Published var buttonsMinX: CGFloat = 20
     /// The row's height: the window buttons' band.
     var barHeight: CGFloat { buttonsMidY > 0 ? buttonsMidY * 2 : 38 }
-    /// Bumped by ⌘L: the address field takes the keyboard.
-    @Published var focusAddress = 0
-    /// A workspace picked in the row's menu.
-    var choose: ((Workspace) -> Void)?
 }
 
 private struct PreviewWindowRoot: View {
@@ -366,13 +337,10 @@ private struct PreviewWindowRoot: View {
     var body: some View {
         Group {
             if let (workspace, session) = model.shown {
-                // A view of its own per workspace: switching takes the shown
-                // page out of the window and puts the other one in, untouched.
                 VStack(spacing: 0) {
                     PreviewWindowContent(workspace: workspace, session: session)
                     PreviewFooter(model: model, workspace: workspace, session: session)
                 }
-                .id(workspace.id)
             } else {
                 InspectorEmpty(symbol: "safari", title: "No Workspace", detail: "Each workspace has a browser of its own.")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -386,7 +354,7 @@ private struct PreviewWindowRoot: View {
 }
 
 /// The page of the workspace shown, under the window's titlebar row.
-private struct PreviewWindowContent: View {
+struct PreviewWindowContent: View {
     @ObservedObject var workspace: Workspace
     @ObservedObject var session: PreviewSession
 
@@ -402,7 +370,7 @@ private struct PreviewWindowContent: View {
         .background(Color.claudeChrome)
         .background {
             // ⌘L and ⌘R, as in any browser (this window's own keys).
-            Button("Address") { PreviewStore.shared.presenter?.focusAddress() }
+            Button("Address") { session.addressFocusRequest += 1 }
                 .keyboardShortcut("l", modifiers: .command)
                 .hidden()
             Button("Reload") { session.reload() }
@@ -411,11 +379,51 @@ private struct PreviewWindowContent: View {
             Button("Back") { session.goBack() }
                 .keyboardShortcut("[", modifiers: .command)
                 .hidden()
+            Button("Forward") { session.goForward() }
+                .keyboardShortcut("]", modifiers: .command)
+                .hidden()
         }
         .onAppear {
             // Pick up where the workspace left off (its first time on view
             // since launch, if Claude hasn't opened a page already).
             if !session.started, !session.address.isEmpty { session.open(session.address) }
+        }
+    }
+}
+
+/// The browser as a tab in the main window (the experiment, Settings ▸
+/// Browser ▸ Show In): the page right under the tab row (its back, reload
+/// and address are in the tab itself, which widens while selected), and the
+/// window's footer (without
+/// the workspace menu or Show Conversation: the tab is the workspace's,
+/// and its conversations are the tabs beside it). The bars are the tab
+/// row's height. The page is on view (`windowOpen`) while the tab shows.
+struct BrowserTabPage: View {
+    @ObservedObject var workspace: Workspace
+    @ObservedObject var session: PreviewSession
+    let barHeight: CGFloat
+
+    /// Moved to a window of its own: the window has the page.
+    private var detached: Bool { workspace.browserTab(session.pageID)?.isDetached == true }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Moved to its window: never take the page back from it on the
+            // way out.
+            if !detached {
+                PreviewWindowContent(workspace: workspace, session: session)
+            } else {
+                Color.claudeChrome
+            }
+            PreviewFooter(tabBarHeight: barHeight, workspace: workspace, session: session)
+        }
+        .background(Color.claudeChrome)
+        .onAppear { session.setWindowOpen(true) }
+        .onDisappear {
+            // Moved to its window: the window has the page by now.
+            guard !detached else { return }
+            session.setCommenting(false)
+            session.setWindowOpen(false)
         }
     }
 }
@@ -439,7 +447,7 @@ private struct PreviewBar: View {
     var body: some View {
         HStack(spacing: 0) {
             if let (workspace, session) = model.shown {
-                PreviewBarControls(model: model, workspace: workspace, session: session)
+                PreviewBarControls(session: session, leading: Self.leading)
                     .id(workspace.id)
             } else {
                 Spacer()
@@ -457,73 +465,136 @@ private struct PreviewBar: View {
 }
 
 private struct PreviewBarControls: View {
-    @ObservedObject var model: PreviewWindowModel
-    @ObservedObject var workspace: Workspace
     @ObservedObject var session: PreviewSession
-    @FocusState private var addressFocused: Bool
-
-    private static let button = CGSize(width: 32, height: TabStyle.height)
-    /// Back and reload, side by side.
-    private static let navigation = button.width * 2 + Theme.Space.xxs
-    /// Between the address and the buttons either side of it.
-    private static let gap = Theme.Space.s
+    /// Where the row starts, from the window's left edge (after the
+    /// window buttons): the bar is centered on the whole window.
+    let leading: CGFloat
     static let addressMax: CGFloat = 640
 
-    /// The browsers that Open In offers, the default first.
-    @State private var browsers = PreviewBrowser.installed()
+    private var workspace: Workspace? {
+        WorkspaceStore.shared.workspaces.first { $0.id == session.workspaceID }
+    }
 
     var body: some View {
         GeometryReader { geo in
-            let place = Self.address(in: geo.size.width, trailing: Self.button.width * CGFloat(max(1, browsers.count)))
-            ZStack(alignment: .leading) {
-                HStack(spacing: Theme.Space.xxs) {
-                    BarIconButton(symbol: "chevron.left", tooltip: Tooltip(title: "Back", shortcut: "⌘["),
-                                  glyphSize: Theme.Size.body, size: Self.button) { session.goBack() }
-                        .disabled(!session.canGoBack)
-                    BarIconButton(symbol: session.isLoading ? "xmark" : "arrow.clockwise",
-                                  tooltip: Tooltip(title: session.isLoading ? "Stop" : "Reload", shortcut: session.isLoading ? nil : "⌘R"),
-                                  glyphSize: Theme.Size.body, size: Self.button) {
-                        if session.isLoading { session.stopLoading() } else { session.reload() }
-                    }
-                    .disabled(!session.started)
-                    Spacer(minLength: 0)
-                    OpenInBrowserButton(browsers: browsers, size: Self.button) { browser in
-                        if let url = session.url { browser.open(url) }
-                    }
-                    .disabled(session.url == nil)
-                }
-                addressField
-                    .frame(width: place.width)
-                    .offset(x: place.x)
+            // As wide as there's room for, to 640, centered in the window
+            // as far as the window buttons allow.
+            let w = max(0, min(Self.addressMax, geo.size.width))
+            let center = (geo.size.width + leading + TitlebarRow.edge) / 2 - leading
+            let x = min(max(0, center - w / 2), geo.size.width - w)
+            BrowserAddressBar(session: session, framed: true) {
+                guard let workspace else { return [] }
+                return [.init(title: "Move Back to Tab", symbol: "rectangle.topthird.inset.filled") { PreviewStore.shared.attach(session.pageID, in: workspace) },
+                        .init(title: "Close Browser", symbol: "xmark") { PreviewStore.shared.closeBrowserTab(session.pageID, in: workspace) }]
             }
-            .frame(height: geo.size.height)
+            .frame(width: w)
+            .offset(x: x)
+            .frame(height: geo.size.height, alignment: .center)
         }
-        // A browser installed, or made the default, since.
+    }
+}
+
+/// The browser's address bar, the same in its window's titlebar and in its
+/// selected tab (as Safari's compact tab): back and forward at its start,
+/// the address centered, reload (on hover) and the page menu (≡: Open in
+/// each browser, then `menu`'s items) at its end. Editing: the whole
+/// address, selected, a ring in the accent color, and a button that puts
+/// the page's address back.
+struct BrowserAddressBar: View {
+    @ObservedObject var session: PreviewSession
+    /// Its own capsule (in the window; a tab draws the tab's).
+    var framed = false
+    /// The ≡ menu after Open In: what this place can do.
+    let menu: () -> [PopoverMenu.Item]
+    @State private var hovering = false
+    @State private var editing = false
+    @State private var browsers = PreviewBrowser.installed()
+
+    private static let button = CGSize(width: 22, height: 22)
+
+    var body: some View {
+        HStack(spacing: Theme.Space.xxs) {
+            Group {
+                if editing {
+                    Button {
+                        session.address = session.url.map { PreviewSession.display($0) } ?? ""
+                        NSApp.keyWindow?.makeFirstResponder(nil)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.toasty(TabStyle.fontSize))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .tooltipText("Cancel (esc)")
+                } else {
+                    HStack(spacing: 0) {
+                        BarIconButton(symbol: "chevron.left", tooltip: Tooltip(title: "Back", shortcut: "⌘["),
+                                      glyphSize: Theme.Size.meta, size: Self.button) { session.goBack() }
+                            .disabled(!session.canGoBack)
+                        BarIconButton(symbol: "chevron.right", tooltip: Tooltip(title: "Forward", shortcut: "⌘]"),
+                                      glyphSize: Theme.Size.meta, size: Self.button) { session.goForward() }
+                            .disabled(!session.canGoForward)
+                    }
+                }
+            }
+            .frame(width: Self.button.width * 2, alignment: .leading)
+            PreviewAddressField(session: session, inTab: true) { editing = $0 }
+                .frame(maxWidth: .infinity)
+            BarIconButton(symbol: session.isLoading ? "xmark" : "arrow.clockwise",
+                          tooltip: Tooltip(title: session.isLoading ? "Stop" : "Reload", shortcut: session.isLoading ? nil : "⌘R"),
+                          glyphSize: Theme.Size.meta, size: Self.button) {
+                if session.isLoading { session.stopLoading() } else { session.reload() }
+            }
+            .disabled(!session.started)
+            .opacity(hovering || editing || session.isLoading ? 1 : 0)
+            pageMenu
+        }
+        .padding(.horizontal, Theme.Space.xs)
+        .frame(height: TabStyle.height)
+        .background { if framed { Capsule().fill(Theme.Fill.selected) } }
+        .overlay(Capsule().strokeBorder(Color.accentColor, lineWidth: 2).opacity(editing ? 1 : 0))
+        .contentShape(Capsule())
+        .onHover { hovering = $0 }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             let now = PreviewBrowser.installed()
             if now != browsers { browsers = now }
         }
     }
 
-    /// Where the address goes in a row `width` wide (the row starts after
-    /// the window buttons' room and ends at the right margin): as wide as
-    /// there is room for, to 640 points, and as near the window's center as
-    /// that room allows. In a narrow window it fills the room between
-    /// reload and Open In (`trailing` wide, with the browsers it reveals);
-    /// in a wide one it's centered in the window.
-    static func address(in width: CGFloat, trailing: CGFloat) -> (x: CGFloat, width: CGFloat) {
-        let first = navigation + gap
-        let last = width - trailing - gap
-        let w = max(0, min(addressMax, last - first))
-        let center = (width + PreviewBar.leading + TitlebarRow.edge) / 2 - PreviewBar.leading
-        let x = min(max(first, center - w / 2), last - w)
-        return (x, w)
+    private var pageMenu: some View {
+        ClaudePopUp(items: [], makeItems: {
+            browsers.map { b in
+                PopoverMenu.Item(title: "Open in \(b.name)", symbol: "arrow.up.forward.app", enabled: session.url != nil) {
+                    if let url = session.url { b.open(url) }
+                }
+            } + menu()
+        }) { over in
+            Image(systemName: "line.3.horizontal")
+                .font(.toasty(Theme.Size.meta, .medium))
+                .foregroundStyle(over ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                .frame(width: Self.button.width, height: Self.button.height)
+                .background(Circle().fill(over ? Theme.Fill.subtle : Color.clear))
+        }
+        .tooltip(Tooltip(title: "Page Menu", detail: "Open in your own browser, and where the browser lives."))
     }
+}
 
-    private var addressField: some View {
+/// The address, in a capsule; ⌘L focuses it, esc puts back the page's.
+struct PreviewAddressField: View {
+    @ObservedObject var session: PreviewSession
+    /// In the browser's tab: no capsule of its own (the tab is the
+    /// field). At rest it shows the host, centered; editing, the whole
+    /// address, selected (as Safari's compact tabs).
+    var inTab = false
+    /// Told when editing starts and ends (the tab draws its ring).
+    var onEditing: (Bool) -> Void = { _ in }
+    @FocusState private var addressFocused: Bool
+
+    var body: some View {
         TextField("localhost:3000", text: $session.address)
             .textFieldStyle(.plain)
-            .font(.toasty(Theme.Size.control))
+            .font(.toasty(inTab ? TabStyle.fontSize : Theme.Size.control, inTab ? .medium : .regular))
+            .multilineTextAlignment(inTab ? .center : .leading)
             .focused($addressFocused)
             .onSubmit {
                 session.open(session.address)
@@ -534,11 +605,30 @@ private struct PreviewBarControls: View {
                 session.address = session.url.map { PreviewSession.display($0) } ?? ""
                 addressFocused = false
             }
-            .padding(.horizontal, Theme.Space.m)
+            .padding(.horizontal, inTab ? 0 : Theme.Space.m)
             .frame(height: TabStyle.height)
-            .background(Capsule().fill(Theme.Fill.subtle))
+            .background(Capsule().fill(inTab ? Color.clear : Theme.Fill.subtle))
             .accessibilityLabel("Address")
-            .onChange(of: model.focusAddress) { addressFocused = true }
+            .onChange(of: session.addressFocusRequest) { addressFocused = true }
+            .onChange(of: addressFocused) { _, focused in
+                onEditing(focused)
+                guard inTab else { return }
+                if focused {
+                    // The whole address, selected, to type over.
+                    if let url = session.url { session.address = url.absoluteString }
+                    // (After the click that focused it has placed the caret.)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil) }
+                } else {
+                    session.address = session.url.map { PreviewSession.display($0) } ?? session.address
+                }
+            }
+    }
+
+    /// The tab's text at rest: the host (with its port), as Safari shows
+    /// a site's name.
+    static func host(_ url: URL?) -> String? {
+        guard let url, let host = url.host else { return nil }
+        return url.port.map { "\(host):\($0)" } ?? host
     }
 }
 
@@ -547,8 +637,12 @@ private struct PreviewBarControls: View {
 /// in the middle as wide icon buttons, and the page's size on the right
 /// (where the composer has send). Drawn as the titlebar row: its buttons,
 /// height, edges, surface and divider, so the two bars are one system.
-private struct PreviewFooter: View {
-    @ObservedObject var model: PreviewWindowModel
+struct PreviewFooter: View {
+    /// The window's (nil in a tab: no workspace menu, no Show Conversation,
+    /// the tab row's edges).
+    fileprivate var model: PreviewWindowModel?
+    /// The bar's height in a tab (the tab row's).
+    var tabBarHeight: CGFloat = 38
     @ObservedObject var workspace: Workspace
     @ObservedObject var session: PreviewSession
     @ObservedObject private var command = PreviewCommandKey.shared
@@ -565,8 +659,11 @@ private struct PreviewFooter: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            PreviewWorkspaceMenu(model: model, workspace: workspace)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+                // (The window is one workspace's page: nothing to pick.)
+                Color.clear.frame(height: 1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: Theme.Space.xxs) {
                 BarIconButton(symbol: "plus.bubble",
                               tooltip: Tooltip(title: session.commenting ? "Done Commenting" : "Comment on the Page", shortcut: "⇧⌘C",
@@ -588,7 +685,7 @@ private struct PreviewFooter: View {
                                                    : "The same page at both sizes, one address: a page either one goes to, the other follows."),
                               active: session.sideBySide, glyphSize: Theme.Size.body, size: Self.button) {
                     session.setSideBySide(!session.sideBySide)
-                    PreviewStore.shared.presenter?.fitSideBySide(of: session)
+                    PreviewStore.shared.window(for: session)?.fitSideBySide(of: session)
                 }
                 if session.sideBySide {
                     BarIconButton(symbol: "arrow.up.and.down",
@@ -600,6 +697,7 @@ private struct PreviewFooter: View {
                         session.setScrollSync(!session.scrollSync)
                     }
                 }
+                if model != nil {
                 BarIconButton(symbol: "text.bubble",
                               tooltip: Tooltip(title: "Show Conversation",
                                                detail: conversation.map { "“\($0.title)” in the main window\($0.id == session.lastAgentConversationID ? ", the conversation that last used this browser" : "")." }
@@ -608,6 +706,7 @@ private struct PreviewFooter: View {
                     if let conversation { Activity.shared.show(conversation) }
                 }
                 .disabled(conversation == nil)
+                }
             }
             HStack(spacing: Theme.Space.xxs) {
                 PreviewSizeMenu(session: session)
@@ -620,9 +719,9 @@ private struct PreviewFooter: View {
         // Edges as the titlebar row's: the workspace name under the close button,
         // the size the row's margin from the right; the same band height,
         // the same divider on the page's side.
-        .padding(.leading, max(0, model.buttonsMinX - ClaudeChip.padding))
+        .padding(.leading, model.map { max(0, $0.buttonsMinX - ClaudeChip.padding) } ?? TitlebarRow.edge)
         .padding(.trailing, TitlebarRow.edge)
-        .frame(height: model.barHeight)
+        .frame(height: model?.barHeight ?? tabBarHeight)
         .background(Theme.Surface.chrome)
         .overlay(alignment: .top) { Rectangle().fill(Theme.Stroke.barDivider).frame(height: 1) }
     }
@@ -661,13 +760,17 @@ private struct PreviewSizeMenu: View {
                 }
             }
         }
-        let window = PreviewStore.shared.presenter
+        // In a tab the desktop page is the tab's room: no presets.
+        guard let window = PreviewStore.shared.window(for: session) else {
+            return [PopoverMenu.Item(title: "As Big as the Tab", subtitle: "Resize the window, or fill it (⇧⌘F)",
+                                     checked: true, enabled: false) {}]
+        }
         return Self.desktopPresets.map { p in
-            let fits = window?.fits(page: p) ?? false
+            let fits = window.fits(page: p)
             return PopoverMenu.Item(title: Self.text(p), subtitle: fits ? "" : "Larger than this screen",
                                     checked: abs(size.width - p.width) < 1 && abs(size.height - p.height) < 1,
                                     enabled: fits) {
-                window?.setPageSize(p)
+                window.setPageSize(p)
             }
         }
     }
@@ -731,7 +834,7 @@ struct PreviewBrowser: Equatable, Identifiable {
 /// Open In: the default browser's icon, with the other installed
 /// browsers sliding out to its left on hover. The bar keeps their room, so
 /// opening never moves the address.
-private struct OpenInBrowserButton: View {
+struct OpenInBrowserButton: View {
     let browsers: [PreviewBrowser]
     let size: CGSize
     let open: (PreviewBrowser) -> Void
@@ -757,66 +860,8 @@ private struct OpenInBrowserButton: View {
     }
 }
 
-/// Which workspace's browser the window shows: its name with a chevron, as
-/// the composer's model, opening Toasty's own menu of the workspaces whose
-/// browser has a page (the one shown checked). Picking one changes only
-/// this window.
-private struct PreviewWorkspaceMenu: View {
-    @ObservedObject var model: PreviewWindowModel
-    @ObservedObject var workspace: Workspace
-
-    private var items: [PopoverMenu.Item] {
-        var list = PreviewStore.shared.workspacesWithPages()
-        if !list.contains(where: { $0 === workspace }) {
-            list = WorkspaceStore.shared.workspaces.filter { w in w === workspace || list.contains { $0 === w } }
-        }
-        return list.map { w in
-            PopoverMenu.Item(title: w.displayName, checked: w === workspace) { model.choose?(w) }
-        }
-    }
-
-    /// The chip hugs the name; a long one is shortened.
-    private static func short(_ name: String, _ limit: Int) -> String {
-        name.count > limit ? String(name.prefix(limit - 1)) + "…" : name
-    }
-
-    /// The chip: the name and a chevron, as the composer's model (no
-    /// icon: the name and its place say what it is), hugging it.
-    private func chip(_ name: String, hovering: Bool) -> some View {
-        HStack(spacing: Theme.Space.xs + 1) {
-            Text(name)
-                .font(.toasty(Theme.Size.control, .medium))
-                .lineLimit(1)
-            Image(systemName: "chevron.down").font(.toasty(Theme.Glyph.small, .semibold)).opacity(0.6)
-        }
-        .padding(.horizontal, ClaudeChip.padding)
-        .frame(height: TabStyle.height)
-        .fixedSize()
-        .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-        .overlay(Capsule().strokeBorder(hovering ? Theme.Stroke.hover : Color.clear, lineWidth: 1))
-        .contentShape(Capsule())
-    }
-
-    var body: some View {
-        // The list is made when the menu opens: another workspace may have
-        // been given a page since this was drawn.
-        ClaudePopUp(items: [], makeItems: { items }) { hovering in
-            // It gives up room first in a narrow window: the name, then
-            // shorter and shorter.
-            ViewThatFits(in: .horizontal) {
-                chip(Self.short(workspace.displayName, 28), hovering: hovering)
-                chip(Self.short(workspace.displayName, 20), hovering: hovering)
-                chip(Self.short(workspace.displayName, 14), hovering: hovering)
-                chip(Self.short(workspace.displayName, 7), hovering: hovering)
-            }
-        }
-        .tooltip(Tooltip(title: "Workspace", detail: "Which workspace's browser this window shows. Each has its own page, logins and storage."))
-        .accessibilityLabel("Workspace: \(workspace.displayName)")
-    }
-}
-
 /// Page loading progress, a line under the titlebar row.
-private struct LoadingLine: View {
+struct LoadingLine: View {
     @ObservedObject var session: PreviewSession
 
     var body: some View {
@@ -831,67 +876,10 @@ private struct LoadingLine: View {
     }
 }
 
-// MARK: - Window menu
-
-/// Window ▸ Browser: back to the browser window as it was left (as ⇧⌘B),
-/// from any of Toasty's windows. Hidden while the browser is turned off.
-@MainActor
-final class PreviewWindowMenu: NSObject, NSMenuItemValidation {
-    static let shared = PreviewWindowMenu()
-
-    @objc func showBrowser(_ sender: Any?) { PreviewStore.shared.showWindow() }
-
-    func validateMenuItem(_ item: NSMenuItem) -> Bool {
-        item.isHidden = !PreviewSettings.shared.enabled
-        return PreviewSettings.shared.enabled
-    }
-}
-
-// MARK: - Indicator
-
-/// In the main window's titlebar, at the end of the conversation's tabs:
-/// the workspace's browser. A click shows the browser window on this
-/// workspace (⇧⌘B and Window ▸ Browser go back to it as it was). Tinted while Claude is using it, filled while
-/// its window is open; a click brings the window forward. It's how the user
-/// sees what Claude does there without the browser taking any room.
-struct PreviewIndicator: View {
-    @ObservedObject var session: PreviewSession
-    @State private var hovering = false
-
-    private var detail: String {
-        if session.agentActive { return "Claude is using the browser\(session.url.map { " at \(PreviewSession.display($0))" } ?? "")." }
-        if let url = session.url { return "Showing \(PreviewSession.display(url)). Claude can use it whether its window is open or not." }
-        return "A browser window for the site you're building. Claude can use it whether its window is open or not."
-    }
-
-    var body: some View {
-        Button {
-            guard let workspace = WorkspaceStore.shared.workspaces.first(where: { $0.id == session.workspaceID }) else { return }
-            AppDelegate.shared.windowController?.showWorkspaceBrowser(workspace)
-        } label: {
-            Image(systemName: "safari")
-                .font(.toasty(Theme.Size.body, .medium))
-                .foregroundStyle(session.agentActive ? AnyShapeStyle(Color.accentColor)
-                                 : hovering || session.windowOpen ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                .modifier(PulseWhile(active: session.agentActive))
-                .frame(width: 32, height: TabStyle.height)
-                .contentShape(Capsule())
-        }
-        .buttonStyle(BarButtonStyle(hovering: hovering, active: session.windowOpen))
-        .onHover { hovering = $0 }
-        .animation(.easeOut(duration: 0.12), value: hovering)
-        .animation(.easeOut(duration: 0.25), value: session.agentActive)
-        .tooltip(Tooltip(title: "Show This Workspace's Browser", detail: detail))
-        .accessibilityLabel(session.agentActive ? "Browser, in use by Claude" : "Browser")
-        .accessibilityHint("Shows the browser window")
-        .padding(.leading, 4)
-    }
-}
-
 // MARK: - Start
 
 /// Before any page: where the dev server is, if a terminal said.
-private struct PreviewStart: View {
+struct PreviewStart: View {
     let workspace: Workspace
     @ObservedObject var session: PreviewSession
     @State private var addresses: [String] = []
@@ -923,7 +911,7 @@ private struct PreviewStart: View {
 
 // MARK: - Page
 
-private struct PreviewPage: View {
+struct PreviewPage: View {
     let workspace: Workspace
     @ObservedObject var session: PreviewSession
     @ObservedObject private var settings = PreviewSettings.shared
