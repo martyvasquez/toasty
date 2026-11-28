@@ -163,6 +163,7 @@ private struct HeadingRow: View {
     @State private var draft = ""
     @FocusState private var fieldFocused: Bool
     @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var icons = HeadingIcons.shared
 
     private var isRenaming: Bool { store.renamingID == heading.id }
 
@@ -181,10 +182,16 @@ private struct HeadingRow: View {
             HStack(spacing: Theme.Sidebar.iconGap) {
                 // On the drop target's blue, its icon takes the title's ink:
                 // its own color would clash with the highlight.
-                Image(systemName: heading.icon ?? HeadingStyle.defaultIcon)
-                    .font(.toasty(Theme.Sidebar.iconSize, .medium))
-                    .foregroundStyle(store.dropHeadingID == heading.id ? Theme.Sidebar.titleColor : Theme.heading(heading.color))
-                    .frame(width: Theme.Sidebar.iconWidth)
+                if heading.site != nil, let image = icons.image(for: heading.id) {
+                    // A website's icon, in its own colors.
+                    HeadingSiteIcon(image: image, tone: icons.tone(for: heading.id))
+                        .frame(width: Theme.Sidebar.iconWidth)
+                } else {
+                    Image(systemName: heading.icon ?? HeadingStyle.defaultIcon)
+                        .font(.toasty(Theme.Sidebar.iconSize, .medium))
+                        .foregroundStyle(store.dropHeadingID == heading.id ? Theme.Sidebar.titleColor : Theme.heading(heading.color))
+                        .frame(width: Theme.Sidebar.iconWidth)
+                }
                 Group {
                     if isRenaming {
                         TextField("Heading", text: $draft)
@@ -636,13 +643,16 @@ private struct HeadingStylePicker: View {
             LazyVGrid(columns: Array(repeating: GridItem(.fixed(32), spacing: Theme.Space.xs), count: 8),
                       spacing: Theme.Space.xs) {
                 ForEach(HeadingStyle.icons, id: \.self) { name in
-                    Button { store.setHeadingStyle(icon: name, color: color, for: heading.id) } label: {
+                    Button {
+                        store.setHeadingStyle(icon: name, color: color, for: heading.id)
+                        if current.site != nil { store.setHeadingSite(nil, png: nil, for: heading.id) }
+                    } label: {
                         Image(systemName: name)
                             .font(.toasty(Theme.Sidebar.iconSize, .medium))
                             .foregroundStyle(Theme.heading(color))
                             .frame(width: 32, height: 32)
                             .background(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-                                .fill(name == icon ? Theme.Fill.selected : Color.clear))
+                                .fill(name == icon && current.site == nil ? Theme.Fill.selected : Color.clear))
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -668,7 +678,110 @@ private struct HeadingStylePicker: View {
                     .accessibilityAddTraits(c == color ? .isSelected : [])
                 }
             }
+            Rectangle().fill(Theme.Stroke.border).frame(height: 1)
+            HeadingSiteField(heading: current, store: store)
         }
         .padding(Theme.Space.m)
+        .frame(width: 8 * 32 + 7 * Theme.Space.xs + 2 * Theme.Space.m)
+    }
+}
+
+/// A website's icon in a heading's icon spot: 16pt, its corners softened.
+/// A logo that would vanish into the sidebar (black on dark, white on
+/// light) sits on a small tile of the opposite shade, as browsers do.
+private struct HeadingSiteIcon: View {
+    let image: NSImage
+    var tone: IconTone = .other
+    var size: CGFloat = 16
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var tile: Color? {
+        switch (tone, colorScheme) {
+        case (.dark, .dark): .white
+        case (.light, .light): Color(white: 0.15)
+        default: nil
+        }
+    }
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
+        if let tile {
+            Image(nsImage: image)
+                .resizable()
+                .interpolation(.high)
+                .padding(size * 0.12)
+                .frame(width: size, height: size)
+                .background(shape.fill(tile))
+        } else {
+            Image(nsImage: image)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: size, height: size)
+                .clipShape(shape)
+        }
+    }
+}
+
+/// The style picker's Website row: type a site, Return (or Use) fetches its
+/// icon for the heading; Remove goes back to the symbol.
+private struct HeadingSiteField: View {
+    let heading: WorkspaceHeading
+    @ObservedObject var store: WorkspaceStore
+    @ObservedObject private var icons = HeadingIcons.shared
+    @State private var text = ""
+    @State private var fetching = false
+    @State private var error: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.xs) {
+            Text("Website icon")
+                .font(.toasty(Theme.Size.meta, .semibold))
+                .foregroundStyle(.secondary)
+            HStack(spacing: Theme.Space.s) {
+                if let site = heading.site, let image = icons.image(for: heading.id) {
+                    HeadingSiteIcon(image: image, tone: icons.tone(for: heading.id), size: 20)
+                    Text(site).lineLimit(1).truncationMode(.middle)
+                    Spacer(minLength: 0)
+                    Button("Remove") { store.setHeadingSite(nil, png: nil, for: heading.id) }
+                } else {
+                    TextField("example.com", text: $text)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit(fetch)
+                        .disabled(fetching)
+                    if fetching {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Button("Use", action: fetch).disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                }
+            }
+            .font(.toasty(Theme.Size.control))
+            if let error {
+                Text(error)
+                    .font(.toasty(Theme.Size.meta))
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
+
+    private func fetch() {
+        guard !fetching else { return }
+        guard let url = HeadingFavicon.siteURL(text) else {
+            error = HeadingFavicon.Failure.badAddress.localizedDescription
+            return
+        }
+        error = nil
+        fetching = true
+        let id = heading.id
+        Task {
+            do {
+                let png = try await HeadingFavicon.fetch(url)
+                store.setHeadingSite(url.host ?? text, png: png, for: id)
+                text = ""
+            } catch {
+                self.error = (error as? LocalizedError)?.errorDescription ?? "Couldn't reach that site."
+            }
+            fetching = false
+        }
     }
 }

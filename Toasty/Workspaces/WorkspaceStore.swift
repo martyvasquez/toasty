@@ -10,6 +10,9 @@ struct WorkspaceHeading: Codable, Identifiable, Equatable {
     /// default (Things' area: a gray cube). Older saves have neither.
     var icon: String? = nil
     var color: HeadingColor? = nil
+    /// A website whose icon it shows in place of the symbol (the image
+    /// itself is in `HeadingIcons`); nil: the symbol.
+    var site: String? = nil
 }
 
 /// A heading's color: Things' sidebar palette, with its blue and red
@@ -642,9 +645,24 @@ final class WorkspaceStore: ObservableObject {
         setNeedsSave()
     }
 
+    /// Show a website's icon (`png`, fetched from `site`) for a heading, or
+    /// its symbol again with nil.
+    func setHeadingSite(_ site: String?, png: Data?, for id: UUID) {
+        guard let i = headings.firstIndex(where: { $0.id == id }) else { return }
+        if let site, let png {
+            guard (try? HeadingIcons.shared.set(png, for: id)) != nil else { return }
+            headings[i].site = site
+        } else {
+            headings[i].site = nil
+            HeadingIcons.shared.remove(id)
+        }
+        setNeedsSave()
+    }
+
     /// Remove a heading; its workspaces join the section above (under the
     /// first heading: the top one, under no heading).
     func removeHeading(_ id: UUID) {
+        HeadingIcons.shared.remove(id)
         apply(items.filter { $0 != .heading(id) })
     }
 

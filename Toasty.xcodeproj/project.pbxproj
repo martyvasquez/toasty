@@ -17,6 +17,7 @@
 		0F30004D432418E82D43BAD6 /* CaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7264BFB81D294589F2773124 /* CaptureTests.swift */; };
 		1061436DAC744C0B4D030005 /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04ABDE15409AACAEF4B2BF66 /* TerminalView.swift */; };
 		11AE9017433E86B07A73BDD9 /* DiffDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15548FAF79578E0D20D62760 /* DiffDocument.swift */; };
+		11BAD3047CB238E47F8655E9 /* HeadingFavicon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1243AEDC3308D34C95257A43 /* HeadingFavicon.swift */; };
 		120D5D296EE4BA6C4E33E628 /* Activity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C221CFDD6F14809C8C78A6D1 /* Activity.swift */; };
 		135A9FE98F5B1546535DAC85 /* FilesWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220F4EDF4F84E42CBCA14849 /* FilesWidget.swift */; };
 		15EB038EA82F8DE862AA8137 /* DictationConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88842989D41DAAD1748343EE /* DictationConfig.swift */; };
@@ -171,6 +172,7 @@
 		07E44FEF143B34DDB7720C70 /* Vocabulary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Vocabulary.swift; sourceTree = "<group>"; };
 		080B0B6B44543BB4052752BD /* ContextVocabulary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextVocabulary.swift; sourceTree = "<group>"; };
 		0A1AC4F2009B67034788F88E /* ConversationColumn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationColumn.swift; sourceTree = "<group>"; };
+		1243AEDC3308D34C95257A43 /* HeadingFavicon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadingFavicon.swift; sourceTree = "<group>"; };
 		1501768BBE5EBFFAFD293A51 /* ClaudeDisclosure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeDisclosure.swift; sourceTree = "<group>"; };
 		15548FAF79578E0D20D62760 /* DiffDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiffDocument.swift; sourceTree = "<group>"; };
 		19CED90B88C38C1A6B695B76 /* PreviewDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewDebug.swift; sourceTree = "<group>"; };
@@ -467,6 +469,7 @@
 		C02E06E6B0BB99FC94E442D8 /* Workspaces */ = {
 			isa = PBXGroup;
 			children = (
+				1243AEDC3308D34C95257A43 /* HeadingFavicon.swift */,
 				644501581B116ED2FA91A587 /* WelcomeView.swift */,
 				92F0C051C134C0C9C597BCFD /* Workspace.swift */,
 				6927A423E7E99E5F0D72EB08 /* WorkspaceSidebarView.swift */,
@@ -805,6 +808,7 @@
 				6AFDDDC6F76CA380DC9D2874 /* GeneralSettings.swift in Sources */,
 				E60706E73271B06109CD3711 /* GitActions.swift in Sources */,
 				9872B09FC2AF652524111032 /* GitChanges.swift in Sources */,
+				11BAD3047CB238E47F8655E9 /* HeadingFavicon.swift in Sources */,
 				6DCD4CFFED8BAC8407ED2495 /* ImageViewer.swift in Sources */,
 				6430C130F86560FB82E087E6 /* InspectorKit.swift in Sources */,
 				315BB176CECDA779C3F311DB /* JetBrainsHandoff.swift in Sources */,

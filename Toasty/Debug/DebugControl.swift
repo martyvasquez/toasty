@@ -400,6 +400,20 @@ enum DebugControl {
                     "error": tool.error as Any, "path": CommandLineTool.url.path]
         }
 
+        // A heading's website icon, as its style picker's Use:
+        // {"cmd":"headingSite","name":"Clients","site":"example.com"} (no site: back to the symbol)
+        registerAsync("headingSite") { cmd in
+            let store = WorkspaceStore.shared
+            guard let name = cmd["name"] as? String, let h = store.headings.first(where: { $0.name == name }) else {
+                throw DebugError("name= of a heading")
+            }
+            guard let site = cmd["site"] as? String else { store.setHeadingSite(nil, png: nil, for: h.id); return nil }
+            guard let url = HeadingFavicon.siteURL(site) else { throw DebugError("bad site") }
+            let png = try await HeadingFavicon.fetch(url)
+            store.setHeadingSite(url.host ?? site, png: png, for: h.id)
+            return ["bytes": png.count]
+        }
+
         // Opens the image viewer on a picture file, as clicking a thumbnail.
         register("viewImage") { cmd in
             guard let path = cmd["path"] as? String, let image = NSImage(contentsOfFile: path) else {
