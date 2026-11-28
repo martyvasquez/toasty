@@ -1208,7 +1208,8 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 // Claude Code's banner lines: hook feedback, status notes,
                 // warnings such as a settings file that failed validation.
                 // `info` only shows in the CLI's transcript mode.
-                guard let text = m["content"] as? String, !text.isEmpty else { return }
+                guard let raw = m["content"] as? String, !raw.isEmpty else { return }
+                let text = Self.plainWarning(raw)
                 let kind: ClaudeItem.Kind
                 switch m["level"] as? String {
                 case "warning": kind = .warning
@@ -1546,6 +1547,18 @@ final class ClaudeConversation: ObservableObject, Identifiable {
         let item = ClaudeItem(kind: .user, text: text)
         item.files = files
         items.append(item)
+    }
+
+    /// Claude Code's warnings that are written for hook authors, in plain
+    /// words. Its cap on a Stop hook (a /goal that isn't met keeps sending
+    /// Claude back) names `stop_hook_active` and an environment variable.
+    nonisolated static func plainWarning(_ text: String) -> String {
+        let cap = #"^A hook blocked the turn from ending (\d+) consecutive times"#
+        if let r = text.range(of: cap, options: .regularExpression) {
+            let n = text[r].split(separator: " ").first { Int($0) != nil }.map(String.init) ?? "several"
+            return "Claude kept trying to stop, but the goal isn't met. It gave up after \(n) tries."
+        }
+        return text
     }
 
     /// A message another session sent (Claude Code marks it with an origin
