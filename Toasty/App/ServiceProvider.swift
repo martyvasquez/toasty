@@ -1,6 +1,6 @@
 import AppKit
 
-/// Finder > Services > "New Toasty Tab Here": a new tab in the folder's
+/// Finder > Services > "New Toasty Conversation Here": a new conversation in the folder's
 /// workspace, or a new workspace for it (the same as opening the folder
 /// with Toasty).
 final class ServiceProvider: NSObject {

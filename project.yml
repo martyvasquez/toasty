@@ -80,7 +80,7 @@ targets:
         # Finder > Services: a new tab in the folder's workspace, or a new one.
         NSServices:
           - NSMenuItem:
-              default: New $(APP_DISPLAY_NAME) Tab Here
+              default: New $(APP_DISPLAY_NAME) Conversation Here
             NSMessage: openTab
             NSRequiredContext:
               NSTextContent: FilePath

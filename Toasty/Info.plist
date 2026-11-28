@@ -56,7 +56,7 @@
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
-				<string>New $(APP_DISPLAY_NAME) Tab Here</string>
+				<string>New $(APP_DISPLAY_NAME) Conversation Here</string>
 			</dict>
 			<key>NSMessage</key>
 			<string>openTab</string>

@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Outside Applications Toasty can't update itself: it asks to move
         // there (and opens again from there) before anything else starts.
         if AppMover.checkAtLaunch() { return }
-        // Finder's Services menu: "New Toasty Tab Here".
+        // Finder's Services menu: "New Toasty Conversation Here".
         NSApp.servicesProvider = ServiceProvider()
         NSUpdateDynamicServices()
         #if DEBUG
@@ -69,7 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Each URL's folder (a file's enclosing folder): a new tab in its
     /// workspace, or a new workspace. Shared by Finder's "Open With", the
-    /// Dock, `open -a` and the "New Toasty Tab Here" service.
+    /// Dock, `open -a` and the "New Toasty Conversation Here" service.
     func openFolders(_ urls: [URL]) {
         var seen = Set<String>()
         for url in urls {
