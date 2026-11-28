@@ -17,6 +17,7 @@ final class DefaultModel: ObservableObject {
     private static let key = "DefaultModel"
     private static let listKey = "DefaultModelChoices"
     private static let removedKey = "DefaultModelRemoved"
+    private static let startedKey = "DefaultModelClaudeCodeStarted"
 
     @Published var value: String {
         didSet {
@@ -43,6 +44,22 @@ final class DefaultModel: ObservableObject {
             return .init(value: value, name: m["name"] ?? value, detail: m["detail"] ?? "")
         }
         removed = defaults.string(forKey: Self.removedKey)
+        claudeCodeStarted = defaults.string(forKey: Self.startedKey)
+    }
+
+    /// The model Claude Code's default actually started a new session on,
+    /// last time (its `init`): its model list can describe its default as
+    /// one model ("Opus 5.5 · …") while sessions start on another (Fable).
+    @Published private(set) var claudeCodeStarted: String? {
+        didSet { UserDefaults.standard.set(claudeCodeStarted, forKey: Self.startedKey) }
+    }
+
+    /// From a new session's `init`. Every session starts on Claude Code's
+    /// default (a model chosen here is switched to after), so this is
+    /// what "Claude Code Default" means right now.
+    func noteClaudeCodeStarted(_ model: String) {
+        guard !model.isEmpty, model != claudeCodeStarted else { return }
+        claudeCodeStarted = model
     }
 
     /// The model to start a conversation with; nil leaves it to Claude Code.
@@ -51,10 +68,12 @@ final class DefaultModel: ObservableObject {
     /// The models to choose from, besides Claude Code's default.
     var choices: [ClaudeConversation.ModelOption] { models.filter { $0.value != Self.claudeCode } }
 
-    /// What Claude Code's default is right now ("Opus 5.5"), if known. Its
-    /// default entry names the model first ("Opus 5.5 · Best for …").
+    /// What Claude Code's default is right now ("Fable 5.2"), if known:
+    /// the model it last started a session on; before any has started, what
+    /// its default entry names first ("Opus 5.5 · Best for …").
     var claudeCodeModelName: String? {
-        models.first { $0.value == Self.claudeCode }
+        if let started = claudeCodeStarted { return name(of: started) }
+        return models.first { $0.value == Self.claudeCode }
             .flatMap { $0.detail.components(separatedBy: " · ").first }
             .flatMap { $0.isEmpty ? nil : $0 }
     }

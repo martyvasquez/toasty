@@ -632,12 +632,9 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     var modelName: String? {
         // Not started yet: the model it will start with.
         guard let model = model ?? (agent == nil && !launching ? DefaultModel.shared.startModel : nil) else {
-            // Before the first turn: Claude Code's default, as /model shows it.
-            // Claude Code's default entry names its model first
-            // ("Opus 5.5 · Best for everyday, complex tasks").
-            return models.first { $0.value == "default" }.map { m in
-                m.detail.components(separatedBy: " · ").first.flatMap { $0.isEmpty ? nil : $0 } ?? "Default Model"
-            }
+            // Before the first turn: the model Claude Code's default starts
+            // on (as Settings ▸ General names it).
+            return DefaultModel.shared.claudeCodeModelName ?? (models.isEmpty ? nil : "Default Model")
         }
         if let m = models.first(where: { $0.value == model }) { return m.name }
         return DefaultModel.shared.name(of: model)
@@ -663,6 +660,9 @@ final class ClaudeConversation: ObservableObject, Identifiable {
     /// Claude Code's default: only that list says whether the default from
     /// Settings is still offered.
     private var startModel: String?
+    /// This launch starts a new session (not a resumed one), so its
+    /// `init` names the model Claude Code's default starts on.
+    private var freshSession = false
 
     func setModel(_ value: String) {
         model = value
@@ -878,6 +878,7 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                     onExit: { [weak self] status, err in self?.agentExited(status, stderr: err) })
                 var options: [String: Any] = ["cwd": self.cwd]
                 if let id = self.sessionID { options["resume"] = id }
+                self.freshSession = self.sessionID == nil
                 // The model picked in this tab, else the default from
                 // Settings; neither leaves it to Claude Code.
                 self.startModel = self.pickedModel ?? DefaultModel.shared.startModel
@@ -1168,6 +1169,10 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                     stateDidChange()
                 }
                 model = m["model"] as? String
+                // A new session starts on Claude Code's default: remember
+                // which model that is, for the labels (DefaultModel).
+                if freshSession, let model { DefaultModel.shared.noteClaudeCodeStarted(model) }
+                freshSession = false
                 if let mode = m["permissionMode"] as? String {
                     permissionMode = mode
                     if mode == "auto" { autoModeAvailable = true }
