@@ -140,6 +140,7 @@ struct GeneralSettingsView: View {
             AppearanceAndSoundSection()
             TypingSettingsSection()
             EditorSettingsSection()
+            CommandLineSettingsSection()
             WidgetSettingsSection()
             if Updater.isAvailable { UpdateSettingsSection() }
         }
@@ -151,6 +152,7 @@ struct GeneralSettingsView: View {
             + AppearanceAndSoundSection.height
             + TypingSettingsSection.height
             + (EditorSettingsSection.shows ? EditorSettingsSection.height : 0)
+            + CommandLineSettingsSection.height
             + WidgetSettingsSection.height
             + (Updater.isAvailable ? UpdateSettingsSection.height : 0))
     }

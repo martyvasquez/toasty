@@ -387,6 +387,19 @@ enum DebugControl {
             if c.window?.isVisible != true { c.show(nil) }
             return NSStringFromRect(c.window?.frame ?? .zero)
         }
+        // The toasty command, as Settings ▸ General ▸ Command Line's button:
+        // {"cmd":"cli","action":"install"|"uninstall"|"state"}
+        register("cli") { cmd in
+            let tool = CommandLineTool.shared
+            switch cmd["action"] as? String ?? "state" {
+            case "install": tool.install()
+            case "uninstall": tool.uninstall()
+            default: tool.refresh()
+            }
+            return ["installed": tool.installed, "conflict": tool.conflict, "onPath": tool.onPath as Any,
+                    "error": tool.error as Any, "path": CommandLineTool.url.path]
+        }
+
         // Opens the image viewer on a picture file, as clicking a thumbnail.
         register("viewImage") { cmd in
             guard let path = cmd["path"] as? String, let image = NSImage(contentsOfFile: path) else {

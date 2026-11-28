@@ -31,6 +31,7 @@
 		2D64BC5DEBA0FAD3E38A9F5A /* ClaudeSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DF8B11F0CF51797223AF23B /* ClaudeSetup.swift */; };
 		2E201587160057E35BDB263E /* ClaudeMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFFBD1A7316E98A070F3E2BE /* ClaudeMarkdown.swift */; };
 		2F4670850C3DFA0BC256BBB8 /* FilePage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C193D94C8286B060BF46BB4E /* FilePage.swift */; };
+		3045C8415588B19ABB568235 /* CommandLineTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A63BE35C5553B194E23CB74 /* CommandLineTool.swift */; };
 		308C0EB67B57D5743742E49F /* ClaudeAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E376E9D81389D2BAC3DC077 /* ClaudeAgent.swift */; };
 		315BB176CECDA779C3F311DB /* JetBrainsHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = A936C236B91A06F7444C2A89 /* JetBrainsHandoff.swift */; };
 		31DD0F88FF877FD79D5C7876 /* ScreenshotCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CC459AB59289630D91E6695 /* ScreenshotCapture.swift */; };
@@ -223,6 +224,7 @@
 		761A76E108C08A07F86040EB /* SpeechEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechEngineTests.swift; sourceTree = "<group>"; };
 		76C9837CB5F4EE3CD6954410 /* PreviewSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewSession.swift; sourceTree = "<group>"; };
 		79622B16D0D2B6FA76F28539 /* DictationTones.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationTones.swift; sourceTree = "<group>"; };
+		7A63BE35C5553B194E23CB74 /* CommandLineTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandLineTool.swift; sourceTree = "<group>"; };
 		803E3DF779A268AB3107EAF9 /* ClaudeQuotes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeQuotes.swift; sourceTree = "<group>"; };
 		8267153271BF3718002C2343 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		88842989D41DAAD1748343EE /* DictationConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationConfig.swift; sourceTree = "<group>"; };
@@ -576,6 +578,7 @@
 				DB24559E15BED10BF20F7121 /* AppDelegate.swift */,
 				9819A826F10AD2B7DCA8FCE2 /* AppMover.swift */,
 				3FBF5CE3CA1577B6F4103E79 /* BarIconButton.swift */,
+				7A63BE35C5553B194E23CB74 /* CommandLineTool.swift */,
 				0A1AC4F2009B67034788F88E /* ConversationColumn.swift */,
 				CC88AC37DB6ACA36E634603C /* ExternalEditor.swift */,
 				E1EB272BCAA69ABEF70DA5DB /* GeneralSettings.swift */,
@@ -782,6 +785,7 @@
 				8AE462A6E941126BC4202A81 /* ClaudeTextViews.swift in Sources */,
 				F6A93F0D93822C4E1C46E036 /* ClaudeToolViews.swift in Sources */,
 				54D737FD0E8282AA3C0E1614 /* ClaudeTypography.swift in Sources */,
+				3045C8415588B19ABB568235 /* CommandLineTool.swift in Sources */,
 				4E868E3636D7E457ADD0303E /* ContextVocabulary.swift in Sources */,
 				B7EC6B42A1BE5F57121E7511 /* ConversationColumn.swift in Sources */,
 				C43DE4B1B520DE08BA08379B /* DebugControl.swift in Sources */,

@@ -58,6 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ClaudeSetup.checkAtLaunch()
         // Updates: an hourly check; one installs when Toasty quits.
         Updater.shared.start()
+        DispatchQueue.global(qos: .utility).async { CommandLineTool.updateIfInstalled() }
         NSApp.activate()
     }
 
