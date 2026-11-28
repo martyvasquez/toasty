@@ -1405,6 +1405,8 @@ struct ClaudeComposerBox: View {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
+        // Inside a folder named like a package ("com.example.app") too.
+        panel.treatsFilePackagesAsDirectories = true
         panel.begin { response in
             guard response == .OK else { return }
             conversation.attach(panel.urls)

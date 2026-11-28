@@ -521,14 +521,24 @@ final class FilesBrowser: ObservableObject {
             let name = url.lastPathComponent
             if name == ".git" || name == ".DS_Store" { return nil }
             let v = try? url.resourceValues(forKeys: Set(keys))
-            // A package (an app, a bundle) opens as a file.
-            let folder = v?.isDirectory == true && v?.isPackage != true
+            // A real app or bundle opens as a file; a folder that's only
+            // named like one ("com.example.app") is a folder.
+            let folder = v?.isDirectory == true && (v?.isPackage != true || !isBundle(url))
             return Entry(url: url.standardizedFileURL, name: name, isFolder: folder, modified: v?.contentModificationDate)
         }
         return entries.sorted { a, b in
             if a.isFolder != b.isFolder { return a.isFolder }
             return a.name.localizedStandardCompare(b.name) == .orderedAscending
         }
+    }
+
+    /// A package that's really an app or a bundle (its Contents, or an
+    /// Info.plist as an iOS app has), not a folder named with a package
+    /// extension, which macOS treats as one.
+    nonisolated private static func isBundle(_ url: URL) -> Bool {
+        let fm = FileManager.default
+        return fm.fileExists(atPath: url.appendingPathComponent("Contents").path)
+            || fm.fileExists(atPath: url.appendingPathComponent("Info.plist").path)
     }
 
     /// Entries added, removed or renamed in the folder show at once.

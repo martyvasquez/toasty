@@ -769,6 +769,9 @@ final class WorkspaceStore: ObservableObject {
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = true
+        // A folder named like a package (e.g. "com.example.app") is a
+        // folder here, not an app you can't open or pick.
+        panel.treatsFilePackagesAsDirectories = true
         panel.directoryURL = URL(fileURLWithPath: start ?? active?.folder ?? NSHomeDirectory())
         let handler: (NSApplication.ModalResponse) -> Void = { completion($0 == .OK ? panel.url : nil) }
         if let window = AppDelegate.shared.windowController?.window {
