@@ -120,6 +120,7 @@
 		D11860668A820567204E26B2 /* ProcessDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8786E7228A22BC207D57DC3 /* ProcessDebug.swift */; };
 		D122DAEAC30D765396CAE3AF /* Tooltip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D511FF5995FACBB3EEE8BD9 /* Tooltip.swift */; };
 		D3118FED172FCEB87041C7C0 /* ActivityTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = D762E2195EF987EE587BDC4F /* ActivityTab.swift */; };
+		D6DEF1C8BAE00BEC2F8B485C /* ActionsWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94378A7616C5ED0D7A4D95B4 /* ActionsWidget.swift */; };
 		D85CB4EE647ED61981C904D6 /* Worktrees.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4F699DD786C95D272697F9D /* Worktrees.swift */; };
 		D9F77D560C3635E6D7AD25E2 /* SpeechModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38E532463352FE1FCDD0BAFF /* SpeechModels.swift */; };
 		DB9EF218EA4651E15C47905F /* TextPipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0520699B45C02518BAA81BF5 /* TextPipelineTests.swift */; };
@@ -237,6 +238,7 @@
 		92F0C051C134C0C9C597BCFD /* Workspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Workspace.swift; sourceTree = "<group>"; };
 		9311817626D412A87AA47552 /* TerminalSprites.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSprites.swift; sourceTree = "<group>"; };
 		938002554F60AC3FFC1B8C75 /* TriggerMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TriggerMonitor.swift; sourceTree = "<group>"; };
+		94378A7616C5ED0D7A4D95B4 /* ActionsWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionsWidget.swift; sourceTree = "<group>"; };
 		944191F92E33894586D21416 /* SidebarHandle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarHandle.swift; sourceTree = "<group>"; };
 		953B4EC2E8F32D9B902082DE /* TextPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextPipeline.swift; sourceTree = "<group>"; };
 		9819A826F10AD2B7DCA8FCE2 /* AppMover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMover.swift; sourceTree = "<group>"; };
@@ -631,6 +633,7 @@
 		F64B8236F6C5121285C26E13 /* Widgets */ = {
 			isa = PBXGroup;
 			children = (
+				94378A7616C5ED0D7A4D95B4 /* ActionsWidget.swift */,
 				355EC5F6FE8515ECE02B9ACA /* ActivityWidget.swift */,
 				220F4EDF4F84E42CBCA14849 /* FilesWidget.swift */,
 				A9AB29AB73090BF1F610EB2D /* SpaceSwitcher.swift */,
@@ -767,6 +770,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D6DEF1C8BAE00BEC2F8B485C /* ActionsWidget.swift in Sources */,
 				120D5D296EE4BA6C4E33E628 /* Activity.swift in Sources */,
 				D3118FED172FCEB87041C7C0 /* ActivityTab.swift in Sources */,
 				B1E5F803367A428C86749765 /* ActivityWidget.swift in Sources */,

@@ -183,6 +183,40 @@ enum WorkspaceDebug {
         // {"cmd":"widgets","action":"list"} · space with "index" · edit "on" · gallery "on"
         // ("kind", "preset") · add "kind" "preset" · preset "index" "preset" · units "index" "units" ·
         // collapse "index" · remove "index" · newSpace · reset · visible "on"
+        // The active workspace's actions (`ActionsWidget`):
+        // {"cmd":"actions","action":"add","name":"Dev","command":"npm run dev","confirm":false}
+        // action=list|add|run|stop|select|close|delete index=N (run/stop/select toggles its output;: the first Actions widget on its space).
+        DebugControl.register("actions") { cmd in
+            guard let w = store.active else { throw E("no active workspace") }
+            let actions = ProjectActions.shared
+            let list = actions.list(for: w.actionsFolder)
+            @MainActor func target() throws -> ProjectAction {
+                guard let i = cmd["index"] as? Int, list.indices.contains(i) else { throw E("index=") }
+                return list[i]
+            }
+            @MainActor func runner() throws -> ActionRunner {
+                guard let item = store.space(for: w)?.widgets.first(where: { $0.kind == .actions }) else { throw E("no Actions widget") }
+                return ActionRunners.shared.runner(for: item.id, in: w)
+            }
+            switch cmd["action"] as? String ?? "list" {
+            case "list": break
+            case "add":
+                actions.save(ProjectAction(name: cmd["name"] as? String ?? "Action", command: cmd["command"] as? String ?? "echo hi",
+                                           confirm: cmd["confirm"] as? Bool ?? false), in: w.actionsFolder)
+            case "run": try runner().run(try target())
+            case "stop": try runner().stop(try target().id)
+            case "select": try runner().toggle(try target().id)
+            case "close": try runner().forget(try target().id)
+            case "delete": actions.delete(try target().id, in: w.actionsFolder)
+            default: throw E("action=")
+            }
+            let r = try? runner()
+            return actions.list(for: w.actionsFolder).map {
+                ["name": $0.name, "command": $0.command, "confirm": $0.confirm,
+                 "running": r?.isRunning($0.id) ?? false, "shown": r?.shownID == $0.id] as [String: Any]
+            }
+        }
+
         DebugControl.register("widgets") { cmd in
             guard let w = store.active else { throw E("no active workspace") }
             let action = cmd["action"] as? String ?? "list"

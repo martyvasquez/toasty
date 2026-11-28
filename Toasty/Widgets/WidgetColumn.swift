@@ -197,7 +197,7 @@ private struct WorkspaceWidgets: View {
         if store.editingWidgets { shrink?.cancel(); fitted = new; return }
         // Taller, new, or no longer fitting: at once.
         var now = fitted.filter { new[$0.key] != nil }
-        for (id, h) in new where (now[id] ?? 0) < h || now[id] == nil { now[id] = h }
+        for (id, h) in new where (now[id] ?? 0) < h || now[id] == nil || fit.shrinksAtOnce(id, in: workspace.id) { now[id] = h }
         if now != fitted { withAnimation(Theme.Widget.settle) { fitted = now } }
         // Shorter: once it's settled.
         guard new != fitted else { shrink?.cancel(); return }

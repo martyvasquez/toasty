@@ -59,6 +59,26 @@ that, so any change to the defaults only reaches new users.
 - **Stale test**: `WidgetLayoutTests.savedTerminalWidgetsAreDropped`
   expects Terminal out of the gallery, but it's back as an experiment.
 
+## Actions widget (trying it, 2026-11-28; branch `actions-widget`)
+
+A widget of the project's commands (a friend's idea: deploy staging,
+deploy production, open the local site), each run in its own shell inside
+the widget. All in `Toasty/Widgets/ActionsWidget.swift`; to remove it, take
+`.actions` out of `WidgetKind.gallery`, its case in `WidgetContent`, and
+that file. The user's calls: contained to the widget (output in the widget,
+not the drawer); tight (output opens on run, × folds it away); one + popover
+adds, changes, reorders and removes; picking a project command fills the
+form; kept in Toasty (`actions.json`, by folder; worktrees share their
+repo's), not a file in the repo.
+
+Open:
+- **✓ / ✗.** Each run as its own process (exit status) instead of typed
+  into a shell that stays; offered, not decided.
+- **Team sharing.** If wanted: read a project's `toasty.json` as more
+  suggestions in the + popover; Toasty never writes into the repo.
+- **Moved or renamed folder** loses its actions (keyed by path).
+- **Herd/Valet Open Site** untested (neither installed here).
+
 ## Terminal placement (trying three, 2026-11-23)
 
 Three ways to have a terminal, all shipped side by side to try them in use

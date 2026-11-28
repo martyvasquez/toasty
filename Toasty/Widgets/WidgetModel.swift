@@ -86,12 +86,15 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
     /// A shell, Large only (`TerminalWidget`, an experiment). The case
     /// stays even without the widget, so saved spaces still read.
     case terminal
+    /// The project's commands, run in the widget's own shells; Large only
+    /// (`ActionsWidget`, an experiment).
+    case actions
 
     var id: String { rawValue }
 
     /// What the gallery offers. Saved widgets of other kinds are dropped on
     /// load (`WidgetSpace.current`).
-    static var gallery: [WidgetKind] { [.git, .usage, .teeUp, .activity, .system, .files, .terminal] }
+    static var gallery: [WidgetKind] { [.git, .usage, .teeUp, .activity, .system, .files, .terminal, .actions] }
 
     var title: String {
         switch self {
@@ -102,6 +105,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .system: "System"
         case .files: "Files"
         case .terminal: "Terminal"
+        case .actions: "Actions"
         }
     }
 
@@ -115,6 +119,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .system: "CPU, memory and disk"
         case .files: "Browse this workspace's folder"
         case .terminal: "A shell in this workspace"
+        case .actions: "Commands you run in this project"
         }
     }
 
@@ -127,20 +132,21 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .system: "cpu"
         case .files: "folder"
         case .terminal: "terminal"
+        case .actions: "play.rectangle"
         }
     }
 
     /// Whether it can fit its height to what it shows (`WidgetItem.fitsContent`).
     var canFit: Bool {
         switch self {
-        case .git, .teeUp, .activity, .files: true
+        case .git, .teeUp, .activity, .files, .actions: true
         case .usage, .system, .terminal: false
         }
     }
 
     var presets: [WidgetPreset] {
         switch self {
-        case .terminal, .files: [.large]
+        case .terminal, .files, .actions: [.large]
         // Slim only where a single line says something.
         case .usage, .system, .activity: WidgetPreset.allCases
         default: [.small, .medium, .large]
@@ -152,7 +158,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
     var minUnits: Int {
         switch self {
         case .usage, .system, .activity: 1
-        case .terminal, .files: WidgetPreset.large.units
+        case .terminal, .files, .actions: WidgetPreset.large.units
         default: 2
         }
     }
@@ -161,7 +167,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .git: 7
         case .usage, .activity, .system: 4
-        case .teeUp, .files: 9
+        case .teeUp, .files, .actions: 9
         case .terminal: WidgetPreset.large.units
         }
     }

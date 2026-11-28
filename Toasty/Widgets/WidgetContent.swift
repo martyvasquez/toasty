@@ -36,6 +36,7 @@ struct WidgetContent: View {
                 case .system: SystemWidget(workspace: workspace, item: item, size: size)
                 case .files: FilesWidget(workspace: workspace, item: item)
                 case .terminal: TerminalWidget(workspace: workspace, item: item)
+                case .actions: ActionsWidget(workspace: workspace, item: item)
                 }
             }
         }

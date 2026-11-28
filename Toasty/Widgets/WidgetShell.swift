@@ -38,13 +38,21 @@ extension EnvironmentValues {
     }
 
     @Published private(set) var heights: [Key: CGFloat] = [:]
+    /// Widgets that shrink at once, not once the pointer has left: theirs
+    /// only shrink when you've closed something (Actions' output).
+    private(set) var prompt: Set<Key> = []
+
+    func shrinksAtOnce(_ widget: UUID, in workspace: UUID) -> Bool {
+        prompt.contains(Key(workspace: workspace, widget: widget))
+    }
 
     func height(of widget: UUID, in workspace: UUID) -> CGFloat? {
         heights[Key(workspace: workspace, widget: widget)]
     }
 
-    fileprivate func report(_ height: CGFloat, widget: UUID, workspace: UUID) {
+    fileprivate func report(_ height: CGFloat, widget: UUID, workspace: UUID, promptly: Bool) {
         let key = Key(workspace: workspace, widget: widget)
+        if promptly { prompt.insert(key) } else { prompt.remove(key) }
         let h = height.rounded(.up)
         if heights[key] != h { heights[key] = h }
     }
@@ -53,20 +61,22 @@ extension EnvironmentValues {
 extension View {
     /// Tell the column how tall this widget's content wants to be (nil:
     /// can't say yet, say while loading; the last height stands).
-    func reportsFit(_ height: CGFloat?, workspace: UUID) -> some View {
-        modifier(FitReport(height: height, workspace: workspace))
+    /// `promptly`: it shrinks at once (see `WidgetFit.prompt`).
+    func reportsFit(_ height: CGFloat?, workspace: UUID, promptly: Bool = false) -> some View {
+        modifier(FitReport(height: height, workspace: workspace, promptly: promptly))
     }
 }
 
 private struct FitReport: ViewModifier {
     let height: CGFloat?
     let workspace: UUID
+    let promptly: Bool
     @Environment(\.widget) private var widget
 
     func body(content: Content) -> some View {
         content.onChange(of: height, initial: true) { _, h in
             guard let h, let id = widget?.item.id else { return }
-            WidgetFit.shared.report(h, widget: id, workspace: workspace)
+            WidgetFit.shared.report(h, widget: id, workspace: workspace, promptly: promptly)
         }
     }
 }
