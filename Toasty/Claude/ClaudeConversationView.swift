@@ -626,6 +626,8 @@ struct ClaudeUserMessage: View {
                             Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
                                 .frame(width: 72, height: 72)
                                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous))
+                                .contentShape(Rectangle())
+                                .onTapGesture { ImageViewer.shared.show(image) }
                         }
                     }
                 }
@@ -1378,6 +1380,8 @@ struct ClaudeComposerBox: View {
                         .frame(width: 52, height: 52)
                         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous).strokeBorder(Theme.Stroke.border))
+                        .contentShape(Rectangle())
+                        .onTapGesture { ImageViewer.shared.show(image) }
                         .overlay(alignment: .topTrailing) {
                             RemoveAttachmentButton(label: "Remove Image") { conversation.attachments.remove(at: i) }
                         }

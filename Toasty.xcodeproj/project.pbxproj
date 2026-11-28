@@ -67,6 +67,7 @@
 		6994304483A69665EDCE8BCE /* PreviewSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76C9837CB5F4EE3CD6954410 /* PreviewSession.swift */; };
 		6AFDDDC6F76CA380DC9D2874 /* GeneralSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1EB272BCAA69ABEF70DA5DB /* GeneralSettings.swift */; };
 		6CBCBC44A0E7D23F1974174F /* Vocabulary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07E44FEF143B34DDB7720C70 /* Vocabulary.swift */; };
+		6DCD4CFFED8BAC8407ED2495 /* ImageViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E7693F37B7BC69AC5772805 /* ImageViewer.swift */; };
 		725D93DDEC5C347B0656BBA1 /* ProcessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBBE64C6CC4ACF837A9C98E2 /* ProcessTests.swift */; };
 		72B35C923E6E7BBD19F19BC3 /* ServiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E0AF94EDDB841E22D8DEAA /* ServiceProvider.swift */; };
 		74ACC74A36424EC519A104A8 /* TeeUpTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D661119D726B8E0E3DD6411 /* TeeUpTab.swift */; };
@@ -214,6 +215,7 @@
 		6927A423E7E99E5F0D72EB08 /* WorkspaceSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSidebarView.swift; sourceTree = "<group>"; };
 		6DECF3C8E03F7A434A2FA30C /* ClaudeSetupTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSetupTests.swift; sourceTree = "<group>"; };
 		6E376E9D81389D2BAC3DC077 /* ClaudeAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeAgent.swift; sourceTree = "<group>"; };
+		6E7693F37B7BC69AC5772805 /* ImageViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageViewer.swift; sourceTree = "<group>"; };
 		6F3A8B4B872E5EC65743891C /* Fixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fixtures; path = Tests/Fixtures; sourceTree = SOURCE_ROOT; };
 		7197C0B2C7B32F9D55DA3648 /* PreviewScripts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewScripts.swift; sourceTree = "<group>"; };
 		7264BFB81D294589F2773124 /* CaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureTests.swift; sourceTree = "<group>"; };
@@ -422,6 +424,7 @@
 				FA6ECF9E267AAEB50DBBCB05 /* ClaudeToolViews.swift */,
 				1A5B8F16A6E5B2987A97AD1D /* ClaudeTypography.swift */,
 				AA579EC5BB11ED8507AF049E /* DefaultModel.swift */,
+				6E7693F37B7BC69AC5772805 /* ImageViewer.swift */,
 			);
 			path = Claude;
 			sourceTree = "<group>";
@@ -795,6 +798,7 @@
 				6AFDDDC6F76CA380DC9D2874 /* GeneralSettings.swift in Sources */,
 				E60706E73271B06109CD3711 /* GitActions.swift in Sources */,
 				9872B09FC2AF652524111032 /* GitChanges.swift in Sources */,
+				6DCD4CFFED8BAC8407ED2495 /* ImageViewer.swift in Sources */,
 				6430C130F86560FB82E087E6 /* InspectorKit.swift in Sources */,
 				6131DD0CF970A46E4FE1AC30 /* KeyCodes.swift in Sources */,
 				810F05E5628D52043ACA62B8 /* KeyboardShortcuts.swift in Sources */,

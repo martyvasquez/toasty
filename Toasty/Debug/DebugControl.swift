@@ -387,6 +387,14 @@ enum DebugControl {
             if c.window?.isVisible != true { c.show(nil) }
             return NSStringFromRect(c.window?.frame ?? .zero)
         }
+        // Opens the image viewer on a picture file, as clicking a thumbnail.
+        register("viewImage") { cmd in
+            guard let path = cmd["path"] as? String, let image = NSImage(contentsOfFile: path) else {
+                throw DebugError("viewImage needs path= to a picture")
+            }
+            ImageViewer.shared.show(image, in: window)
+            return nil
+        }
         register("shortcuts") { _ in KeyboardShortcuts.shared.showKeyboardShortcuts(nil); return nil }
 
         register("action") { cmd in

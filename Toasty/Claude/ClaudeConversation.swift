@@ -1272,8 +1272,18 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                 if !live || m["isReplay"] as? Bool == true { userText(text) }
                 return
             }
+            let replaying = parent == nil && (!live || m["isReplay"] as? Bool == true)
+            let before = items.count
+            var images: [NSImage] = []
             for block in message["content"] as? [[String: Any]] ?? [] {
                 switch block["type"] as? String {
+                case "image":
+                    // What you attached, so a past message shows it again.
+                    if replaying, let source = block["source"] as? [String: Any],
+                       let b64 = source["data"] as? String,
+                       let data = Data(base64Encoded: b64), let image = NSImage(data: data) {
+                        images.append(image)
+                    }
                 case "tool_result":
                     guard let id = block["tool_use_id"] as? String, let item = tools[id] else { continue }
                     let text = Self.resultText(block["content"])
@@ -1284,11 +1294,18 @@ final class ClaudeConversation: ObservableObject, Identifiable {
                     if parent == nil { item.toolUseResult = toolUseResult }
                     item.finalized = true
                 case "text":
-                    if parent == nil, !live || m["isReplay"] as? Bool == true, let t = block["text"] as? String {
-                        userText(t)
-                    }
+                    if replaying, let t = block["text"] as? String { userText(t) }
                 default:
                     break
+                }
+            }
+            if !images.isEmpty {
+                if items.count > before, let item = items[before...].last(where: { $0.kind == .user }) {
+                    item.images = images
+                } else {
+                    let item = ClaudeItem(kind: .user, text: "")
+                    item.images = images
+                    items.append(item)
                 }
             }
 

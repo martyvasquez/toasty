@@ -68,6 +68,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         installToast()
         installSidebarHandle()
         installGallery()
+        installImageViewer()
         store.selectionChanged
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.updateTitle() }
@@ -170,6 +171,22 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         galleryLeading = leading
         galleryTrailing = trailing
         updateTitlebar()
+    }
+
+    /// A picture opened from a thumbnail, over the whole window. Clicks
+    /// pass through while none is open.
+    private func installImageViewer() {
+        guard let content = window?.contentView else { return }
+        let host = ImageViewerHostingView(rootView: ImageViewerOverlay { [weak self] in self?.window })
+        host.sizingOptions = []
+        host.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(host, positioned: .above, relativeTo: nil)
+        NSLayoutConstraint.activate([
+            host.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            host.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            host.topAnchor.constraint(equalTo: content.topAnchor),
+            host.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+        ])
     }
 
     /// The activity toast, floating at the window's top-right below the tab
