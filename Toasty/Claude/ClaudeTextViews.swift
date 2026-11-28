@@ -159,7 +159,24 @@ final class ClaudeOutputTextView: NSTextView {
 
     override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
         if item.action == #selector(quoteSelection(_:)) { return quoteTarget != nil && !selectedText.isEmpty }
+        if item.action == #selector(paste(_:)), composer != nil { return true }
         return super.validateUserInterfaceItem(item)
+    }
+
+    /// ⌘V in a transcript (with reply text selected, say) pastes into the
+    /// conversation's composer, as if it had the cursor: a picture or file
+    /// is attached, text goes in at the composer's cursor.
+    override func paste(_ sender: Any?) {
+        guard let composer else { return super.paste(sender) }
+        hidePill()
+        window?.makeFirstResponder(composer)
+        composer.paste(sender)
+    }
+
+    /// The composer of the conversation this transcript text belongs to.
+    private var composer: ComposerTextView? {
+        guard let id = quoteTarget?.conversation?.id else { return nil }
+        return ComposerTextView.find(id, in: window?.contentView)
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
@@ -578,6 +595,14 @@ struct ClaudeComposer: NSViewRepresentable {
 }
 
 final class ComposerTextView: NSTextView {
+    /// The visible composer of conversation `id`, in `view`.
+    static func find(_ id: UUID, in view: NSView?) -> ComposerTextView? {
+        guard let view, !view.isHiddenOrHasHiddenAncestor else { return nil }
+        if let field = view as? ComposerTextView, field.dictationID == id { return field }
+        for sub in view.subviews { if let found = find(id, in: sub) { return found } }
+        return nil
+    }
+
     /// Typed text, the placeholder and the suggestion: the input line
     /// height, glyphs centered in it (as in the sent bubble).
     static func inputAttributes(font: NSFont, color: NSColor, truncating: Bool = false) -> [NSAttributedString.Key: Any] {

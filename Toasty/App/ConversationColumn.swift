@@ -233,6 +233,35 @@ final class ConversationViews {
     final class Hosting: NSHostingView<ClaudeConversationView> {
         weak var conversation: ClaudeConversation?
 
+        /// ⌘V while something in the conversation that isn't a text field
+        /// has focus (text selected in a reply or a tool's output, say)
+        /// pastes into its composer: a picture or file is attached, text
+        /// goes in at the composer's cursor. Fields keep their own paste,
+        /// and the terminal is outside this view.
+        override func performKeyEquivalent(with event: NSEvent) -> Bool {
+            if event.type == .keyDown,
+               event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+               event.charactersIgnoringModifiers == "v",
+               let window, let focus = window.firstResponder as? NSView, focus.isDescendant(of: self),
+               !Self.isEditable(focus),
+               let id = conversation?.id, let composer = ComposerTextView.find(id, in: self) {
+                if let reply = focus as? ClaudeOutputTextView {
+                    reply.paste(nil)   // also puts its Quote pill away
+                } else {
+                    window.makeFirstResponder(composer)
+                    composer.paste(nil)
+                }
+                return true
+            }
+            return super.performKeyEquivalent(with: event)
+        }
+
+        private static func isEditable(_ view: NSView) -> Bool {
+            if let text = view as? NSTextView { return text.isEditable }
+            if let field = view as? NSTextField { return field.isEditable }
+            return false
+        }
+
         /// The top safe area ends at the tab row's divider. The row is only
         /// the window buttons' band (`TitlebarRow`); the titlebar's extra
         /// height under it belongs to the conversation, so the transcript
