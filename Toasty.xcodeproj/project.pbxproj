@@ -32,6 +32,7 @@
 		2E201587160057E35BDB263E /* ClaudeMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFFBD1A7316E98A070F3E2BE /* ClaudeMarkdown.swift */; };
 		2F4670850C3DFA0BC256BBB8 /* FilePage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C193D94C8286B060BF46BB4E /* FilePage.swift */; };
 		308C0EB67B57D5743742E49F /* ClaudeAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E376E9D81389D2BAC3DC077 /* ClaudeAgent.swift */; };
+		315BB176CECDA779C3F311DB /* JetBrainsHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = A936C236B91A06F7444C2A89 /* JetBrainsHandoff.swift */; };
 		31DD0F88FF877FD79D5C7876 /* ScreenshotCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CC459AB59289630D91E6695 /* ScreenshotCapture.swift */; };
 		32C56AFA5E5541CBCFF3CF0D /* ClaudeDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCDD12CBF2473066A7A74A44 /* ClaudeDebug.swift */; };
 		32FB4409184562527FA5C83A /* WidgetShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4DEC8351A4F3C7DBBDA854 /* WidgetShell.swift */; };
@@ -245,6 +246,7 @@
 		A56DEAD84DF7A0A8E059FD00 /* WorkspaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStore.swift; sourceTree = "<group>"; };
 		A8786E7228A22BC207D57DC3 /* ProcessDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessDebug.swift; sourceTree = "<group>"; };
 		A8A10A7F8DA308A1B9259A36 /* MainSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainSplitViewController.swift; sourceTree = "<group>"; };
+		A936C236B91A06F7444C2A89 /* JetBrainsHandoff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JetBrainsHandoff.swift; sourceTree = "<group>"; };
 		A97DF3CFA988D518C8A2490B /* KeyboardShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcuts.swift; sourceTree = "<group>"; };
 		A9AB29AB73090BF1F610EB2D /* SpaceSwitcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceSwitcher.swift; sourceTree = "<group>"; };
 		AA579EC5BB11ED8507AF049E /* DefaultModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultModel.swift; sourceTree = "<group>"; };
@@ -577,6 +579,7 @@
 				0A1AC4F2009B67034788F88E /* ConversationColumn.swift */,
 				CC88AC37DB6ACA36E634603C /* ExternalEditor.swift */,
 				E1EB272BCAA69ABEF70DA5DB /* GeneralSettings.swift */,
+				A936C236B91A06F7444C2A89 /* JetBrainsHandoff.swift */,
 				A97DF3CFA988D518C8A2490B /* KeyboardShortcuts.swift */,
 				A392D7CD9154E4ADC8244C28 /* main.swift */,
 				5C51FB87F905EF29B4ECF92F /* MainMenu.swift */,
@@ -800,6 +803,7 @@
 				9872B09FC2AF652524111032 /* GitChanges.swift in Sources */,
 				6DCD4CFFED8BAC8407ED2495 /* ImageViewer.swift in Sources */,
 				6430C130F86560FB82E087E6 /* InspectorKit.swift in Sources */,
+				315BB176CECDA779C3F311DB /* JetBrainsHandoff.swift in Sources */,
 				6131DD0CF970A46E4FE1AC30 /* KeyCodes.swift in Sources */,
 				810F05E5628D52043ACA62B8 /* KeyboardShortcuts.swift in Sources */,
 				18F5A05AF5CB7EC7926E9D70 /* LocalServers.swift in Sources */,

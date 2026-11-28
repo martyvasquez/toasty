@@ -162,6 +162,9 @@ final class ExternalEditor: ObservableObject {
             let projectArg = Self.projectFile(in: root, extension: "code-workspace") ?? root
             run(bin, [projectArg] + (target.map { ["-g", $0] } ?? []), fallback: fallback)
         case .jetbrains:
+            // Already running with this project open: hand it the file
+            // instead of starting a second copy (see JetBrainsHandoff.swift).
+            if JetBrainsHandoff.open(bundleID: editor.id, root: root, file: file, line: line) { return }
             var args = ["-na", app.path, "--args", root]
             if let file {
                 if let line { args += ["--line", String(line)] }

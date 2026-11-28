@@ -30,6 +30,15 @@ that, so any change to the defaults only reaches new users.
   (its folder). Sublime was checked for real; VS Code family, JetBrains
   and Zed are wired from their documented CLIs and need a hand check.
   The user may ditch it.
+  - **JetBrains handoff** (2026-11-28, needs the user's friend to test
+    with PhpStorm, `App/JetBrainsHandoff.swift`): `open -na` showed
+    PhpStorm's "Start Failed … still running and does not respond" when
+    the running IDE was slow to answer. Now, if the IDE is running and the
+    file's project is open in it (its recentProjects.xml), Toasty sends
+    `<scheme>://open?file=…&line=N` to it instead; otherwise `open -na`
+    as before. Check: file opens in the right window at the line; a
+    project that isn't open still opens via `open -na`; no Start Failed.
+    Undo: delete the file and its one call in `ExternalEditor.launch`.
 - **Files widget** (2026-11-23, Large only, `FilesWidget.swift`): a click
   shows a file in the conversation column (`Inspector/FilePage.swift`),
   read-only (the user's call: a viewer, not an editor, not a tab).
